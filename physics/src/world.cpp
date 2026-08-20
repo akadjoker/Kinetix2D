@@ -309,6 +309,83 @@ namespace kx
 
         for (size_t i = 0; i < mBodies.size(); ++i)
             mBodies[i]->IntegratePosition(dt);
+
+        SolveContactPositions();
+    }
+
+    void World::SolveContactPositions()
+    {
+        const int kPositionIterations = 3;
+
+        for (int it = 0; it < kPositionIterations; ++it)
+        {
+            for (size_t ci = 0; ci < mContacts.size(); ++ci)
+            {
+                ContactInfo &c = mContacts[ci];
+                Body *a = c.a;
+                Body *b = c.b;
+
+                float radiusA = ShapeRadius(a->Shapes()[c.shapeIndexA]);
+                float radiusB = ShapeRadius(b->Shapes()[c.shapeIndexB]);
+
+                for (int i = 0; i < c.manifold.pointCount; ++i)
+                {
+                    Transform xfA = a->GetTransform();
+                    Transform xfB = b->GetTransform();
+
+                    glm::vec2 normal;
+                    glm::vec2 point;
+                    float separation;
+
+                    if (c.manifold.type == Manifold::kCircles)
+                    {
+                        glm::vec2 pA = xfA.Transform(c.manifold.localPoint);
+                        glm::vec2 pB = xfB.Transform(c.manifold.points[0].localPoint);
+                        glm::vec2 d = pB - pA;
+                        float len = sqrtf(Dot(d, d));
+                        normal = len > kEpsilon ? d / len : glm::vec2(0.0f, 1.0f);
+                        point = 0.5f * (pA + pB);
+                        separation = len - radiusA - radiusB;
+                    }
+                    else if (c.manifold.type == Manifold::kFaceA)
+                    {
+                        normal = Rotate(xfA, c.manifold.localNormal);
+                        glm::vec2 planePoint = xfA.Transform(c.manifold.localPoint);
+                        glm::vec2 clipPoint = xfB.Transform(c.manifold.points[i].localPoint);
+                        separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
+                        point = clipPoint;
+                    }
+                    else
+                    {
+                        normal = Rotate(xfB, c.manifold.localNormal);
+                        glm::vec2 planePoint = xfB.Transform(c.manifold.localPoint);
+                        glm::vec2 clipPoint = xfA.Transform(c.manifold.points[i].localPoint);
+                        separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
+                        point = clipPoint;
+                        normal = -normal;
+                    }
+
+                    glm::vec2 rA = point - a->WorldCenter();
+                    glm::vec2 rB = point - b->WorldCenter();
+
+                    float C = kBaumgarte * (separation + kLinearSlop);
+                    if (C < -kMaxLinearCorrection)
+                        C = -kMaxLinearCorrection;
+                    if (C > 0.0f)
+                        C = 0.0f;
+
+                    float rnA = Cross(rA, normal);
+                    float rnB = Cross(rB, normal);
+                    float K = a->mInvMass + b->mInvMass + a->mInvI * rnA * rnA + b->mInvI * rnB * rnB;
+
+                    float impulse = K > 0.0f ? -C / K : 0.0f;
+                    glm::vec2 P = impulse * normal;
+
+                    a->ShiftCenter(-a->mInvMass * P, -a->mInvI * Cross(rA, P));
+                    b->ShiftCenter(b->mInvMass * P, b->mInvI * Cross(rB, P));
+                }
+            }
+        }
     }
 
     void World::InitContactConstraints(float dt)
@@ -375,20 +452,8 @@ namespace kx
                 float vn = Dot(dv, c.normal);
 
                 float bias = 0.0f;
-                float separation = wm.separations[i];
-                if (separation < -kLinearSlop)
-                {
-                    float correction = -(separation + kLinearSlop);
-                    if (correction > kMaxLinearCorrection)
-                        correction = kMaxLinearCorrection;
-                    bias = kBaumgarte * invDt * correction;
-                }
                 if (vn < -kVelocityThreshold)
-                {
-                    float restitutionBias = -c.restitution * vn;
-                    if (restitutionBias > bias)
-                        bias = restitutionBias;
-                }
+                    bias = -c.restitution * vn;
                 c.velocityBias[i] = bias;
             }
         }

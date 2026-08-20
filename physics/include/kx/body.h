@@ -92,6 +92,7 @@ namespace kx
 
         void IntegrateVelocity(const glm::vec2 &gravity, float dt);
         void IntegratePosition(float dt);
+        void ShiftCenter(const glm::vec2 &deltaCenter, float deltaAngle);
 
     private:
         void RecomputeMass();

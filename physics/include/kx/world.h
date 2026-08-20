@@ -78,6 +78,7 @@ namespace kx
         void InitContactConstraints(float dt);
         void WarmStartContacts();
         void SolveContactVelocities();
+        void SolveContactPositions();
         void StoreContactImpulses();
 
         static uint64_t ContactKey(const ContactInfo &c)

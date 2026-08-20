@@ -140,4 +140,13 @@ namespace kx
         mPosition = center - xf.Transform(mLocalCenter);
     }
 
+    void Body::ShiftCenter(const glm::vec2 &deltaCenter, float deltaAngle)
+    {
+        glm::vec2 center = GetTransform().Transform(mLocalCenter);
+        center += deltaCenter;
+        mAngle += deltaAngle;
+        Transform xf = MakeTransform(glm::vec2(0.0f, 0.0f), mAngle);
+        mPosition = center - xf.Transform(mLocalCenter);
+    }
+
 } // namespace kx

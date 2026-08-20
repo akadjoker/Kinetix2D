@@ -202,6 +202,10 @@ int main()
         }
 
         float dt = device.DeltaTime();
+        static float accumulator = 0.0f;
+        accumulator += dt;
+        if (accumulator > 4.0f / 60.0f)
+            accumulator = 4.0f / 60.0f;
 
         for (size_t i = 0; i < kinematics.size(); ++i)
         {
@@ -216,7 +220,11 @@ int main()
             b->SetVelocity(vel);
         }
 
-        world.Step(dt);
+        while (accumulator >= 1.0f / 60.0f)
+        {
+            world.Step(1.0f / 60.0f);
+            accumulator -= 1.0f / 60.0f;
+        }
 
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
