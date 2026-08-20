@@ -200,6 +200,29 @@ static void TestMouseJointPullsBody()
     CHECK(box->Position().y > -80.0f, "depois de largar volta a cair");
 }
 
+static void TestDeepOverlapNoExplosion()
+{
+    kx::World world(glm::vec2(0.0f, 500.0f));
+    world.CreateStaticBox(glm::vec2(0.0f, 200.0f), 500.0f, 10.0f);
+    kx::Body *buried = world.CreateBox(glm::vec2(0.0f, 193.0f), 20.0f, 20.0f, 1.0f);
+    kx::Body *ontop = world.CreateBox(glm::vec2(5.0f, 170.0f), 15.0f, 15.0f, 1.0f);
+
+    float maxSpeed = 0.0f;
+    for (int i = 0; i < 240; ++i)
+    {
+        world.Step(1.0f / 60.0f);
+        float s1 = glm::length(buried->Velocity());
+        float s2 = glm::length(ontop->Velocity());
+        if (s1 > maxSpeed)
+            maxSpeed = s1;
+        if (s2 > maxSpeed)
+            maxSpeed = s2;
+    }
+    CHECK(maxSpeed < 450.0f, "spawn enterrado sai sem explosao (vel limitada)");
+    CHECK(buried->Position().y < 190.0f, "corpo enterrado e expelido para cima");
+    CHECK(fabsf(glm::length(buried->Velocity())) < 15.0f, "estabiliza depois de sair");
+}
+
 int main()
 {
     TestBoxRestsOnGround();
@@ -211,6 +234,7 @@ int main()
     TestMultiShapeCart();
     TestWarmStartingConverges();
     TestMouseJointPullsBody();
+    TestDeepOverlapNoExplosion();
 
     if (gFailures)
     {

@@ -1,5 +1,7 @@
 #include "kx/body.h"
 
+#include <cmath>
+
 namespace kx
 {
 
@@ -122,8 +124,17 @@ namespace kx
         if (mType == BodyType::Static)
             return;
 
+        glm::vec2 translation = dt * mLinearVelocity;
+        float translationSq = translation.x * translation.x + translation.y * translation.y;
+        if (translationSq > kMaxTranslation * kMaxTranslation)
+        {
+            float ratio = kMaxTranslation / sqrtf(translationSq);
+            mLinearVelocity *= ratio;
+            translation *= ratio;
+        }
+
         glm::vec2 center = GetTransform().Transform(mLocalCenter);
-        center += dt * mLinearVelocity;
+        center += translation;
         mAngle += dt * mAngularVelocity;
         Transform xf = MakeTransform(glm::vec2(0.0f, 0.0f), mAngle);
         mPosition = center - xf.Transform(mLocalCenter);

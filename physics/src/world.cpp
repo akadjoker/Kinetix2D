@@ -377,7 +377,12 @@ namespace kx
                 float bias = 0.0f;
                 float separation = wm.separations[i];
                 if (separation < -kLinearSlop)
-                    bias = -kBaumgarte * invDt * (separation + kLinearSlop);
+                {
+                    float correction = -(separation + kLinearSlop);
+                    if (correction > kMaxLinearCorrection)
+                        correction = kMaxLinearCorrection;
+                    bias = kBaumgarte * invDt * correction;
+                }
                 if (vn < -kVelocityThreshold)
                 {
                     float restitutionBias = -c.restitution * vn;
