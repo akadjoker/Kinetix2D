@@ -1,13 +1,14 @@
 #pragma once
 
 #include "k2d/GameObject.h"
+#include "k2d/RenderQueue.h"
 
 #include <ct/vector.hpp>
 
 namespace k2d
 {
 
-    class BatchRenderer;
+    class CanvasRenderer;
 
     class Scene
     {
@@ -29,7 +30,10 @@ namespace k2d
         std::size_t objectCount() const;
 
         void update(float deltaTime);
-        void render(BatchRenderer &batch);
+        void render(CanvasRenderer &canvas);
+        std::size_t renderItemCount() const { return mRenderQueue.ItemCount(); }
+        std::size_t renderCommandCount() const { return mRenderQueue.CommandCount(); }
+        std::size_t renderLightCount() const { return mRenderQueue.LightCount(); }
 
         void clear();
 
@@ -43,6 +47,7 @@ namespace k2d
         void collectDisposed(GameObject *object, ct::Vector<GameObject *> &out);
 
         GameObject mRoot;
+        RenderQueue mRenderQueue;
         uint64_t mNextId;
         std::size_t mObjectCount;
         ct::Vector<GameObject *> mObjects;

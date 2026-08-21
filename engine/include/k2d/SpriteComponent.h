@@ -1,5 +1,6 @@
 #pragma once
 
+#include "k2d/CanvasTypes.h"
 #include "k2d/Component.h"
 
 #include <glm/glm.hpp>
@@ -32,9 +33,13 @@ namespace k2d
         void setFlip(bool flipX, bool flipY);
         bool flipX() const { return mFlipX; }
         bool flipY() const { return mFlipY; }
+        void setYSort(bool ySort);
+        bool ySort() const { return mYSort; }
+        void setBlendMode(BlendMode mode);
+        BlendMode blendMode() const { return mBlendMode; }
 
     protected:
-        void onRender(BatchRenderer &batch) override;
+        void onRender(RenderQueue &queue) override;
 
     private:
         Texture *mTexture;
@@ -50,6 +55,8 @@ namespace k2d
         float mSourceH;
         bool mFlipX;
         bool mFlipY;
+        bool mYSort;
+        BlendMode mBlendMode;
     };
 
 }

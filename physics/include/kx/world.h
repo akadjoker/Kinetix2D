@@ -6,7 +6,8 @@
 #include <ct/vector.hpp>
 
 #include "body.h"
-#include "joint.h"
+#include "dynamictree.h"
+#include "joints/joint.h"
 #include "manifold.h"
 
 namespace kx
@@ -30,6 +31,12 @@ namespace kx
         float restitution;
     };
 
+    struct BodyPair
+    {
+        Body *a;
+        Body *b;
+    };
+
     struct StoredImpulses
     {
         int count;
@@ -37,6 +44,15 @@ namespace kx
         float normalImpulse[kMaxManifoldPoints];
         float tangentImpulse[kMaxManifoldPoints];
         uint32_t stamp;
+    };
+
+    struct StepProfile
+    {
+        float broadphase;
+        float narrowphase;
+        float solveVelocity;
+        float solvePosition;
+        float integrate;
     };
 
     class World
@@ -54,9 +70,15 @@ namespace kx
         Body *CreateStaticBox(const glm::vec2 &pos, float halfWidth, float halfHeight);
         Body *CreateKinematicBox(const glm::vec2 &pos, float halfWidth, float halfHeight);
         Body *CreateEdge(const glm::vec2 &a, const glm::vec2 &b);
+        Body *CreatePolygon(const glm::vec2 &pos, const glm::vec2 *points, int count, float density);
+        Body *CreateMesh(const glm::vec2 &pos, const glm::vec2 *outline, int count, float density);
+        Body *CreateFromImage(const glm::vec2 &pos, const unsigned char *pixels, int width, int height, int bpp,
+                              unsigned char threshold, float density, float scale = 1.0f, float simplifyDegrees = 2.0f);
         void Destroy(Body *body);
 
         Body *BodyAtPoint(const glm::vec2 &point) const;
+        void QueryAABB(const AABB &aabb, ct::Vector<Body *> &out) const;
+        void QueryCircle(const glm::vec2 &center, float radius, ct::Vector<Body *> &out) const;
 
         void AddJoint(Joint *joint);
         void DestroyJoint(Joint *joint);
@@ -64,6 +86,7 @@ namespace kx
         void Step(float dt);
 
         const glm::vec2 &Gravity() const { return mGravity; }
+        void SetGravity(const glm::vec2 &gravity) { mGravity = gravity; }
 
         const ct::Vector<Body *> &Bodies() const { return mBodies; }
         const ct::Vector<ContactInfo> &Contacts() const { return mContacts; }
@@ -73,13 +96,28 @@ namespace kx
 
         void SetVelocityIterations(int iterations) { mVelocityIterations = iterations; }
 
+        void SetTreeBroadphase(bool enabled) { mUseTree = enabled; }
+        bool TreeBroadphase() const { return mUseTree; }
+
+        void SetTimeSource(double (*clock)()) { mClock = clock; }
+        const StepProfile &Profile() const { return mProfile; }
+
+        const ct::Vector<Joint *> &Joints() const { return mJoints; }
+
     private:
         void UpdateContacts();
-        void InitContactConstraints(float dt);
+        void UpdateContactsBrute();
+        void UpdateContactsTree();
+        void SyncProxies();
+        void FindNewPairs();
+        void CollidePair(Body *first, Body *second);
+        bool JointsAllowCollision(const Body *a, const Body *b) const;
+        void InitContactConstraints();
         void WarmStartContacts();
         void SolveContactVelocities();
         void SolveContactPositions();
         void StoreContactImpulses();
+        void UpdateSleeping(float dt);
 
         static uint64_t ContactKey(const ContactInfo &c)
         {
@@ -94,11 +132,21 @@ namespace kx
         ct::Vector<Body *> mBodies;
         ct::Vector<ContactInfo> mContacts;
         ct::Vector<Joint *> mJoints;
+        DynamicTree mTree;
+        ct::Vector<int32_t> mMoveBuffer;
+        ct::HashMap<uint64_t, BodyPair> mPairs;
+        ct::Vector<uint64_t> mDeadPairs;
+        bool mUseTree;
+        double (*mClock)();
+        StepProfile mProfile;
+        float mNarrowMs;
         ct::HashMap<uint64_t, StoredImpulses> mImpulseMap;
         ct::Vector<uint64_t> mStaleKeys;
         uint32_t mStepStamp;
         uint32_t mNextBodyId;
         int mVelocityIterations;
     };
+
+    void Explode(World &world, const glm::vec2 &center, float radius, float force, float falloff);
 
 } // namespace kx

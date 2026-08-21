@@ -8,6 +8,10 @@ static const int SCANCODE_ESCAPE = 41;
 static const int SCANCODE_SPACE = 44;
 static const int SCANCODE_R = 21;
 static const int SCANCODE_P = 19;
+static const int SCANCODE_1 = 30;
+static const int SCANCODE_2 = 31;
+static const int SCANCODE_F4 = 61;
+static const int SCANCODE_F5 = 62;
 
 static unsigned gSeed = 12345;
 static float Rnd()
@@ -19,6 +23,7 @@ static float Rnd()
 static float gMaxX = 1280.0f;
 static float gMaxY = 720.0f;
 static const float GRAVITY = 400.0f;
+static bool gAdditive = false;
 
 class BunnyBehavior : public k2d::ScriptComponent
 {
@@ -100,6 +105,15 @@ int main()
 
     batch.Resize(device.Width(), device.Height());
 
+    k2d::CanvasRenderer canvas;
+    k2d::CanvasRenderer::Config canvasConfig;
+    canvasConfig.maxVertices = 65532;
+    canvasConfig.maxDrawCalls = 64;
+    if (!canvas.Init(canvasConfig))
+        return 1;
+
+    canvas.SetOrtho((float)device.Width(), (float)device.Height());
+
     k2d::Assets assets;
     k2d::Texture *bunnyTex = assets.LoadTexture("bunny", "assets/wabbit_alpha.png");
     if (!bunnyTex)
@@ -108,29 +122,50 @@ int main()
         return 1;
 
     k2d::Scene scene;
-    Spawn(scene, bunnyTex, 100000);
+    Spawn(scene, bunnyTex, 1000);
 
     float fpsSmooth = 0.0f;
     float printTimer = 0.0f;
+    bool showProfiler = true;
 
     bool running = true;
     while (running)
     {
         running = device.PollEvents();
 
+        k2d::Profiler::Get().beginFrame();
+
         k2d::Input &input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
         if (input.KeyPressed(SCANCODE_R))
             Clear(scene);
-        if (input.KeyDown(SCANCODE_SPACE) || input.MouseDown(0))
+        if (input.KeyPressed(SCANCODE_1))
+            Spawn(scene, bunnyTex, 100);
+        if (input.KeyPressed(SCANCODE_2))
+            Spawn(scene, bunnyTex, 1000);
+        if (input.KeyPressed(SCANCODE_F4))
+            showProfiler = !showProfiler;
+        if (input.KeyPressed(SCANCODE_F5))
+        {
+            gAdditive = !gAdditive;
+            k2d::GameObject &root = scene.root();
+            for (std::size_t i = 0; i < root.childCount(); ++i)
+            {
+                k2d::SpriteComponent *s = root.child(i)->getComponent<k2d::SpriteComponent>();
+                if (s)
+                    s->setBlendMode(gAdditive ? k2d::BLEND_ADD : k2d::BLEND_MIX);
+            }
+        }
+        if (input.KeyDown(SCANCODE_SPACE) || (input.MouseDown(0) && !device.ImGuiWantsMouse()))
             Spawn(scene, bunnyTex, 2500);
         if (input.KeyPressed(SCANCODE_P))
-            batch.PrintStats();
+            canvas.PrintStats();
 
         if (device.WasResized())
         {
             batch.Resize(device.Width(), device.Height());
+            canvas.SetOrtho((float)device.Width(), (float)device.Height());
             glViewport(0, 0, device.Width(), device.Height());
         }
 
@@ -148,7 +183,10 @@ int main()
             std::fflush(stdout);
         }
 
-        scene.update(dt);
+        {
+            k2d::ProfileScope updateScope("scene.update");
+            scene.update(dt);
+        }
 
         glClearColor(0.15f, 0.15f, 0.18f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -157,7 +195,10 @@ int main()
         batch.ResetStats();
         batch.SetColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255);
 
-        scene.render(batch);
+        {
+            k2d::ProfileScope renderScope("scene.render");
+            scene.render(canvas);
+        }
 
         ct::String info;
         info += "bunnies ";
@@ -165,12 +206,23 @@ int main()
         info += "  FPS ";
         info.append_number((int)fpsSmooth);
         batch.SetColor((unsigned char)0, (unsigned char)0, (unsigned char)0, (unsigned char)180);
-        batch.DrawRect(10.0f, 10.0f, 380.0f, 40.0f, true);
+        batch.DrawRect(10.0f, 10.0f, 380.0f, 64.0f, true);
         batch.SetColor((unsigned char)255, (unsigned char)255, (unsigned char)80, (unsigned char)255);
-        batch.DrawText(20.0f, 20.0f, 20.0f, info.c_str());
+        batch.DrawText(20.0f, 16.0f, 20.0f, info.c_str());
+        batch.SetColor((unsigned char)200, (unsigned char)210, (unsigned char)220, (unsigned char)255);
+        batch.DrawText(20.0f, 44.0f, 14.0f, "1:+100  2:+1000  SPACE:+2500  R:clear  F5:additive blend  P:stats");
 
         batch.EndFrame();
+
+        device.BeginUI();
+        if (showProfiler)
+            k2d::ShowProfilerWindow(&showProfiler);
+
+        device.EndUI();
+
         device.Swap();
+
+        k2d::Profiler::Get().endFrame();
     }
 
     return 0;

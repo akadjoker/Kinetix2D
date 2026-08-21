@@ -1,4 +1,5 @@
 #include "kx/body.h"
+#include "kx/internal/triangulate.h"
 
 #include <cmath>
 
@@ -9,6 +10,7 @@ namespace kx
         : mType(BodyType::Static),
           mPosition(0.0f, 0.0f), mAngle(0.0f),
           mLinearVelocity(0.0f, 0.0f), mAngularVelocity(0.0f),
+          mSleepTime(0.0f), mAwake(true),
           mInvMass(0.0f), mInvI(0.0f), mLocalCenter(0.0f, 0.0f),
           mFriction(0.2f), mRestitution(0.0f), mId(0),
           mProxyId(-1), mProxyPosition(0.0f, 0.0f),
@@ -16,44 +18,80 @@ namespace kx
     {
     }
 
-    void Body::AddCircle(const glm::vec2 &localCenter, float radius, float density)
+    int Body::AddCircle(const glm::vec2 &localCenter, float radius, float density)
     {
         if (mShapeCount >= kMaxShapes)
-            return;
+            return 0;
 
         Shape &shape = mShapes[mShapeCount++];
         shape.type = ShapeType::Circle;
         shape.density = density;
+        shape.filter = mDefaultFilter;
         shape.circle.center = localCenter;
         shape.circle.radius = radius;
 
         RecomputeMass();
+        return 1;
     }
 
-    void Body::AddBox(float halfWidth, float halfHeight, float density, const glm::vec2 &localCenter)
+    int Body::AddBox(float halfWidth, float halfHeight, const glm::vec2 &localCenter, float density)
     {
         if (mShapeCount >= kMaxShapes)
-            return;
+            return 0;
 
         Shape &shape = mShapes[mShapeCount++];
         shape.type = ShapeType::Polygon;
         shape.density = density;
+        shape.filter = mDefaultFilter;
         shape.polygon.SetAsBox(halfWidth, halfHeight, localCenter, 0.0f);
 
         RecomputeMass();
+        return 1;
     }
 
-    void Body::AddEdge(const glm::vec2 &localA, const glm::vec2 &localB)
+    int Body::AddPolygon(const glm::vec2 *points, int count, float density)
+    {
+        if (mShapeCount >= kMaxShapes || count < 3)
+            return 0;
+
+        Shape &shape = mShapes[mShapeCount++];
+        shape.type = ShapeType::Polygon;
+        shape.density = density;
+        shape.filter = mDefaultFilter;
+        shape.polygon.Set(points, count);
+
+        RecomputeMass();
+        return 1;
+    }
+
+    int Body::AddEdge(const glm::vec2 &localA, const glm::vec2 &localB)
     {
         if (mShapeCount >= kMaxShapes)
-            return;
+            return 0;
 
         Shape &shape = mShapes[mShapeCount++];
         shape.type = ShapeType::Edge;
         shape.density = 0.0f;
+        shape.filter = mDefaultFilter;
         shape.edge.SetTwoSided(localA, localB);
 
         RecomputeMass();
+        return 1;
+    }
+
+    int Body::AddMesh(const glm::vec2 *outline, int count, float density)
+    {
+        if (count < 3)
+            return 0;
+
+        glm::vec2 triangles[kMaxShapes * 3];
+        int triCount = Triangulate(outline, count, triangles, kMaxShapes);
+
+        int added = 0;
+        for (int i = 0; i < triCount; ++i)
+            added += AddPolygon(triangles + i * 3, 3, density);
+
+        return added;
     }
 
     void Body::RecomputeMass()
@@ -62,7 +100,7 @@ namespace kx
         mInvI = 0.0f;
         mLocalCenter = glm::vec2(0.0f, 0.0f);
 
-        if (mType != BodyType::Dynamic)
+        if (mType != BodyType::Dynamic || !mAwake)
             return;
 
         float mass = 0.0f;
@@ -122,7 +160,7 @@ namespace kx
 
     void Body::IntegratePosition(float dt)
     {
-        if (mType == BodyType::Static)
+        if (mType == BodyType::Static || !mAwake)
             return;
 
         glm::vec2 translation = dt * mLinearVelocity;

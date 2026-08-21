@@ -2,6 +2,7 @@
 
 #include "k2d/Batch.h"
 #include "k2d/GameObject.h"
+#include "k2d/RenderQueue.h"
 #include "k2d/Texture.h"
 
 namespace k2d
@@ -10,7 +11,8 @@ namespace k2d
     SpriteComponent::SpriteComponent(Texture *texture)
         : Component(Type, ComponentEventRender), mTexture(nullptr), mSize(0.0f, 0.0f),
           mPivot(0.5f, 0.5f), mColorR(255), mColorG(255), mColorB(255), mColorA(255), mSourceX(0.0f),
-          mSourceY(0.0f), mSourceW(0.0f), mSourceH(0.0f), mFlipX(false), mFlipY(false)
+          mSourceY(0.0f), mSourceW(0.0f), mSourceH(0.0f), mFlipX(false), mFlipY(false), mYSort(false),
+          mBlendMode(BLEND_MIX)
     {
         setTexture(texture);
     }
@@ -77,17 +79,39 @@ namespace k2d
         mFlipY = flipY;
     }
 
-    void SpriteComponent::onRender(BatchRenderer &batch)
+    void SpriteComponent::onRender(RenderQueue &queue)
     {
         if (!mTexture)
             return;
 
-        batch.SetColor(mColorR, mColorG, mColorB, mColorA);
-        batch.DrawTexture(mTexture->Id(), owner()->globalTransform(),
-                          mSize.x, mSize.y, mTexture->Width(), mTexture->Height(),
-                          mPivot.x, mPivot.y,
-                          mSourceX, mSourceY, mSourceW, mSourceH,
-                          mFlipX, mFlipY);
+        RenderItem &item = queue.AddItem(owner()->zIndex(), mYSort);
+        if (mYSort)
+            item.y = owner()->globalPosition().y;
+        item.xform = owner()->globalTransform();
+
+        RenderCommand rect = RenderCommand::MakeRect(mTexture->Id(), 0.0f, 0.0f, mSize.x, mSize.y);
+        rect.srcX = mSourceX;
+        rect.srcY = mSourceY;
+        rect.srcW = mSourceW;
+        rect.srcH = mSourceH;
+        rect.texWidth = mTexture->Width();
+        rect.texHeight = mTexture->Height();
+        rect.pivotX = mPivot.x;
+        rect.pivotY = mPivot.y;
+        rect.color = BatchRenderer::PackColor(mColorR, mColorG, mColorB, mColorA);
+        rect.flags = (unsigned char)((mFlipX ? 1 : 0) | (mFlipY ? 2 : 0));
+        item.blendMode = mBlendMode;
+        item.commands.push_back(rect);
+    }
+
+    void SpriteComponent::setYSort(bool ySort)
+    {
+        mYSort = ySort;
+    }
+
+    void SpriteComponent::setBlendMode(BlendMode mode)
+    {
+        mBlendMode = mode;
     }
 
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "manifold.h"
-#include "shapes.h"
+#include "../manifold.h"
+#include "../shapes.h"
 
 namespace kx
 {

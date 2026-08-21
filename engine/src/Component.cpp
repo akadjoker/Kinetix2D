@@ -70,7 +70,7 @@ namespace k2d
     {
     }
 
-    void Component::onRender(BatchRenderer &)
+    void Component::onRender(RenderQueue &)
     {
     }
 

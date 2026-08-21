@@ -16,6 +16,9 @@ namespace kx
         void SetTarget(const glm::vec2 &target);
         const glm::vec2 &Target() const { return mTarget; }
 
+        glm::vec2 AnchorA() const override { return mTarget; }
+        glm::vec2 AnchorB() const override;
+
     protected:
         void InitVelocity(float dt) override;
         void SolveVelocity(float dt) override;

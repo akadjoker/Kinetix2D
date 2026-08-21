@@ -78,6 +78,18 @@ namespace k2d
             return glm::vec2(tx, ty);
         }
 
+        Matrix2D AffineInverse() const
+        {
+            float det = a * d - b * c;
+            float ia = d / det;
+            float ib = -b / det;
+            float ic = -c / det;
+            float id = a / det;
+            return Matrix2D(ia, ib, ic, id,
+                            -(ia * tx + ic * ty),
+                            -(ib * tx + id * ty));
+        }
+
         bool IsTranslationOnly() const
         {
             return a == 1.0f && b == 0.0f && c == 0.0f && d == 1.0f;

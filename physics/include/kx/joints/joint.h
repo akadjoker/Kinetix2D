@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 namespace kx
 {
 
@@ -9,7 +11,9 @@ namespace kx
     {
         Distance,
         Wheel,
-        Mouse
+        Mouse,
+        Revolute,
+        Gear
     };
 
     class Joint
@@ -21,15 +25,23 @@ namespace kx
         Body *BodyA() const { return mBodyA; }
         Body *BodyB() const { return mBodyB; }
 
+        virtual glm::vec2 AnchorA() const = 0;
+        virtual glm::vec2 AnchorB() const = 0;
+
+        bool CollideConnected() const { return mCollideConnected; }
+        void SetCollideConnected(bool collide) { mCollideConnected = collide; }
+
     protected:
         Joint(JointType type, Body *a, Body *b);
 
         virtual void InitVelocity(float dt) = 0;
         virtual void SolveVelocity(float dt) = 0;
+        virtual bool SolvePosition() { return true; }
 
         JointType mType;
         Body *mBodyA;
         Body *mBodyB;
+        bool mCollideConnected;
 
         friend class World;
     };

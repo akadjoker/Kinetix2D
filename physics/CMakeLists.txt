@@ -9,6 +9,12 @@ add_library(kx STATIC
     src/dynamictree.cpp
     src/world.cpp
     src/mousejoint.cpp
+    src/wheeljoint.cpp
+    src/revolutejoint.cpp
+    src/distancejoint.cpp
+    src/gearjoint.cpp
+    src/triangulate.cpp
+    src/imageshape.cpp
     src/debugdraw.cpp
 )
 

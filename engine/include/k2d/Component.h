@@ -6,13 +6,18 @@ namespace k2d
 {
 
     class GameObject;
-    class BatchRenderer;
+    class RenderQueue;
 
     enum class ComponentType : uint8_t
     {
         Sprite,
         Script,
         Camera,
+        TileMap,
+        SpriteBatch,
+        Polygon2D,
+        Light,
+        Occluder,
         Count
     };
 
@@ -56,7 +61,7 @@ namespace k2d
         virtual void onDisable();
         virtual void onUpdate(float deltaTime);
         virtual void onLateUpdate(float deltaTime);
-        virtual void onRender(BatchRenderer &batch);
+        virtual void onRender(RenderQueue &queue);
         virtual void onDestroy();
 
     private:

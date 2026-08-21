@@ -10,7 +10,7 @@ namespace k2d
     GameObject::GameObject(const char *name)
         : mName(name), mId(0), mFlags(GameObjectActive | GameObjectVisible), mScene(nullptr),
           mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mPosition(0.0f),
-          mRotationDegrees(0.0f), mScale(1.0f, 1.0f),
+          mRotationDegrees(0.0f), mScale(1.0f, 1.0f), mZIndex(0),
           mLocalDirty(true), mGlobalDirty(true)
     {
     }
@@ -21,6 +21,16 @@ namespace k2d
         deleteChildrenRaw();
         if (mParent)
             mParent->removeChildRaw(this);
+    }
+
+    int GameObject::zIndex() const
+    {
+        return mZIndex;
+    }
+
+    void GameObject::setZIndex(int zIndex)
+    {
+        mZIndex = zIndex;
     }
 
     uint64_t GameObject::id() const
@@ -299,13 +309,13 @@ namespace k2d
             flushPendingComponentDeletes();
     }
 
-    void GameObject::renderComponents(BatchRenderer &batch)
+    void GameObject::renderComponents(RenderQueue &queue)
     {
         ++mComponentCallbackDepth;
         for (Component *component : mComponents)
             if (component && component->active() &&
                 (component->mEvents & ComponentEventRender) != 0)
-                component->onRender(batch);
+                component->onRender(queue);
         if (--mComponentCallbackDepth == 0)
             flushPendingComponentDeletes();
     }

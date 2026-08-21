@@ -1,4 +1,4 @@
-#include "kx/collide.h"
+#include "kx/internal/collide.h"
 
 namespace kx
 {

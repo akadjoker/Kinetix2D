@@ -1,0 +1,41 @@
+ 
+Análise completa — comparei os demos do Chipmunk (e Box2D) com o que o `kx` suporta hoje.
+
+## 1. Já temos no testbed (15)
+
+**Basic:** SingleBox, PyramidStack, TiltedStack, Plink, Tumble
+**Joints:** Bridge, Gears, Blob, Car, Pendulum, Chain, Springies, Pump
+**World:** Planet, ImageShape
+
+## 2. Demos que dá para fazer JÁ (sem tocar no motor) — "quick wins"
+
+| Demo (origem) | Requer do kx | Notas |
+|---|---|---|
+| **TheoJansen** (Chipmunk) | Revolute (2 pinos + manivela), Gear (pernas paralelas), Distance (bielas), motor revolute | ✅ totalmente suportado; o mais impressionante |
+| **BouncyHexagons** (Chipmunk) | CreatePolygon (hexágonos) + restitution | ✅ |
+| **PyramidTopple** (Chipmunk) | pilha de caixas + caixa cinemática a cair | ✅ |
+| **Tank** (Chipmunk) | corpos cinemáticos + motores | ⚠️ aprox. — o método exato usa `maxForce` em joints (não existe) |
+| **Convex** (Chipmunk) | CreatePolygon / AddPolygon (hull) | ⚠️ versão simples (destroy+create a cada clique); a versão completa muta o shape em runtime |
+| **VerticalStack / Dominoes** (Box2D) | CreateBox | ✅ |
+| **Determinism** (Box2D) | — | ✅ kx é determinístico; demo = correr 2x e comparar |
+| **Robustness / stress** (Box2D) | CreateBox/CreateCircle em massa | ✅ |
+| **Joints showcase** (Chipmunk) | todos os 5 joints | ✅ |
+| **ContactGraph** (Chipmunk) | — | ⚠️ parcial — já desenhamos contactos; grafo completo precisa callbacks |
+
+## 3. Lacunas do motor (bloqueiam o resto) — por prioridade
+
+1. **Collision callbacks** (begin/preSolve/postSolve/end) + **sensores** + **userData por shape** — é a maior lacuna. Desbloqueia: **OneWay**, **Sticky**, **Shatter**, **LogoSmash**, **Crane** (gancho/sensor), **Player**, e os samples **Events/Collision/Character** do Box2D.
+2. **Queries**: segment/raycast, point-nearest (com distância), AABB query — hoje só há `BodyAtPoint`. Desbloqueia: **Query**, **Player** (raycast), miras, explosões.
+3. **Prismatic / Slide joint** (pistão/guincho) — **Crane** (winch), pistões.
+4. **Groove / slot joint** — **Crane** (dolly) e **Unicycle** (calha).
+5. **Joint breaking (maxForce)** — **Breakable Chains**, **Sticky**.
+6. **Splitting de shapes em runtime / rebuild do corpo** — **Slice**, **Shatter**, **LogoSmash**, **Convex** completo.
+7. **CCD (continuous collision / TOI)** — **ContinuousCollision** do Box2D (balas a alta velocidade, anti-tunneling).
+8. **Buoyancy / fluido / partículas** — **Buoyancy** (estilo LiquidFun; modelo de simulação distinto).
+9. **Shapes capsule / chain / segment gordo** — o Chipmunk usa fat segments em quase tudo; hoje aproximamos com caixas.
+10. **Sleep** — kx não tem (já anotado como TODO no README); não bloqueia demos, é performance.
+11. **Gravity por corpo / damping** — hoje o Planet aplica manualmente em `Step()`; uma API `SetGravityScale`/velocity-func ficava mais limpa.
+
+**Resumo do que falta em termos de "motores":** o kx cobre bem o núcleo (colisão + solver + 5 joints + broadphase). O que separa-nos dos testbeds de referência são as **camadas de interação**: callbacks de contacto, queries, mais tipos de joints (prismático/groove) e features avançadas (splitting, CCD, fluidos). São milestones naturais — o `PLAN.md` já previa queries e explosões na M4.5.
+
+Queres que comece pelos quick wins? Sugiro ordem: **TheoJansen** (mostra o melhor do motor), depois **BouncyHexagons**, **PyramidTopple**, **Tank** e **Convex simples**. Posso também gravar esta análise num doc do repo (ex. `demo/testbed/TESTBED.md`) para referência futura.

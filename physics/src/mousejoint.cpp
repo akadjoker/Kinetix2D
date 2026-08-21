@@ -1,4 +1,4 @@
-#include "kx/mousejoint.h"
+#include "kx/joints/mousejoint.h"
 
 #include "kx/body.h"
 
@@ -24,6 +24,11 @@ namespace kx
         float omega = 2.0f * kPi * frequencyHz;
         mStiffness = mass * omega * omega;
         mDamping = 2.0f * mass * dampingRatio * omega;
+    }
+
+    glm::vec2 MouseJoint::AnchorB() const
+    {
+        return mBodyB->GetTransform().Transform(mLocalAnchor);
     }
 
     void MouseJoint::SetTarget(const glm::vec2 &target)

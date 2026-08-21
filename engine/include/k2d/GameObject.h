@@ -14,7 +14,7 @@ namespace k2d
 {
 
     class Scene;
-    class BatchRenderer;
+    class RenderQueue;
 
     enum GameObjectFlags : uint32_t
     {
@@ -97,6 +97,9 @@ namespace k2d
             return removeComponent(T::Type);
         }
 
+        int zIndex() const;
+        void setZIndex(int zIndex);
+
         const glm::vec2 &position() const;
         float rotationDegrees() const;
         const glm::vec2 &scale() const;
@@ -125,7 +128,7 @@ namespace k2d
         void deleteComponents();
         void updateComponents(float deltaTime);
         void lateUpdateComponents(float deltaTime);
-        void renderComponents(BatchRenderer &batch);
+        void renderComponents(RenderQueue &queue);
         void flushPendingComponentDeletes();
         bool isAncestorOf(const GameObject *object) const;
         void invalidateTransform();
@@ -147,6 +150,7 @@ namespace k2d
         glm::vec2 mPosition;
         float mRotationDegrees;
         glm::vec2 mScale;
+        int mZIndex;
         mutable Matrix2D mLocalTransform;
         mutable Matrix2D mGlobalTransform;
         mutable bool mLocalDirty;

@@ -102,6 +102,20 @@ namespace kx
 
     void Draw(World &world, DebugDraw &draw, unsigned flags)
     {
+        if (flags & DebugDrawJoints)
+        {
+            const ct::Vector<Joint *> &joints = world.Joints();
+            for (size_t i = 0; i < joints.size(); ++i)
+            {
+                glm::vec2 a = joints[i]->AnchorA();
+                glm::vec2 b = joints[i]->AnchorB();
+                Color jointColor{120, 200, 255, 255};
+                draw.DrawSegment(a, b, jointColor);
+                draw.DrawPoint(a, 3.0f, jointColor);
+                draw.DrawPoint(b, 3.0f, jointColor);
+            }
+        }
+
         if (flags == 0)
             return;
 

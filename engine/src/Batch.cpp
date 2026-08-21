@@ -1,4 +1,5 @@
 #include "k2d/Batch.h"
+#include "k2d/Profiler.h"
 #include "font_data.h"
 
 #include <glad/glad.h>
@@ -1406,6 +1407,8 @@ void main()
 
     void BatchRenderer::EndFrame()
     {
+        ProfileScope profileScope("batch.frame");
+
         long start = (long)clock();
 
         if (mInBeginEnd)
@@ -1476,11 +1479,16 @@ void main()
         if (mVertices.empty() || mDrawCalls.empty())
             return;
 
+        ProfileScope profileScope("batch.flush");
+
         glBindVertexArray(mVAO);
 
-        glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0,
-                        (GLsizeiptr)(mVertices.size() * sizeof(Vertex)), mVertices.data());
+        {
+            ProfileScope uploadScope("batch.upload");
+            glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0,
+                            (GLsizeiptr)(mVertices.size() * sizeof(Vertex)), mVertices.data());
+        }
 
         mIndices.clear();
         for (size_t i = 0; i < mDrawCalls.size(); ++i)
@@ -1509,7 +1517,10 @@ void main()
                             (GLsizeiptr)(mIndices.size() * sizeof(unsigned short)), mIndices.data());
         }
 
-        ApplyDrawCalls();
+        {
+            ProfileScope drawScope("batch.draw");
+            ApplyDrawCalls();
+        }
 
         if (mConfig.enableProfiling)
         {

@@ -1,5 +1,5 @@
 #include "kx/world.h"
-#include "kx/collide.h"
+#include "kx/internal/collide.h"
 
 namespace kx
 {
@@ -34,18 +34,6 @@ namespace kx
             }
 
             return aabb;
-        }
-
-        bool TestOverlap(const AABB &a, const AABB &b)
-        {
-            glm::vec2 d1 = b.lowerBound - a.upperBound;
-            glm::vec2 d2 = a.lowerBound - b.upperBound;
-
-            if (d1.x > 0.0f || d1.y > 0.0f)
-                return false;
-            if (d2.x > 0.0f || d2.y > 0.0f)
-                return false;
-            return true;
         }
 
         bool CollideShapePair(Manifold &manifold, bool &flip,
@@ -105,9 +93,17 @@ namespace kx
 
     } // namespace
 
-    World::World(const glm::vec2 &gravity)
-        : mGravity(gravity), mStepStamp(0), mNextBodyId(1), mVelocityIterations(8)
+    namespace
     {
+        uint64_t PairKey(const Body *a, const Body *b);
+    }
+
+    World::World(const glm::vec2 &gravity)
+        : mGravity(gravity), mUseTree(true), mClock(nullptr),
+          mStepStamp(0), mNextBodyId(1), mVelocityIterations(8)
+    {
+        mProfile = StepProfile{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        mNarrowMs = 0.0f;
     }
 
     World::~World()
@@ -130,7 +126,7 @@ namespace kx
     Body *World::CreateBox(const glm::vec2 &pos, float halfWidth, float halfHeight, float density)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);
-        body->AddBox(halfWidth, halfHeight, density);
+        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), density);
         return body;
     }
 
@@ -144,14 +140,14 @@ namespace kx
     Body *World::CreateStaticBox(const glm::vec2 &pos, float halfWidth, float halfHeight)
     {
         Body *body = CreateBody(BodyType::Static, pos);
-        body->AddBox(halfWidth, halfHeight, 1.0f);
+        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), 1.0f);
         return body;
     }
 
     Body *World::CreateKinematicBox(const glm::vec2 &pos, float halfWidth, float halfHeight)
     {
         Body *body = CreateBody(BodyType::Kinematic, pos);
-        body->AddBox(halfWidth, halfHeight, 1.0f);
+        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), 1.0f);
         return body;
     }
 
@@ -162,8 +158,59 @@ namespace kx
         return body;
     }
 
+    Body *World::CreatePolygon(const glm::vec2 &pos, const glm::vec2 *points, int count, float density)
+    {
+        Body *body = CreateBody(BodyType::Dynamic, pos);
+        body->AddPolygon(points, count, density);
+        return body;
+    }
+
+    Body *World::CreateMesh(const glm::vec2 &pos, const glm::vec2 *outline, int count, float density)
+    {
+        Body *body = CreateBody(BodyType::Dynamic, pos);
+        body->AddMesh(outline, count, density);
+        return body;
+    }
+
     void World::Destroy(Body *body)
     {
+        // Removing a body can change the support graph. Wake the remaining
+        // dynamic bodies that were connected to it before invalidating pairs.
+        for (size_t i = 0; i < mContacts.size(); ++i)
+        {
+            ContactInfo &contact = mContacts[i];
+            if (contact.a == body && contact.b->Type() == BodyType::Dynamic)
+                contact.b->SetAwake(true);
+            if (contact.b == body && contact.a->Type() == BodyType::Dynamic)
+                contact.a->SetAwake(true);
+        }
+        for (auto &entry : mPairs)
+        {
+            Body *other = nullptr;
+            if (entry.value.a == body)
+                other = entry.value.b;
+            else if (entry.value.b == body)
+                other = entry.value.a;
+            if (other && other->Type() == BodyType::Dynamic)
+                other->SetAwake(true);
+        }
+
+        if (body->mProxyId != kNullNode)
+        {
+            for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+                if (mMoveBuffer[i] == body->mProxyId)
+                    mMoveBuffer[i] = kNullNode;
+            mTree.DestroyProxy(body->mProxyId);
+            body->mProxyId = kNullNode;
+        }
+
+        mDeadPairs.clear();
+        for (auto &entry : mPairs)
+            if (entry.value.a == body || entry.value.b == body)
+                mDeadPairs.push_back(entry.key);
+        for (size_t i = 0; i < mDeadPairs.size(); ++i)
+            mPairs.erase(mDeadPairs[i]);
+
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
             if (mBodies[i] == body)
@@ -217,6 +264,60 @@ namespace kx
         return false;
     }
 
+    static glm::vec2 ClosestPointOnSegment(const glm::vec2 &point,
+                                           const glm::vec2 &a, const glm::vec2 &b)
+    {
+        glm::vec2 edge = b - a;
+        float lengthSquared = Dot(edge, edge);
+        if (lengthSquared <= kEpsilon)
+            return a;
+        float t = Clamp(Dot(point - a, edge) / lengthSquared, 0.0f, 1.0f);
+        return a + t * edge;
+    }
+
+    static glm::vec2 ClosestPointOnShape(const Shape &shape, const Transform &xf,
+                                         const glm::vec2 &point)
+    {
+        if (ShapeContainsPoint(shape, xf, point))
+            return point;
+        if (shape.type == ShapeType::Circle)
+        {
+            glm::vec2 center = xf.Transform(shape.circle.center);
+            glm::vec2 delta = point - center;
+            float length = std::sqrt(Dot(delta, delta));
+            return length > kEpsilon ? center + delta * (shape.circle.radius / length) : center;
+        }
+
+        glm::vec2 closest = point;
+        float bestDistance = 1.0e30f;
+        int count = shape.type == ShapeType::Polygon ? shape.polygon.count : 2;
+        for (int i = 0; i < count; ++i)
+        {
+            glm::vec2 a;
+            glm::vec2 b;
+            if (shape.type == ShapeType::Polygon)
+            {
+                a = xf.Transform(shape.polygon.vertices[i]);
+                b = xf.Transform(shape.polygon.vertices[(i + 1) % count]);
+            }
+            else
+            {
+                a = xf.Transform(shape.edge.vertex1);
+                b = xf.Transform(shape.edge.vertex2);
+                if (i == 1)
+                    break;
+            }
+            glm::vec2 candidate = ClosestPointOnSegment(point, a, b);
+            float distance = DistanceSquared(point, candidate);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                closest = candidate;
+            }
+        }
+        return closest;
+    }
+
     Body *World::BodyAtPoint(const glm::vec2 &point) const
     {
         for (size_t i = 0; i < mBodies.size(); ++i)
@@ -234,10 +335,262 @@ namespace kx
         return nullptr;
     }
 
+    void World::QueryAABB(const AABB &aabb, ct::Vector<Body *> &out) const
+    {
+        out.clear();
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *body = mBodies[i];
+            if (body->ShapeCount() > 0 && TestOverlap(aabb, ComputeBodyAABB(*body)))
+                out.push_back(body);
+        }
+    }
+
+    void World::QueryCircle(const glm::vec2 &center, float radius, ct::Vector<Body *> &out) const
+    {
+        out.clear();
+        float radiusSquared = radius * radius;
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *body = mBodies[i];
+            if (body->ShapeCount() == 0)
+                continue;
+            Transform xf = body->GetTransform();
+            bool hit = false;
+            for (int s = 0; s < body->ShapeCount(); ++s)
+            {
+                glm::vec2 closest = ClosestPointOnShape(body->Shapes()[s], xf, center);
+                if (DistanceSquared(center, closest) <= radiusSquared)
+                {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit)
+                out.push_back(body);
+        }
+    }
+
+    void Explode(World &world, const glm::vec2 &center, float radius, float force, float falloff)
+    {
+        if (radius <= 0.0f || force == 0.0f)
+            return;
+
+        ct::Vector<Body *> bodies;
+        world.QueryCircle(center, radius, bodies);
+        for (size_t i = 0; i < bodies.size(); ++i)
+        {
+            Body *body = bodies[i];
+            if (body->Type() != BodyType::Dynamic)
+                continue;
+
+            Transform xf = body->GetTransform();
+            glm::vec2 point = body->WorldCenter();
+            float closestDistance = 1.0e30f;
+            for (int s = 0; s < body->ShapeCount(); ++s)
+            {
+                glm::vec2 candidate = ClosestPointOnShape(body->Shapes()[s], xf, center);
+                float candidateDistance = DistanceSquared(center, candidate);
+                if (candidateDistance < closestDistance)
+                {
+                    closestDistance = candidateDistance;
+                    point = candidate;
+                }
+            }
+            glm::vec2 delta = point - center;
+            float distance = std::sqrt(Dot(delta, delta));
+            if (distance >= radius)
+                continue;
+            glm::vec2 direction = distance > kEpsilon ? delta / distance : glm::vec2(0.0f, -1.0f);
+            float amount = 1.0f - distance / radius;
+            if (falloff > 0.0f)
+                amount = std::pow(amount, falloff);
+            body->ApplyImpulse(direction * (force * amount), point);
+        }
+    }
+
+    namespace
+    {
+        uint64_t PairKey(const Body *a, const Body *b)
+        {
+            uint32_t lo = a->Id() < b->Id() ? a->Id() : b->Id();
+            uint32_t hi = a->Id() < b->Id() ? b->Id() : a->Id();
+            return (static_cast<uint64_t>(lo) << 32) | hi;
+        }
+
+        struct PairQueryVisitor
+        {
+            const DynamicTree *tree;
+            int32_t queryProxyId;
+            ct::Vector<int32_t> *hits;
+
+            bool QueryCallback(int32_t proxyId)
+            {
+                if (proxyId == queryProxyId)
+                    return true;
+                if (tree->WasMoved(proxyId) && proxyId > queryProxyId)
+                    return true;
+                hits->push_back(proxyId);
+                return true;
+            }
+        };
+    }
+
+    void World::SyncProxies()
+    {
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *b = mBodies[i];
+            if (b->ShapeCount() == 0)
+                continue;
+
+            AABB aabb = ComputeBodyAABB(*b);
+
+            if (b->mProxyId == kNullNode)
+            {
+                b->mProxyId = mTree.CreateProxy(aabb, b);
+                b->mProxyPosition = b->mPosition;
+                mMoveBuffer.push_back(b->mProxyId);
+                continue;
+            }
+
+            glm::vec2 displacement = b->mPosition - b->mProxyPosition;
+            b->mProxyPosition = b->mPosition;
+            if (mTree.MoveProxy(b->mProxyId, aabb, displacement))
+                mMoveBuffer.push_back(b->mProxyId);
+        }
+    }
+
+    void World::FindNewPairs()
+    {
+        ct::Vector<int32_t> hits;
+
+        for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+        {
+            int32_t queryProxyId = mMoveBuffer[i];
+            if (queryProxyId == kNullNode)
+                continue;
+
+            hits.clear();
+            PairQueryVisitor visitor{&mTree, queryProxyId, &hits};
+            mTree.Query(&visitor, mTree.GetFatAABB(queryProxyId));
+
+            Body *self = static_cast<Body *>(mTree.GetUserData(queryProxyId));
+            for (size_t h = 0; h < hits.size(); ++h)
+            {
+                Body *other = static_cast<Body *>(mTree.GetUserData(hits[h]));
+                if (self->Type() != BodyType::Dynamic && other->Type() != BodyType::Dynamic)
+                    continue;
+                uint64_t key = PairKey(self, other);
+                if (!mPairs.find(key))
+                    mPairs.put(key, BodyPair{self, other});
+            }
+        }
+
+        for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+            if (mMoveBuffer[i] != kNullNode)
+                mTree.ClearMoved(mMoveBuffer[i]);
+        mMoveBuffer.clear();
+    }
+
+    bool World::JointsAllowCollision(const Body *a, const Body *b) const
+    {
+        for (size_t i = 0; i < mJoints.size(); ++i)
+        {
+            Joint *joint = mJoints[i];
+            Body *ja = joint->BodyA();
+            Body *jb = joint->BodyB();
+            if (((ja == a && jb == b) || (ja == b && jb == a)) && !joint->CollideConnected())
+                return false;
+        }
+        return true;
+    }
+
+    void World::CollidePair(Body *first, Body *second)
+    {
+        if (first->mId > second->mId)
+        {
+            Body *tmp = first;
+            first = second;
+            second = tmp;
+        }
+
+        if (!JointsAllowCollision(first, second))
+            return;
+
+        Transform xfi = first->GetTransform();
+        Transform xfj = second->GetTransform();
+
+        for (int si = 0; si < first->ShapeCount(); ++si)
+        {
+            for (int sj = 0; sj < second->ShapeCount(); ++sj)
+            {
+                if (!ShouldCollide(first->Shapes()[si].filter, second->Shapes()[sj].filter))
+                    continue;
+
+                Manifold manifold;
+                bool flip;
+                if (!CollideShapePair(manifold, flip, first->Shapes()[si], xfi, second->Shapes()[sj], xfj))
+                    continue;
+
+                if (manifold.pointCount == 0)
+                    continue;
+
+                ContactInfo info;
+                info.a = flip ? second : first;
+                info.b = flip ? first : second;
+                info.shapeIndexA = flip ? sj : si;
+                info.shapeIndexB = flip ? si : sj;
+                info.manifold = manifold;
+                mContacts.push_back(info);
+            }
+        }
+    }
+
     void World::UpdateContacts()
     {
         mContacts.clear();
+        if (mUseTree)
+            UpdateContactsTree();
+        else
+            UpdateContactsBrute();
+    }
 
+    void World::UpdateContactsTree()
+    {
+        SyncProxies();
+        FindNewPairs();
+
+        double n0 = mClock ? mClock() : 0.0;
+
+        mDeadPairs.clear();
+        for (auto &entry : mPairs)
+        {
+            Body *a = entry.value.a;
+            Body *b = entry.value.b;
+
+            if (!TestOverlap(mTree.GetFatAABB(a->mProxyId), mTree.GetFatAABB(b->mProxyId)))
+            {
+                mDeadPairs.push_back(entry.key);
+                continue;
+            }
+
+            AABB tightA = ComputeBodyAABB(*a);
+            AABB tightB = ComputeBodyAABB(*b);
+            if (!TestOverlap(tightA, tightB))
+                continue;
+
+            CollidePair(a, b);
+        }
+        for (size_t i = 0; i < mDeadPairs.size(); ++i)
+            mPairs.erase(mDeadPairs[i]);
+
+        if (mClock)
+            mNarrowMs = (float)((mClock() - n0) * 1000.0);
+    }
+
+    void World::UpdateContactsBrute()
+    {
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
             Body *bi = mBodies[i];
@@ -253,30 +606,7 @@ namespace kx
                 if (!TestOverlap(aabbA, aabbB))
                     continue;
 
-                Transform xfi = bi->GetTransform();
-                Transform xfj = bj->GetTransform();
-
-                for (int si = 0; si < bi->ShapeCount(); ++si)
-                {
-                    for (int sj = 0; sj < bj->ShapeCount(); ++sj)
-                    {
-                        Manifold manifold;
-                        bool flip;
-                        if (!CollideShapePair(manifold, flip, bi->Shapes()[si], xfi, bj->Shapes()[sj], xfj))
-                            continue;
-
-                        if (manifold.pointCount == 0)
-                            continue;
-
-                        ContactInfo info;
-                        info.a = flip ? bj : bi;
-                        info.b = flip ? bi : bj;
-                        info.shapeIndexA = flip ? sj : si;
-                        info.shapeIndexB = flip ? si : sj;
-                        info.manifold = manifold;
-                        mContacts.push_back(info);
-                    }
-                }
+                CollidePair(bi, bj);
             }
         }
     }
@@ -288,11 +618,18 @@ namespace kx
 
         ++mStepStamp;
 
+        double t0 = mClock ? mClock() : 0.0;
+
         for (size_t i = 0; i < mBodies.size(); ++i)
             mBodies[i]->IntegrateVelocity(mGravity, dt);
 
+        double t1 = mClock ? mClock() : 0.0;
+
         UpdateContacts();
-        InitContactConstraints(dt);
+
+        double t2 = mClock ? mClock() : 0.0;
+
+        InitContactConstraints();
         WarmStartContacts();
 
         for (size_t i = 0; i < mJoints.size(); ++i)
@@ -307,10 +644,48 @@ namespace kx
 
         StoreContactImpulses();
 
+        double t3 = mClock ? mClock() : 0.0;
+
         for (size_t i = 0; i < mBodies.size(); ++i)
             mBodies[i]->IntegratePosition(dt);
 
+        double t4 = mClock ? mClock() : 0.0;
+
         SolveContactPositions();
+        UpdateSleeping(dt);
+
+        if (mClock)
+        {
+            double t5 = mClock();
+            mProfile.integrate = (float)((t1 - t0 + t4 - t3) * 1000.0);
+            mProfile.narrowphase = mNarrowMs;
+            mProfile.broadphase = (float)((t2 - t1) * 1000.0) - mNarrowMs;
+            mProfile.solveVelocity = (float)((t3 - t2) * 1000.0);
+            mProfile.solvePosition = (float)((t5 - t4) * 1000.0);
+        }
+    }
+
+    void World::UpdateSleeping(float dt)
+    {
+        float linearThresholdSquared = kSleepVelocity * kSleepVelocity;
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *body = mBodies[i];
+            if (body->Type() != BodyType::Dynamic || !body->mAwake)
+                continue;
+
+            float linearSpeedSquared = Dot(body->mLinearVelocity, body->mLinearVelocity);
+            if (linearSpeedSquared > linearThresholdSquared ||
+                std::fabs(body->mAngularVelocity) > kSleepAngularVelocity)
+            {
+                body->mSleepTime = 0.0f;
+                continue;
+            }
+
+            body->mSleepTime += dt;
+            if (body->mSleepTime >= kTimeToSleep)
+                body->SetAwake(false);
+        }
     }
 
     void World::SolveContactPositions()
@@ -319,6 +694,9 @@ namespace kx
 
         for (int it = 0; it < kPositionIterations; ++it)
         {
+            for (size_t i = 0; i < mJoints.size(); ++i)
+                mJoints[i]->SolvePosition();
+
             for (size_t ci = 0; ci < mContacts.size(); ++ci)
             {
                 ContactInfo &c = mContacts[ci];
@@ -388,10 +766,8 @@ namespace kx
         }
     }
 
-    void World::InitContactConstraints(float dt)
+    void World::InitContactConstraints()
     {
-        const float invDt = 1.0f / dt;
-
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];

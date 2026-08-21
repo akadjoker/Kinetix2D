@@ -88,16 +88,18 @@ namespace k2d
         flushDisposed();
     }
 
-    void Scene::render(BatchRenderer &batch)
+    void Scene::render(CanvasRenderer &canvas)
     {
+        mRenderQueue.Clear();
         GameObject **objects = mObjects.data();
         const std::size_t count = mObjects.size();
         for (std::size_t i = 0; i < count; ++i)
         {
             GameObject *object = objects[i];
             if (object->isActiveAndVisibleInHierarchy())
-                object->renderComponents(batch);
+                object->renderComponents(mRenderQueue);
         }
+        mRenderQueue.Flush(canvas);
     }
 
     void Scene::clear()

@@ -22,6 +22,13 @@ namespace kx
     constexpr float kMaxTranslation = 100.0f;
     constexpr float kAabbExtension = 10.0f;
     constexpr float kAabbMultiplier = 4.0f;
+    constexpr float kAngularSlop = 2.0f / 180.0f * kPi;
+    constexpr float kMaxAngularCorrection = 8.0f / 180.0f * kPi;
+    constexpr float kSleepVelocity = 2.5f;
+    constexpr float kSleepAngularVelocity = 0.05f;
+    constexpr float kTimeToSleep = 0.5f;
+
+    inline float Clamp(float a, float lo, float hi) { return a < lo ? lo : (a > hi ? hi : a); }
 
     inline float Cross(const glm::vec2 &a, const glm::vec2 &b) { return a.x * b.y - a.y * b.x; }
     inline glm::vec2 Cross(const glm::vec2 &a, float s) { return glm::vec2(s * a.y, -s * a.x); }

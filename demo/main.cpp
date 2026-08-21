@@ -35,6 +35,12 @@ int main()
 
     batch.Resize(device.Width(), device.Height());
 
+    k2d::CanvasRenderer canvas;
+    if (!canvas.Init())
+        return 1;
+
+    canvas.SetOrtho((float)device.Width(), (float)device.Height());
+
     k2d::Assets assets;
 
     unsigned char checker[8 * 8 * 4];
@@ -85,6 +91,7 @@ int main()
         if (device.WasResized())
         {
             batch.Resize(device.Width(), device.Height());
+            canvas.SetOrtho((float)device.Width(), (float)device.Height());
             glViewport(0, 0, device.Width(), device.Height());
         }
 
@@ -97,7 +104,7 @@ int main()
 
         batch.BeginFrame();
 
-        scene.render(batch);
+        scene.render(canvas);
 
         batch.SetColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255);
         batch.DrawText(20.0f, 650.0f, 32.0f, "Kinetix2D");
@@ -113,6 +120,7 @@ int main()
     }
 
     assets.Clear();
+    canvas.Shutdown();
     batch.Shutdown();
     device.Shutdown();
 

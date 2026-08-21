@@ -1,7 +1,10 @@
 #include <k2d/k2d.h>
+
+#include <imgui.h>
 #include <kx/kx.h>
 
 #include <glad/glad.h>
+#include <stb_image.h>
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -12,12 +15,19 @@ static const int SCANCODE_ESCAPE = 41;
 static const int SCANCODE_B = 5;
 static const int SCANCODE_C = 6;
 static const int SCANCODE_E = 8;
+static const int SCANCODE_G = 10;
+static const int SCANCODE_I = 12;
 static const int SCANCODE_K = 14;
 static const int SCANCODE_R = 21;
 static const int SCANCODE_V = 25;
 static const int SCANCODE_F1 = 58;
 static const int SCANCODE_F2 = 59;
 static const int SCANCODE_F3 = 60;
+static const int SCANCODE_F4 = 61;
+static const int SCANCODE_F9 = 66;
+static const int SCANCODE_F10 = 67;
+static const int SCANCODE_RIGHT = 79;
+static const int SCANCODE_LEFT = 80;
 
 class BatchDebugDraw : public kx::DebugDraw
 {
@@ -81,6 +91,136 @@ struct KinematicPlatform
     float halfWidth;
 };
 
+struct Car
+{
+    kx::Body *chassis;
+    kx::Body *wheelRear;
+    kx::Body *wheelFront;
+    kx::WheelJoint *jointRear;
+    kx::WheelJoint *jointFront;
+};
+
+static void SpawnBridge(kx::World &world, const glm::vec2 &dropCenter)
+{
+    const int kPlanks = 14;
+    const float kSpan = 700.0f;
+    const float kPlankHalfHeight = 6.0f;
+    const float kPlankWidth = kSpan / (float)kPlanks;
+    const float kPlankHalfWidth = kPlankWidth * 0.5f - 1.0f;
+
+    float leftX = dropCenter.x - kSpan * 0.5f;
+    float y = dropCenter.y;
+
+    kx::Body *leftPillar = world.CreateStaticBox(glm::vec2(leftX, y + 60.0f), 20.0f, 70.0f);
+    kx::Body *rightPillar = world.CreateStaticBox(glm::vec2(leftX + kSpan, y + 60.0f), 20.0f, 70.0f);
+
+    kx::Body *prev = leftPillar;
+    glm::vec2 anchor(leftX, y);
+
+    for (int i = 0; i < kPlanks; ++i)
+    {
+        float cx = leftX + kPlankWidth * ((float)i + 0.5f);
+        kx::Body *plank = world.CreateBox(glm::vec2(cx, y), kPlankHalfWidth, kPlankHalfHeight, 1.0f);
+
+        kx::RevoluteJoint *joint = new kx::RevoluteJoint(prev, plank, anchor);
+        world.AddJoint(joint);
+
+        prev = plank;
+        anchor = glm::vec2(cx + kPlankHalfWidth + 1.0f, y);
+    }
+
+    kx::RevoluteJoint *last = new kx::RevoluteJoint(prev, rightPillar, anchor);
+    world.AddJoint(last);
+}
+
+static void SpawnGears(kx::World &world, const glm::vec2 &dropCenter)
+{
+    glm::vec2 posA = dropCenter + glm::vec2(-50.0f, 0.0f);
+    glm::vec2 posB = dropCenter + glm::vec2(50.0f, 0.0f);
+
+    kx::Body *anchorA = world.CreateBody(kx::BodyType::Static, posA);
+    kx::Body *discA = world.CreateCircle(posA, 40.0f, 1.0f);
+    kx::RevoluteJoint *jointA = new kx::RevoluteJoint(anchorA, discA, posA);
+    jointA->SetMotor(true, 3.0f, 1.0e7f);
+    world.AddJoint(jointA);
+
+    kx::Body *anchorB = world.CreateBody(kx::BodyType::Static, posB);
+    kx::Body *discB = world.CreateCircle(posB, 40.0f, 1.0f);
+    kx::RevoluteJoint *jointB = new kx::RevoluteJoint(anchorB, discB, posB);
+    world.AddJoint(jointB);
+
+    kx::GearJoint *gear = new kx::GearJoint(jointA, jointB, 2.0f);
+    world.AddJoint(gear);
+}
+
+static void SpawnBlob(kx::World &world, const glm::vec2 &dropCenter)
+{
+    const int kRing = 12;
+    const float kRingRadius = 30.0f;
+    const float kNodeRadius = 7.0f;
+    const float kCenterRadius = 10.0f;
+    const int16_t kBlobGroup = -1;
+    const float kSpringFrequency = 4.0f;
+    const float kSpringDamping = 0.5f;
+
+    kx::Body *center = world.CreateCircle(dropCenter, kCenterRadius, 1.0f);
+    center->SetFilter(1, 0xFFFF, kBlobGroup);
+
+    kx::Body *nodes[kRing];
+    for (int i = 0; i < kRing; ++i)
+    {
+        float angle = (float)i * (6.28318531f / (float)kRing);
+        glm::vec2 pos = dropCenter + glm::vec2(kRingRadius * cosf(angle), kRingRadius * sinf(angle));
+        nodes[i] = world.CreateCircle(pos, kNodeRadius, 1.0f);
+        nodes[i]->SetFilter(1, 0xFFFF, kBlobGroup);
+    }
+
+    for (int i = 0; i < kRing; ++i)
+    {
+        int next = (i + 1) % kRing;
+
+        kx::DistanceJoint *ringJoint = new kx::DistanceJoint(nodes[i], nodes[next], nodes[i]->Position(), nodes[next]->Position());
+        ringJoint->SetSpring(kSpringFrequency, kSpringDamping);
+        ringJoint->SetLengthRange(0.0f, 1000.0f);
+        world.AddJoint(ringJoint);
+
+        kx::DistanceJoint *spokeJoint = new kx::DistanceJoint(center, nodes[i], center->Position(), nodes[i]->Position());
+        spokeJoint->SetSpring(kSpringFrequency, kSpringDamping);
+        spokeJoint->SetLengthRange(0.0f, 1000.0f);
+        world.AddJoint(spokeJoint);
+    }
+}
+
+static Car SpawnCar(kx::World &world, const glm::vec2 &pos)
+{
+    const float kScale = 50.0f;
+
+    glm::vec2 chassisOutline[6] = {
+        glm::vec2(-1.5f * kScale, 0.5f * kScale),
+        glm::vec2(1.5f * kScale, 0.5f * kScale),
+        glm::vec2(1.5f * kScale, 0.0f * kScale),
+        glm::vec2(0.0f * kScale, -0.9f * kScale),
+        glm::vec2(-1.15f * kScale, -0.9f * kScale),
+        glm::vec2(-1.5f * kScale, -0.2f * kScale)};
+
+    Car car;
+    car.chassis = world.CreatePolygon(pos, chassisOutline, 6, 1.0f);
+
+    const float wheelRadius = 0.4f * kScale;
+    glm::vec2 rearLocal(-1.0f * kScale, 0.5f * kScale);
+    glm::vec2 frontLocal(1.0f * kScale, 0.5f * kScale);
+
+    car.wheelRear = world.CreateCircle(pos + rearLocal, wheelRadius, 1.0f);
+    car.wheelFront = world.CreateCircle(pos + frontLocal, wheelRadius, 1.0f);
+
+    car.jointRear = new kx::WheelJoint(car.chassis, car.wheelRear, pos + rearLocal, glm::vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    car.jointFront = new kx::WheelJoint(car.chassis, car.wheelFront, pos + frontLocal, glm::vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    world.AddJoint(car.jointRear);
+    world.AddJoint(car.jointFront);
+
+    return car;
+}
+
 int main()
 {
     k2d::Device device;
@@ -97,15 +237,40 @@ int main()
     kx::World world(glm::vec2(0.0f, 500.0f));
     world.CreateStaticBox(glm::vec2(640.0f, 700.0f), 600.0f, 20.0f);
 
+    world.CreateEdge(glm::vec2(1240.0f, 700.0f), glm::vec2(1500.0f, 560.0f));
+    world.CreateEdge(glm::vec2(1500.0f, 560.0f), glm::vec2(1800.0f, 560.0f));
+
+    unsigned char *bunnyPixels = nullptr;
+    int bunnyWidth = 0;
+    int bunnyHeight = 0;
+    {
+        k2d::FileBuffer file;
+        if (file.Load("assets/wabbit_alpha.png", false))
+        {
+            int channels = 0;
+            bunnyPixels = stbi_load_from_memory(file.Data(), (int)file.Size(), &bunnyWidth, &bunnyHeight, &channels, 4);
+        }
+    }
+
     BatchDebugDraw debugDraw(batch);
-    unsigned drawFlags = kx::DebugDrawShapes | kx::DebugDrawContacts;
+    unsigned drawFlags = kx::DebugDrawShapes | kx::DebugDrawContacts | kx::DebugDrawJoints;
 
     ct::Vector<KinematicPlatform> kinematics;
+    ct::Vector<Car> cars;
     kx::MouseJoint *grab = nullptr;
+
+    float carFrequency = 4.0f;
+    float carDamping = 0.7f;
+    float carMaxTorque = 5000000.0f;
+
+    bool showProfiler = true;
+    k2d::Profiler::Get().SetEnabled(true);
+    world.SetTimeSource(&k2d::Device::TimeSeconds);
 
     bool running = true;
     while (running)
     {
+        k2d::Profiler::Get().beginFrame();
         running = device.PollEvents();
 
         k2d::Input &input = device.GetInput();
@@ -116,7 +281,7 @@ int main()
         float mouseY = input.MouseY();
         glm::vec2 mouse(mouseX, mouseY);
 
-        if (input.MousePressed(0) && !grab)
+        if (input.MousePressed(0) && !grab && !device.ImGuiWantsMouse())
         {
             kx::Body *picked = world.BodyAtPoint(mouse);
             if (picked)
@@ -138,14 +303,14 @@ int main()
             }
         }
 
-        if (input.KeyPressed(SCANCODE_B))
+        if (input.KeyDown(SCANCODE_B))
         {
             float hw = 10.0f + (float)(std::rand() % 21);
             float hh = 10.0f + (float)(std::rand() % 21);
             world.CreateBox(glm::vec2(mouseX, mouseY), hw, hh, 1.0f);
         }
 
-        if (input.KeyPressed(SCANCODE_C))
+        if (input.KeyDown(SCANCODE_C))
         {
             float radius = 8.0f + (float)(std::rand() % 18);
             world.CreateCircle(glm::vec2(mouseX, mouseY), radius, 1.0f);
@@ -161,13 +326,40 @@ int main()
             kinematics.push_back(info);
         }
 
-        if (input.KeyPressed(SCANCODE_V))
+        if (input.KeyDown(SCANCODE_V))
         {
             kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, glm::vec2(mouseX, mouseY));
-            cart->AddBox(15.0f, 5.0f, 1.0f);
+            cart->AddBox(15.0f, 5.0f, glm::vec2(0.0f, 0.0f), 1.0f);
             cart->AddCircle(glm::vec2(-20.0f, 12.0f), 8.0f, 1.0f);
             cart->AddCircle(glm::vec2(20.0f, 12.0f), 8.0f, 1.0f);
         }
+
+        if (input.KeyPressed(SCANCODE_G))
+            cars.push_back(SpawnCar(world, glm::vec2(mouseX, mouseY)));
+
+        if (input.KeyPressed(SCANCODE_I) && bunnyPixels)
+            world.CreateFromImage(glm::vec2(mouseX, mouseY), bunnyPixels, bunnyWidth, bunnyHeight, 4, 128, 1.0f, 2.0f);
+
+        if (cars.size() > 0)
+        {
+            float motorSpeed = 0.0f;
+            if (input.KeyDown(SCANCODE_RIGHT))
+                motorSpeed = 15.0f;
+            else if (input.KeyDown(SCANCODE_LEFT))
+                motorSpeed = -15.0f;
+
+            for (size_t i = 0; i < cars.size(); ++i)
+            {
+                cars[i].jointRear->SetMotor(true, motorSpeed, carMaxTorque);
+                cars[i].jointFront->SetMotor(true, motorSpeed, carMaxTorque);
+            }
+        }
+
+        if (input.KeyPressed(61))
+            showProfiler = !showProfiler;
+
+        if (input.KeyPressed(23))
+            world.SetTreeBroadphase(!world.TreeBroadphase());
 
         if (input.KeyPressed(SCANCODE_E))
         {
@@ -176,6 +368,21 @@ int main()
 
         if (input.KeyPressed(SCANCODE_R))
         {
+            if (grab)
+            {
+                world.DestroyJoint(grab);
+                grab = nullptr;
+            }
+
+            ct::Vector<kx::Joint *> toDestroyJoints;
+            const ct::Vector<kx::Joint *> &joints = world.Joints();
+            for (size_t i = 0; i < joints.size(); ++i)
+                toDestroyJoints.push_back(joints[i]);
+            for (size_t i = 0; i < toDestroyJoints.size(); ++i)
+                world.DestroyJoint(toDestroyJoints[i]);
+
+            cars.clear();
+
             ct::Vector<kx::Body *> toDestroy;
             const ct::Vector<kx::Body *> &bodies = world.Bodies();
             for (size_t i = 0; i < bodies.size(); ++i)
@@ -194,6 +401,18 @@ int main()
             drawFlags ^= kx::DebugDrawAABBs;
         if (input.KeyPressed(SCANCODE_F3))
             drawFlags ^= kx::DebugDrawContacts;
+        if (input.KeyPressed(62))
+            drawFlags ^= kx::DebugDrawJoints;
+
+        if (input.KeyPressed(SCANCODE_F9))
+            device.CaptureScreenshot();
+        if (input.KeyPressed(SCANCODE_F10))
+        {
+            if (device.IsGifCapturing())
+                device.StopGifCapture();
+            else
+                device.StartGifCapture(60);
+        }
 
         if (device.WasResized())
         {
@@ -220,11 +439,21 @@ int main()
             b->SetVelocity(vel);
         }
 
-        while (accumulator >= 1.0f / 60.0f)
         {
-            world.Step(1.0f / 60.0f);
-            accumulator -= 1.0f / 60.0f;
+            k2d::ProfileScope profileStep("physics.step");
+            while (accumulator >= 1.0f / 60.0f)
+            {
+                world.Step(1.0f / 60.0f);
+                accumulator -= 1.0f / 60.0f;
+            }
         }
+
+        const kx::StepProfile &sp = world.Profile();
+        k2d::Profiler::Get().addSample("kx.broadphase", sp.broadphase);
+        k2d::Profiler::Get().addSample("kx.narrowphase", sp.narrowphase);
+        k2d::Profiler::Get().addSample("kx.solve.vel", sp.solveVelocity);
+        k2d::Profiler::Get().addSample("kx.solve.pos", sp.solvePosition);
+        k2d::Profiler::Get().addSample("kx.integrate", sp.integrate);
 
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -244,6 +473,7 @@ int main()
         hud.append_number((int)world.ContactCount());
         hud += " fps ";
         hud.append_number((int)(dt > 0.0f ? 1.0f / dt : 0.0f));
+        hud += world.TreeBroadphase() ? "  [tree]" : "  [brute]";
         batch.DrawText(20.0f, 50.0f, 16.0f, hud.c_str());
 
         ct::String flagsText;
@@ -255,12 +485,93 @@ int main()
         flagsText += (drawFlags & kx::DebugDrawContacts) ? "on" : "off";
         batch.DrawText(20.0f, 75.0f, 16.0f, flagsText.c_str());
 
-        batch.DrawText(20.0f, 100.0f, 16.0f, "B box  C circle  K platform  V cart  E edge  R clear  ESC quit");
+        batch.DrawText(20.0f, 100.0f, 16.0f, "B box  C circle  K platform  V cart  E edge  G car  I bunny  Left/Right drive  T tree  F5 joints  R clear  ESC quit  (see Spawn/Car panels)");
 
         batch.EndFrame();
 
+        device.BeginUI();
+        ImGui::Begin("Kinetix2D");
+        ImGui::Text("bodies %d  contacts %d", (int)world.BodyCount(), (int)world.ContactCount());
+        ImGui::Text("%.1f fps  %.2f ms", 1.0f / (dt > 0.0f ? dt : 1.0f), dt * 1000.0f);
+        bool tree = world.TreeBroadphase();
+        if (ImGui::Checkbox("tree broadphase", &tree))
+            world.SetTreeBroadphase(tree);
+        ImGui::End();
+
+        {
+            glm::vec2 dropPoint(640.0f, 100.0f);
+
+            ImGui::Begin("Spawn");
+            if (ImGui::Button("Box"))
+                world.CreateBox(dropPoint, 20.0f, 20.0f, 1.0f);
+            ImGui::SameLine();
+            if (ImGui::Button("Circle"))
+                world.CreateCircle(dropPoint, 15.0f, 1.0f);
+            ImGui::SameLine();
+            if (ImGui::Button("Cart"))
+            {
+                kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, dropPoint);
+                cart->AddBox(15.0f, 5.0f, glm::vec2(0.0f, 0.0f), 1.0f);
+                cart->AddCircle(glm::vec2(-20.0f, 12.0f), 8.0f, 1.0f);
+                cart->AddCircle(glm::vec2(20.0f, 12.0f), 8.0f, 1.0f);
+            }
+
+            if (ImGui::Button("Car"))
+                cars.push_back(SpawnCar(world, dropPoint));
+            ImGui::SameLine();
+            if (ImGui::Button("Bunny") && bunnyPixels)
+                world.CreateFromImage(dropPoint, bunnyPixels, bunnyWidth, bunnyHeight, 4, 128, 1.0f, 2.0f);
+            ImGui::SameLine();
+            if (ImGui::Button("Edge"))
+                world.CreateEdge(dropPoint - glm::vec2(100.0f, 0.0f), dropPoint + glm::vec2(100.0f, 0.0f));
+
+            if (ImGui::Button("Bridge"))
+                SpawnBridge(world, glm::vec2(640.0f, 500.0f));
+            ImGui::SameLine();
+            if (ImGui::Button("Gears"))
+                SpawnGears(world, dropPoint);
+            ImGui::SameLine();
+            if (ImGui::Button("Blob"))
+                SpawnBlob(world, dropPoint);
+            ImGui::End();
+        }
+
+        if (cars.size() > 0)
+        {
+            ImGui::Begin("Car");
+            bool springChanged = ImGui::SliderFloat("frequencyHz", &carFrequency, 0.5f, 10.0f);
+            springChanged |= ImGui::SliderFloat("dampingRatio", &carDamping, 0.0f, 2.0f);
+            if (springChanged)
+            {
+                for (size_t i = 0; i < cars.size(); ++i)
+                {
+                    cars[i].jointRear->SetSpring(carFrequency, carDamping);
+                    cars[i].jointFront->SetSpring(carFrequency, carDamping);
+                }
+            }
+
+            ImGui::SliderFloat("maxTorque", &carMaxTorque, 1.0e5f, 2.0e7f, "%.0f", ImGuiSliderFlags_Logarithmic);
+
+            float gravityY = world.Gravity().y;
+            if (ImGui::SliderFloat("gravity Y", &gravityY, 0.0f, 1500.0f))
+                world.SetGravity(glm::vec2(world.Gravity().x, gravityY));
+            ImGui::End();
+        }
+
+        if (showProfiler)
+            k2d::ShowProfilerWindow(&showProfiler);
+        device.EndUI();
+
         device.Swap();
+
+        if (device.IsGifCapturing())
+            device.CaptureGifFrame();
+
+        k2d::Profiler::Get().endFrame();
     }
+
+    if (bunnyPixels)
+        stbi_image_free(bunnyPixels);
 
     batch.Shutdown();
     device.Shutdown();

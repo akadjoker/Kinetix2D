@@ -3,13 +3,27 @@
 #include <SDL.h>
 #include <glad/glad.h>
 #include <cstdio>
+#include <cstring>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
+#define MSF_GIF_IMPL
+#include <msf_gif.h>
+
+#include <imgui.h>
+#include <backends/imgui_impl_sdl2.h>
+#include <backends/imgui_impl_opengl3.h>
 
 namespace k2d
 {
 
     Device::Device()
         : mWindow(nullptr), mGLContext(nullptr), mWidth(0), mHeight(0),
-          mResized(false), mLastCounter(0), mDeltaTime(0.0f)
+          mResized(false), mLastCounter(0), mDeltaTime(0.0f),
+          mImGuiWantsMouse(false), mImGuiWantsKeyboard(false),
+          mGifCapturing(false), mGifFrameRate(60), mGifFrameCounter(0),
+          mGifHandle(nullptr), mScreenshotIndex(1), mGifFileIndex(1)
     {
     }
 
@@ -72,11 +86,24 @@ namespace k2d
         mLastCounter = SDL_GetPerformanceCounter();
         mDeltaTime = 0.0f;
 
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui_ImplSDL2_InitForOpenGL(mWindow, mGLContext);
+        ImGui_ImplOpenGL3_Init("#version 300 es");
+
+        mWindowTitle = title;
+
         return true;
     }
 
     void Device::Shutdown()
     {
+        if (mGLContext)
+        {
+            ImGui_ImplOpenGL3_Shutdown();
+            ImGui_ImplSDL2_Shutdown();
+            ImGui::DestroyContext();
+        }
         if (mGLContext)
         {
             SDL_GL_DeleteContext(mGLContext);
@@ -90,6 +117,27 @@ namespace k2d
         SDL_Quit();
     }
 
+    void Device::BeginUI()
+    {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+    }
+
+    void Device::EndUI()
+    {
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    void Device::Focus()
+    {
+        if (!mWindow)
+            return;
+        SDL_RaiseWindow(mWindow);
+        SDL_SetWindowInputFocus(mWindow);
+    }
+
     bool Device::PollEvents()
     {
         mInput.NewFrame();
@@ -98,6 +146,8 @@ namespace k2d
         SDL_Event e;
         while (SDL_PollEvent(&e))
         {
+            ImGui_ImplSDL2_ProcessEvent(&e);
+
             switch (e.type)
             {
             case SDL_QUIT:
@@ -154,6 +204,7 @@ namespace k2d
                         mWidth = w;
                         mHeight = h;
                         mResized = true;
+                        glViewport(0, 0, mWidth, mHeight);
                     }
                 }
                 break;
@@ -171,12 +222,135 @@ namespace k2d
             dt = 0.25f;
         mDeltaTime = dt;
 
+        ImGuiIO &io = ImGui::GetIO();
+        mImGuiWantsMouse = io.WantCaptureMouse;
+        mImGuiWantsKeyboard = io.WantCaptureKeyboard;
+
         return true;
+    }
+
+    double Device::TimeSeconds()
+    {
+        return (double)SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
     }
 
     void Device::Swap()
     {
         SDL_GL_SwapWindow(mWindow);
+    }
+
+    void Device::UpdateWindowTitle()
+    {
+        ct::String title = mWindowTitle;
+        if (mGifCapturing)
+            title += " [RECORDING]";
+        SDL_SetWindowTitle(mWindow, title.c_str());
+    }
+
+    void Device::CaptureScreenshot()
+    {
+        unsigned char *pixels = new unsigned char[mWidth * mHeight * 4];
+        glReadPixels(0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+        char filename[256];
+        std::snprintf(filename, sizeof(filename), "screenshot_%04u.png", mScreenshotIndex++);
+
+        int stride = mWidth * 4;
+        for (int y = 0; y < mHeight / 2; ++y)
+        {
+            unsigned char *top = pixels + y * stride;
+            unsigned char *bottom = pixels + (mHeight - 1 - y) * stride;
+            for (int x = 0; x < stride; ++x)
+            {
+                unsigned char tmp = top[x];
+                top[x] = bottom[x];
+                bottom[x] = tmp;
+            }
+        }
+
+        stbi_write_png(filename, mWidth, mHeight, 4, pixels, stride);
+        std::printf("Screenshot saved: %s\n", filename);
+
+        delete[] pixels;
+    }
+
+    void Device::StartGifCapture(int frameRate)
+    {
+        if (mGifCapturing)
+            return;
+
+        mGifFrameRate = frameRate;
+        mGifFrameCounter = 0;
+        mGifCapturing = true;
+
+        MsfGifState *gifState = new MsfGifState;
+        msf_gif_begin(gifState, mWidth, mHeight);
+        mGifHandle = (void *)gifState;
+
+        UpdateWindowTitle();
+        std::printf("Started GIF capture (%d fps)\n", frameRate);
+    }
+
+    void Device::StopGifCapture()
+    {
+        if (!mGifCapturing)
+            return;
+
+        mGifCapturing = false;
+        UpdateWindowTitle();
+
+        MsfGifState *gifState = static_cast<MsfGifState *>(mGifHandle);
+
+        MsfGifResult result = msf_gif_end(gifState);
+        if (result.data)
+        {
+            char filename[256];
+            std::snprintf(filename, sizeof(filename), "capture_%04u.gif", mGifFileIndex++);
+
+            FILE *fp = std::fopen(filename, "wb");
+            if (fp)
+            {
+                std::fwrite(result.data, 1, result.dataSize, fp);
+                std::fclose(fp);
+                std::printf("GIF saved: %s (%d frames)\n", filename, mGifFrameCounter);
+            }
+            msf_gif_free(result);
+        }
+
+        delete gifState;
+        mGifHandle = nullptr;
+    }
+
+    void Device::CaptureGifFrame()
+    {
+        if (!mGifCapturing)
+            return;
+
+        MsfGifState *gifState = static_cast<MsfGifState *>(mGifHandle);
+
+        unsigned char *screenData = new unsigned char[mWidth * mHeight * 4];
+        glReadPixels(0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, screenData);
+
+        unsigned char *flipped = new unsigned char[mWidth * mHeight * 4];
+        int stride = mWidth * 4;
+
+        for (int y = mHeight - 1; y >= 0; --y)
+        {
+            for (int x = 0; x < stride; ++x)
+            {
+                flipped[((mHeight - 1) - y) * stride + x] = screenData[(y * stride) + x];
+
+                if (((x + 1) % 4) == 0)
+                    flipped[((mHeight - 1) - y) * stride + x] = 255;
+            }
+        }
+
+        int centiSecondsPerFrame = (int)(100.0f / mGifFrameRate + 0.5f);
+        msf_gif_frame(gifState, (uint8_t *)flipped, centiSecondsPerFrame, 16, stride);
+
+        delete[] screenData;
+        delete[] flipped;
+        mGifFrameCounter++;
     }
 
 }

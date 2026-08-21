@@ -18,7 +18,8 @@ namespace kx
     {
         DebugDrawShapes = 1 << 0,
         DebugDrawAABBs = 1 << 1,
-        DebugDrawContacts = 1 << 2
+        DebugDrawContacts = 1 << 2,
+        DebugDrawJoints = 1 << 3
     };
 
     class DebugDraw
