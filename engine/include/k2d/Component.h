@@ -14,9 +14,10 @@ namespace k2d
         Script,
         Camera,
         TileMap,
-        SpriteBatch,
-        Polygon2D,
-        Light,
+    SpriteBatch,
+    Polygon2D,
+    Animation,
+    Light,
         Occluder,
         Count
     };

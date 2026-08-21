@@ -45,8 +45,12 @@ add_library(k2d STATIC
     src/Device.cpp
     src/Shader.cpp
     src/Texture.cpp
+    src/Pixmap.cpp
     src/Assets.cpp
     src/Batch.cpp
+    src/CameraComponent.cpp
+    src/Animation2D.cpp
+    src/Material2D.cpp
     src/CanvasRenderer.cpp
     src/RenderQueue.cpp
     src/Component.cpp
@@ -61,6 +65,7 @@ add_library(k2d STATIC
     src/Polygon2D.cpp
     ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
     src/TileMapComponent.cpp
+    src/ParallaxLayer2D.cpp
     src/Profiler.cpp
     src/ProfilerUI.cpp
 )

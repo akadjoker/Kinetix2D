@@ -849,6 +849,9 @@ void main()
         if (!mShadowFramebuffer || !mShadowProgram || mOccluderEdgeCount == 0)
             return;
 
+        GLint previousViewport[4] = {0, 0, 0, 0};
+        glGetIntegerv(GL_VIEWPORT, previousViewport);
+
         static const int textureSize = 2048;
         static const glm::vec2 directions[4] = {
             glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 1.0f),
@@ -950,6 +953,8 @@ void main()
 
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(previousViewport[0], previousViewport[1],
+                   previousViewport[2], previousViewport[3]);
         glDisable(GL_SCISSOR_TEST);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);

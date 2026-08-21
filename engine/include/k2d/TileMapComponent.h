@@ -8,6 +8,7 @@ namespace k2d
 {
 
     class Texture;
+    class Assets;
 
     // Tile map component. Roughly follows Godot's TileMapLayer + TileSetAtlasSource
     // (modules/tilemap/tile_map_layer.cpp): the atlas texture is a uniform grid of
@@ -26,6 +27,7 @@ namespace k2d
         void setMapSize(int columns, int rows);
         void setAtlasTilesX(int tilesX);
         void setTile(int x, int y, int atlasTileId);
+        bool loadTMX(Assets &assets, const char *tmxPath, const char *textureName = "tmx_tiles");
         int getTile(int x, int y) const;
         void setCullRect(float x, float y, float width, float height);
         void clearCullRect();

@@ -16,6 +16,7 @@ add_library(kx STATIC
     src/triangulate.cpp
     src/imageshape.cpp
     src/debugdraw.cpp
+    src/tilemapcollider.cpp
 )
 
 target_include_directories(kx PUBLIC

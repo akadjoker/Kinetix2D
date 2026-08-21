@@ -2,6 +2,7 @@
 
 #include "k2d/CanvasTypes.h"
 #include "k2d/Component.h"
+#include "k2d/Material2D.h"
 
 #include <glm/glm.hpp>
 
@@ -19,6 +20,8 @@ namespace k2d
 
         Texture *texture() const;
         void setTexture(Texture *texture);
+        Material2D &material() { return mMaterial; }
+        const Material2D &material() const { return mMaterial; }
 
         const glm::vec2 &size() const;
         void setSize(const glm::vec2 &size);
@@ -31,32 +34,20 @@ namespace k2d
         void setSourceRect(float x, float y, float width, float height);
         void clearSourceRect();
         void setFlip(bool flipX, bool flipY);
-        bool flipX() const { return mFlipX; }
-        bool flipY() const { return mFlipY; }
+        bool flipX() const { return mMaterial.flipX(); }
+        bool flipY() const { return mMaterial.flipY(); }
         void setYSort(bool ySort);
         bool ySort() const { return mYSort; }
         void setBlendMode(BlendMode mode);
-        BlendMode blendMode() const { return mBlendMode; }
+        BlendMode blendMode() const { return mMaterial.blendMode(); }
 
     protected:
         void onRender(RenderQueue &queue) override;
 
     private:
-        Texture *mTexture;
+        Material2D mMaterial;
         glm::vec2 mSize;
-        glm::vec2 mPivot;
-        unsigned char mColorR;
-        unsigned char mColorG;
-        unsigned char mColorB;
-        unsigned char mColorA;
-        float mSourceX;
-        float mSourceY;
-        float mSourceW;
-        float mSourceH;
-        bool mFlipX;
-        bool mFlipY;
         bool mYSort;
-        BlendMode mBlendMode;
     };
 
 }

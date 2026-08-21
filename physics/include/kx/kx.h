@@ -11,6 +11,7 @@
 #include "joints/distancejoint.h"
 #include "joints/gearjoint.h"
 #include "world.h"
+#include "tilemapcollider.h"
 #include "debugdraw.h"
 #include "internal/collide.h"
 #include "internal/triangulate.h"

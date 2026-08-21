@@ -15,11 +15,21 @@ namespace k2d
         Loop
     };
 
+    enum class ParticleEmitterShape
+    {
+        Point,
+        Circle,
+        Rectangle
+    };
+
     struct ParticlePrefab
     {
         glm::vec2 velocity = glm::vec2(0.0f);
         float lifetime = 1.0f;
         float size = 1.0f;
+        float endSize = 0.0f; // zero keeps size constant
+        float fadeIn = 0.0f;  // seconds
+        float fadeOut = 0.0f; // seconds
         glm::vec4 color = glm::vec4(1.0f);
         float rotation = 0.0f;
         float angularVelocity = 0.0f;
@@ -40,6 +50,11 @@ namespace k2d
         float age;
         float lifetime;
         float size;
+        float startSize;
+        float endSize;
+        float baseAlpha;
+        float fadeIn;
+        float fadeOut;
         float rotation;
         float angularVelocity;
         glm::vec4 atlasBounds;
@@ -60,6 +75,11 @@ namespace k2d
         void SetPrefab(const ParticlePrefab &prefab) { mPrefab = prefab; }
         const ParticlePrefab &GetPrefab() const { return mPrefab; }
         void SetEmitterPosition(const glm::vec2 &position) { mEmitterPosition = position; }
+        void SetEmitterShape(ParticleEmitterShape shape) { mEmitterShape = shape; }
+        ParticleEmitterShape GetEmitterShape() const { return mEmitterShape; }
+        void SetEmitterRadius(float radius) { mEmitterSize = glm::vec2(radius > 0.0f ? radius : 0.0f); }
+        void SetEmitterSize(const glm::vec2 &size) { mEmitterSize = size; }
+        const glm::vec2 &EmitterSize() const { return mEmitterSize; }
         void SetEmissionRate(float particlesPerSecond);
         float EmissionRate() const { return mEmissionRate; }
         void SetOneShotCount(size_t count) { mOneShotCount = count; }
@@ -104,6 +124,12 @@ namespace k2d
         size_t mOneShotCount;
         bool mPlaying;
         bool mFinished;
+        ParticleEmitterShape mEmitterShape;
+        glm::vec2 mEmitterSize;
+        unsigned int mRandomState;
+
+        float Random01();
+        glm::vec2 EmitPosition();
     };
 
 }

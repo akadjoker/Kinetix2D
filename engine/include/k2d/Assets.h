@@ -20,7 +20,8 @@ namespace k2d
 
         Shader *LoadShader(const char *name, const char *vsSrc, const char *fsSrc);
         Shader *LoadShaderFiles(const char *name, const char *vsPath, const char *fsPath);
-        Texture *CreateTexture(const char *name, int w, int h, const unsigned char *rgba);
+        Texture *CreateTexture(const char *name, int w, int h, const unsigned char *rgba,
+                               bool nearest = true, bool repeat = false);
         Texture *LoadTexture(const char *name, const char *path);
 
         Shader *GetShader(const char *name);

@@ -1,0 +1,30 @@
+#include "k2d/Material2D.h"
+
+namespace k2d
+{
+
+    Material2D::Material2D()
+        : mTexture(nullptr), mColor(1.0f), mSourceRect(0.0f), mPivot(0.5f),
+          mBlendMode(BLEND_MIX), mHasSourceRect(false), mFlipX(false), mFlipY(false)
+    {
+    }
+
+    void Material2D::setColor(unsigned char r, unsigned char g,
+                              unsigned char b, unsigned char a)
+    {
+        mColor = glm::vec4(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
+    }
+
+    void Material2D::setSourceRect(float x, float y, float width, float height)
+    {
+        mSourceRect = glm::vec4(x, y, width, height);
+        mHasSourceRect = width != 0.0f && height != 0.0f;
+    }
+
+    void Material2D::clearSourceRect()
+    {
+        mSourceRect = glm::vec4(0.0f);
+        mHasSourceRect = false;
+    }
+
+}

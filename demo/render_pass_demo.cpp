@@ -43,26 +43,25 @@ int main()
         return 1;
 
     k2d::Assets assets;
-    unsigned char whitePixels[4] = {255, 255, 255, 255};
-    k2d::Texture *white = assets.CreateTexture("pass_white", 1, 1, whitePixels);
+    k2d::Pixmap whitePixmap(1, 1);
+    whitePixmap.Clear(255, 255, 255, 255);
+    k2d::Texture *white = whitePixmap.CreateTexture(assets, "pass_white");
 
     const int atlasWidth = 64;
     const int atlasHeight = 16;
-    unsigned char atlas[atlasWidth * atlasHeight * 4];
+    k2d::Pixmap atlasPixmap(atlasWidth, atlasHeight);
     for (int y = 0; y < atlasHeight; ++y)
     {
         for (int x = 0; x < atlasWidth; ++x)
         {
             int cell = x / 16;
-            int index = (y * atlasWidth + x) * 4;
-            atlas[index + 0] = cell == 0 ? 255 : (cell == 1 ? 255 : 80);
-            atlas[index + 1] = cell == 2 ? 210 : (cell == 1 ? 80 : 150);
-            atlas[index + 2] = cell == 3 ? 255 : 40;
-            atlas[index + 3] = 255;
+            atlasPixmap.SetPixel(x, y,
+                                 cell == 0 ? 255 : (cell == 1 ? 255 : 80),
+                                 cell == 2 ? 210 : (cell == 1 ? 80 : 150),
+                                 cell == 3 ? 255 : 40, 255);
         }
     }
-    k2d::Texture *particleTexture = assets.CreateTexture("pass_particles", atlasWidth,
-                                                         atlasHeight, atlas);
+    k2d::Texture *particleTexture = atlasPixmap.CreateTexture(assets, "pass_particles");
 
     k2d::ParticlePrefab litPrefab;
     litPrefab.velocity = glm::vec2(0.0f, -55.0f);
@@ -122,9 +121,6 @@ int main()
         float dt = device.DeltaTime();
         litParticles.Update(dt);
         unlitParticles.Update(dt);
-
-        if (device.WasResized())
-            glViewport(0, 0, device.Width(), device.Height());
 
         glClearColor(0.025f, 0.03f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);

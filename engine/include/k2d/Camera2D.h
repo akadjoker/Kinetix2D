@@ -20,8 +20,102 @@ namespace k2d
         float rotationDegrees;   // camera rotation around the center
         glm::vec2 zoom;          // > 1 = zoom in (Godot semantics)
         glm::vec2 offset;        // screen-space offset applied after rotation
+        bool limitEnabled;
+        glm::vec4 limits;        // left, top, right, bottom in world units
+        bool smoothingEnabled;
+        float smoothingSpeed;
+        bool deadZoneEnabled;
+        glm::vec4 deadZone;      // left, top, right, bottom in screen pixels
+        bool targetEnabled;
+        glm::vec2 target;
 
-        Camera2D() : position(0.0f, 0.0f), rotationDegrees(0.0f), zoom(1.0f, 1.0f), offset(0.0f, 0.0f) {}
+        Camera2D()
+            : position(0.0f), rotationDegrees(0.0f), zoom(1.0f, 1.0f), offset(0.0f),
+              limitEnabled(false), limits(0.0f), smoothingEnabled(false), smoothingSpeed(5.0f),
+              deadZoneEnabled(false), deadZone(0.0f), targetEnabled(false), target(0.0f) {}
+
+        void setLimits(float left, float top, float right, float bottom)
+        {
+            limits = glm::vec4(left, top, right, bottom);
+            limitEnabled = right > left && bottom > top;
+        }
+
+        void clearLimits() { limitEnabled = false; }
+
+        void setSmoothing(bool enabled, float speed = 5.0f)
+        {
+            smoothingEnabled = enabled;
+            smoothingSpeed = speed > 0.0f ? speed : 0.0f;
+        }
+
+        void setDeadZonePixels(float left, float top, float right, float bottom)
+        {
+            deadZone = glm::vec4(left, top, right, bottom);
+            deadZoneEnabled = right > left && bottom > top;
+        }
+
+        void clearDeadZone() { deadZoneEnabled = false; }
+        void setTarget(const glm::vec2 &value) { target = value; targetEnabled = true; }
+        void clearTarget() { targetEnabled = false; }
+
+        void update(float deltaTime, float screenW, float screenH)
+        {
+            if (!targetEnabled)
+                return;
+
+            glm::vec2 desired = position;
+            glm::vec2 worldDeadZoneMin = target;
+            glm::vec2 worldDeadZoneMax = target;
+            if (deadZoneEnabled)
+            {
+                worldDeadZoneMin += glm::vec2((deadZone.x - screenW * 0.5f) / zoom.x,
+                                              (deadZone.y - screenH * 0.5f) / zoom.y);
+                worldDeadZoneMax += glm::vec2((deadZone.z - screenW * 0.5f) / zoom.x,
+                                              (deadZone.w - screenH * 0.5f) / zoom.y);
+            }
+            else
+            {
+                worldDeadZoneMin = target;
+                worldDeadZoneMax = target;
+            }
+
+            if (target.x < desired.x + worldDeadZoneMin.x - target.x)
+                desired.x = target.x - (deadZoneEnabled ? (deadZone.x - screenW * 0.5f) / zoom.x : 0.0f);
+            if (target.x > desired.x + worldDeadZoneMax.x - target.x)
+                desired.x = target.x - (deadZoneEnabled ? (deadZone.z - screenW * 0.5f) / zoom.x : 0.0f);
+            if (target.y < desired.y + worldDeadZoneMin.y - target.y)
+                desired.y = target.y - (deadZoneEnabled ? (deadZone.y - screenH * 0.5f) / zoom.y : 0.0f);
+            if (target.y > desired.y + worldDeadZoneMax.y - target.y)
+                desired.y = target.y - (deadZoneEnabled ? (deadZone.w - screenH * 0.5f) / zoom.y : 0.0f);
+
+            if (!smoothingEnabled || smoothingSpeed <= 0.0f || deltaTime <= 0.0f)
+                position = desired;
+            else
+            {
+                float factor = 1.0f - expf(-smoothingSpeed * deltaTime);
+                position += (desired - position) * factor;
+            }
+
+            clampToLimits(screenW, screenH);
+        }
+
+        void clampToLimits(float screenW, float screenH)
+        {
+            if (!limitEnabled)
+                return;
+            float halfW = screenW * 0.5f / zoom.x;
+            float halfH = screenH * 0.5f / zoom.y;
+            float minCenterX = limits.x + halfW;
+            float maxCenterX = limits.z - halfW;
+            float minCenterY = limits.y + halfH;
+            float maxCenterY = limits.w - halfH;
+            position.x = minCenterX <= maxCenterX
+                             ? (position.x < minCenterX ? minCenterX : (position.x > maxCenterX ? maxCenterX : position.x))
+                             : (limits.x + limits.z) * 0.5f;
+            position.y = minCenterY <= maxCenterY
+                             ? (position.y < minCenterY ? minCenterY : (position.y > maxCenterY ? maxCenterY : position.y))
+                             : (limits.y + limits.w) * 0.5f;
+        }
 
         // screen pixels -> world (the camera xform, Godot's transform before inverse)
         Matrix2D CameraXform(float screenW, float screenH) const

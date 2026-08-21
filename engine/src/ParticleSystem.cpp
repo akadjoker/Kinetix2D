@@ -30,7 +30,8 @@ namespace k2d
         : mTexture(nullptr), mGravity(0.0f), mCapacity(capacity), mParticles(),
           mMode(ParticleMode::Persistent), mPrefab(), mEmitterPosition(0.0f),
           mEmissionRate(0.0f), mEmissionAccumulator(0.0f), mOneShotCount(1),
-          mPlaying(false), mFinished(false)
+          mPlaying(false), mFinished(false), mEmitterShape(ParticleEmitterShape::Point),
+          mEmitterSize(0.0f), mRandomState(0x12345678u)
     {
         mParticles.reserve(capacity);
     }
@@ -74,6 +75,11 @@ namespace k2d
         particle.age = 0.0f;
         particle.lifetime = lifetime;
         particle.size = size;
+        particle.startSize = size;
+        particle.endSize = size;
+        particle.baseAlpha = color.a;
+        particle.fadeIn = 0.0f;
+        particle.fadeOut = 0.0f;
         particle.rotation = rotation;
         particle.angularVelocity = angularVelocity;
         particle.atlasBounds = atlasBounds;
@@ -83,9 +89,38 @@ namespace k2d
 
     bool ParticleSystem::Emit(const glm::vec2 &position, const ParticlePrefab &prefab)
     {
-        return Emit(position, prefab.velocity, prefab.lifetime, prefab.size,
+        bool emitted = Emit(position, prefab.velocity, prefab.lifetime, prefab.size,
                     prefab.color, prefab.rotation, prefab.angularVelocity,
                     prefab.atlasBounds);
+        if (emitted)
+        {
+            Particle &particle = mParticles.back();
+            particle.endSize = prefab.endSize > 0.0f ? prefab.endSize : prefab.size;
+            particle.fadeIn = prefab.fadeIn > 0.0f ? prefab.fadeIn : 0.0f;
+            particle.fadeOut = prefab.fadeOut > 0.0f ? prefab.fadeOut : 0.0f;
+        }
+        return emitted;
+    }
+
+    float ParticleSystem::Random01()
+    {
+        mRandomState = mRandomState * 1664525u + 1013904223u;
+        return (float)(mRandomState & 0x00FFFFFFu) / 16777215.0f;
+    }
+
+    glm::vec2 ParticleSystem::EmitPosition()
+    {
+        if (mEmitterShape == ParticleEmitterShape::Point)
+            return mEmitterPosition;
+        if (mEmitterShape == ParticleEmitterShape::Rectangle)
+        {
+            return mEmitterPosition + glm::vec2((Random01() * 2.0f - 1.0f) * mEmitterSize.x,
+                                                (Random01() * 2.0f - 1.0f) * mEmitterSize.y);
+        }
+
+        float angle = Random01() * 6.28318530718f;
+        float radius = std::sqrt(Random01()) * mEmitterSize.x;
+        return mEmitterPosition + glm::vec2(std::cos(angle), std::sin(angle)) * radius;
     }
 
     void ParticleSystem::Start()
@@ -95,7 +130,7 @@ namespace k2d
         if (mMode == ParticleMode::OneShot && mParticles.empty())
         {
             for (size_t i = 0; i < mOneShotCount; ++i)
-                Emit(mEmitterPosition, mPrefab);
+                Emit(EmitPosition(), mPrefab);
             mPlaying = false;
             mFinished = mParticles.empty();
         }
@@ -118,7 +153,7 @@ namespace k2d
             mEmissionAccumulator += deltaTime * mEmissionRate;
             while (mEmissionAccumulator >= 1.0f)
             {
-                if (!Emit(mEmitterPosition, mPrefab))
+                if (!Emit(EmitPosition(), mPrefab))
                     break;
                 mEmissionAccumulator -= 1.0f;
             }
@@ -136,6 +171,15 @@ namespace k2d
             particle.velocity += mGravity * deltaTime;
             particle.position += particle.velocity * deltaTime;
             particle.rotation += particle.angularVelocity * deltaTime;
+            float life = particle.age / particle.lifetime;
+            float alpha = 1.0f;
+            if (particle.fadeIn > 0.0f && particle.age < particle.fadeIn)
+                alpha *= particle.age / particle.fadeIn;
+            if (particle.fadeOut > 0.0f && particle.lifetime - particle.age < particle.fadeOut)
+                alpha *= (particle.lifetime - particle.age) / particle.fadeOut;
+            float sizeT = life < 0.0f ? 0.0f : (life > 1.0f ? 1.0f : life);
+            particle.size = particle.startSize + (particle.endSize - particle.startSize) * sizeT;
+            particle.color.a = particle.baseAlpha * alpha;
             ++i;
         }
         if (mMode == ParticleMode::OneShot && !mPlaying && mParticles.empty())

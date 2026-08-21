@@ -82,6 +82,10 @@ namespace k2d
         mWidth = w;
         mHeight = h;
         mResized = false;
+        int drawableWidth = 0;
+        int drawableHeight = 0;
+        SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+        glViewport(0, 0, drawableWidth, drawableHeight);
 
         mLastCounter = SDL_GetPerformanceCounter();
         mDeltaTime = 0.0f;
@@ -204,7 +208,10 @@ namespace k2d
                         mWidth = w;
                         mHeight = h;
                         mResized = true;
-                        glViewport(0, 0, mWidth, mHeight);
+                        int drawableWidth = 0;
+                        int drawableHeight = 0;
+                        SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+                        glViewport(0, 0, drawableWidth, drawableHeight);
                     }
                 }
                 break;
@@ -213,6 +220,24 @@ namespace k2d
                 break;
             }
         }
+
+        // The window manager can apply the real initial size after Init(),
+        // without sending a resize event to the application. Keep the logical
+        // window size and the physical GL drawable size synchronized anyway.
+        int windowWidth = 0;
+        int windowHeight = 0;
+        SDL_GetWindowSize(mWindow, &windowWidth, &windowHeight);
+        if (windowWidth != mWidth || windowHeight != mHeight)
+        {
+            mWidth = windowWidth;
+            mHeight = windowHeight;
+            mResized = true;
+        }
+
+        int drawableWidth = 0;
+        int drawableHeight = 0;
+        SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+        glViewport(0, 0, drawableWidth, drawableHeight);
 
         unsigned long long now = SDL_GetPerformanceCounter();
         unsigned long long freq = SDL_GetPerformanceFrequency();

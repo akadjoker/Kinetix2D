@@ -50,10 +50,11 @@ namespace k2d
         return shader;
     }
 
-    Texture *Assets::CreateTexture(const char *name, int w, int h, const unsigned char *rgba)
+    Texture *Assets::CreateTexture(const char *name, int w, int h, const unsigned char *rgba,
+                                   bool nearest, bool repeat)
     {
         Texture *texture = new Texture();
-        if (!texture->Create(w, h, rgba))
+        if (!texture->Create(w, h, rgba, nearest, repeat))
         {
             delete texture;
             return nullptr;

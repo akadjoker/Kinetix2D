@@ -63,3 +63,21 @@ target_link_libraries(k2d_spritebatch_tests PRIVATE k2d)
 
 add_executable(k2d_polygon2d_tests k2d_polygon2d_tests.cpp)
 target_link_libraries(k2d_polygon2d_tests PRIVATE k2d)
+
+add_executable(k2d_scene_tests k2d_scene_tests.cpp)
+target_link_libraries(k2d_scene_tests PRIVATE k2d)
+
+add_executable(k2d_camera_tests k2d_camera_tests.cpp)
+target_link_libraries(k2d_camera_tests PRIVATE k2d)
+
+add_executable(k2d_material_tests k2d_material_tests.cpp)
+target_link_libraries(k2d_material_tests PRIVATE k2d)
+
+add_executable(kx_tilemap_tests kx_tilemap_tests.cpp)
+target_link_libraries(kx_tilemap_tests PRIVATE kx)
+
+add_executable(k2d_animation_tests k2d_animation_tests.cpp)
+target_link_libraries(k2d_animation_tests PRIVATE k2d)
+
+add_executable(k2d_pixmap_tests k2d_pixmap_tests.cpp)
+target_link_libraries(k2d_pixmap_tests PRIVATE k2d)

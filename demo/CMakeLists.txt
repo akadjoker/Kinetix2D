@@ -21,8 +21,17 @@ target_link_libraries(render_demo PRIVATE k2d)
 add_executable(render_pass_demo render_pass_demo.cpp)
 target_link_libraries(render_pass_demo PRIVATE k2d)
 
+add_executable(particle_fx_demo particle_fx_demo.cpp)
+target_link_libraries(particle_fx_demo PRIVATE k2d imgui)
+
+add_executable(parallax_demo parallax_demo.cpp)
+target_link_libraries(parallax_demo PRIVATE k2d imgui)
+
 add_executable(canvas_bunnymark canvas_bunnymark.cpp)
 target_link_libraries(canvas_bunnymark PRIVATE k2d imgui)
+
+add_executable(assets_demo assets_demo.cpp)
+target_link_libraries(assets_demo PRIVATE k2d imgui)
 
 add_executable(testbed
     testbed/testbed.cpp
