@@ -112,6 +112,9 @@ namespace kx
         float mRestitution;
         uint32_t mId;
 
+        int32_t mProxyId;
+        glm::vec2 mProxyPosition;
+
         Shape mShapes[kMaxShapes];
         int mShapeCount;
 

@@ -36,17 +36,26 @@ namespace kx
             return aabb;
         }
 
-        bool TestOverlap(const AABB &a, const AABB &b)
+        struct PairQueryVisitor
         {
-            glm::vec2 d1 = b.lowerBound - a.upperBound;
-            glm::vec2 d2 = a.lowerBound - b.upperBound;
+            const DynamicTree *tree;
+            int32_t queryProxyId;
+            ct::Vector<int32_t> *proxyA;
+            ct::Vector<int32_t> *proxyB;
 
-            if (d1.x > 0.0f || d1.y > 0.0f)
-                return false;
-            if (d2.x > 0.0f || d2.y > 0.0f)
-                return false;
-            return true;
-        }
+            bool QueryCallback(int32_t proxyId)
+            {
+                if (proxyId == queryProxyId)
+                    return true;
+
+                if (tree->WasMoved(proxyId) && proxyId > queryProxyId)
+                    return true;
+
+                proxyA->push_back(proxyId < queryProxyId ? proxyId : queryProxyId);
+                proxyB->push_back(proxyId < queryProxyId ? queryProxyId : proxyId);
+                return true;
+            }
+        };
 
         bool CollideShapePair(Manifold &manifold, bool &flip,
                               const Shape &sA, const Transform &xfA,
@@ -164,6 +173,16 @@ namespace kx
 
     void World::Destroy(Body *body)
     {
+        if (body->mProxyId != kNullNode)
+        {
+            for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+                if (mMoveBuffer[i] == body->mProxyId)
+                    mMoveBuffer[i] = kNullNode;
+
+            mTree.DestroyProxy(body->mProxyId);
+            body->mProxyId = kNullNode;
+        }
+
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
             if (mBodies[i] == body)
@@ -234,48 +253,107 @@ namespace kx
         return nullptr;
     }
 
+    void World::SyncProxies()
+    {
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *b = mBodies[i];
+            if (b->ShapeCount() == 0)
+                continue;
+
+            AABB aabb = ComputeBodyAABB(*b);
+
+            if (b->mProxyId == kNullNode)
+            {
+                b->mProxyId = mTree.CreateProxy(aabb, b);
+                b->mProxyPosition = b->mPosition;
+                mMoveBuffer.push_back(b->mProxyId);
+                continue;
+            }
+
+            glm::vec2 displacement = b->mPosition - b->mProxyPosition;
+            b->mProxyPosition = b->mPosition;
+            if (mTree.MoveProxy(b->mProxyId, aabb, displacement))
+                mMoveBuffer.push_back(b->mProxyId);
+        }
+    }
+
+    void World::FindPairs(ct::Vector<Body *> &pairsA, ct::Vector<Body *> &pairsB)
+    {
+        ct::Vector<int32_t> proxyA;
+        ct::Vector<int32_t> proxyB;
+
+        for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+        {
+            int32_t queryProxyId = mMoveBuffer[i];
+            if (queryProxyId == kNullNode)
+                continue;
+
+            PairQueryVisitor visitor{&mTree, queryProxyId, &proxyA, &proxyB};
+            const AABB &fatAABB = mTree.GetFatAABB(queryProxyId);
+            mTree.Query(&visitor, fatAABB);
+        }
+
+        for (size_t i = 0; i < proxyA.size(); ++i)
+        {
+            pairsA.push_back(static_cast<Body *>(mTree.GetUserData(proxyA[i])));
+            pairsB.push_back(static_cast<Body *>(mTree.GetUserData(proxyB[i])));
+        }
+
+        for (size_t i = 0; i < mMoveBuffer.size(); ++i)
+            if (mMoveBuffer[i] != kNullNode)
+                mTree.ClearMoved(mMoveBuffer[i]);
+
+        mMoveBuffer.clear();
+    }
+
     void World::UpdateContacts()
     {
         mContacts.clear();
 
-        for (size_t i = 0; i < mBodies.size(); ++i)
+        SyncProxies();
+
+        ct::Vector<Body *> pairsA;
+        ct::Vector<Body *> pairsB;
+        FindPairs(pairsA, pairsB);
+
+        for (size_t p = 0; p < pairsA.size(); ++p)
         {
-            Body *bi = mBodies[i];
-            for (size_t j = i + 1; j < mBodies.size(); ++j)
+            Body *first = pairsA[p];
+            Body *second = pairsB[p];
+
+            if (first->Type() != BodyType::Dynamic && second->Type() != BodyType::Dynamic)
+                continue;
+
+            if (first->mId > second->mId)
             {
-                Body *bj = mBodies[j];
+                Body *tmp = first;
+                first = second;
+                second = tmp;
+            }
 
-                if (bi->Type() != BodyType::Dynamic && bj->Type() != BodyType::Dynamic)
-                    continue;
+            Transform xfFirst = first->GetTransform();
+            Transform xfSecond = second->GetTransform();
 
-                AABB aabbA = ComputeBodyAABB(*bi);
-                AABB aabbB = ComputeBodyAABB(*bj);
-                if (!TestOverlap(aabbA, aabbB))
-                    continue;
-
-                Transform xfi = bi->GetTransform();
-                Transform xfj = bj->GetTransform();
-
-                for (int si = 0; si < bi->ShapeCount(); ++si)
+            for (int si = 0; si < first->ShapeCount(); ++si)
+            {
+                for (int sj = 0; sj < second->ShapeCount(); ++sj)
                 {
-                    for (int sj = 0; sj < bj->ShapeCount(); ++sj)
-                    {
-                        Manifold manifold;
-                        bool flip;
-                        if (!CollideShapePair(manifold, flip, bi->Shapes()[si], xfi, bj->Shapes()[sj], xfj))
-                            continue;
+                    Manifold manifold;
+                    bool flip;
+                    if (!CollideShapePair(manifold, flip, first->Shapes()[si], xfFirst, second->Shapes()[sj], xfSecond))
+                        continue;
 
-                        if (manifold.pointCount == 0)
-                            continue;
+                    if (manifold.pointCount == 0)
+                        continue;
 
-                        ContactInfo info;
-                        info.a = flip ? bj : bi;
-                        info.b = flip ? bi : bj;
-                        info.shapeIndexA = flip ? sj : si;
-                        info.shapeIndexB = flip ? si : sj;
-                        info.manifold = manifold;
-                        mContacts.push_back(info);
-                    }
+                    ContactInfo info;
+                    info.a = flip ? second : first;
+                    info.b = flip ? first : second;
+                    info.shapeIndexA = flip ? sj : si;
+                    info.shapeIndexB = flip ? si : sj;
+                    info.manifold = manifold;
+                    mContacts.push_back(info);
                 }
             }
         }
@@ -292,7 +370,7 @@ namespace kx
             mBodies[i]->IntegrateVelocity(mGravity, dt);
 
         UpdateContacts();
-        InitContactConstraints(dt);
+        InitContactConstraints();
         WarmStartContacts();
 
         for (size_t i = 0; i < mJoints.size(); ++i)
@@ -388,10 +466,8 @@ namespace kx
         }
     }
 
-    void World::InitContactConstraints(float dt)
+    void World::InitContactConstraints()
     {
-        const float invDt = 1.0f / dt;
-
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];

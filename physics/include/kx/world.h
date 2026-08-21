@@ -6,6 +6,7 @@
 #include <ct/vector.hpp>
 
 #include "body.h"
+#include "dynamictree.h"
 #include "joint.h"
 #include "manifold.h"
 
@@ -73,9 +74,13 @@ namespace kx
 
         void SetVelocityIterations(int iterations) { mVelocityIterations = iterations; }
 
+        int32_t TreeHeight() const { return mTree.GetHeight(); }
+
     private:
+        void SyncProxies();
+        void FindPairs(ct::Vector<Body *> &pairsA, ct::Vector<Body *> &pairsB);
         void UpdateContacts();
-        void InitContactConstraints(float dt);
+        void InitContactConstraints();
         void WarmStartContacts();
         void SolveContactVelocities();
         void SolveContactPositions();
@@ -94,6 +99,8 @@ namespace kx
         ct::Vector<Body *> mBodies;
         ct::Vector<ContactInfo> mContacts;
         ct::Vector<Joint *> mJoints;
+        DynamicTree mTree;
+        ct::Vector<int32_t> mMoveBuffer;
         ct::HashMap<uint64_t, StoredImpulses> mImpulseMap;
         ct::Vector<uint64_t> mStaleKeys;
         uint32_t mStepStamp;

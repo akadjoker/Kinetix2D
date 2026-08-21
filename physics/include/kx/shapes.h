@@ -12,7 +12,49 @@ namespace kx
     {
         glm::vec2 lowerBound;
         glm::vec2 upperBound;
+
+        glm::vec2 GetCenter() const { return 0.5f * (lowerBound + upperBound); }
+        glm::vec2 GetExtents() const { return 0.5f * (upperBound - lowerBound); }
+
+        float GetPerimeter() const
+        {
+            float wx = upperBound.x - lowerBound.x;
+            float wy = upperBound.y - lowerBound.y;
+            return 2.0f * (wx + wy);
+        }
+
+        void Combine(const AABB &aabb)
+        {
+            lowerBound = glm::min(lowerBound, aabb.lowerBound);
+            upperBound = glm::max(upperBound, aabb.upperBound);
+        }
+
+        void Combine(const AABB &aabb1, const AABB &aabb2)
+        {
+            lowerBound = glm::min(aabb1.lowerBound, aabb2.lowerBound);
+            upperBound = glm::max(aabb1.upperBound, aabb2.upperBound);
+        }
+
+        bool Contains(const AABB &aabb) const
+        {
+            return lowerBound.x <= aabb.lowerBound.x &&
+                   lowerBound.y <= aabb.lowerBound.y &&
+                   aabb.upperBound.x <= upperBound.x &&
+                   aabb.upperBound.y <= upperBound.y;
+        }
     };
+
+    inline bool TestOverlap(const AABB &a, const AABB &b)
+    {
+        glm::vec2 d1 = b.lowerBound - a.upperBound;
+        glm::vec2 d2 = a.lowerBound - b.upperBound;
+
+        if (d1.x > 0.0f || d1.y > 0.0f)
+            return false;
+        if (d2.x > 0.0f || d2.y > 0.0f)
+            return false;
+        return true;
+    }
 
     struct MassData
     {
