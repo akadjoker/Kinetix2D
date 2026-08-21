@@ -20,6 +20,8 @@ namespace kx
     constexpr float kVelocityThreshold = 50.0f;
     constexpr float kMaxLinearCorrection = 10.0f;
     constexpr float kMaxTranslation = 100.0f;
+    constexpr float kAabbExtension = 10.0f;
+    constexpr float kAabbMultiplier = 4.0f;
 
     inline float Cross(const glm::vec2 &a, const glm::vec2 &b) { return a.x * b.y - a.y * b.x; }
     inline glm::vec2 Cross(const glm::vec2 &a, float s) { return glm::vec2(s * a.y, -s * a.x); }

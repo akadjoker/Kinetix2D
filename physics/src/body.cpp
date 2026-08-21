@@ -11,6 +11,7 @@ namespace kx
           mLinearVelocity(0.0f, 0.0f), mAngularVelocity(0.0f),
           mInvMass(0.0f), mInvI(0.0f), mLocalCenter(0.0f, 0.0f),
           mFriction(0.2f), mRestitution(0.0f), mId(0),
+          mProxyId(-1), mProxyPosition(0.0f, 0.0f),
           mShapeCount(0)
     {
     }

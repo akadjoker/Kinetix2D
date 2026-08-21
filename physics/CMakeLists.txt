@@ -6,6 +6,7 @@ add_library(kx STATIC
     src/collide.cpp
     src/body.cpp
     src/joint.cpp
+    src/dynamictree.cpp
     src/world.cpp
     src/mousejoint.cpp
     src/debugdraw.cpp
