@@ -571,7 +571,7 @@ namespace kx
     }
 
     void World::RayCastGather(const glm::vec2 &origin, const glm::vec2 &translation,
-                             uint16_t categoryMask, bool includeSensors,
+                             uint16_t categoryMask, bool includeSensors, const Body *ignoreBody,
                              bool stopAtFirst, ct::Vector<RayCastHit> &outHits) const
     {
         outHits.clear();
@@ -601,7 +601,7 @@ namespace kx
         for (size_t i = 0; i < candidates.size(); ++i)
         {
             Body *body = candidates[i];
-            if (body->ShapeCount() == 0)
+            if (body->ShapeCount() == 0 || body == ignoreBody)
                 continue;
             Transform xf = body->GetTransform();
             for (int s = 0; s < body->ShapeCount(); ++s)
@@ -632,9 +632,9 @@ namespace kx
     }
 
     bool World::RayCastClosest(const glm::vec2 &origin, const glm::vec2 &translation, RayCastHit &outHit,
-                               uint16_t categoryMask, bool includeSensors) const
+                               uint16_t categoryMask, bool includeSensors, const Body *ignoreBody) const
     {
-        RayCastGather(origin, translation, categoryMask, includeSensors, true, mRayScratch);
+        RayCastGather(origin, translation, categoryMask, includeSensors, ignoreBody, true, mRayScratch);
         if (mRayScratch.empty())
             return false;
 
@@ -647,9 +647,9 @@ namespace kx
     }
 
     void World::RayCastAll(const glm::vec2 &origin, const glm::vec2 &translation, ct::Vector<RayCastHit> &outHits,
-                           uint16_t categoryMask, bool includeSensors) const
+                           uint16_t categoryMask, bool includeSensors, const Body *ignoreBody) const
     {
-        RayCastGather(origin, translation, categoryMask, includeSensors, false, outHits);
+        RayCastGather(origin, translation, categoryMask, includeSensors, ignoreBody, false, outHits);
     }
 
     void Explode(World &world, const glm::vec2 &center, float radius, float force, float falloff)
@@ -943,12 +943,23 @@ namespace kx
 
         double t3 = mClock ? mClock() : 0.0;
 
+        // CCD leve: guarda o centro dos corpos "bullet" ANTES de os mover, para depois
+        // (SolveBulletSweeps) poder varrer o segmento percorrido este step.
+        mBulletSweeps.clear();
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            Body *b = mBodies[i];
+            if (b->IsBullet() && b->Type() == BodyType::Dynamic && b->IsAwake())
+                mBulletSweeps.push_back(BulletSweep{b, b->WorldCenter()});
+        }
+
         for (size_t i = 0; i < mBodies.size(); ++i)
             mBodies[i]->IntegratePosition(dt);
 
         double t4 = mClock ? mClock() : 0.0;
 
         SolveContactPositions();
+        SolveBulletSweeps();
         UpdateSleeping(dt);
 
         if (mClock)
@@ -959,6 +970,60 @@ namespace kx
             mProfile.broadphase = (float)((t2 - t1) * 1000.0) - mNarrowMs;
             mProfile.solveVelocity = (float)((t3 - t2) * 1000.0);
             mProfile.solvePosition = (float)((t5 - t4) * 1000.0);
+        }
+    }
+
+    void World::SolveBulletSweeps()
+    {
+        for (size_t i = 0; i < mBulletSweeps.size(); ++i)
+        {
+            Body *body = mBulletSweeps[i].body;
+            glm::vec2 prevCenter = mBulletSweeps[i].prevCenter;
+            glm::vec2 newCenter = body->WorldCenter();
+            glm::vec2 delta = newCenter - prevCenter;
+
+            float distSq = Dot(delta, delta);
+            if (distSq < kLinearSlop * kLinearSlop)
+                continue; // deslocamento insignificante este step
+
+            // ignoreBody=body e essencial aqui: sem isto, o raio de prevCenter ate
+            // newCenter atinge quase sempre a PROPRIA shape do bullet primeiro (ela ja
+            // esta na posicao newCenter, exatamente no fim do segmento), mascarando
+            // qualquer hit real mais longe — ver nota em RayCastClosest.
+            RayCastHit hit;
+            if (!RayCastClosest(prevCenter, delta, hit, 0xFFFF, false, body))
+                continue;
+
+            // So bloqueia contra geometria estatica/kinematic: um "bullet" contra outro
+            // corpo dynamic fica por conta do solver discreto de contactos normal, para
+            // nao competir com ele.
+            if (hit.body->Type() == BodyType::Dynamic)
+                continue;
+
+            // So corrige se a posicao final (ja integrada) ficou mesmo do lado de la da
+            // superficie atingida — nao so porque o raio cruzou qualquer coisa perto do
+            // arranque do segmento. Um corpo "bullet" a repousar/deslizar rente a uma
+            // superficie que ja tocava (o solver de contactos normal, que corre antes
+            // disto, ja o impede de penetrar verticalmente) tambem gera um raio quase
+            // tangente a essa superficie — sem este teste, ficava preso todos os steps.
+            // Em contrapartida, uma bala parada mesmo encostada a uma parede que
+            // continua a tentar avancar TEM de continuar a ser recuada todos os steps —
+            // e exatamente esse caso (fica embutida do lado de dentro) que isto apanha.
+            float endSide = Dot(newCenter - hit.point, hit.normal);
+            if (endSide >= -kLinearSlop)
+                continue;
+
+            float dist = std::sqrt(distSq);
+            float safeFraction = hit.fraction - kLinearSlop / dist;
+            if (safeFraction < 0.0f)
+                safeFraction = 0.0f;
+            glm::vec2 safeCenter = prevCenter + safeFraction * delta;
+
+            // Recua a posicao para mesmo antes do impacto; a velocidade fica intacta —
+            // o proximo Step() ve as shapes praticamente encostadas e o solver de
+            // contactos normal (agora com deteccao discreta a funcionar, sem ter de
+            // "saltar" nada) resolve o resto tal como resolveria qualquer outro contacto.
+            body->ShiftCenter(safeCenter - newCenter, 0.0f);
         }
     }
 

@@ -94,6 +94,12 @@ namespace kx
         float fraction;
     };
 
+    struct BulletSweep
+    {
+        Body *body;
+        glm::vec2 prevCenter;
+    };
+
     class World
     {
     public:
@@ -123,14 +129,21 @@ namespace kx
         // Fecho (closest hit) ao longo do segmento [origin, origin+translation]. Sensores
         // sao ignorados por omissao (rays normalmente nao devem ser bloqueados por
         // triggers). categoryMask filtra por Shape::filter.category, tal como um Filter
-        // simples de raycast no Box2D/Chipmunk.
+        // simples de raycast no Box2D/Chipmunk. ignoreBody, se nao nulo, exclui esse
+        // corpo da procura por completo — essencial quando o raio parte de dentro (ou
+        // mesmo perto) do proprio corpo que faz a query (ex.: ground-check de uma
+        // personagem, ou o CCD leve de Body::SetBullet), ja que RayCastClosest so
+        // devolve UM hit: se nao excluires o teu proprio corpo aqui, um auto-hit mais
+        // proximo mascara silenciosamente o hit real que procuras.
         bool RayCastClosest(const glm::vec2 &origin, const glm::vec2 &translation, RayCastHit &outHit,
-                            uint16_t categoryMask = 0xFFFF, bool includeSensors = false) const;
+                            uint16_t categoryMask = 0xFFFF, bool includeSensors = false,
+                            const Body *ignoreBody = nullptr) const;
 
         // Todos os hits ao longo do segmento, por ordem nao especificada (ordena por
         // "fraction" se precisares deles do mais perto para o mais longe).
         void RayCastAll(const glm::vec2 &origin, const glm::vec2 &translation, ct::Vector<RayCastHit> &outHits,
-                        uint16_t categoryMask = 0xFFFF, bool includeSensors = false) const;
+                        uint16_t categoryMask = 0xFFFF, bool includeSensors = false,
+                        const Body *ignoreBody = nullptr) const;
 
         void AddJoint(Joint *joint);
         void DestroyJoint(Joint *joint);
@@ -176,6 +189,9 @@ namespace kx
         void RemoveBodyContactEvents(Body *body);
         void UpdateSleeping(float dt);
 
+        // CCD leve — ver comentario em Body::IsBullet.
+        void SolveBulletSweeps();
+
         // Remove `joint` de mJoints e apaga-o; em cascata, destroi tambem qualquer outro
         // joint cujo DependsOnJoint(joint) seja verdadeiro (ex.: um GearJoint que
         // referencie um RevoluteJoint destruido). Usado por Destroy(Body*) e por
@@ -183,7 +199,7 @@ namespace kx
         void DestroyJointInternal(Joint *joint);
 
         void RayCastGather(const glm::vec2 &origin, const glm::vec2 &translation,
-                           uint16_t categoryMask, bool includeSensors,
+                           uint16_t categoryMask, bool includeSensors, const Body *ignoreBody,
                            bool stopAtFirst, ct::Vector<RayCastHit> &outHits) const;
 
         // Chave de 64 bits para mImpulseMap/mContactStates: 27 bits por id de corpo + 5
@@ -223,6 +239,7 @@ namespace kx
         ct::Vector<uint32_t> mFreeBodyIds; // ids libertados por Destroy(), reciclados por CreateBody
         ct::HashMap<Body *, unsigned char> mTouchingActive; // scratch de UpdateSleeping, reutilizado entre steps
         mutable ct::Vector<RayCastHit> mRayScratch; // scratch de RayCastClosest, reutilizado entre chamadas
+        ct::Vector<BulletSweep> mBulletSweeps; // scratch de SolveBulletSweeps, reutilizado entre steps
         int mVelocityIterations;
     };
 

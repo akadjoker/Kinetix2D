@@ -98,6 +98,16 @@ namespace kx
             RecomputeMass();
         }
 
+        // CCD leve: World::Step, apos mover o corpo, faz um raycast do centro anterior
+        // ao novo contra a DynamicTree; se cruzar geometria estatica/kinematic pelo
+        // caminho, a posicao e recuada para mesmo antes do impacto (nao e TOI real —
+        // nao resolve corpo-dynamic-contra-corpo-dynamic, nem faz sub-stepping do
+        // solver — mas evita o caso mais comum de tunel: projeteis/personagens rapidos
+        // a atravessar paredes/chao finos). So ativa para corpos onde isto realmente
+        // importa, dado o custo extra de um raycast por step.
+        bool IsBullet() const { return mBullet; }
+        void SetBullet(bool bullet) { mBullet = bullet; }
+
         bool IsAwake() const { return mAwake; }
         void SetAwake(bool awake)
         {
@@ -282,6 +292,7 @@ namespace kx
         float mSleepTime;
         bool mAwake;
         bool mFixedRotation;
+        bool mBullet;
 
         float mInvMass;
         float mInvI;

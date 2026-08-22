@@ -10,7 +10,7 @@ namespace kx
         : mType(BodyType::Static),
           mPosition(0.0f, 0.0f), mAngle(0.0f),
           mLinearVelocity(0.0f, 0.0f), mAngularVelocity(0.0f),
-          mSleepTime(0.0f), mAwake(true), mFixedRotation(false),
+          mSleepTime(0.0f), mAwake(true), mFixedRotation(false), mBullet(false),
           mInvMass(0.0f), mInvI(0.0f), mLocalCenter(0.0f, 0.0f),
           mFriction(0.2f), mRestitution(0.0f),
           mLinearDamping(0.0f), mAngularDamping(0.0f), mGravityScale(1.0f),

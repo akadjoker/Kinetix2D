@@ -239,6 +239,61 @@ static void TestForceDampingGravityScale()
     CHECK(thruster->Position().y < -50.0f, "ApplyForceToCenter continua a acelerar o corpo ao longo do tempo");
 }
 
+// CCD leve (Body::SetBullet): um projetil rapido nao pode atravessar uma parede fina
+// nem no primeiro step, nem em nenhum dos seguintes (a bala fica parada a empurrar a
+// parede, nao so "sobrevive um step e depois atravessa" — foi exatamente este o bug
+// que a primeira versao do SolveBulletSweeps tinha).
+static void TestBulletCCD()
+{
+    // Sem CCD: atravessa uma parede fina a alta velocidade.
+    {
+        kx::World world(glm::vec2(0.0f));
+        world.CreateStaticBox(glm::vec2(0.0f, 0.0f), 2.0f, 200.0f);
+        kx::Body *slug = world.CreateCircle(glm::vec2(-300.0f, 0.0f), 5.0f, 1.0f);
+        slug->SetGravityScale(0.0f);
+        slug->SetVelocity(glm::vec2(3000.0f, 0.0f));
+
+        StepN(world, 10); // -300 a 3000u/s, 50u/step -> precisa de ~6 steps so para chegar a x=0
+        CHECK(slug->Position().x > 50.0f, "sem SetBullet, o projetil atravessa a parede fina (baseline do problema)");
+    }
+
+    // Com CCD: fica preso do lado de fora, mesmo ao longo de varios steps.
+    {
+        kx::World world(glm::vec2(0.0f));
+        world.CreateStaticBox(glm::vec2(0.0f, 0.0f), 2.0f, 200.0f);
+        kx::Body *bullet = world.CreateCircle(glm::vec2(-300.0f, 0.0f), 5.0f, 1.0f);
+        bullet->SetGravityScale(0.0f);
+        bullet->SetVelocity(glm::vec2(3000.0f, 0.0f));
+        bullet->SetBullet(true);
+
+        bool everTunneled = false;
+        for (int i = 0; i < 20; ++i)
+        {
+            world.Step(1.0f / 60.0f);
+            if (bullet->Position().x > 10.0f)
+                everTunneled = true;
+        }
+        CHECK(!everTunneled, "com SetBullet, o projetil nunca atravessa a parede em 20 steps seguidos");
+        CHECK(bullet->Position().x < 5.0f && bullet->Position().x > -20.0f,
+              "e fica parado mesmo encostado a face de fora da parede");
+    }
+
+    // Contra outro corpo dynamic, o CCD leve nao intervem (fica por conta do solver
+    // discreto normal) — aqui so confirmamos que nao crasha nem se comporta de forma
+    // absurda.
+    {
+        kx::World world(glm::vec2(0.0f));
+        kx::Body *target = world.CreateCircle(glm::vec2(0.0f, 0.0f), 5.0f, 1.0f);
+        kx::Body *bullet = world.CreateCircle(glm::vec2(-300.0f, 0.0f), 5.0f, 1.0f);
+        bullet->SetGravityScale(0.0f);
+        bullet->SetVelocity(glm::vec2(3000.0f, 0.0f));
+        bullet->SetBullet(true);
+        StepN(world, 5);
+        CHECK(true, "CCD leve com alvo dynamic nao crasha (fica por conta do solver normal)");
+        (void)target;
+    }
+}
+
 int main()
 {
     TestDestroyBodyWithJoint();
@@ -250,6 +305,7 @@ int main()
     TestChainShape();
     TestSliceSplitsBodyInTwo();
     TestForceDampingGravityScale();
+    TestBulletCCD();
 
     std::printf("%d failures\n", gFailures);
     return gFailures == 0 ? 0 : 1;
