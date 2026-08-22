@@ -22,6 +22,12 @@ namespace kx
         mConstant = coordinateA + mRatio * coordinateB;
     }
 
+    bool GearJoint::DependsOnJoint(const Joint *joint) const
+    {
+        return joint == static_cast<const Joint *>(mJoint1) ||
+               joint == static_cast<const Joint *>(mJoint2);
+    }
+
     glm::vec2 GearJoint::AnchorA() const
     {
         return mBodyA->GetTransform().Transform(mLocalAnchorA);

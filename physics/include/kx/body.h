@@ -117,6 +117,15 @@ namespace kx
         float Restitution() const { return mRestitution; }
         void SetRestitution(float restitution) { mRestitution = restitution; }
 
+        float LinearDamping() const { return mLinearDamping; }
+        void SetLinearDamping(float damping) { mLinearDamping = damping > 0.0f ? damping : 0.0f; }
+
+        float AngularDamping() const { return mAngularDamping; }
+        void SetAngularDamping(float damping) { mAngularDamping = damping > 0.0f ? damping : 0.0f; }
+
+        float GravityScale() const { return mGravityScale; }
+        void SetGravityScale(float scale) { mGravityScale = scale; }
+
         float Mass() const { return mInvMass > 0.0f ? 1.0f / mInvMass : 0.0f; }
         float InvMass() const { return mInvMass; }
         float InvI() const { return mInvI; }
@@ -129,6 +138,58 @@ namespace kx
                 SetAwake(true);
             mLinearVelocity += mInvMass * impulse;
             mAngularVelocity += mInvI * Cross(point - WorldCenter(), impulse);
+        }
+
+        void ApplyLinearImpulseToCenter(const glm::vec2 &impulse, bool wake = true)
+        {
+            if (wake && Dot(impulse, impulse) > 0.0f)
+                SetAwake(true);
+            mLinearVelocity += mInvMass * impulse;
+        }
+
+        void ApplyAngularImpulse(float impulse, bool wake = true)
+        {
+            if (wake && impulse != 0.0f)
+                SetAwake(true);
+            mAngularVelocity += mInvI * impulse;
+        }
+
+        // Forca/torque continuas: acumuladas em mForce/mTorque e aplicadas uma vez em
+        // IntegrateVelocity (multiplicadas por dt), tal como b2Body::ApplyForce. Ao
+        // contrario de ApplyImpulse, o efeito escala com dt — chamar todos os steps
+        // para um efeito continuo (ex.: thruster), nao um impulso instantaneo.
+        void ApplyForce(const glm::vec2 &force, const glm::vec2 &point, bool wake = true)
+        {
+            if (mType != BodyType::Dynamic)
+                return;
+            if (wake)
+                SetAwake(true);
+            if (!mAwake)
+                return;
+            mForce += force;
+            mTorque += Cross(point - WorldCenter(), force);
+        }
+
+        void ApplyForceToCenter(const glm::vec2 &force, bool wake = true)
+        {
+            if (mType != BodyType::Dynamic)
+                return;
+            if (wake)
+                SetAwake(true);
+            if (!mAwake)
+                return;
+            mForce += force;
+        }
+
+        void ApplyTorque(float torque, bool wake = true)
+        {
+            if (mType != BodyType::Dynamic)
+                return;
+            if (wake)
+                SetAwake(true);
+            if (!mAwake)
+                return;
+            mTorque += torque;
         }
 
         BodyType Type() const { return mType; }
@@ -185,6 +246,20 @@ namespace kx
         int AddCircle(const glm::vec2 &localCenter, float radius, float density);
         int AddBox(float halfWidth, float halfHeight, const glm::vec2 &localCenter, float density);
         int AddEdge(const glm::vec2 &localA, const glm::vec2 &localB);
+
+        // Cadeia de segmentos ligados (terreno, chao de plataformas, contornos de
+        // niveis) — equivalente ao b2ChainShape do Box2D. Cada segmento e "one-sided":
+        // so colide vindo do lado para onde aponta a normal (e.y,-e.x) do segmento
+        // v[i]->v[i+1] — a mesma convencao CCW-para-fora usada pelos poligonos deste
+        // motor. Os "ghost vertices" (o ponto antes/depois de cada segmento na cadeia)
+        // sao ligados automaticamente entre segmentos consecutivos, para que um corpo
+        // deslizando sobre a junta de dois segmentos nao fique preso num "degrau"
+        // interno (o mesmo problema que o Box2D resolve com b2ChainShape em vez de
+        // b2EdgeShape's soltos). loop=true fecha a cadeia (liga o ultimo ponto ao
+        // primeiro); count minimo e 3 com loop, 2 sem. Devolve o numero de segmentos
+        // adicionados (pode ficar aquem do pedido se kMaxShapes for atingido).
+        int AddChain(const glm::vec2 *points, int count, bool loop);
+
         int AddPolygon(const glm::vec2 *points, int count, float density);
         int AddMesh(const glm::vec2 *outline, int count, float density);
         int AddFromImage(const unsigned char *pixels, int width, int height, int bpp,
@@ -213,6 +288,11 @@ namespace kx
         glm::vec2 mLocalCenter;
         float mFriction;
         float mRestitution;
+        float mLinearDamping;
+        float mAngularDamping;
+        float mGravityScale;
+        glm::vec2 mForce;
+        float mTorque;
         uint32_t mId;
         void *mUserData;
         ContactCallback mContactCallback;
