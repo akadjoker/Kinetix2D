@@ -1,3 +1,7 @@
 build/
 build-*/
 bin/
+
+# Notas internas — fora do git
+docs/
+PLAN.md

@@ -36,8 +36,12 @@ target_link_libraries(assets_demo PRIVATE k2d imgui)
 add_executable(testbed
     testbed/testbed.cpp
     testbed/demos_basic.cpp
+    testbed/demos_stacking.cpp
+    testbed/demos_box2d_joints.cpp
+    testbed/demos_events.cpp
     testbed/demos_joints.cpp
     testbed/demos_misc.cpp
-    testbed/demos_more.cpp)
+    testbed/demos_more.cpp
+    testbed/demos_platformer.cpp)
 target_include_directories(testbed PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/testbed)
 target_link_libraries(testbed PRIVATE k2d kx imgui)

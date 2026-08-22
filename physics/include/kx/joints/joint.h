@@ -13,7 +13,8 @@ namespace kx
         Wheel,
         Mouse,
         Revolute,
-        Gear
+        Gear,
+        Motor
     };
 
     class Joint

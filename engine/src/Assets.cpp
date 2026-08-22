@@ -1,5 +1,7 @@
 #include "k2d/Assets.h"
 
+#include "k2d/FileSystem.h"
+
 namespace k2d
 {
 
@@ -33,8 +35,16 @@ namespace k2d
 
     Shader *Assets::LoadShaderFiles(const char *name, const char *vsPath, const char *fsPath)
     {
+        ct::String vsResolved;
+        if (!FileSystem::Instance().Resolve(vsPath, vsResolved))
+            vsResolved = vsPath;
+
+        ct::String fsResolved;
+        if (!FileSystem::Instance().Resolve(fsPath, fsResolved))
+            fsResolved = fsPath;
+
         Shader *shader = new Shader();
-        if (!shader->CompileFiles(vsPath, fsPath))
+        if (!shader->CompileFiles(vsResolved.c_str(), fsResolved.c_str()))
         {
             delete shader;
             return nullptr;
@@ -72,8 +82,12 @@ namespace k2d
 
     Texture *Assets::LoadTexture(const char *name, const char *path)
     {
+        ct::String resolved;
+        if (!FileSystem::Instance().Resolve(path, resolved))
+            resolved = path;
+
         Texture *texture = new Texture();
-        if (!texture->Load(path))
+        if (!texture->Load(resolved.c_str()))
         {
             delete texture;
             return nullptr;

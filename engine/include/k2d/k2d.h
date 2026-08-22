@@ -3,6 +3,7 @@
 #include "k2d/Device.h"
 #include "k2d/Input.h"
 #include "k2d/FileBuffer.h"
+#include "k2d/FileSystem.h"
 #include "k2d/Shader.h"
 #include "k2d/Texture.h"
 #include "k2d/Assets.h"

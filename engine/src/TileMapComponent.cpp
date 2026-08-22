@@ -4,6 +4,9 @@
 #include "k2d/RenderQueue.h"
 #include "k2d/Texture.h"
 #include "k2d/Assets.h"
+#include "k2d/FileSystem.h"
+
+#include <ct/string.hpp>
 
 #include <cmath>
 #include <cstdlib>
@@ -78,7 +81,12 @@ namespace k2d
         if (!tmxPath)
             return false;
 
-        std::ifstream file(tmxPath);
+        ct::String resolvedPath;
+        if (!FileSystem::Instance().Resolve(tmxPath, resolvedPath))
+            resolvedPath = tmxPath;
+        const char *tmx = resolvedPath.c_str();
+
+        std::ifstream file(tmx);
         if (!file.is_open())
             return false;
 
@@ -124,10 +132,10 @@ namespace k2d
         std::string imagePath = tmxAttribute(imageTag, "source");
         if (imagePath.empty())
             return false;
-        std::size_t slash = std::string(tmxPath).find_last_of("/\\");
+        std::size_t slash = std::string(tmx).find_last_of("/\\");
         std::string texturePath = slash == std::string::npos
                                       ? imagePath
-                                      : std::string(tmxPath).substr(0, slash + 1) + imagePath;
+                                      : std::string(tmx).substr(0, slash + 1) + imagePath;
         Texture *texture = assets.LoadTexture(textureName, texturePath.c_str());
         if (!texture)
             return false;

@@ -36,6 +36,11 @@ namespace kx
             return aabb;
         }
 
+        bool ContactHasStatic(const ContactInfo &c)
+        {
+            return c.a->Type() == BodyType::Static || c.b->Type() == BodyType::Static;
+        }
+
         bool CollideShapePair(Manifold &manifold, bool &flip,
                               const Shape &sA, const Transform &xfA,
                               const Shape &sB, const Transform &xfB)
@@ -174,6 +179,8 @@ namespace kx
 
     void World::Destroy(Body *body)
     {
+        RemoveBodyContactEvents(body);
+
         // Removing a body can change the support graph. Wake the remaining
         // dynamic bodies that were connected to it before invalidating pairs.
         for (size_t i = 0; i < mContacts.size(); ++i)
@@ -542,6 +549,7 @@ namespace kx
                 info.shapeIndexA = flip ? sj : si;
                 info.shapeIndexB = flip ? si : sj;
                 info.manifold = manifold;
+                info.sensor = first->Shapes()[si].isSensor || second->Shapes()[sj].isSensor;
                 mContacts.push_back(info);
             }
         }
@@ -626,6 +634,7 @@ namespace kx
         double t1 = mClock ? mClock() : 0.0;
 
         UpdateContacts();
+        UpdateContactEvents();
 
         double t2 = mClock ? mClock() : 0.0;
 
@@ -674,6 +683,34 @@ namespace kx
             if (body->Type() != BodyType::Dynamic || !body->mAwake)
                 continue;
 
+            // Port da propagacao de ilha do Box2D: um corpo em contacto com um
+            // corpo ativo (kinematic esta sempre ativo; dinamico acordado)
+            // permanece acordado. Sem isto, um corpo esmagado entre uma
+            // plataforma a subir e um teto ficava com velocidade ~0, dormia e
+            // ficava "colado" ao teto quando a plataforma descia.
+            bool touchingActive = false;
+            for (size_t ci = 0; ci < mContacts.size(); ++ci)
+            {
+                const ContactInfo &c = mContacts[ci];
+                if (c.sensor)
+                    continue;
+                if (c.a == body || c.b == body)
+                {
+                    const Body *other = (c.a == body) ? c.b : c.a;
+                    if (other->Type() == BodyType::Kinematic ||
+                        (other->Type() == BodyType::Dynamic && other->mAwake))
+                    {
+                        touchingActive = true;
+                        break;
+                    }
+                }
+            }
+            if (touchingActive)
+            {
+                body->mSleepTime = 0.0f;
+                continue;
+            }
+
             float linearSpeedSquared = Dot(body->mLinearVelocity, body->mLinearVelocity);
             if (linearSpeedSquared > linearThresholdSquared ||
                 std::fabs(body->mAngularVelocity) > kSleepAngularVelocity)
@@ -688,6 +725,68 @@ namespace kx
         }
     }
 
+    void World::SolveContactPointPosition(ContactInfo &c, int pointIndex, float baumgarte)
+    {
+        Body *a = c.a;
+        Body *b = c.b;
+        float radiusA = ShapeRadius(a->Shapes()[c.shapeIndexA]);
+        float radiusB = ShapeRadius(b->Shapes()[c.shapeIndexB]);
+
+        Transform xfA = a->GetTransform();
+        Transform xfB = b->GetTransform();
+
+        glm::vec2 normal;
+        glm::vec2 point;
+        float separation;
+
+        if (c.manifold.type == Manifold::kCircles)
+        {
+            glm::vec2 pA = xfA.Transform(c.manifold.localPoint);
+            glm::vec2 pB = xfB.Transform(c.manifold.points[0].localPoint);
+            glm::vec2 d = pB - pA;
+            float len = sqrtf(Dot(d, d));
+            normal = len > kEpsilon ? d / len : glm::vec2(0.0f, 1.0f);
+            point = 0.5f * (pA + pB);
+            separation = len - radiusA - radiusB;
+        }
+        else if (c.manifold.type == Manifold::kFaceA)
+        {
+            normal = Rotate(xfA, c.manifold.localNormal);
+            glm::vec2 planePoint = xfA.Transform(c.manifold.localPoint);
+            glm::vec2 clipPoint = xfB.Transform(c.manifold.points[pointIndex].localPoint);
+            separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
+            point = clipPoint;
+        }
+        else
+        {
+            normal = Rotate(xfB, c.manifold.localNormal);
+            glm::vec2 planePoint = xfB.Transform(c.manifold.localPoint);
+            glm::vec2 clipPoint = xfA.Transform(c.manifold.points[pointIndex].localPoint);
+            separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
+            point = clipPoint;
+            normal = -normal;
+        }
+
+        glm::vec2 rA = point - a->WorldCenter();
+        glm::vec2 rB = point - b->WorldCenter();
+
+        float C = baumgarte * (separation + kLinearSlop);
+        if (C < -kMaxLinearCorrection)
+            C = -kMaxLinearCorrection;
+        if (C > 0.0f)
+            C = 0.0f;
+
+        float rnA = Cross(rA, normal);
+        float rnB = Cross(rB, normal);
+        float K = a->mInvMass + b->mInvMass + a->mInvI * rnA * rnA + b->mInvI * rnB * rnB;
+
+        float impulse = K > 0.0f ? -C / K : 0.0f;
+        glm::vec2 P = impulse * normal;
+
+        a->ShiftCenter(-a->mInvMass * P, -a->mInvI * Cross(rA, P));
+        b->ShiftCenter(b->mInvMass * P, b->mInvI * Cross(rB, P));
+    }
+
     void World::SolveContactPositions()
     {
         const int kPositionIterations = 3;
@@ -697,71 +796,22 @@ namespace kx
             for (size_t i = 0; i < mJoints.size(); ++i)
                 mJoints[i]->SolvePosition();
 
+            // Mesma ordenacao que no solve de velocidades: estatico por ultimo.
             for (size_t ci = 0; ci < mContacts.size(); ++ci)
             {
                 ContactInfo &c = mContacts[ci];
-                Body *a = c.a;
-                Body *b = c.b;
-
-                float radiusA = ShapeRadius(a->Shapes()[c.shapeIndexA]);
-                float radiusB = ShapeRadius(b->Shapes()[c.shapeIndexB]);
-
+                if (c.sensor || ContactHasStatic(c))
+                    continue;
                 for (int i = 0; i < c.manifold.pointCount; ++i)
-                {
-                    Transform xfA = a->GetTransform();
-                    Transform xfB = b->GetTransform();
-
-                    glm::vec2 normal;
-                    glm::vec2 point;
-                    float separation;
-
-                    if (c.manifold.type == Manifold::kCircles)
-                    {
-                        glm::vec2 pA = xfA.Transform(c.manifold.localPoint);
-                        glm::vec2 pB = xfB.Transform(c.manifold.points[0].localPoint);
-                        glm::vec2 d = pB - pA;
-                        float len = sqrtf(Dot(d, d));
-                        normal = len > kEpsilon ? d / len : glm::vec2(0.0f, 1.0f);
-                        point = 0.5f * (pA + pB);
-                        separation = len - radiusA - radiusB;
-                    }
-                    else if (c.manifold.type == Manifold::kFaceA)
-                    {
-                        normal = Rotate(xfA, c.manifold.localNormal);
-                        glm::vec2 planePoint = xfA.Transform(c.manifold.localPoint);
-                        glm::vec2 clipPoint = xfB.Transform(c.manifold.points[i].localPoint);
-                        separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
-                        point = clipPoint;
-                    }
-                    else
-                    {
-                        normal = Rotate(xfB, c.manifold.localNormal);
-                        glm::vec2 planePoint = xfB.Transform(c.manifold.localPoint);
-                        glm::vec2 clipPoint = xfA.Transform(c.manifold.points[i].localPoint);
-                        separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
-                        point = clipPoint;
-                        normal = -normal;
-                    }
-
-                    glm::vec2 rA = point - a->WorldCenter();
-                    glm::vec2 rB = point - b->WorldCenter();
-
-                    float C = kBaumgarte * (separation + kLinearSlop);
-                    if (C < -kMaxLinearCorrection)
-                        C = -kMaxLinearCorrection;
-                    if (C > 0.0f)
-                        C = 0.0f;
-
-                    float rnA = Cross(rA, normal);
-                    float rnB = Cross(rB, normal);
-                    float K = a->mInvMass + b->mInvMass + a->mInvI * rnA * rnA + b->mInvI * rnB * rnB;
-
-                    float impulse = K > 0.0f ? -C / K : 0.0f;
-                    glm::vec2 P = impulse * normal;
-
-                    a->ShiftCenter(-a->mInvMass * P, -a->mInvI * Cross(rA, P));
-                    b->ShiftCenter(b->mInvMass * P, b->mInvI * Cross(rB, P));
-                }
+                    SolveContactPointPosition(c, i, kBaumgarte);
+            }
+            for (size_t ci = 0; ci < mContacts.size(); ++ci)
+            {
+                ContactInfo &c = mContacts[ci];
+                if (c.sensor || !ContactHasStatic(c))
+                    continue;
+                for (int i = 0; i < c.manifold.pointCount; ++i)
+                    SolveContactPointPosition(c, i, kBaumgarte);
             }
         }
     }
@@ -771,6 +821,8 @@ namespace kx
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];
+            if (c.sensor)
+                continue;
             Body *a = c.a;
             Body *b = c.b;
 
@@ -840,6 +892,8 @@ namespace kx
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];
+            if (c.sensor)
+                continue;
             for (int i = 0; i < c.manifold.pointCount; ++i)
             {
                 const ManifoldPoint &mp = c.manifold.points[i];
@@ -852,60 +906,78 @@ namespace kx
         }
     }
 
+    void World::SolveContactVelocitiesOne(ContactInfo &c)
+    {
+        Body *a = c.a;
+        Body *b = c.b;
+
+        for (int i = 0; i < c.manifold.pointCount; ++i)
+        {
+            ManifoldPoint &mp = c.manifold.points[i];
+
+            glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
+                           a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
+            float vt = Dot(dv, c.tangent);
+            float lambda = c.tangentMass[i] * (-vt);
+
+            float maxFriction = c.friction * mp.normalImpulse;
+            float newImpulse = mp.tangentImpulse + lambda;
+            if (newImpulse < -maxFriction)
+                newImpulse = -maxFriction;
+            else if (newImpulse > maxFriction)
+                newImpulse = maxFriction;
+            lambda = newImpulse - mp.tangentImpulse;
+            mp.tangentImpulse = newImpulse;
+
+            glm::vec2 impulse = lambda * c.tangent;
+            a->mLinearVelocity -= a->mInvMass * impulse;
+            a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
+            b->mLinearVelocity += b->mInvMass * impulse;
+            b->mAngularVelocity += b->mInvI * Cross(c.rB[i], impulse);
+        }
+
+        for (int i = 0; i < c.manifold.pointCount; ++i)
+        {
+            ManifoldPoint &mp = c.manifold.points[i];
+
+            glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
+                           a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
+            float vn = Dot(dv, c.normal);
+            float lambda = -c.normalMass[i] * (vn - c.velocityBias[i]);
+
+            float newImpulse = mp.normalImpulse + lambda;
+            if (newImpulse < 0.0f)
+                newImpulse = 0.0f;
+            lambda = newImpulse - mp.normalImpulse;
+            mp.normalImpulse = newImpulse;
+
+            glm::vec2 impulse = lambda * c.normal;
+            a->mLinearVelocity -= a->mInvMass * impulse;
+            a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
+            b->mLinearVelocity += b->mInvMass * impulse;
+            b->mAngularVelocity += b->mInvI * Cross(c.rB[i], impulse);
+        }
+    }
+
     void World::SolveContactVelocities()
     {
+        // A geometria estatica e infinitamente massiva: resolve-se POR ULTIMO
+        // para dominar. Sem isto, uma plataforma kinematic a empurrar um corpo
+        // contra um teto/parede estatico "vence" a restricao estatica e o corpo
+        // atravessa o teto. Sem passes extra — so a ordem dentro do solve.
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];
-            Body *a = c.a;
-            Body *b = c.b;
-
-            for (int i = 0; i < c.manifold.pointCount; ++i)
-            {
-                ManifoldPoint &mp = c.manifold.points[i];
-
-                glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
-                               a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
-                float vt = Dot(dv, c.tangent);
-                float lambda = c.tangentMass[i] * (-vt);
-
-                float maxFriction = c.friction * mp.normalImpulse;
-                float newImpulse = mp.tangentImpulse + lambda;
-                if (newImpulse < -maxFriction)
-                    newImpulse = -maxFriction;
-                else if (newImpulse > maxFriction)
-                    newImpulse = maxFriction;
-                lambda = newImpulse - mp.tangentImpulse;
-                mp.tangentImpulse = newImpulse;
-
-                glm::vec2 impulse = lambda * c.tangent;
-                a->mLinearVelocity -= a->mInvMass * impulse;
-                a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
-                b->mLinearVelocity += b->mInvMass * impulse;
-                b->mAngularVelocity += b->mInvI * Cross(c.rB[i], impulse);
-            }
-
-            for (int i = 0; i < c.manifold.pointCount; ++i)
-            {
-                ManifoldPoint &mp = c.manifold.points[i];
-
-                glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
-                               a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
-                float vn = Dot(dv, c.normal);
-                float lambda = -c.normalMass[i] * (vn - c.velocityBias[i]);
-
-                float newImpulse = mp.normalImpulse + lambda;
-                if (newImpulse < 0.0f)
-                    newImpulse = 0.0f;
-                lambda = newImpulse - mp.normalImpulse;
-                mp.normalImpulse = newImpulse;
-
-                glm::vec2 impulse = lambda * c.normal;
-                a->mLinearVelocity -= a->mInvMass * impulse;
-                a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
-                b->mLinearVelocity += b->mInvMass * impulse;
-                b->mAngularVelocity += b->mInvI * Cross(c.rB[i], impulse);
-            }
+            if (c.sensor || ContactHasStatic(c))
+                continue;
+            SolveContactVelocitiesOne(c);
+        }
+        for (size_t ci = 0; ci < mContacts.size(); ++ci)
+        {
+            ContactInfo &c = mContacts[ci];
+            if (c.sensor || !ContactHasStatic(c))
+                continue;
+            SolveContactVelocitiesOne(c);
         }
     }
 
@@ -914,6 +986,8 @@ namespace kx
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             const ContactInfo &c = mContacts[ci];
+            if (c.sensor)
+                continue;
             StoredImpulses stored;
             stored.count = c.manifold.pointCount;
             for (int i = 0; i < c.manifold.pointCount; ++i)
@@ -934,6 +1008,71 @@ namespace kx
         }
         for (size_t i = 0; i < mStaleKeys.size(); ++i)
             mImpulseMap.erase(mStaleKeys[i]);
+    }
+
+    void World::UpdateContactEvents()
+    {
+        for (size_t i = 0; i < mContacts.size(); ++i)
+        {
+            const ContactInfo &contact = mContacts[i];
+            uint64_t key = ContactKey(contact);
+            ContactState *state = mContactStates.find(key);
+            ContactPhase phase = state ? ContactPhase::Persist : ContactPhase::Begin;
+
+            ContactState current;
+            current.a = contact.a;
+            current.b = contact.b;
+            current.shapeIndexA = contact.shapeIndexA;
+            current.shapeIndexB = contact.shapeIndexB;
+            current.manifold = contact.manifold;
+            current.sensor = contact.sensor;
+            current.stamp = mStepStamp;
+            mContactStates.put(key, current);
+            DispatchContactEvent(phase, current);
+        }
+
+        mStaleKeys.clear();
+        for (auto &entry : mContactStates)
+        {
+            if (entry.value.stamp != mStepStamp)
+            {
+                DispatchContactEvent(ContactPhase::End, entry.value);
+                mStaleKeys.push_back(entry.key);
+            }
+        }
+        for (size_t i = 0; i < mStaleKeys.size(); ++i)
+            mContactStates.erase(mStaleKeys[i]);
+    }
+
+    void World::DispatchContactEvent(ContactPhase phase, const ContactState &state)
+    {
+        if (state.a->mContactCallback)
+        {
+            ContactEvent event{phase, state.a, state.b, state.shapeIndexA, state.shapeIndexB,
+                               &state.manifold, state.sensor};
+            state.a->mContactCallback(event, state.a->mContactContext);
+        }
+        if (state.b->mContactCallback)
+        {
+            ContactEvent event{phase, state.b, state.a, state.shapeIndexB, state.shapeIndexA,
+                               &state.manifold, state.sensor};
+            state.b->mContactCallback(event, state.b->mContactContext);
+        }
+    }
+
+    void World::RemoveBodyContactEvents(Body *body)
+    {
+        mStaleKeys.clear();
+        for (auto &entry : mContactStates)
+        {
+            if (entry.value.a == body || entry.value.b == body)
+            {
+                DispatchContactEvent(ContactPhase::End, entry.value);
+                mStaleKeys.push_back(entry.key);
+            }
+        }
+        for (size_t i = 0; i < mStaleKeys.size(); ++i)
+            mContactStates.erase(mStaleKeys[i]);
     }
 
 } // namespace kx

@@ -10,6 +10,7 @@
 #include "joints/revolutejoint.h"
 #include "joints/distancejoint.h"
 #include "joints/gearjoint.h"
+#include "joints/motorjoint.h"
 #include "world.h"
 #include "tilemapcollider.h"
 #include "debugdraw.h"

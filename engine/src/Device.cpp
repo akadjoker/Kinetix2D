@@ -1,5 +1,7 @@
 #include "k2d/Device.h"
 
+#include "k2d/FileSystem.h"
+
 #include <SDL.h>
 #include <glad/glad.h>
 #include <cstdio>
@@ -39,6 +41,8 @@ namespace k2d
             std::printf("SDL_Init failed: %s\n", SDL_GetError());
             return false;
         }
+
+        FileSystem::Instance().Init();
 
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -118,6 +122,7 @@ namespace k2d
             SDL_DestroyWindow(mWindow);
             mWindow = nullptr;
         }
+        FileSystem::Instance().Shutdown();
         SDL_Quit();
     }
 

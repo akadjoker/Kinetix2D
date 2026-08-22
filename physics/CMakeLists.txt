@@ -13,6 +13,7 @@ add_library(kx STATIC
     src/revolutejoint.cpp
     src/distancejoint.cpp
     src/gearjoint.cpp
+    src/motorjoint.cpp
     src/triangulate.cpp
     src/imageshape.cpp
     src/debugdraw.cpp
@@ -22,7 +23,7 @@ add_library(kx STATIC
 target_include_directories(kx PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/engine/include
-    /media/projectos/projects/cpp/containers/include
+    ${CMAKE_SOURCE_DIR}/external/containers/include
 )
 
 target_link_libraries(kx PUBLIC glm::glm)

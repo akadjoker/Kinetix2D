@@ -53,7 +53,6 @@ cmake --build build -j
 ./build/bin/kx_collision_tests   # 29 edge-case unit tests
 ./build/bin/kx_solver_tests      # 55 dynamics + constraints tests
 ./build/bin/kx_broadphase_tests  # Broadphase correctness
-./build/bin/kx_triangulate_tests # 102 mesh triangulation cases
 ./build/bin/kx_imageshape_tests  # Sprite silhouette tracing
 ```
 
@@ -209,7 +208,7 @@ device.StopGifCapture();     // → capture_0001/frame_0001.png, etc
 ### Image → Collision Shapes
 - **Marching squares** outline tracing (Chipmunk-derived)
 - **Polyline simplification** (angle-tolerance vertex reduction)
-- **Concave polygon support**: auto-triangulates via poly2tri CDT
+- **Concave polygon support**: auto-triangulates via internal sweep-line CDT (kx::tri)
 - **Multi-blob support**: disjoint silhouettes become separate bodies
 
 ## References
@@ -218,7 +217,7 @@ device.StopGifCapture();     // → capture_0001/frame_0001.png, etc
 - Collision: `/media/projectos/projects/cpp/vibecoding/fisica/phys` (user's Box2D-style reference)
 - Solver: Box2D-Lite (sequential impulse, contact warm-starting)
 - Joints: `/media/projectos/projects/cpp/fisica/box2d/src/dynamics/` (MouseJoint, WheelJoint, RevoluteJoint, etc.)
-- Triangulation: poly2tri (Domiter/Zalik sweep-line CDT)
+- Triangulation: kx::tri — port of poly2tri sweep-line CDT (self-contained, no external dep)
 - Image tracing: Chipmunk2D (cpMarch marching-squares, cpPolyline simplification)
 
 **Rendering**: Immediate-mode batch renderer (GLES 3.0 subset for WebGL2 compat)

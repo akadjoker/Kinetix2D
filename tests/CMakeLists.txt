@@ -28,24 +28,6 @@ target_link_libraries(kx_solver_tests PRIVATE kx)
 add_executable(kx_broadphase_tests kx_broadphase_tests.cpp)
 target_link_libraries(kx_broadphase_tests PRIVATE kx)
 
-set(POLY2TRI_DIR ${CMAKE_SOURCE_DIR}/external/poly2tri)
-
-add_executable(kx_triangulate_tests
-    kx_triangulate_tests.cpp
-    ${POLY2TRI_DIR}/src/common/shapes.cc
-    ${POLY2TRI_DIR}/src/sweep/advancing_front.cc
-    ${POLY2TRI_DIR}/src/sweep/cdt.cc
-    ${POLY2TRI_DIR}/src/sweep/sweep.cc
-    ${POLY2TRI_DIR}/src/sweep/sweep_context.cc
-)
-target_include_directories(kx_triangulate_tests PRIVATE ${POLY2TRI_DIR}/include)
-target_link_libraries(kx_triangulate_tests PRIVATE kx)
-set_source_files_properties(
-    ${POLY2TRI_DIR}/src/sweep/sweep.cc
-    ${POLY2TRI_DIR}/src/sweep/sweep_context.cc
-    PROPERTIES COMPILE_OPTIONS "-Wno-address;-Wno-nonnull-compare"
-)
-
 add_executable(kx_imageshape_tests kx_imageshape_tests.cpp)
 target_link_libraries(kx_imageshape_tests PRIVATE kx)
 
@@ -54,6 +36,18 @@ target_link_libraries(kx_queries_tests PRIVATE kx)
 
 add_executable(kx_sleep_tests kx_sleep_tests.cpp)
 target_link_libraries(kx_sleep_tests PRIVATE kx)
+
+add_executable(kx_events_tests kx_events_tests.cpp)
+target_link_libraries(kx_events_tests PRIVATE kx)
+
+add_executable(kx_motorjoint_tests kx_motorjoint_tests.cpp)
+target_link_libraries(kx_motorjoint_tests PRIVATE kx)
+
+add_executable(kx_fixedrotation_tests kx_fixedrotation_tests.cpp)
+target_link_libraries(kx_fixedrotation_tests PRIVATE kx)
+
+add_executable(kx_platformer_tests kx_platformer_tests.cpp)
+target_link_libraries(kx_platformer_tests PRIVATE kx)
 
 add_executable(k2d_particle_tests k2d_particle_tests.cpp)
 target_link_libraries(k2d_particle_tests PRIVATE k2d)

@@ -29,6 +29,25 @@ namespace kx
         float velocityBias[kMaxManifoldPoints];
         float friction;
         float restitution;
+        bool sensor;
+    };
+
+    enum class ContactPhase : unsigned char
+    {
+        Begin,
+        Persist,
+        End
+    };
+
+    struct ContactEvent
+    {
+        ContactPhase phase;
+        Body *self;
+        Body *other;
+        int shapeIndexSelf;
+        int shapeIndexOther;
+        const Manifold *manifold;
+        bool sensor;
     };
 
     struct BodyPair
@@ -43,6 +62,17 @@ namespace kx
         uint32_t idKey[kMaxManifoldPoints];
         float normalImpulse[kMaxManifoldPoints];
         float tangentImpulse[kMaxManifoldPoints];
+        uint32_t stamp;
+    };
+
+    struct ContactState
+    {
+        Body *a;
+        Body *b;
+        int shapeIndexA;
+        int shapeIndexB;
+        Manifold manifold;
+        bool sensor;
         uint32_t stamp;
     };
 
@@ -114,16 +144,21 @@ namespace kx
         bool JointsAllowCollision(const Body *a, const Body *b) const;
         void InitContactConstraints();
         void WarmStartContacts();
+        void SolveContactVelocitiesOne(ContactInfo &c);
         void SolveContactVelocities();
+        void SolveContactPointPosition(ContactInfo &c, int pointIndex, float baumgarte);
         void SolveContactPositions();
         void StoreContactImpulses();
+        void UpdateContactEvents();
+        void DispatchContactEvent(ContactPhase phase, const ContactState &state);
+        void RemoveBodyContactEvents(Body *body);
         void UpdateSleeping(float dt);
 
         static uint64_t ContactKey(const ContactInfo &c)
         {
-            return (static_cast<uint64_t>(c.a->mId) << 35) |
-                   (static_cast<uint64_t>(c.b->mId) << 6) |
-                   (static_cast<uint64_t>(c.shapeIndexA) << 3) |
+            return (static_cast<uint64_t>(c.a->mId) << 37) |
+                   (static_cast<uint64_t>(c.b->mId) << 10) |
+                   (static_cast<uint64_t>(c.shapeIndexA) << 5) |
                    static_cast<uint64_t>(c.shapeIndexB);
         }
 
@@ -141,6 +176,7 @@ namespace kx
         StepProfile mProfile;
         float mNarrowMs;
         ct::HashMap<uint64_t, StoredImpulses> mImpulseMap;
+        ct::HashMap<uint64_t, ContactState> mContactStates;
         ct::Vector<uint64_t> mStaleKeys;
         uint32_t mStepStamp;
         uint32_t mNextBodyId;

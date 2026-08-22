@@ -9,6 +9,9 @@
 namespace kx
 {
 
+    struct ContactEvent;
+    typedef void (*ContactCallback)(const ContactEvent &event, void *context);
+
     enum class BodyType : unsigned char
     {
         Static,
@@ -46,6 +49,8 @@ namespace kx
         ShapeType type;
         float density;
         Filter filter;
+        bool isSensor;
+        void *userData;
         Circle circle;
         Polygon polygon;
         Edge edge;
@@ -85,6 +90,14 @@ namespace kx
         float AngularVelocity() const { return mAngularVelocity; }
         void SetAngularVelocity(float w) { mAngularVelocity = w; SetAwake(true); }
 
+        bool FixedRotation() const { return mFixedRotation; }
+        void SetFixedRotation(bool fixed)
+        {
+            mFixedRotation = fixed;
+            SetAwake(true);
+            RecomputeMass();
+        }
+
         bool IsAwake() const { return mAwake; }
         void SetAwake(bool awake)
         {
@@ -120,6 +133,42 @@ namespace kx
 
         BodyType Type() const { return mType; }
         uint32_t Id() const { return mId; }
+
+        void SetUserData(void *userData) { mUserData = userData; }
+        void *UserData() const { return mUserData; }
+
+        void SetContactCallback(ContactCallback callback, void *context = nullptr)
+        {
+            mContactCallback = callback;
+            mContactContext = context;
+        }
+
+        bool SetSensor(int shapeIndex, bool sensor)
+        {
+            if (shapeIndex < 0 || shapeIndex >= mShapeCount)
+                return false;
+            mShapes[shapeIndex].isSensor = sensor;
+            SetAwake(true);
+            return true;
+        }
+
+        bool IsSensor(int shapeIndex) const
+        {
+            return shapeIndex >= 0 && shapeIndex < mShapeCount && mShapes[shapeIndex].isSensor;
+        }
+
+        bool SetShapeUserData(int shapeIndex, void *userData)
+        {
+            if (shapeIndex < 0 || shapeIndex >= mShapeCount)
+                return false;
+            mShapes[shapeIndex].userData = userData;
+            return true;
+        }
+
+        void *ShapeUserData(int shapeIndex) const
+        {
+            return shapeIndex >= 0 && shapeIndex < mShapeCount ? mShapes[shapeIndex].userData : nullptr;
+        }
 
         const Shape *Shapes() const { return mShapes; }
         int ShapeCount() const { return mShapeCount; }
@@ -157,6 +206,7 @@ namespace kx
         float mAngularVelocity;
         float mSleepTime;
         bool mAwake;
+        bool mFixedRotation;
 
         float mInvMass;
         float mInvI;
@@ -164,6 +214,9 @@ namespace kx
         float mFriction;
         float mRestitution;
         uint32_t mId;
+        void *mUserData;
+        ContactCallback mContactCallback;
+        void *mContactContext;
 
         int32_t mProxyId;
         glm::vec2 mProxyPosition;

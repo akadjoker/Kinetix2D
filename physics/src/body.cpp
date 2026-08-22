@@ -10,9 +10,10 @@ namespace kx
         : mType(BodyType::Static),
           mPosition(0.0f, 0.0f), mAngle(0.0f),
           mLinearVelocity(0.0f, 0.0f), mAngularVelocity(0.0f),
-          mSleepTime(0.0f), mAwake(true),
+          mSleepTime(0.0f), mAwake(true), mFixedRotation(false),
           mInvMass(0.0f), mInvI(0.0f), mLocalCenter(0.0f, 0.0f),
           mFriction(0.2f), mRestitution(0.0f), mId(0),
+          mUserData(nullptr), mContactCallback(nullptr), mContactContext(nullptr),
           mProxyId(-1), mProxyPosition(0.0f, 0.0f),
           mShapeCount(0)
     {
@@ -27,6 +28,8 @@ namespace kx
         shape.type = ShapeType::Circle;
         shape.density = density;
         shape.filter = mDefaultFilter;
+        shape.isSensor = false;
+        shape.userData = nullptr;
         shape.circle.center = localCenter;
         shape.circle.radius = radius;
 
@@ -43,6 +46,8 @@ namespace kx
         shape.type = ShapeType::Polygon;
         shape.density = density;
         shape.filter = mDefaultFilter;
+        shape.isSensor = false;
+        shape.userData = nullptr;
         shape.polygon.SetAsBox(halfWidth, halfHeight, localCenter, 0.0f);
 
         RecomputeMass();
@@ -58,6 +63,8 @@ namespace kx
         shape.type = ShapeType::Polygon;
         shape.density = density;
         shape.filter = mDefaultFilter;
+        shape.isSensor = false;
+        shape.userData = nullptr;
         shape.polygon.Set(points, count);
 
         RecomputeMass();
@@ -73,6 +80,8 @@ namespace kx
         shape.type = ShapeType::Edge;
         shape.density = 0.0f;
         shape.filter = mDefaultFilter;
+        shape.isSensor = false;
+        shape.userData = nullptr;
         shape.edge.SetTwoSided(localA, localB);
 
         RecomputeMass();
@@ -146,6 +155,12 @@ namespace kx
             I -= mass * Dot(center, center);
             mInvI = I > 0.0f ? 1.0f / I : 0.0f;
         }
+
+        // Port de b2BodyDef.fixedRotation / cpBodySetMoment(INFINITY):
+        // rotacao fixa => momento de inercia infinito => mInvI = 0.
+        // Nenhum impulso/torque do solver gira o corpo (character).
+        if (mFixedRotation)
+            mInvI = 0.0f;
 
         mLocalCenter = center;
     }

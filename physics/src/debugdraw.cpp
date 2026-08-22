@@ -38,7 +38,11 @@ namespace kx
             Transform xf = body.GetTransform();
 
             for (int i = 0; i < body.ShapeCount(); ++i)
-                DrawShape(body.Shapes()[i], xf, color, draw);
+            {
+                const Shape &shape = body.Shapes()[i];
+                Color shapeColor = shape.isSensor ? Color{80, 180, 255, 255} : color;
+                DrawShape(shape, xf, shapeColor, draw);
+            }
 
             glm::vec2 origin = xf.Transform(glm::vec2(0.0f, 0.0f));
             glm::vec2 tip = xf.Transform(glm::vec2(20.0f, 0.0f));

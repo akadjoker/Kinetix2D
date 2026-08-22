@@ -42,6 +42,7 @@ endif()
 add_library(k2d STATIC
     src/Input.cpp
     src/FileBuffer.cpp
+    src/FileSystem.cpp
     src/Device.cpp
     src/Shader.cpp
     src/Texture.cpp
@@ -75,7 +76,7 @@ target_include_directories(k2d PUBLIC
     ${CMAKE_SOURCE_DIR}/external/glad/include
     ${CMAKE_SOURCE_DIR}/external/stb
     ${CMAKE_SOURCE_DIR}/physics/include
-    /media/projectos/projects/cpp/containers/include
+    ${CMAKE_SOURCE_DIR}/external/containers/include
 )
 
 target_include_directories(k2d PRIVATE src)
