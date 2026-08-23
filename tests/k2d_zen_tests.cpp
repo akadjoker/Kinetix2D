@@ -357,6 +357,29 @@ static bool testExampleScripts()
     ok = ok && std::fabs(satellite->position().x - 10.0f) < 200.0f &&
          std::fabs(satellite->position().y - 20.0f) < 200.0f &&
          satellite->rotationDegrees() > 0.0f;
+
+    k2d::GameObject *spawner = scene.createObject("spawner");
+    k2d::ZenScriptComponent *spawnerScript = spawner->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && spawnerScript->loadFile("../assets/scripts/spawner.py");
+
+    k2d::GameObject *hud = scene.createObject("hud");
+    k2d::ZenScriptComponent *hudScript = hud->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && hudScript->loadFile("../assets/scripts/hud.py");
+
+    scene.update(0.016f);
+    k2d::DispatchZenScriptEvents(scene.root());
+    ok = ok && k2d::ZenBlackboard::has("spawned") && k2d::ZenBlackboard::has("score");
+
+    k2d::ZenBlackboard::emit("enemy_killed", 30.0);
+    k2d::DispatchZenScriptEvents(scene.root());
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("score"), 30.0f);
+
+    k2d::ZenBlackboard::emit("player_died");
+    k2d::DispatchZenScriptEvents(scene.root());
+    ok = ok && k2d::ZenBlackboard::getString("state") == ct::String("gameover");
+    ok = ok && !k2d::ZenBlackboard::getBool("can_shoot", true);
+
+    k2d::ZenBlackboard::clear();
     return ok;
 }
 
