@@ -39,6 +39,7 @@ bool EditorSettings::load(const char *path)
         return false;
 
     lastProjectPath = root["lastProjectPath"].as_cstr("");
+    lastScenePath = root["lastScenePath"].as_cstr("");
     recentProjectPaths.clear();
     const ct::Json &recent = root["recentProjectPaths"];
     if (recent.is_array())
@@ -60,6 +61,7 @@ bool EditorSettings::save(const char *path) const
 {
     ct::Json root = ct::Json::object();
     root.set("lastProjectPath", lastProjectPath);
+    root.set("lastScenePath", lastScenePath);
     ct::Json recent = ct::Json::array();
     for (size_t i = 0; i < recentProjectPaths.size(); ++i)
         recent.push_back(recentProjectPaths[i]);

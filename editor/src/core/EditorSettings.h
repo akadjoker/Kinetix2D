@@ -17,6 +17,7 @@ public:
     void touchRecentProject(const ct::String &projectFile);
 
     ct::String lastProjectPath;
+    ct::String lastScenePath;
     ct::Vector<ct::String> recentProjectPaths;
 
     int themeIndex = 0;

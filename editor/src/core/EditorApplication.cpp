@@ -69,20 +69,23 @@ bool EditorApplication::initialize()
 
     loadSettings();
     createPanels();
+    bool opened = false;
     if (!mSettings.lastProjectPath.empty() && mProject.load(mSettings.lastProjectPath.c_str()))
     {
         ct::String message("Project restored: ");
         message += mProject.root();
         log(message);
-        if (!mProject.startupScene().empty())
-            openScene(EditorFileSystem::join(mProject.root(), mProject.startupScene().c_str()).c_str());
-        else
-            newScene();
+        if (!mSettings.lastScenePath.empty())
+            opened = openScene(mSettings.lastScenePath.c_str());
+        if (!opened && !mProject.startupScene().empty())
+            opened = openScene(EditorFileSystem::join(mProject.root(), mProject.startupScene().c_str()).c_str());
     }
-    else
+    else if (!mSettings.lastScenePath.empty())
     {
-        newScene();
+        opened = openScene(mSettings.lastScenePath.c_str());
     }
+    if (!opened)
+        newScene();
     log("Kinetix2D Editor initialized");
     log("Dear ImGui is shared with the engine; editor widgets loaded from editor/external");
     mInitialized = true;
@@ -305,6 +308,7 @@ void EditorApplication::newScene()
     mCommands.clear();
     mTransactionActive = false;
     mCurrentScenePath.clear();
+    mSettings.lastScenePath.clear();
     log("New scene");
 }
 
@@ -338,6 +342,7 @@ bool EditorApplication::openScene(const char *path)
     mPlaying = false;
     mPaused = false;
     mCurrentScenePath = path;
+    mSettings.lastScenePath = path;
     ct::String message("Opened scene: ");
     message += path;
     log(message);
@@ -359,6 +364,7 @@ bool EditorApplication::saveScene(const char *path)
     }
 
     mCurrentScenePath = path;
+    mSettings.lastScenePath = path;
     ct::String message("Saved scene: ");
     message += path;
     log(message);

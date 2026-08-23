@@ -5,10 +5,15 @@
 #include "widgets/EditorToolbar.h"
 
 #include <k2d/Assets.h>
+#include <k2d/Camera2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Prefab.h>
+#include <k2d/Scene.h>
 #include <IconsMaterialDesignIcons.h>
 
+#include <glad/glad.h>
+
+#include <cstdint>
 #include <math.h>
 
 namespace k2d::editor
@@ -32,6 +37,87 @@ SceneViewportPanel::SceneViewportPanel(EditorApplication &application)
     mTool = settings.viewportTool;
     mSnap = settings.viewportSnap;
     mShowGrid = settings.viewportShowGrid;
+
+    mCanvasInitialized = mCanvas.Init();
+}
+
+SceneViewportPanel::~SceneViewportPanel()
+{
+    destroyFramebuffer();
+    if (mCanvasInitialized)
+        mCanvas.Shutdown();
+}
+
+void SceneViewportPanel::ensureFramebuffer(int width, int height)
+{
+    if (width < 1)
+        width = 1;
+    if (height < 1)
+        height = 1;
+    if (mFramebuffer != 0 && width == mFramebufferWidth && height == mFramebufferHeight)
+        return;
+
+    destroyFramebuffer();
+
+    glGenTextures(1, &mColorTexture);
+    glBindTexture(GL_TEXTURE_2D, mColorTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &mFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, mFramebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mColorTexture, 0);
+    mCanvasReady = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    mFramebufferWidth = width;
+    mFramebufferHeight = height;
+}
+
+void SceneViewportPanel::destroyFramebuffer()
+{
+    if (mFramebuffer)
+    {
+        glDeleteFramebuffers(1, &mFramebuffer);
+        mFramebuffer = 0;
+    }
+    if (mColorTexture)
+    {
+        glDeleteTextures(1, &mColorTexture);
+        mColorTexture = 0;
+    }
+    mCanvasReady = false;
+    mFramebufferWidth = 0;
+    mFramebufferHeight = 0;
+}
+
+void SceneViewportPanel::renderScene(int width, int height)
+{
+    if (!mCanvasInitialized || !mCanvasReady)
+        return;
+
+    GLint savedViewport[4];
+    glGetIntegerv(GL_VIEWPORT, savedViewport);
+    GLint savedFbo = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &savedFbo);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, mFramebuffer);
+    glViewport(0, 0, width, height);
+    glClearColor(0.098f, 0.110f, 0.133f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    Camera2D camera;
+    camera.zoom = Math::Vec2(mZoom, mZoom);
+    camera.offset = Math::Vec2(-mPan.x / mZoom, -mPan.y / mZoom);
+    mCanvas.SetProjection(camera.Projection(static_cast<float>(width), static_cast<float>(height)));
+    app().scene().render(mCanvas);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
+    glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
 }
 
 ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2 &origin) const
@@ -190,8 +276,17 @@ void SceneViewportPanel::drawContents()
     const ImVec2 min = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImGui::GetContentRegionAvail();
     const ImVec2 max(min.x + maxValue(size.x, 1.0f), min.y + maxValue(size.y, 1.0f));
+
+    const int fboWidth = static_cast<int>(max.x - min.x);
+    const int fboHeight = static_cast<int>(max.y - min.y);
+    ensureFramebuffer(fboWidth, fboHeight);
+    renderScene(fboWidth, fboHeight);
+
     ImDrawList &drawList = *ImGui::GetWindowDrawList();
-    drawList.AddRectFilled(min, max, IM_COL32(25, 28, 34, 255));
+    if (mCanvasReady)
+        drawList.AddImage((ImTextureID)(intptr_t)mColorTexture, min, max, ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+    else
+        drawList.AddRectFilled(min, max, IM_COL32(25, 28, 34, 255));
     drawList.PushClipRect(min, max, true);
     if (mShowGrid)
         drawGrid(drawList, min, max);

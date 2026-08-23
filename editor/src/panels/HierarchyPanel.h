@@ -21,6 +21,8 @@ public:
 private:
     void drawContents() override;
     void drawObject(GameObject &object);
+    void createEmpty();
+    void createSprite();
 };
 
 }

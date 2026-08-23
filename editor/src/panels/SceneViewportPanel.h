@@ -2,6 +2,8 @@
 
 #include "core/EditorPanel.h"
 
+#include <k2d/CanvasRenderer.h>
+
 #include <mathc.h>
 
 namespace k2d
@@ -16,6 +18,7 @@ class SceneViewportPanel final : public EditorPanel
 {
 public:
     explicit SceneViewportPanel(EditorApplication &application);
+    ~SceneViewportPanel() override;
 
 private:
     void drawContents() override;
@@ -27,11 +30,23 @@ private:
     Math::Vec2 screenToWorld(const ImVec2 &screen, const ImVec2 &origin) const;
     void handlePrefabDrop(const ImVec2 &origin);
 
+    void ensureFramebuffer(int width, int height);
+    void destroyFramebuffer();
+    void renderScene(int width, int height);
+
     ImVec2 mPan = ImVec2(0.0f, 0.0f);
     float mZoom = 1.0f;
     int mTool = 0;
     bool mSnap = false;
     bool mShowGrid = true;
+
+    CanvasRenderer mCanvas;
+    bool mCanvasInitialized = false;
+    bool mCanvasReady = false;
+    unsigned int mFramebuffer = 0;
+    unsigned int mColorTexture = 0;
+    int mFramebufferWidth = 0;
+    int mFramebufferHeight = 0;
 };
 
 }
