@@ -57,7 +57,7 @@ uniform int u_lightShadowFilter[8];
 uniform vec4 u_lightShadowColor[8];
 uniform int u_directionalShadowFilter[8];
 uniform int u_occluderCount;
-uniform vec4 u_occluderEdges[16];
+uniform vec4 u_occluderEdges[64];
 
 out vec4 FragColor;
 
@@ -109,8 +109,14 @@ void main()
                 vec2 perpendicular = vec2(-direction.y, direction.x);
                 float along = dot(lightRay, direction);
                 float lateral = dot(lightRay, perpendicular);
-                float atlasU = (sector + (lateral / u_lightRadius[i] + 1.0) * 0.5) / 4.0;
-                float atlasV = (float(i * 2) + 0.5) / 16.0;
+                // Perspective (tangent-space) projection onto this 90 deg sector's
+                // face, matching the occluder encode pass below -- NOT a raw
+                // orthographic lateral/radius offset. Within a correctly picked
+                // sector |lateral| <= along (45 deg half-angle), so this stays in
+                // [-1, 1].
+                float tangent = along > 0.0001 ? (lateral / along) : (lateral < 0.0 ? -1.0 : 1.0);
+                float atlasU = (sector + (tangent + 1.0) * 0.5) / 4.0;
+                float atlasV = (float(i * 2) + 0.5) / 32.0;
                 float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_lightShadowFilter[i]);
                 float shadow = (along > 0.0 && along / u_lightRadius[i] > storedDepth + 0.002) ? 1.0 : 0.0;
                 vec4 shadow_color = u_lightShadowColor[i];
@@ -136,7 +142,9 @@ void main()
             float lateral = dot(relative, perpendicular);
             float along = dot(relative, rayDir);
             float atlasU = (lateral / halfSize + 1.0) * 0.5;
-            float atlasV = (8.0 + float(i * 2) + 0.5) / 16.0;
+            // Directional rows start after the 8 point-light slots (2 rows each)
+            // so the two light kinds never share atlas rows (see SetupShadowAtlas).
+            float atlasV = (16.0 + float(i * 2) + 0.5) / 32.0;
             float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_directionalShadowFilter[i]);
             float fragmentDepth = (along + shadowDistance * 0.5) / shadowDistance;
             float shadow = (fragmentDepth > storedDepth + 0.002) ? 1.0 : 0.0;
@@ -360,10 +368,15 @@ void main()
                                    const DirectionalLight *directionalLights, size_t directionalLightCount,
                                    const Occluder *occluders, size_t occluderCount)
     {
+        // Defensive clamp: the fixed-size uniform arrays below only hold
+        // kMaxPointLights/kMaxDirectionalLights entries. RenderQueue already
+        // enforces this, but DrawItems can also be called directly.
         mLights = lights;
-        mLightCount = (int)lightCount;
+        mLightCount = (int)(lightCount < (size_t)kMaxPointLights ? lightCount : (size_t)kMaxPointLights);
         mDirectionalLights = directionalLights;
-        mDirectionalLightCount = (int)directionalLightCount;
+        mDirectionalLightCount = (int)(directionalLightCount < (size_t)kMaxDirectionalLights
+                                            ? directionalLightCount
+                                            : (size_t)kMaxDirectionalLights);
         mOccluders = occluders;
         mOccluderCount = occluderCount;
 
@@ -772,7 +785,10 @@ void main()
     void CanvasRenderer::SetupShadowAtlas()
     {
         static const int textureSize = 2048;
-        static const int rows = 16;
+        // 2 rows per light: kMaxPointLights point-light slots followed by
+        // kMaxDirectionalLights directional slots, so the two kinds never
+        // collide on the same atlas row (see RenderShadowAtlas).
+        static const int rows = (kMaxPointLights + kMaxDirectionalLights) * 2;
 
         mShadowProgram = CreateProgram(SHADOW_VERTEX_SHADER_SOURCE, SHADOW_FRAGMENT_SHADER_SOURCE);
         if (!mShadowProgram)
@@ -892,14 +908,24 @@ void main()
                                             mOccluderEdges[edgeIndex].y) - mLights[lightIndex].position;
                     glm::vec2 b = glm::vec2(mOccluderEdges[edgeIndex].z,
                                             mOccluderEdges[edgeIndex].w) - mLights[lightIndex].position;
-                    float aLateral = glm::dot(a, perpendicular) / mLights[lightIndex].radius;
-                    float bLateral = glm::dot(b, perpendicular) / mLights[lightIndex].radius;
-                    float aDepth = glm::dot(a, direction) / mLights[lightIndex].radius;
-                    float bDepth = glm::dot(b, direction) / mLights[lightIndex].radius;
-                    mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth * 2.0f - 1.0f});
+                    float aAlong = glm::dot(a, direction);
+                    float bAlong = glm::dot(b, direction);
+                    float aLateral = glm::dot(a, perpendicular);
+                    float bLateral = glm::dot(b, perpendicular);
+                    // Perspective (tangent-space) projection onto this sector's
+                    // face -- matches the fragment shader's per-pixel tan(angle)
+                    // lookup. Using the raw lateral/radius offset here (as before)
+                    // put edges and receiving fragments at the same atlas U only
+                    // when they happened to sit at the same distance from the
+                    // light, which is wrong for a point light.
+                    float aTangent = aAlong > 0.0001f ? (aLateral / aAlong) : (aLateral < 0.0f ? -1.0f : 1.0f);
+                    float bTangent = bAlong > 0.0001f ? (bLateral / bAlong) : (bLateral < 0.0f ? -1.0f : 1.0f);
+                    float aDepth = aAlong / mLights[lightIndex].radius;
+                    float bDepth = bAlong / mLights[lightIndex].radius;
+                    mShadowVertices.push_back(ShadowVertex{aTangent, -1.0f, aDepth * 2.0f - 1.0f});
+                    mShadowVertices.push_back(ShadowVertex{bTangent, -1.0f, bDepth * 2.0f - 1.0f});
+                    mShadowVertices.push_back(ShadowVertex{bTangent, 1.0f, bDepth * 2.0f - 1.0f});
+                    mShadowVertices.push_back(ShadowVertex{aTangent, 1.0f, aDepth * 2.0f - 1.0f});
                 }
 
                 glBufferData(GL_ARRAY_BUFFER,
@@ -920,7 +946,7 @@ void main()
             if (!mDirectionalLights[lightIndex].useShadow)
                 continue;
 
-            int row = 8 + lightIndex * 2;
+            int row = kMaxPointLights * 2 + lightIndex * 2;
             glViewport(0, row, textureSize, 2);
             glScissor(0, row, textureSize, 2);
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);

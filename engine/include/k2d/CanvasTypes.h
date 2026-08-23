@@ -41,7 +41,6 @@ namespace k2d
         float radius;
         bool useShadow;
         ShadowFilter shadowFilter;
-        Matrix2D shadowMatrix; // world -> light-local (light global transform affine inverse)
         glm::vec4 shadowColor; // shadow tint rgb + opacity in alpha
     };
 

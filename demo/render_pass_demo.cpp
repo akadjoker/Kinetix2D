@@ -101,7 +101,6 @@ int main()
     point.radius = 420.0f;
     point.useShadow = true;
     point.shadowFilter = k2d::SHADOW_FILTER_PCF5;
-    point.shadowMatrix = k2d::Matrix2D::Identity();
     point.shadowColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.85f);
 
     k2d::DirectionalLight directional;

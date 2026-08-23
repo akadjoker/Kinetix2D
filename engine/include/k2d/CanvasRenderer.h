@@ -104,7 +104,12 @@ namespace k2d
         unsigned int mCurrentTextureId;
         glm::mat4 mProjection;
 
-        static const int kMaxOccluderEdges = 16;
+        // Uniform-array budget, not a per-light limit: shared by every occluder
+        // edge in the whole scene, every frame. GLES3 guarantees only 224 vec4
+        // fragment uniform vectors, and the canvas shader already spends ~90 of
+        // those on light arrays, so this can't grow arbitrarily without moving
+        // occluder data to a texture buffer instead of a plain uniform array.
+        static const int kMaxOccluderEdges = 64;
         glm::vec4 mOccluderEdges[kMaxOccluderEdges];
         int mOccluderEdgeCount;
 
