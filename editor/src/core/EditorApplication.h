@@ -73,7 +73,10 @@ public:
     const ct::String &previewPrefabPath() const { return mPreviewPrefabPath; }
     void previewPrefab(const char *path) { mPreviewPrefabPath = path ? path : ""; }
 
+    void restartEditPreview();
+
     void preloadTextures(const ct::Json &node);
+    Texture *particlePlaceholderTexture();
 
     const ct::String &currentScenePath() const { return mCurrentScenePath; }
     bool openScene(const char *path);
@@ -100,6 +103,8 @@ private:
     void startPlay();
     void stopPlay();
     void stepPlay();
+    void tickEditPreview(GameObject &object, float deltaTime);
+    void restartEditPreview(GameObject &object);
 
     Device mDevice;
     Assets mAssets;

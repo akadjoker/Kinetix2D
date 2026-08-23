@@ -134,56 +134,10 @@ void SceneViewportPanel::renderScene(int width, int height)
     camera.zoom = Math::Vec2(mZoom, mZoom);
     camera.offset = Math::Vec2(-mPan.x / mZoom, -mPan.y / mZoom);
     mCanvas.SetProjection(camera.Projection(static_cast<float>(width), static_cast<float>(height)));
-    if (mLivePreview)
-        tickPreview(app().scene().root(), ImGui::GetIO().DeltaTime);
     app().scene().render(mCanvas);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
-}
-
-void SceneViewportPanel::tickPreview(GameObject &object, float deltaTime)
-{
-    if (!object.isActiveInHierarchy())
-        return;
-
-    const size_t particleCount = object.componentCount<ParticleComponent>();
-    for (size_t i = 0; i < particleCount; ++i)
-    {
-        ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i);
-        if (!particle || !particle->active())
-            continue;
-        if (particle->followOwner())
-            particle->system().SetEmitterPosition(object.globalPosition());
-        particle->system().Update(deltaTime);
-    }
-
-    const size_t animCount = object.componentCount<Animation2D>();
-    for (size_t i = 0; i < animCount; ++i)
-    {
-        Animation2D *anim = object.getComponentAt<Animation2D>(i);
-        if (anim && anim->active())
-            anim->Advance(deltaTime);
-    }
-
-    for (size_t i = 0; i < object.childCount(); ++i)
-        tickPreview(*object.child(i), deltaTime);
-}
-
-void SceneViewportPanel::restartPreview(GameObject &object)
-{
-    const size_t particleCount = object.componentCount<ParticleComponent>();
-    for (size_t i = 0; i < particleCount; ++i)
-        if (ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i))
-            particle->system().Reset();
-
-    const size_t animCount = object.componentCount<Animation2D>();
-    for (size_t i = 0; i < animCount; ++i)
-        if (Animation2D *anim = object.getComponentAt<Animation2D>(i))
-            anim->reset();
-
-    for (size_t i = 0; i < object.childCount(); ++i)
-        restartPreview(*object.child(i));
 }
 
 ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2 &origin) const
@@ -419,7 +373,7 @@ void SceneViewportPanel::drawContents()
     toolbarSameLine();
     if (toolbarIcon("restartpreview", ICON_MDI_RESTART, "Restart particle/animation preview"))
     {
-        restartPreview(app().scene().root());
+        app().restartEditPreview();
         app().log("Preview restarted");
     }
     ImGui::SameLine();

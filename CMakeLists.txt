@@ -19,6 +19,7 @@ add_subdirectory(external/math)
 add_subdirectory(engine)
 add_subdirectory(physics)
 add_subdirectory(demo)
+add_subdirectory(editor)
 
 enable_testing()
 add_subdirectory(tests)

@@ -8,6 +8,7 @@
 #include "panels/GamePanel.h"
 #include "panels/HierarchyPanel.h"
 #include "panels/InspectorPanel.h"
+#include "panels/ParticlePanel.h"
 #include "panels/PrefabsPanel.h"
 #include "panels/SceneViewportPanel.h"
 #include "widgets/EditorToolbar.h"
@@ -16,10 +17,13 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <IconsMaterialDesignIcons.h>
+#include <k2d/Animation2D.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
+#include <k2d/ParticleComponent.h>
 #include <k2d/Serializer.h>
 
+#include <cmath>
 #include <filesystem>
 
 namespace k2d::editor
@@ -69,6 +73,7 @@ bool EditorApplication::initialize()
 
     loadSettings();
     createPanels();
+    particlePlaceholderTexture();
     bool opened = false;
     if (!mSettings.lastProjectPath.empty() && mProject.load(mSettings.lastProjectPath.c_str()))
     {
@@ -104,6 +109,8 @@ int EditorApplication::run()
 
         if (mPlaying && !mPaused)
             mRuntimeScene.update(mDevice.DeltaTime());
+        if (!mPlaying && mSettings.viewportLivePreview)
+            tickEditPreview(mScene.root(), mDevice.DeltaTime());
 
         glClearColor(0.055f, 0.062f, 0.075f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -157,6 +164,7 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<InspectorPanel>(*this));
     mPanels.push_back(ct::make_unique<SceneViewportPanel>(*this));
     mPanels.push_back(ct::make_unique<GamePanel>(*this));
+    mPanels.push_back(ct::make_unique<ParticlePanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ConsolePanel>(*this));
@@ -294,6 +302,55 @@ void EditorApplication::stepPlay()
         mRuntimeScene.update(1.0f / 60.0f);
 }
 
+void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)
+{
+    if (!object.isActiveInHierarchy())
+        return;
+
+    const size_t particleCount = object.componentCount<ParticleComponent>();
+    for (size_t i = 0; i < particleCount; ++i)
+    {
+        ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i);
+        if (!particle || !particle->active())
+            continue;
+        if (particle->followOwner())
+            particle->system().SetEmitterPosition(object.globalPosition());
+        particle->system().Update(deltaTime);
+    }
+
+    const size_t animCount = object.componentCount<Animation2D>();
+    for (size_t i = 0; i < animCount; ++i)
+    {
+        Animation2D *anim = object.getComponentAt<Animation2D>(i);
+        if (anim && anim->active())
+            anim->Advance(deltaTime);
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        tickEditPreview(*object.child(i), deltaTime);
+}
+
+void EditorApplication::restartEditPreview()
+{
+    restartEditPreview(mScene.root());
+}
+
+void EditorApplication::restartEditPreview(GameObject &object)
+{
+    const size_t particleCount = object.componentCount<ParticleComponent>();
+    for (size_t i = 0; i < particleCount; ++i)
+        if (ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i))
+            particle->system().Reset();
+
+    const size_t animCount = object.componentCount<Animation2D>();
+    for (size_t i = 0; i < animCount; ++i)
+        if (Animation2D *anim = object.getComponentAt<Animation2D>(i))
+            anim->reset();
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        restartEditPreview(*object.child(i));
+}
+
 void EditorApplication::undo()
 {
     const SceneCommand *command = mCommands.undo();
@@ -385,6 +442,35 @@ void EditorApplication::preloadTextures(const ct::Json &node)
         for (size_t i = 0; i < node.size(); ++i)
             preloadTextures(node[i]);
     }
+}
+
+Texture *EditorApplication::particlePlaceholderTexture()
+{
+    constexpr const char *kName = "__editor_particle_placeholder";
+    constexpr int kSize = 64;
+    if (Texture *texture = mAssets.GetTexture(kName))
+        return texture;
+
+    unsigned char pixels[kSize * kSize * 4];
+    const float half = kSize * 0.5f;
+    for (int y = 0; y < kSize; ++y)
+    {
+        for (int x = 0; x < kSize; ++x)
+        {
+            const float dx = (x + 0.5f - half) / half;
+            const float dy = (y + 0.5f - half) / half;
+            float falloff = 1.0f - sqrtf(dx * dx + dy * dy);
+            if (falloff < 0.0f)
+                falloff = 0.0f;
+            falloff *= falloff;
+            const int i = (y * kSize + x) * 4;
+            pixels[i + 0] = 255;
+            pixels[i + 1] = 255;
+            pixels[i + 2] = 255;
+            pixels[i + 3] = static_cast<unsigned char>(falloff * 255.0f);
+        }
+    }
+    return mAssets.CreateTexture(kName, kSize, kSize, pixels, true, false);
 }
 
 bool EditorApplication::openScene(const char *path)
@@ -845,6 +931,7 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Prefabs", right);
     ImGui::DockBuilderDockWindow("Scene", center);
     ImGui::DockBuilderDockWindow("Game", game);
+    ImGui::DockBuilderDockWindow("Particles", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderFinish(dockspaceId);
     mDefaultFocusPending = true;

@@ -667,12 +667,54 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
             continue;
         ImGui::PushID(static_cast<int>(i));
         const bool isCurrent = anim.currentClip() && clip->name == anim.currentClip();
-        if (ImGui::Selectable(clip->name.c_str(), isCurrent))
-            applyInstant(app, "Change Animation Clip", [&] { anim.play(clip->name.c_str()); });
+        const bool open = ImGui::TreeNodeEx("##clip", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
+                                            "%s%s", clip->name.c_str(), isCurrent ? "  (current)" : "");
+        if (open)
+        {
+            ImGui::Indent();
+            if (!isCurrent && ImGui::Button("Set Active"))
+                applyInstant(app, "Change Animation Clip", [&] { anim.play(clip->name.c_str()); });
+
+            const ct::String clipName = clip->name;
+            const bool wasPlaying = clip->playing;
+            Texture *clipTexture = clip->texture;
+            int fw = clip->frameWidth;
+            int fh = clip->frameHeight;
+            int fc = clip->frameCount;
+            float fps = clip->framesPerSecond;
+            int modeIdx = static_cast<int>(clip->mode);
+
+            const auto updateClip = [&]
+            {
+                anim.addClip(clipName.c_str(), clipTexture, fw, fh, fc, fps,
+                            static_cast<AnimationMode>(modeIdx));
+                if (isCurrent && wasPlaying)
+                    anim.play(clipName.c_str());
+            };
+
+            Texture *droppedClipTexture = nullptr;
+            if (textureField(app, "Texture", clipTexture, droppedClipTexture))
+            {
+                clipTexture = droppedClipTexture;
+                applyInstant(app, "Set Animation Clip Texture", updateClip);
+            }
+            if (dragIntProperty(app, "Frame Width", fw, 1.0f, "Edit Animation Clip", 1, 4096))
+                updateClip();
+            if (dragIntProperty(app, "Frame Height", fh, 1.0f, "Edit Animation Clip", 1, 4096))
+                updateClip();
+            if (dragIntProperty(app, "Frame Count", fc, 1.0f, "Edit Animation Clip", 1, 4096))
+                updateClip();
+            if (dragFloatProperty(app, "FPS", fps, 0.5f, "Edit Animation Clip", 0.0f, 240.0f))
+                updateClip();
+            if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
+                applyInstant(app, "Set Animation Clip Mode", updateClip);
+            ImGui::Unindent();
+            ImGui::TreePop();
+        }
         ImGui::PopID();
     }
 
-    static char clipName[64] = "clip";
+    static char clipName[64] = "default";
     static int frameWidth = 32;
     static int frameHeight = 32;
     static int frameCount = 1;
@@ -680,10 +722,10 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
     static int clipMode = 1;
     static Texture *clipTexture = nullptr;
 
-    if (ImGui::Button(ICON_MDI_PLAYLIST_PLUS " Add Clip"))
-        ImGui::OpenPopup("Add Clip");
-    if (ImGui::BeginPopup("Add Clip"))
+    if (ImGui::TreeNodeEx("##newClip", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth |
+                          ImGuiTreeNodeFlags_DefaultOpen, ICON_MDI_PLAYLIST_PLUS " New Clip"))
     {
+        ImGui::Indent();
         ImGui::InputText("Name", clipName, sizeof(clipName));
         Texture *droppedClipTexture = nullptr;
         if (textureField(app, "Texture", clipTexture, droppedClipTexture))
@@ -696,22 +738,20 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
 
         const bool valid = clipName[0] != '\0' && frameWidth > 0 && frameHeight > 0 && frameCount > 0;
         ImGui::BeginDisabled(!valid);
-        if (ImGui::Button("Add"))
+        if (ImGui::Button("Add Clip"))
         {
             applyInstant(app, "Add Animation Clip", [&]
             {
                 anim.addClip(clipName, clipTexture, frameWidth, frameHeight, frameCount, framesPerSecond,
                             static_cast<AnimationMode>(clipMode));
+                anim.play(clipName);
             });
-            ImGui::CloseCurrentPopup();
+            clipTexture = nullptr;
         }
         ImGui::EndDisabled();
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-            ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
+        ImGui::Unindent();
+        ImGui::TreePop();
     }
-    ImGui::TextDisabled("Editing an existing clip's frames is not available yet.");
 }
 
 enum class ParticlePreset
@@ -721,9 +761,11 @@ enum class ParticlePreset
     Explosion
 };
 
-void applyParticlePreset(ParticleComponent &particleComponent, ParticlePreset preset)
+void applyParticlePreset(EditorApplication &app, ParticleComponent &particleComponent, ParticlePreset preset)
 {
     ParticleSystem &system = particleComponent.system();
+    if (!system.GetTexture())
+        system.SetTexture(app.particlePlaceholderTexture());
     ParticlePrefab prefab;
 
     switch (preset)
@@ -813,15 +855,15 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
 
     ImGui::TextUnformatted("Presets");
     if (ImGui::Button("Fire"))
-        applyInstant(app, "Apply Fire Preset", [&] { applyParticlePreset(particleComponent, ParticlePreset::Fire); });
+        applyInstant(app, "Apply Fire Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Fire); });
     ImGui::SameLine();
     if (ImGui::Button("Smoke"))
-        applyInstant(app, "Apply Smoke Preset", [&] { applyParticlePreset(particleComponent, ParticlePreset::Smoke); });
+        applyInstant(app, "Apply Smoke Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Smoke); });
     ImGui::SameLine();
     if (ImGui::Button("Explosion"))
     {
         applyInstant(app, "Apply Explosion Preset",
-                    [&] { applyParticlePreset(particleComponent, ParticlePreset::Explosion); });
+                    [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Explosion); });
     }
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Presets set emission, blend mode, gravity and the whole emission prefab below.");
@@ -831,6 +873,15 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
     Texture *newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set Particle Texture", [&] { system.SetTexture(newTexture); });
+    if (!texture)
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f),
+                           "No texture - particles will not render.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Use default dot"))
+            applyInstant(app, "Set Particle Texture",
+                        [&] { system.SetTexture(app.particlePlaceholderTexture()); });
+    }
 
     int capacity = static_cast<int>(system.Capacity());
     if (dragIntProperty(app, "Capacity", capacity, 1.0f, "Resize Particle Capacity", 1, 1000000))
@@ -1206,13 +1257,30 @@ void InspectorPanel::drawContents()
         if (ImGui::MenuItem("Animation2D"))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<Animation2D>();
+            Animation2D *anim = object->addComponent<Animation2D>();
+            anim->addClip("default", placeholderSpriteTexture(app()), 32, 32, 1, 10.0f, AnimationMode::Loop);
+            anim->play("default");
             app().commitChange("Add Animation2D Component", addBefore);
         }
         if (ImGui::MenuItem("Particle"))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<ParticleComponent>();
+            ParticleComponent *particle = object->addComponent<ParticleComponent>();
+            particle->system().SetTexture(app().particlePlaceholderTexture());
+            particle->system().SetMode(ParticleMode::Loop);
+            particle->system().SetEmissionRate(20.0f);
+            ParticlePrefab prefab;
+            prefab.spreadDegrees = 40.0f;
+            prefab.speedMin = 40.0f;
+            prefab.speedMax = 90.0f;
+            prefab.lifeMin = 0.8f;
+            prefab.lifeMax = 1.6f;
+            prefab.sizeMin = 6.0f;
+            prefab.sizeMax = 12.0f;
+            prefab.endSize = 2.0f;
+            prefab.fadeOut = 0.4f;
+            particle->system().SetPrefab(prefab);
+            particle->system().Start();
             app().commitChange("Add Particle Component", addBefore);
         }
         ImGui::Separator();
