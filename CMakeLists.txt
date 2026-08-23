@@ -16,7 +16,10 @@ set(MATHC_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 set(MATHC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/math)
 
+add_subdirectory(external/zen)
+
 add_subdirectory(engine)
+add_subdirectory(scripting)
 add_subdirectory(physics)
 add_subdirectory(demo)
 add_subdirectory(editor)

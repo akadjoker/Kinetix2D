@@ -76,6 +76,9 @@ target_link_libraries(kx_review_fixes_tests PRIVATE kx)
 add_executable(k2d_animation_tests k2d_animation_tests.cpp)
 target_link_libraries(k2d_animation_tests PRIVATE k2d)
 
+add_executable(k2d_zen_tests k2d_zen_tests.cpp)
+target_link_libraries(k2d_zen_tests PRIVATE k2d_zen)
+
 add_executable(k2d_pixmap_tests k2d_pixmap_tests.cpp)
 target_link_libraries(k2d_pixmap_tests PRIVATE k2d)
 
