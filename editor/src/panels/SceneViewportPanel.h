@@ -33,6 +33,9 @@ private:
     void drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;
     int hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const;
 
+    void drawTileGrid(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;
+    bool paintTile(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin);
+
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
     void renderScene(int width, int height);
@@ -43,6 +46,8 @@ private:
     bool mSnap = false;
     bool mShowGrid = true;
     int mGizmoAxis = -1;
+    int mPaintTileId = 1;
+    bool mPainting = false;
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

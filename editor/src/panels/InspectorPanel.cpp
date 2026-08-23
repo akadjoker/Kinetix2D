@@ -18,6 +18,7 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/Texture.h>
 #include <k2d/TileMapComponent.h>
+#include <IconsMaterialDesignIcons.h>
 
 #include <cmath>
 #include <cstdint>
@@ -591,7 +592,47 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
             applyInstant(app, "Change Animation Clip", [&] { anim.play(clip->name.c_str()); });
         ImGui::PopID();
     }
-    ImGui::TextDisabled("Adding/editing clips is not available in the Inspector yet.");
+
+    static char clipName[64] = "clip";
+    static int frameWidth = 32;
+    static int frameHeight = 32;
+    static int frameCount = 1;
+    static float framesPerSecond = 10.0f;
+    static int clipMode = 1;
+    static Texture *clipTexture = nullptr;
+
+    if (ImGui::Button(ICON_MDI_PLAYLIST_PLUS " Add Clip"))
+        ImGui::OpenPopup("Add Clip");
+    if (ImGui::BeginPopup("Add Clip"))
+    {
+        ImGui::InputText("Name", clipName, sizeof(clipName));
+        Texture *droppedClipTexture = nullptr;
+        if (textureField(app, "Texture", clipTexture, droppedClipTexture))
+            clipTexture = droppedClipTexture;
+        ImGui::InputInt("Frame Width", &frameWidth);
+        ImGui::InputInt("Frame Height", &frameHeight);
+        ImGui::InputInt("Frame Count", &frameCount);
+        ImGui::DragFloat("FPS", &framesPerSecond, 0.5f, 0.0f, 240.0f);
+        ImGui::Combo("Mode", &clipMode, modeNames, 3);
+
+        const bool valid = clipName[0] != '\0' && frameWidth > 0 && frameHeight > 0 && frameCount > 0;
+        ImGui::BeginDisabled(!valid);
+        if (ImGui::Button("Add"))
+        {
+            applyInstant(app, "Add Animation Clip", [&]
+            {
+                anim.addClip(clipName, clipTexture, frameWidth, frameHeight, frameCount, framesPerSecond,
+                            static_cast<AnimationMode>(clipMode));
+            });
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::TextDisabled("Editing an existing clip's frames is not available yet.");
 }
 
 void drawParticleProperties(EditorApplication &app, ParticleComponent &particleComponent)
@@ -866,6 +907,15 @@ void InspectorPanel::drawContents()
         object->setZIndex(zIndex);
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
+
+    if (ImGui::Button(ICON_MDI_RESTORE " Reset Transform"))
+    {
+        const EditorApplication::SceneChange resetBefore = app().beginChange();
+        object->setPosition(Math::Vec2(0.0f, 0.0f));
+        object->setRotationDegrees(0.0f);
+        object->setScale(Math::Vec2(1.0f, 1.0f));
+        app().commitChange("Reset Transform", resetBefore);
+    }
 
     ImGui::SeparatorText("Components");
     bool any = false;
