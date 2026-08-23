@@ -55,6 +55,7 @@ bool EditorSettings::load(const char *path)
     viewportSnap = root["viewportSnap"].as_bool(false);
     viewportShowGrid = root["viewportShowGrid"].as_bool(true);
     viewportLivePreview = root["viewportLivePreview"].as_bool(true);
+    scriptHotReload = root["scriptHotReload"].as_bool(true);
     return true;
 }
 
@@ -75,6 +76,7 @@ bool EditorSettings::save(const char *path) const
     root.set("viewportSnap", viewportSnap);
     root.set("viewportShowGrid", viewportShowGrid);
     root.set("viewportLivePreview", viewportLivePreview);
+    root.set("scriptHotReload", scriptHotReload);
 
     return FileSystem::Instance().SaveTextFile(path, root.dump(2));
 }

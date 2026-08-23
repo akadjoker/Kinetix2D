@@ -26,6 +26,7 @@
 #include <k2d/ZenScriptComponent.h>
 
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 
 namespace k2d::editor
@@ -134,6 +135,22 @@ int EditorApplication::run()
 
         if (mPlaying && !mPaused)
         {
+            if (mSettings.scriptHotReload)
+            {
+                mScriptWatchTimer += mDevice.DeltaTime();
+                if (mScriptWatchTimer >= 0.5f)
+                {
+                    mScriptWatchTimer = 0.0f;
+                    if (const size_t reloaded = ReloadChangedZenScripts(mRuntimeScene.root()))
+                    {
+                        char message[64];
+                        std::snprintf(message, sizeof(message), "Hot reloaded %d script(s)",
+                                      static_cast<int>(reloaded));
+                        log(message);
+                        mToasts.info(message);
+                    }
+                }
+            }
             mRuntimeScene.update(mDevice.DeltaTime());
             DispatchZenScriptEvents(mRuntimeScene.root());
         }
@@ -775,6 +792,11 @@ void EditorApplication::drawMenuBar()
                 log(message);
             }
         }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Script Hot Reload", nullptr, &mSettings.scriptHotReload))
+            log(mSettings.scriptHotReload ? "Script hot reload enabled" : "Script hot reload disabled");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("While playing, reload .py files as soon as they change on disk");
         ImGui::Separator();
         if (ImGui::MenuItem("Reset Layout"))
         {

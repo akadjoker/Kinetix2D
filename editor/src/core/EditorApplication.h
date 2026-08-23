@@ -133,6 +133,7 @@ private:
     ImGuiFileDialog mFileDialog;
     FileDialogPurpose mFileDialogPurpose = FileDialogPurpose::None;
     float mStatsSmoothedDelta = 0.0f;
+    float mScriptWatchTimer = 0.0f;
 };
 
 }

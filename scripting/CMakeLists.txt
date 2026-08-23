@@ -4,3 +4,4 @@ add_library(k2d_zen STATIC
 
 target_include_directories(k2d_zen PUBLIC include)
 target_link_libraries(k2d_zen PUBLIC k2d zen_static)
+target_compile_features(k2d_zen PRIVATE cxx_std_17)

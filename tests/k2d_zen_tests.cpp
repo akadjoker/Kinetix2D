@@ -7,9 +7,11 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/ZenScriptComponent.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 
 static bool nearEqual(float a, float b)
 {
@@ -341,6 +343,42 @@ static bool testBlackboardAndEvents()
     return ok;
 }
 
+static bool testHotReload()
+{
+    const char *path = "/tmp/k2d_zen_hotreload.py";
+    FILE *file = std::fopen(path, "w");
+    if (!file)
+        return false;
+    std::fputs("def update(node, dt):\n    node.set_position(1, 1)\n", file);
+    std::fclose(file);
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("reloader");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadFile(path);
+    scene.update(0.016f);
+    ok = ok && nearEqual(object->position().x, 1.0f);
+
+    ok = ok && !script->reloadIfChanged();
+    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 0;
+
+    std::filesystem::last_write_time(
+        path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
+    file = std::fopen(path, "w");
+    std::fputs("def update(node, dt):\n    node.set_position(2, 2)\n", file);
+    std::fclose(file);
+    std::filesystem::last_write_time(
+        path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
+
+    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 1;
+    scene.update(0.016f);
+    ok = ok && nearEqual(object->position().x, 2.0f);
+    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 0;
+
+    std::remove(path);
+    return ok;
+}
+
 static bool testExampleScripts()
 {
     k2d::Scene scene;
@@ -396,17 +434,19 @@ int main()
     const bool spawnMath = testSpawnAndMath();
     const bool gate = testScriptsGate();
     const bool channel = testBlackboardAndEvents();
+    const bool hotReload = testHotReload();
     const bool examples = testExampleScripts();
 
     std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s "
-                "spawn_math=%s gate=%s channel=%s examples=%s\n",
+                "spawn_math=%s gate=%s channel=%s hot_reload=%s examples=%s\n",
                 basics ? "pass" : "fail", hierarchy ? "pass" : "fail",
                 components ? "pass" : "fail", inputOk ? "pass" : "fail",
                 destroy ? "pass" : "fail", serialization ? "pass" : "fail",
                 spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
-                channel ? "pass" : "fail", examples ? "pass" : "fail");
+                channel ? "pass" : "fail", hotReload ? "pass" : "fail",
+                examples ? "pass" : "fail");
     return basics && hierarchy && components && inputOk && destroy && serialization &&
-                   spawnMath && gate && channel && examples
+                   spawnMath && gate && channel && hotReload && examples
                ? 0
                : 1;
 }

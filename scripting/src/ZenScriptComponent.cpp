@@ -20,6 +20,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <system_error>
 
 namespace k2d
 {
@@ -44,6 +46,17 @@ namespace k2d
             std::memcpy(buffer, text, n);
             buffer[n] = '\0';
             gZenOutput(buffer, isError != 0, gZenOutputUser);
+        }
+
+        long long fileTimestamp(const char *path)
+        {
+            if (!path || !path[0])
+                return 0;
+            std::error_code error;
+            const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
+            if (error)
+                return 0;
+            return (long long)time.time_since_epoch().count();
         }
 
         void preloadPrefabTextures(const ct::Json &node)
@@ -916,7 +929,35 @@ namespace k2d
             return false;
 
         mScriptPath = path;
+        mSourceTimestamp = fileTimestamp(path);
         return loadSource(buffer.Text(), path);
+    }
+
+    bool ZenScriptComponent::reloadIfChanged()
+    {
+        if (mScriptPath.empty())
+            return false;
+
+        const long long stamp = fileTimestamp(mScriptPath.c_str());
+        if (stamp == 0 || stamp == mSourceTimestamp)
+            return false;
+
+        const ct::String path = mScriptPath;
+        return loadFile(path.c_str());
+    }
+
+    std::size_t ReloadChangedZenScripts(GameObject &root)
+    {
+        std::size_t reloaded = 0;
+        const size_t count = root.componentCount<ZenScriptComponent>();
+        for (size_t i = 0; i < count; ++i)
+            if (ZenScriptComponent *script = root.getComponentAt<ZenScriptComponent>(i))
+                if (script->reloadIfChanged())
+                    ++reloaded;
+
+        for (size_t i = 0; i < root.childCount(); ++i)
+            reloaded += ReloadChangedZenScripts(*root.child(i));
+        return reloaded;
     }
 
     bool ZenScriptComponent::loaded() const

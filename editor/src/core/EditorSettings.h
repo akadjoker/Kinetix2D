@@ -30,6 +30,7 @@ public:
     bool viewportSnap = false;
     bool viewportShowGrid = true;
     bool viewportLivePreview = true;
+    bool scriptHotReload = true;
 };
 
 }

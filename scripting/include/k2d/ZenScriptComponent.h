@@ -26,6 +26,9 @@ namespace k2d
         bool callFunction(const char *name, double value = 0.0);
         bool hasFunction(const char *name) const;
 
+        bool reloadIfChanged();
+        long long sourceTimestamp() const { return mSourceTimestamp; }
+
         struct State;
 
     protected:
@@ -34,7 +37,10 @@ namespace k2d
     private:
         State *mState;
         ct::String mScriptPath;
+        long long mSourceTimestamp = 0;
     };
+
+    std::size_t ReloadChangedZenScripts(GameObject &root);
 
     class Assets;
     class GameObject;
