@@ -78,3 +78,6 @@ target_link_libraries(k2d_animation_tests PRIVATE k2d)
 
 add_executable(k2d_pixmap_tests k2d_pixmap_tests.cpp)
 target_link_libraries(k2d_pixmap_tests PRIVATE k2d)
+
+add_executable(k2d_astar_tests k2d_astar_tests.cpp)
+target_link_libraries(k2d_astar_tests PRIVATE k2d)

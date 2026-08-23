@@ -69,6 +69,8 @@ add_library(k2d STATIC
     src/ScreenFade.cpp
     src/SceneDebug.cpp
     src/CanvasLayer.cpp
+    src/AStarGrid2D.cpp
+    src/AStar2D.cpp
     ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
     src/TileMapComponent.cpp
     src/ParallaxLayer2D.cpp

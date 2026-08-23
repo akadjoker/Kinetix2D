@@ -27,6 +27,8 @@
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneDebug.h"
 #include "k2d/CanvasLayer.h"
+#include "k2d/AStarGrid2D.h"
+#include "k2d/AStar2D.h"
 #include "k2d/ScriptComponent.h"
 #include "k2d/TileMapComponent.h"
 #include "k2d/ParticleSystem.h"
