@@ -916,8 +916,8 @@ void InspectorPanel::drawContents()
         object->setPosition(Math::Vec2(positionValues[0], positionValues[1]));
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
-    ImGui::SameLine();
-    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetPosition"))
+    ImGui::SameLine(0.0f, 8.0f);
+    if (ImGui::Button(ICON_MDI_RESTORE "##resetPosition", ImVec2(26.0f, 0.0f)))
         applyInstant(app(), "Reset Position", [&] { object->setPosition(Math::Vec2(0.0f, 0.0f)); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Reset Position");
@@ -931,8 +931,8 @@ void InspectorPanel::drawContents()
         object->setRotationDegrees(rotation);
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
-    ImGui::SameLine();
-    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetRotation"))
+    ImGui::SameLine(0.0f, 8.0f);
+    if (ImGui::Button(ICON_MDI_RESTORE "##resetRotation", ImVec2(26.0f, 0.0f)))
         applyInstant(app(), "Reset Rotation", [&] { object->setRotationDegrees(0.0f); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Reset Rotation");
@@ -947,8 +947,8 @@ void InspectorPanel::drawContents()
         object->setScale(Math::Vec2(scaleValues[0], scaleValues[1]));
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
-    ImGui::SameLine();
-    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetScale"))
+    ImGui::SameLine(0.0f, 8.0f);
+    if (ImGui::Button(ICON_MDI_RESTORE "##resetScale", ImVec2(26.0f, 0.0f)))
         applyInstant(app(), "Reset Scale", [&] { object->setScale(Math::Vec2(1.0f, 1.0f)); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Reset Scale");
