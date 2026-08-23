@@ -30,6 +30,9 @@ private:
     Math::Vec2 screenToWorld(const ImVec2 &screen, const ImVec2 &origin) const;
     void handlePrefabDrop(const ImVec2 &origin);
 
+    void drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;
+    int hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const;
+
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
     void renderScene(int width, int height);
@@ -39,6 +42,7 @@ private:
     int mTool = 0;
     bool mSnap = false;
     bool mShowGrid = true;
+    int mGizmoAxis = -1;
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

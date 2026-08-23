@@ -3,6 +3,7 @@
 #include "EditorPanel.h"
 #include "EditorSelection.h"
 #include "EditorSettings.h"
+#include "EditorToasts.h"
 #include "CommandStack.h"
 #include "Project.h"
 
@@ -50,6 +51,7 @@ public:
     EditorSelection &selection() { return mSelection; }
     EditorSettings &settings() { return mSettings; }
     Project &project() { return mProject; }
+    EditorToasts &toasts() { return mToasts; }
     const ct::String &consoleText() const { return mConsoleText; }
     void clearConsole() { mConsoleText.clear(); }
     void log(const char *message);
@@ -86,6 +88,7 @@ private:
     void drawMenuBar();
     void drawToolbar();
     void drawFileDialog();
+    void drawStatusBar();
     void createDefaultDockLayout(unsigned int dockspaceId);
     void newScene();
     ct::Json snapshotScene();
@@ -100,6 +103,7 @@ private:
     EditorSelection mSelection;
     EditorSettings mSettings;
     Project mProject;
+    EditorToasts mToasts;
     CommandStack mCommands;
     ct::Vector<ct::Unique<EditorPanel>> mPanels;
     ct::String mConsoleText;
@@ -117,6 +121,7 @@ private:
 
     ImGuiFileDialog mFileDialog;
     FileDialogPurpose mFileDialogPurpose = FileDialogPurpose::None;
+    float mStatsSmoothedDelta = 0.0f;
 };
 
 }

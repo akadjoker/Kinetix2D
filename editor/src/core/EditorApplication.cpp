@@ -116,6 +116,9 @@ int EditorApplication::run()
             ImGui::SetWindowFocus("Scene");
             mDefaultFocusPending = false;
         }
+        drawStatusBar();
+        mToasts.update(mDevice.DeltaTime());
+        mToasts.draw();
         mDevice.EndUI();
         mDevice.Swap();
     }
@@ -649,6 +652,52 @@ void EditorApplication::drawFileDialog()
     default:
         break;
     }
+}
+
+void EditorApplication::drawStatusBar()
+{
+    const float deltaTime = mDevice.DeltaTime();
+    mStatsSmoothedDelta = mStatsSmoothedDelta <= 0.0f ? deltaTime : mStatsSmoothedDelta * 0.9f + deltaTime * 0.1f;
+    const float fps = mStatsSmoothedDelta > 0.0f ? 1.0f / mStatsSmoothedDelta : 0.0f;
+
+    const ImGuiViewport *viewport = ImGui::GetMainViewport();
+    const float height = 26.0f;
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - height));
+    ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, height));
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+                                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                   ImGuiWindowFlags_NoDocking;
+    ImGui::Begin("##StatusBar", nullptr, flags);
+
+    ImGui::Text("%.0f FPS  %.2f ms", fps, mStatsSmoothedDelta * 1000.0f);
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+    ImGui::Text("Objects: %zu", mScene.objectCount());
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+    if (mSelection.hasSelection())
+        ImGui::Text("Selected: %zu", mSelection.count());
+    else
+        ImGui::TextDisabled("No selection");
+    if (mProject.valid())
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("|");
+        ImGui::SameLine();
+        ImGui::Text("Project: %s", mProject.name().c_str());
+    }
+    if (!mCurrentScenePath.empty())
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("|");
+        ImGui::SameLine();
+        ImGui::Text("Scene: %s", EditorFileSystem::fileName(mCurrentScenePath).c_str());
+    }
+
+    ImGui::End();
 }
 
 void EditorApplication::drawToolbar()

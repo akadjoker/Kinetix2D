@@ -20,6 +20,7 @@ add_executable(k2d_editor
     src/core/EditorFileSystem.cpp
     src/core/EditorSelection.cpp
     src/core/EditorSettings.cpp
+    src/core/EditorToasts.cpp
     src/core/Project.cpp
     src/panels/AssetsPanel.cpp
     src/panels/ConsolePanel.cpp

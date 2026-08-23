@@ -791,6 +791,24 @@ void InspectorPanel::drawContents()
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
 
+    ImGui::TextDisabled("ID: %llu", static_cast<unsigned long long>(object->id()));
+
+    char tag[128];
+    size_t tagLength = object->tag().size();
+    if (tagLength >= sizeof(tag))
+        tagLength = sizeof(tag) - 1;
+    for (size_t i = 0; i < tagLength; ++i)
+        tag[i] = object->tag()[i];
+    tag[tagLength] = '\0';
+    before = app().beginChange();
+    const bool tagChanged = ImGui::InputText("Tag", tag, sizeof(tag));
+    if (ImGui::IsItemActivated())
+        app().beginTransaction("Retag GameObject", before);
+    if (tagChanged)
+        object->setTag(tag);
+    if (ImGui::IsItemDeactivatedAfterEdit())
+        app().commitTransaction();
+
     bool active = object->active();
     before = app().beginChange();
     if (ImGui::Checkbox("Active", &active))

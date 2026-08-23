@@ -26,6 +26,23 @@ float clampValue(float value, float minimum, float maximum)
 {
     return value < minimum ? minimum : (value > maximum ? maximum : value);
 }
+
+float distanceToSegment(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
+{
+    const ImVec2 ab(b.x - a.x, b.y - a.y);
+    const float lengthSq = ab.x * ab.x + ab.y * ab.y;
+    float t = lengthSq > 0.0001f ? ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / lengthSq : 0.0f;
+    t = clampValue(t, 0.0f, 1.0f);
+    const ImVec2 closest(a.x + ab.x * t, a.y + ab.y * t);
+    const float dx = p.x - closest.x;
+    const float dy = p.y - closest.y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+constexpr float kGizmoAxisLength = 60.0f;
+constexpr float kGizmoHitRadius = 8.0f;
+constexpr float kGizmoCenterRadius = 8.0f;
+constexpr float kGizmoRingRadius = 46.0f;
 }
 
 SceneViewportPanel::SceneViewportPanel(EditorApplication &application)
@@ -231,6 +248,73 @@ void SceneViewportPanel::pickObject(GameObject &object, const ImVec2 &mouse, con
         pickObject(*object.child(i), mouse, origin, best, bestDistance);
 }
 
+void SceneViewportPanel::drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const
+{
+    const Math::Vec2 world = selected.globalPosition();
+    const ImVec2 center = worldToScreen(world.x, world.y, origin);
+
+    if (mTool == 1 || mTool == 3)
+    {
+        const ImVec2 xTip(center.x + kGizmoAxisLength, center.y);
+        const ImVec2 yTip(center.x, center.y + kGizmoAxisLength);
+        const ImU32 xColor = mGizmoAxis == 0 ? IM_COL32(255, 235, 120, 255) : IM_COL32(230, 70, 70, 255);
+        const ImU32 yColor = mGizmoAxis == 1 ? IM_COL32(255, 235, 120, 255) : IM_COL32(80, 210, 100, 255);
+        const ImU32 centerColor = mGizmoAxis == 2 ? IM_COL32(255, 235, 120, 255) : IM_COL32(230, 230, 235, 255);
+
+        drawList.AddLine(center, xTip, xColor, 2.5f);
+        drawList.AddLine(center, yTip, yColor, 2.5f);
+
+        if (mTool == 1)
+        {
+            drawList.AddTriangleFilled(ImVec2(xTip.x - 9.0f, xTip.y - 5.0f),
+                                       ImVec2(xTip.x - 9.0f, xTip.y + 5.0f), ImVec2(xTip.x + 3.0f, xTip.y), xColor);
+            drawList.AddTriangleFilled(ImVec2(yTip.x - 5.0f, yTip.y - 9.0f),
+                                       ImVec2(yTip.x + 5.0f, yTip.y - 9.0f), ImVec2(yTip.x, yTip.y + 3.0f), yColor);
+        }
+        else
+        {
+            drawList.AddRectFilled(ImVec2(xTip.x - 4.0f, xTip.y - 4.0f), ImVec2(xTip.x + 4.0f, xTip.y + 4.0f), xColor);
+            drawList.AddRectFilled(ImVec2(yTip.x - 4.0f, yTip.y - 4.0f), ImVec2(yTip.x + 4.0f, yTip.y + 4.0f), yColor);
+        }
+
+        drawList.AddCircleFilled(center, kGizmoCenterRadius * 0.5f, centerColor);
+    }
+    else if (mTool == 2)
+    {
+        const ImU32 ringColor = mGizmoAxis == 0 ? IM_COL32(255, 235, 120, 255) : IM_COL32(120, 170, 230, 255);
+        drawList.AddCircle(center, kGizmoRingRadius, ringColor, 48, 2.0f);
+    }
+}
+
+int SceneViewportPanel::hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const
+{
+    const Math::Vec2 world = selected.globalPosition();
+    const ImVec2 center = worldToScreen(world.x, world.y, origin);
+
+    if (mTool == 1 || mTool == 3)
+    {
+        const float dx = mouse.x - center.x;
+        const float dy = mouse.y - center.y;
+        if (sqrtf(dx * dx + dy * dy) <= kGizmoCenterRadius)
+            return 2;
+        const ImVec2 xTip(center.x + kGizmoAxisLength, center.y);
+        if (distanceToSegment(mouse, center, xTip) <= kGizmoHitRadius)
+            return 0;
+        const ImVec2 yTip(center.x, center.y + kGizmoAxisLength);
+        if (distanceToSegment(mouse, center, yTip) <= kGizmoHitRadius)
+            return 1;
+        return -1;
+    }
+    if (mTool == 2)
+    {
+        const float dx = mouse.x - center.x;
+        const float dy = mouse.y - center.y;
+        const float distance = sqrtf(dx * dx + dy * dy);
+        return fabsf(distance - kGizmoRingRadius) <= kGizmoHitRadius ? 0 : -1;
+    }
+    return -1;
+}
+
 void SceneViewportPanel::drawContents()
 {
     app().settings().viewportPan = Math::Vec2(mPan.x, mPan.y);
@@ -297,6 +381,11 @@ void SceneViewportPanel::drawContents()
     drawList.AddLine(ImVec2(min.x, axis.y), ImVec2(max.x, axis.y), IM_COL32(150, 60, 60, 180));
     drawList.AddLine(ImVec2(axis.x, min.y), ImVec2(axis.x, max.y), IM_COL32(60, 150, 80, 180));
     drawObject(drawList, app().scene().root(), origin);
+
+    GameObject *selected = app().selection().resolve(app().scene());
+    const bool gizmoActive = selected && selected != &app().scene().root() && mTool >= 1 && mTool <= 3;
+    if (gizmoActive)
+        drawGizmo(drawList, *selected, origin);
     drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,
@@ -315,34 +404,43 @@ void SceneViewportPanel::drawContents()
         mZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
     if (hovered && mTool != 4 && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
     {
-        GameObject *best = nullptr;
-        float bestDistance = 14.0f;
-        pickObject(app().scene().root(), ImGui::GetIO().MousePos, origin, best, bestDistance);
-        app().selection().select(best);
-        if (best)
+        const int hitAxis = gizmoActive ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin) : -1;
+        if (hitAxis != -1)
         {
-            ct::String message("Selected in Scene: ");
-            message += best->name();
-            app().log(message);
+            mGizmoAxis = hitAxis;
+            const char *label = mTool == 1 ? "Move GameObject" : mTool == 2 ? "Rotate GameObject" : "Scale GameObject";
+            app().beginTransaction(label, app().beginChange());
         }
         else
         {
-            app().log("Scene selection cleared");
+            mGizmoAxis = -1;
+            GameObject *best = nullptr;
+            float bestDistance = 14.0f;
+            pickObject(app().scene().root(), ImGui::GetIO().MousePos, origin, best, bestDistance);
+            app().selection().select(best);
+            if (best)
+            {
+                ct::String message("Selected in Scene: ");
+                message += best->name();
+                app().log(message);
+            }
+            else
+            {
+                app().log("Scene selection cleared");
+            }
         }
     }
 
-    GameObject *selected = app().selection().resolve(app().scene());
-    const EditorApplication::SceneChange beforeDrag = app().beginChange();
-    if (hovered && selected && selected != &app().scene().root() &&
-        ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    if (hovered && gizmoActive && mGizmoAxis != -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         const ImVec2 delta = ImGui::GetIO().MouseDelta;
         if (mTool == 1)
         {
-            app().beginTransaction("Move GameObject", beforeDrag);
             Math::Vec2 position = selected->position();
-            position.x += delta.x / mZoom;
-            position.y += delta.y / mZoom;
+            if (mGizmoAxis == 0 || mGizmoAxis == 2)
+                position.x += delta.x / mZoom;
+            if (mGizmoAxis == 1 || mGizmoAxis == 2)
+                position.y += delta.y / mZoom;
             if (mSnap)
             {
                 position.x = roundf(position.x / 32.0f) * 32.0f;
@@ -352,21 +450,25 @@ void SceneViewportPanel::drawContents()
         }
         else if (mTool == 2)
         {
-            app().beginTransaction("Rotate GameObject", beforeDrag);
             selected->setRotationDegrees(selected->rotationDegrees() + delta.x * 0.5f);
         }
         else if (mTool == 3)
         {
-            app().beginTransaction("Scale GameObject", beforeDrag);
             Math::Vec2 scale = selected->scale();
-            const float amount = delta.x * 0.01f;
-            scale.x = maxValue(0.01f, scale.x + amount);
-            scale.y = maxValue(0.01f, scale.y + amount);
+            if (mGizmoAxis == 0 || mGizmoAxis == 2)
+                scale.x = maxValue(0.01f, scale.x + delta.x * 0.01f);
+            if (mGizmoAxis == 1 || mGizmoAxis == 2)
+                scale.y = maxValue(0.01f, scale.y + (mGizmoAxis == 2 ? delta.x : delta.y) * 0.01f);
             selected->setScale(scale);
         }
     }
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && mTool >= 1 && mTool <= 3)
-        app().commitTransaction();
+
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    {
+        if (mGizmoAxis != -1)
+            app().commitTransaction();
+        mGizmoAxis = -1;
+    }
 }
 
 }
