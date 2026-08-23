@@ -48,7 +48,7 @@ namespace k2d
     void DirectionalLight2D::onRender(RenderQueue &queue)
     {
         Matrix2D transform = owner()->globalTransform();
-        glm::vec2 direction = transform.Transform(0.0f, 1.0f) - transform.Position();
+        Math::Vec2 direction = transform.Transform(0.0f, 1.0f) - transform.Position();
         float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
         if (length <= 0.0001f)
             return;

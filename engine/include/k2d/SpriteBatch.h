@@ -5,7 +5,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -20,9 +20,9 @@ namespace k2d
         struct Entry
         {
             Texture *texture;
-            glm::vec2 position;
-            glm::vec2 size;
-            glm::vec4 source;
+            Math::Vec2 position;
+            Math::Vec2 size;
+            Math::Vec4 source;
             Color color;
             unsigned char flags;
         };
@@ -30,9 +30,9 @@ namespace k2d
         SpriteBatch();
 
         void clear();
-        int add(Texture *texture, const glm::vec2 &position, const glm::vec2 &size,
+        int add(Texture *texture, const Math::Vec2 &position, const Math::Vec2 &size,
                 const Color &color = Color(0xFFFFFFFFu));
-        void setSource(int index, const glm::vec4 &source);
+        void setSource(int index, const Math::Vec4 &source);
         void setFlip(int index, bool flipX, bool flipY);
         int count() const { return (int)mEntries.size(); }
         const Entry *entry(int index) const;

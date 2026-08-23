@@ -28,4 +28,4 @@ target_include_directories(kx PUBLIC
     ${CMAKE_SOURCE_DIR}/external/containers/include
 )
 
-target_link_libraries(kx PUBLIC glm::glm)
+target_link_libraries(kx PUBLIC mathc)

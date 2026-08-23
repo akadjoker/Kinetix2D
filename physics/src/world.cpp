@@ -30,8 +30,8 @@ namespace kx
             for (int i = 1; i < body.ShapeCount(); ++i)
             {
                 AABB shapeAabb = ComputeShapeAABB(body.Shapes()[i], xf);
-                aabb.lowerBound = glm::min(aabb.lowerBound, shapeAabb.lowerBound);
-                aabb.upperBound = glm::max(aabb.upperBound, shapeAabb.upperBound);
+                aabb.lowerBound = Min(aabb.lowerBound, shapeAabb.lowerBound);
+                aabb.upperBound = Max(aabb.upperBound, shapeAabb.upperBound);
             }
 
             return aabb;
@@ -134,7 +134,7 @@ namespace kx
         uint64_t PairKey(const Body *a, const Body *b);
     }
 
-    World::World(const glm::vec2 &gravity)
+    World::World(const Math::Vec2 &gravity)
         : mGravity(gravity), mUseTree(true), mClock(nullptr),
           mStepStamp(0), mNextBodyId(1), mVelocityIterations(8)
     {
@@ -148,7 +148,7 @@ namespace kx
             delete mJoints[i];
     }
 
-    Body *World::CreateBody(BodyType type, const glm::vec2 &pos, float angle)
+    Body *World::CreateBody(BodyType type, const Math::Vec2 &pos, float angle)
     {
         Body *body = mBodyPool.create();
         body->mType = type;
@@ -168,56 +168,56 @@ namespace kx
         return body;
     }
 
-    Body *World::CreateBox(const glm::vec2 &pos, float halfWidth, float halfHeight, float density)
+    Body *World::CreateBox(const Math::Vec2 &pos, float halfWidth, float halfHeight, float density)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);
-        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), density);
+        body->AddBox(halfWidth, halfHeight, Math::Vec2(0.0f, 0.0f), density);
         return body;
     }
 
-    Body *World::CreateCircle(const glm::vec2 &pos, float radius, float density)
+    Body *World::CreateCircle(const Math::Vec2 &pos, float radius, float density)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);
-        body->AddCircle(glm::vec2(0.0f, 0.0f), radius, density);
+        body->AddCircle(Math::Vec2(0.0f, 0.0f), radius, density);
         return body;
     }
 
-    Body *World::CreateStaticBox(const glm::vec2 &pos, float halfWidth, float halfHeight)
+    Body *World::CreateStaticBox(const Math::Vec2 &pos, float halfWidth, float halfHeight)
     {
         Body *body = CreateBody(BodyType::Static, pos);
-        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), 1.0f);
+        body->AddBox(halfWidth, halfHeight, Math::Vec2(0.0f, 0.0f), 1.0f);
         return body;
     }
 
-    Body *World::CreateKinematicBox(const glm::vec2 &pos, float halfWidth, float halfHeight)
+    Body *World::CreateKinematicBox(const Math::Vec2 &pos, float halfWidth, float halfHeight)
     {
         Body *body = CreateBody(BodyType::Kinematic, pos);
-        body->AddBox(halfWidth, halfHeight, glm::vec2(0.0f, 0.0f), 1.0f);
+        body->AddBox(halfWidth, halfHeight, Math::Vec2(0.0f, 0.0f), 1.0f);
         return body;
     }
 
-    Body *World::CreateEdge(const glm::vec2 &a, const glm::vec2 &b)
+    Body *World::CreateEdge(const Math::Vec2 &a, const Math::Vec2 &b)
     {
-        Body *body = CreateBody(BodyType::Static, glm::vec2(0.0f, 0.0f));
+        Body *body = CreateBody(BodyType::Static, Math::Vec2(0.0f, 0.0f));
         body->AddEdge(a, b);
         return body;
     }
 
-    Body *World::CreateChain(const glm::vec2 *points, int count, bool loop)
+    Body *World::CreateChain(const Math::Vec2 *points, int count, bool loop)
     {
-        Body *body = CreateBody(BodyType::Static, glm::vec2(0.0f, 0.0f));
+        Body *body = CreateBody(BodyType::Static, Math::Vec2(0.0f, 0.0f));
         body->AddChain(points, count, loop);
         return body;
     }
 
-    Body *World::CreatePolygon(const glm::vec2 &pos, const glm::vec2 *points, int count, float density)
+    Body *World::CreatePolygon(const Math::Vec2 &pos, const Math::Vec2 *points, int count, float density)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);
         body->AddPolygon(points, count, density);
         return body;
     }
 
-    Body *World::CreateMesh(const glm::vec2 &pos, const glm::vec2 *outline, int count, float density)
+    Body *World::CreateMesh(const Math::Vec2 &pos, const Math::Vec2 *outline, int count, float density)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);
         body->AddMesh(outline, count, density);
@@ -331,17 +331,17 @@ namespace kx
         delete joint;
     }
 
-    static bool ShapeContainsPoint(const Shape &shape, const Transform &xf, const glm::vec2 &point)
+    static bool ShapeContainsPoint(const Shape &shape, const Transform &xf, const Math::Vec2 &point)
     {
         if (shape.type == ShapeType::Circle)
         {
-            glm::vec2 center = xf.Transform(shape.circle.center);
-            glm::vec2 d = point - center;
+            Math::Vec2 center = xf.Transform(shape.circle.center);
+            Math::Vec2 d = point - center;
             return Dot(d, d) <= shape.circle.radius * shape.circle.radius;
         }
         if (shape.type == ShapeType::Polygon)
         {
-            glm::vec2 local = InvTransformPoint(xf, point);
+            Math::Vec2 local = InvTransformPoint(xf, point);
             const Polygon &poly = shape.polygon;
             for (int32_t i = 0; i < poly.count; ++i)
             {
@@ -353,10 +353,10 @@ namespace kx
         return false;
     }
 
-    static glm::vec2 ClosestPointOnSegment(const glm::vec2 &point,
-                                           const glm::vec2 &a, const glm::vec2 &b)
+    static Math::Vec2 ClosestPointOnSegment(const Math::Vec2 &point,
+                                           const Math::Vec2 &a, const Math::Vec2 &b)
     {
-        glm::vec2 edge = b - a;
+        Math::Vec2 edge = b - a;
         float lengthSquared = Dot(edge, edge);
         if (lengthSquared <= kEpsilon)
             return a;
@@ -364,26 +364,26 @@ namespace kx
         return a + t * edge;
     }
 
-    static glm::vec2 ClosestPointOnShape(const Shape &shape, const Transform &xf,
-                                         const glm::vec2 &point)
+    static Math::Vec2 ClosestPointOnShape(const Shape &shape, const Transform &xf,
+                                         const Math::Vec2 &point)
     {
         if (ShapeContainsPoint(shape, xf, point))
             return point;
         if (shape.type == ShapeType::Circle)
         {
-            glm::vec2 center = xf.Transform(shape.circle.center);
-            glm::vec2 delta = point - center;
+            Math::Vec2 center = xf.Transform(shape.circle.center);
+            Math::Vec2 delta = point - center;
             float length = std::sqrt(Dot(delta, delta));
             return length > kEpsilon ? center + delta * (shape.circle.radius / length) : center;
         }
 
-        glm::vec2 closest = point;
+        Math::Vec2 closest = point;
         float bestDistance = 1.0e30f;
         int count = shape.type == ShapeType::Polygon ? shape.polygon.count : 2;
         for (int i = 0; i < count; ++i)
         {
-            glm::vec2 a;
-            glm::vec2 b;
+            Math::Vec2 a;
+            Math::Vec2 b;
             if (shape.type == ShapeType::Polygon)
             {
                 a = xf.Transform(shape.polygon.vertices[i]);
@@ -396,7 +396,7 @@ namespace kx
                 if (i == 1)
                     break;
             }
-            glm::vec2 candidate = ClosestPointOnSegment(point, a, b);
+            Math::Vec2 candidate = ClosestPointOnSegment(point, a, b);
             float distance = DistanceSquared(point, candidate);
             if (distance < bestDistance)
             {
@@ -407,7 +407,7 @@ namespace kx
         return closest;
     }
 
-    Body *World::BodyAtPoint(const glm::vec2 &point) const
+    Body *World::BodyAtPoint(const Math::Vec2 &point) const
     {
 
         if (mUseTree)
@@ -477,11 +477,11 @@ namespace kx
         }
     }
 
-    void World::QueryCircle(const glm::vec2 &center, float radius, ct::Vector<Body *> &out) const
+    void World::QueryCircle(const Math::Vec2 &center, float radius, ct::Vector<Body *> &out) const
     {
         out.clear();
         float radiusSquared = radius * radius;
-        glm::vec2 r(radius, radius);
+        Math::Vec2 r(radius, radius);
 
         if (mUseTree)
         {
@@ -500,7 +500,7 @@ namespace kx
                 Transform xf = body->GetTransform();
                 for (int s = 0; s < body->ShapeCount(); ++s)
                 {
-                    glm::vec2 closest = ClosestPointOnShape(body->Shapes()[s], xf, center);
+                    Math::Vec2 closest = ClosestPointOnShape(body->Shapes()[s], xf, center);
                     if (DistanceSquared(center, closest) <= radiusSquared)
                     {
                         out.push_back(body);
@@ -520,7 +520,7 @@ namespace kx
             bool hit = false;
             for (int s = 0; s < body->ShapeCount(); ++s)
             {
-                glm::vec2 closest = ClosestPointOnShape(body->Shapes()[s], xf, center);
+                Math::Vec2 closest = ClosestPointOnShape(body->Shapes()[s], xf, center);
                 if (DistanceSquared(center, closest) <= radiusSquared)
                 {
                     hit = true;
@@ -532,14 +532,14 @@ namespace kx
         }
     }
 
-    void World::RayCastGather(const glm::vec2 &origin, const glm::vec2 &translation,
+    void World::RayCastGather(const Math::Vec2 &origin, const Math::Vec2 &translation,
                              uint16_t categoryMask, bool includeSensors, const Body *ignoreBody,
                              bool stopAtFirst, ct::Vector<RayCastHit> &outHits) const
     {
         outHits.clear();
 
-        glm::vec2 endPoint = origin + translation;
-        AABB segmentAABB{glm::min(origin, endPoint), glm::max(origin, endPoint)};
+        Math::Vec2 endPoint = origin + translation;
+        AABB segmentAABB{Min(origin, endPoint), Max(origin, endPoint)};
 
         ct::Vector<Body *> candidates;
         if (mUseTree)
@@ -588,7 +588,7 @@ namespace kx
         }
     }
 
-    bool World::RayCastClosest(const glm::vec2 &origin, const glm::vec2 &translation, RayCastHit &outHit,
+    bool World::RayCastClosest(const Math::Vec2 &origin, const Math::Vec2 &translation, RayCastHit &outHit,
                                uint16_t categoryMask, bool includeSensors, const Body *ignoreBody) const
     {
         RayCastGather(origin, translation, categoryMask, includeSensors, ignoreBody, true, mRayScratch);
@@ -603,13 +603,13 @@ namespace kx
         return true;
     }
 
-    void World::RayCastAll(const glm::vec2 &origin, const glm::vec2 &translation, ct::Vector<RayCastHit> &outHits,
+    void World::RayCastAll(const Math::Vec2 &origin, const Math::Vec2 &translation, ct::Vector<RayCastHit> &outHits,
                            uint16_t categoryMask, bool includeSensors, const Body *ignoreBody) const
     {
         RayCastGather(origin, translation, categoryMask, includeSensors, ignoreBody, false, outHits);
     }
 
-    void Explode(World &world, const glm::vec2 &center, float radius, float force, float falloff)
+    void Explode(World &world, const Math::Vec2 &center, float radius, float force, float falloff)
     {
         if (radius <= 0.0f || force == 0.0f)
             return;
@@ -623,11 +623,11 @@ namespace kx
                 continue;
 
             Transform xf = body->GetTransform();
-            glm::vec2 point = body->WorldCenter();
+            Math::Vec2 point = body->WorldCenter();
             float closestDistance = 1.0e30f;
             for (int s = 0; s < body->ShapeCount(); ++s)
             {
-                glm::vec2 candidate = ClosestPointOnShape(body->Shapes()[s], xf, center);
+                Math::Vec2 candidate = ClosestPointOnShape(body->Shapes()[s], xf, center);
                 float candidateDistance = DistanceSquared(center, candidate);
                 if (candidateDistance < closestDistance)
                 {
@@ -635,11 +635,11 @@ namespace kx
                     point = candidate;
                 }
             }
-            glm::vec2 delta = point - center;
+            Math::Vec2 delta = point - center;
             float distance = std::sqrt(Dot(delta, delta));
             if (distance >= radius)
                 continue;
-            glm::vec2 direction = distance > kEpsilon ? delta / distance : glm::vec2(0.0f, -1.0f);
+            Math::Vec2 direction = distance > kEpsilon ? delta / distance : Math::Vec2(0.0f, -1.0f);
             float amount = 1.0f - distance / radius;
             if (falloff > 0.0f)
                 amount = std::pow(amount, falloff);
@@ -692,7 +692,7 @@ namespace kx
                 continue;
             }
 
-            glm::vec2 displacement = b->mPosition - b->mProxyPosition;
+            Math::Vec2 displacement = b->mPosition - b->mProxyPosition;
             b->mProxyPosition = b->mPosition;
             if (mTree.MoveProxy(b->mProxyId, aabb, displacement))
                 mMoveBuffer.push_back(b->mProxyId);
@@ -926,9 +926,9 @@ namespace kx
         for (size_t i = 0; i < mBulletSweeps.size(); ++i)
         {
             Body *body = mBulletSweeps[i].body;
-            glm::vec2 prevCenter = mBulletSweeps[i].prevCenter;
-            glm::vec2 newCenter = body->WorldCenter();
-            glm::vec2 delta = newCenter - prevCenter;
+            Math::Vec2 prevCenter = mBulletSweeps[i].prevCenter;
+            Math::Vec2 newCenter = body->WorldCenter();
+            Math::Vec2 delta = newCenter - prevCenter;
 
             float distSq = Dot(delta, delta);
             if (distSq < kLinearSlop * kLinearSlop)
@@ -949,7 +949,7 @@ namespace kx
             float safeFraction = hit.fraction - kLinearSlop / dist;
             if (safeFraction < 0.0f)
                 safeFraction = 0.0f;
-            glm::vec2 safeCenter = prevCenter + safeFraction * delta;
+            Math::Vec2 safeCenter = prevCenter + safeFraction * delta;
 
             body->ShiftCenter(safeCenter - newCenter, 0.0f);
         }
@@ -1017,40 +1017,40 @@ namespace kx
         Transform xfA = a->GetTransform();
         Transform xfB = b->GetTransform();
 
-        glm::vec2 normal;
-        glm::vec2 point;
+        Math::Vec2 normal;
+        Math::Vec2 point;
         float separation;
 
         if (c.manifold.type == Manifold::kCircles)
         {
-            glm::vec2 pA = xfA.Transform(c.manifold.localPoint);
-            glm::vec2 pB = xfB.Transform(c.manifold.points[0].localPoint);
-            glm::vec2 d = pB - pA;
+            Math::Vec2 pA = xfA.Transform(c.manifold.localPoint);
+            Math::Vec2 pB = xfB.Transform(c.manifold.points[0].localPoint);
+            Math::Vec2 d = pB - pA;
             float len = sqrtf(Dot(d, d));
-            normal = len > kEpsilon ? d / len : glm::vec2(0.0f, 1.0f);
+            normal = len > kEpsilon ? d / len : Math::Vec2(0.0f, 1.0f);
             point = 0.5f * (pA + pB);
             separation = len - radiusA - radiusB;
         }
         else if (c.manifold.type == Manifold::kFaceA)
         {
             normal = Rotate(xfA, c.manifold.localNormal);
-            glm::vec2 planePoint = xfA.Transform(c.manifold.localPoint);
-            glm::vec2 clipPoint = xfB.Transform(c.manifold.points[pointIndex].localPoint);
+            Math::Vec2 planePoint = xfA.Transform(c.manifold.localPoint);
+            Math::Vec2 clipPoint = xfB.Transform(c.manifold.points[pointIndex].localPoint);
             separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
             point = clipPoint;
         }
         else
         {
             normal = Rotate(xfB, c.manifold.localNormal);
-            glm::vec2 planePoint = xfB.Transform(c.manifold.localPoint);
-            glm::vec2 clipPoint = xfA.Transform(c.manifold.points[pointIndex].localPoint);
+            Math::Vec2 planePoint = xfB.Transform(c.manifold.localPoint);
+            Math::Vec2 clipPoint = xfA.Transform(c.manifold.points[pointIndex].localPoint);
             separation = Dot(clipPoint - planePoint, normal) - radiusA - radiusB;
             point = clipPoint;
             normal = -normal;
         }
 
-        glm::vec2 rA = point - a->WorldCenter();
-        glm::vec2 rB = point - b->WorldCenter();
+        Math::Vec2 rA = point - a->WorldCenter();
+        Math::Vec2 rB = point - b->WorldCenter();
 
         float C = baumgarte * (separation + kLinearSlop);
         if (C < -kMaxLinearCorrection)
@@ -1063,7 +1063,7 @@ namespace kx
         float K = a->mInvMass + b->mInvMass + a->mInvI * rnA * rnA + b->mInvI * rnB * rnB;
 
         float impulse = K > 0.0f ? -C / K : 0.0f;
-        glm::vec2 P = impulse * normal;
+        Math::Vec2 P = impulse * normal;
 
         a->ShiftCenter(-a->mInvMass * P, -a->mInvI * Cross(rA, P));
         b->ShiftCenter(b->mInvMass * P, b->mInvI * Cross(rB, P));
@@ -1118,10 +1118,10 @@ namespace kx
             wm.Initialize(&c.manifold, a->GetTransform(), radiusA, b->GetTransform(), radiusB);
 
             c.normal = wm.normal;
-            c.tangent = glm::vec2(-wm.normal.y, wm.normal.x);
+            c.tangent = Math::Vec2(-wm.normal.y, wm.normal.x);
 
-            glm::vec2 centerA = a->WorldCenter();
-            glm::vec2 centerB = b->WorldCenter();
+            Math::Vec2 centerA = a->WorldCenter();
+            Math::Vec2 centerB = b->WorldCenter();
 
             StoredImpulses *stored = mImpulseMap.find(ContactKey(c));
 
@@ -1157,7 +1157,7 @@ namespace kx
                 float kTangent = a->mInvMass + b->mInvMass + a->mInvI * rtA * rtA + b->mInvI * rtB * rtB;
                 c.tangentMass[i] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
-                glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
+                Math::Vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
                                a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
                 float vn = Dot(dv, c.normal);
 
@@ -1180,7 +1180,7 @@ namespace kx
             for (int i = 0; i < c.manifold.pointCount; ++i)
             {
                 const ManifoldPoint &mp = c.manifold.points[i];
-                glm::vec2 impulse = mp.normalImpulse * c.normal + mp.tangentImpulse * c.tangent;
+                Math::Vec2 impulse = mp.normalImpulse * c.normal + mp.tangentImpulse * c.tangent;
                 c.a->mLinearVelocity -= c.a->mInvMass * impulse;
                 c.a->mAngularVelocity -= c.a->mInvI * Cross(c.rA[i], impulse);
                 c.b->mLinearVelocity += c.b->mInvMass * impulse;
@@ -1198,7 +1198,7 @@ namespace kx
         {
             ManifoldPoint &mp = c.manifold.points[i];
 
-            glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
+            Math::Vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
                            a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
             float vt = Dot(dv, c.tangent);
             float lambda = c.tangentMass[i] * (-vt);
@@ -1212,7 +1212,7 @@ namespace kx
             lambda = newImpulse - mp.tangentImpulse;
             mp.tangentImpulse = newImpulse;
 
-            glm::vec2 impulse = lambda * c.tangent;
+            Math::Vec2 impulse = lambda * c.tangent;
             a->mLinearVelocity -= a->mInvMass * impulse;
             a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
             b->mLinearVelocity += b->mInvMass * impulse;
@@ -1223,7 +1223,7 @@ namespace kx
         {
             ManifoldPoint &mp = c.manifold.points[i];
 
-            glm::vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
+            Math::Vec2 dv = b->mLinearVelocity + Cross(b->mAngularVelocity, c.rB[i]) -
                            a->mLinearVelocity - Cross(a->mAngularVelocity, c.rA[i]);
             float vn = Dot(dv, c.normal);
             float lambda = -c.normalMass[i] * (vn - c.velocityBias[i]);
@@ -1234,7 +1234,7 @@ namespace kx
             lambda = newImpulse - mp.normalImpulse;
             mp.normalImpulse = newImpulse;
 
-            glm::vec2 impulse = lambda * c.normal;
+            Math::Vec2 impulse = lambda * c.normal;
             a->mLinearVelocity -= a->mInvMass * impulse;
             a->mAngularVelocity -= a->mInvI * Cross(c.rA[i], impulse);
             b->mLinearVelocity += b->mInvMass * impulse;

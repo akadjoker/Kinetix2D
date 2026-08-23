@@ -21,7 +21,7 @@ namespace kx
     {
     }
 
-    int Body::AddCircle(const glm::vec2 &localCenter, float radius, float density)
+    int Body::AddCircle(const Math::Vec2 &localCenter, float radius, float density)
     {
         if (mShapeCount >= kMaxShapes)
             return 0;
@@ -39,7 +39,7 @@ namespace kx
         return 1;
     }
 
-    int Body::AddBox(float halfWidth, float halfHeight, const glm::vec2 &localCenter, float density)
+    int Body::AddBox(float halfWidth, float halfHeight, const Math::Vec2 &localCenter, float density)
     {
         if (mShapeCount >= kMaxShapes)
             return 0;
@@ -56,7 +56,7 @@ namespace kx
         return 1;
     }
 
-    int Body::AddPolygon(const glm::vec2 *points, int count, float density)
+    int Body::AddPolygon(const Math::Vec2 *points, int count, float density)
     {
         if (mShapeCount >= kMaxShapes || count < 3)
             return 0;
@@ -73,7 +73,7 @@ namespace kx
         return 1;
     }
 
-    int Body::AddEdge(const glm::vec2 &localA, const glm::vec2 &localB)
+    int Body::AddEdge(const Math::Vec2 &localA, const Math::Vec2 &localB)
     {
         if (mShapeCount >= kMaxShapes)
             return 0;
@@ -90,7 +90,7 @@ namespace kx
         return 1;
     }
 
-    int Body::AddChain(const glm::vec2 *points, int count, bool loop)
+    int Body::AddChain(const Math::Vec2 *points, int count, bool loop)
     {
         int minCount = loop ? 3 : 2;
         if (count < minCount)
@@ -103,11 +103,11 @@ namespace kx
         {
             int i1 = i;
             int i2 = (i + 1) % count;
-            glm::vec2 v1 = points[i1];
-            glm::vec2 v2 = points[i2];
+            Math::Vec2 v1 = points[i1];
+            Math::Vec2 v2 = points[i2];
 
-            glm::vec2 vPrev = v1;
-            glm::vec2 vNext = v2;
+            Math::Vec2 vPrev = v1;
+            Math::Vec2 vNext = v2;
             if (loop || i > 0)
                 vPrev = points[(i1 - 1 + count) % count];
             if (loop || i + 2 < count)
@@ -134,12 +134,12 @@ namespace kx
         return added;
     }
 
-    int Body::AddMesh(const glm::vec2 *outline, int count, float density)
+    int Body::AddMesh(const Math::Vec2 *outline, int count, float density)
     {
         if (count < 3)
             return 0;
 
-        glm::vec2 triangles[kMaxShapes * 3];
+        Math::Vec2 triangles[kMaxShapes * 3];
         int triCount = Triangulate(outline, count, triangles, kMaxShapes);
 
         int added = 0;
@@ -153,13 +153,13 @@ namespace kx
     {
         mInvMass = 0.0f;
         mInvI = 0.0f;
-        mLocalCenter = glm::vec2(0.0f, 0.0f);
+        mLocalCenter = Math::Vec2(0.0f, 0.0f);
 
         if (mType != BodyType::Dynamic)
             return;
 
         float mass = 0.0f;
-        glm::vec2 center(0.0f, 0.0f);
+        Math::Vec2 center(0.0f, 0.0f);
         float I = 0.0f;
 
         for (int i = 0; i < mShapeCount; ++i)
@@ -208,7 +208,7 @@ namespace kx
         mLocalCenter = center;
     }
 
-    void Body::IntegrateVelocity(const glm::vec2 &gravity, float dt)
+    void Body::IntegrateVelocity(const Math::Vec2 &gravity, float dt)
     {
         if (mType != BodyType::Dynamic)
             return;
@@ -216,7 +216,7 @@ namespace kx
         if (!mAwake)
         {
 
-            mForce = glm::vec2(0.0f);
+            mForce = Math::Vec2(0.0f);
             mTorque = 0.0f;
             return;
         }
@@ -227,7 +227,7 @@ namespace kx
         mLinearVelocity *= 1.0f / (1.0f + dt * mLinearDamping);
         mAngularVelocity *= 1.0f / (1.0f + dt * mAngularDamping);
 
-        mForce = glm::vec2(0.0f);
+        mForce = Math::Vec2(0.0f);
         mTorque = 0.0f;
     }
 
@@ -236,7 +236,7 @@ namespace kx
         if (mType == BodyType::Static || !mAwake)
             return;
 
-        glm::vec2 translation = dt * mLinearVelocity;
+        Math::Vec2 translation = dt * mLinearVelocity;
         float translationSq = translation.x * translation.x + translation.y * translation.y;
         if (translationSq > kMaxTranslation * kMaxTranslation)
         {
@@ -245,19 +245,19 @@ namespace kx
             translation *= ratio;
         }
 
-        glm::vec2 center = GetTransform().Transform(mLocalCenter);
+        Math::Vec2 center = GetTransform().Transform(mLocalCenter);
         center += translation;
         mAngle += dt * mAngularVelocity;
-        Transform xf = MakeTransform(glm::vec2(0.0f, 0.0f), mAngle);
+        Transform xf = MakeTransform(Math::Vec2(0.0f, 0.0f), mAngle);
         mPosition = center - xf.Transform(mLocalCenter);
     }
 
-    void Body::ShiftCenter(const glm::vec2 &deltaCenter, float deltaAngle)
+    void Body::ShiftCenter(const Math::Vec2 &deltaCenter, float deltaAngle)
     {
-        glm::vec2 center = GetTransform().Transform(mLocalCenter);
+        Math::Vec2 center = GetTransform().Transform(mLocalCenter);
         center += deltaCenter;
         mAngle += deltaAngle;
-        Transform xf = MakeTransform(glm::vec2(0.0f, 0.0f), mAngle);
+        Transform xf = MakeTransform(Math::Vec2(0.0f, 0.0f), mAngle);
         mPosition = center - xf.Transform(mLocalCenter);
     }
 

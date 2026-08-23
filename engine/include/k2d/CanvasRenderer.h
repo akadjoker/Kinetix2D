@@ -4,7 +4,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -35,7 +35,7 @@ namespace k2d
         bool Init(const Config &config = Config());
         void Shutdown();
 
-        void SetProjection(const glm::mat4 &matrix);
+        void SetProjection(const Math::Mat4 &matrix);
         void SetOrtho(float width, float height);
 
         void SetDefaultLightTexture(unsigned int textureId);
@@ -92,7 +92,7 @@ namespace k2d
                       bool flipX, bool flipY, const Color &color, unsigned int lightMask);
         void EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                          unsigned int customProgram, const Matrix2D &matrix,
-                         const ct::Vector<glm::vec2> &points, const Color &color, unsigned int lightMask,
+                         const ct::Vector<Math::Vec2> &points, const Color &color, unsigned int lightMask,
                          int texWidth = 0, int texHeight = 0);
         void FlattenOccluderEdges();
 
@@ -104,9 +104,9 @@ namespace k2d
         ct::Vector<DrawCall> mDrawCalls;
 
         unsigned int mCurrentTextureId;
-        glm::mat4 mProjection;
+        Math::Mat4 mProjection;
 
-        ct::Vector<glm::vec4> mOccluderEdges;
+        ct::Vector<Math::Vec4> mOccluderEdges;
 
         unsigned int mVAO;
         unsigned int mVBO;

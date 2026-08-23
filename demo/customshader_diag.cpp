@@ -41,32 +41,32 @@ int main()
     k2d::Scene scene;
 
     k2d::GameObject *backdropObject = scene.createObject("backdrop");
-    backdropObject->setPosition(glm::vec2(450.0f, 200.0f));
+    backdropObject->setPosition(Math::Vec2(450.0f, 200.0f));
     k2d::SpriteComponent *backdrop = backdropObject->addComponent<k2d::SpriteComponent>(orange);
-    backdrop->setSize(glm::vec2(900.0f, 400.0f));
+    backdrop->setSize(Math::Vec2(900.0f, 400.0f));
     backdrop->setColor(25, 25, 30);
 
     k2d::GameObject *litObject1 = scene.createObject("lit1");
-    litObject1->setPosition(glm::vec2(200.0f, 200.0f));
+    litObject1->setPosition(Math::Vec2(200.0f, 200.0f));
     k2d::SpriteComponent *lit1 = litObject1->addComponent<k2d::SpriteComponent>(orange);
-    lit1->setSize(glm::vec2(120.0f, 120.0f));
+    lit1->setSize(Math::Vec2(120.0f, 120.0f));
     lit1->setColor(230, 140, 40);
 
     k2d::GameObject *invertedObject = scene.createObject("inverted");
-    invertedObject->setPosition(glm::vec2(450.0f, 200.0f));
+    invertedObject->setPosition(Math::Vec2(450.0f, 200.0f));
     k2d::SpriteComponent *inverted = invertedObject->addComponent<k2d::SpriteComponent>(orange);
-    inverted->setSize(glm::vec2(120.0f, 120.0f));
+    inverted->setSize(Math::Vec2(120.0f, 120.0f));
     inverted->setColor(230, 140, 40); 
     inverted->setCustomShader(invertShader);
 
     k2d::GameObject *litObject2 = scene.createObject("lit2");
-    litObject2->setPosition(glm::vec2(700.0f, 200.0f));
+    litObject2->setPosition(Math::Vec2(700.0f, 200.0f));
     k2d::SpriteComponent *lit2 = litObject2->addComponent<k2d::SpriteComponent>(orange);
-    lit2->setSize(glm::vec2(120.0f, 120.0f));
+    lit2->setSize(Math::Vec2(120.0f, 120.0f));
     lit2->setColor(230, 140, 40);
 
     k2d::GameObject *lightObject = scene.createObject("light");
-    lightObject->setPosition(glm::vec2(450.0f, 100.0f));
+    lightObject->setPosition(Math::Vec2(450.0f, 100.0f));
     k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 1.0f, 1.0f);
     light->setEnergy(1.0f);

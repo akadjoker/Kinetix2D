@@ -1,8 +1,8 @@
 #include "k2d/CanvasRenderer.h"
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
+
 
 #include <cstdio>
 #include <cstring>
@@ -432,14 +432,14 @@ void main()
         mDrawCalls.clear();
     }
 
-    void CanvasRenderer::SetProjection(const glm::mat4 &matrix)
+    void CanvasRenderer::SetProjection(const Math::Mat4 &matrix)
     {
         mProjection = matrix;
     }
 
     void CanvasRenderer::SetOrtho(float width, float height)
     {
-        mProjection = glm::ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
+        mProjection = Math::Mat4::Ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
         mOrthoWidth = width;
         mOrthoHeight = height;
     }
@@ -598,10 +598,10 @@ void main()
         float x1 = x0 + width;
         float y1 = y0 + height;
 
-        glm::vec2 p0 = matrix.Transform(x0, y0);
-        glm::vec2 p1 = matrix.Transform(x1, y0);
-        glm::vec2 p2 = matrix.Transform(x1, y1);
-        glm::vec2 p3 = matrix.Transform(x0, y1);
+        Math::Vec2 p0 = matrix.Transform(x0, y0);
+        Math::Vec2 p1 = matrix.Transform(x1, y0);
+        Math::Vec2 p2 = matrix.Transform(x1, y1);
+        Math::Vec2 p3 = matrix.Transform(x0, y1);
 
         unsigned char r, g, b, a;
         UnpackColor(color.Packed(), r, g, b, a);
@@ -625,7 +625,7 @@ void main()
 
     void CanvasRenderer::EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                                      unsigned int customProgram, const Matrix2D &matrix,
-                                     const ct::Vector<glm::vec2> &points,
+                                     const ct::Vector<Math::Vec2> &points,
                                      const Color &color, unsigned int lightMask,
                                      int texWidth, int texHeight)
     {
@@ -659,8 +659,8 @@ void main()
         size_t base = mVertices.size();
         for (size_t i = 0; i < points.size(); ++i)
         {
-            const glm::vec2 &local = points[i];
-            glm::vec2 p = matrix.Transform(local);
+            const Math::Vec2 &local = points[i];
+            Math::Vec2 p = matrix.Transform(local);
 
             float u = texWidth > 0 ? local.x / (float)texWidth : 0.0f;
             float v = texHeight > 0 ? local.y / (float)texHeight : 0.0f;
@@ -711,7 +711,7 @@ void main()
     void CanvasRenderer::ApplyDrawCalls()
     {
         glUseProgram(mProgram);
-        glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
+        glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, mProjection.Data());
         glUniform1i(mShadowAtlasLoc, 1);
         glUniform1i(mHasLightTextureLoc, mDefaultLightTexture != 0 ? 1 : 0);
         glUniform4fv(mCanvasModulateLoc, 1, &mCanvasModulate.r);
@@ -839,7 +839,7 @@ void main()
                 activeProgram = wantProgram;
                 GLint mvpLoc = glGetUniformLocation(wantProgram, "u_mvp");
                 if (mvpLoc >= 0)
-                    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
+                    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mProjection.Data());
             }
 
             GLuint tex = (call.textureId != 0) ? call.textureId : mWhiteTexture;
@@ -1049,9 +1049,9 @@ void main()
         glGetIntegerv(GL_VIEWPORT, previousViewport);
 
         static const int textureSize = 2048;
-        static const glm::vec2 directions[4] = {
-            glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 1.0f),
-            glm::vec2(-1.0f, 0.0f), glm::vec2(0.0f, -1.0f)};
+        static const Math::Vec2 directions[4] = {
+            Math::Vec2(1.0f, 0.0f), Math::Vec2(0.0f, 1.0f),
+            Math::Vec2(-1.0f, 0.0f), Math::Vec2(0.0f, -1.0f)};
 
         glBindFramebuffer(GL_FRAMEBUFFER, mShadowFramebuffer);
         glUseProgram(mShadowProgram);
@@ -1075,8 +1075,8 @@ void main()
 
             for (int sector = 0; sector < 4; ++sector)
             {
-                const glm::vec2 direction = directions[sector];
-                const glm::vec2 perpendicular(-direction.y, direction.x);
+                const Math::Vec2 direction = directions[sector];
+                const Math::Vec2 perpendicular(-direction.y, direction.x);
                 int viewportX = (textureSize / 4) * sector;
                 glViewport(viewportX, lightIndex * 2, textureSize / 4, 2);
                 glScissor(viewportX, lightIndex * 2, textureSize / 4, 2);
@@ -1085,15 +1085,15 @@ void main()
                 const float radius = mLights[lightIndex].radius;
                 for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
                 {
-                    glm::vec2 a = glm::vec2(mOccluderEdges[edgeIndex].x,
+                    Math::Vec2 a = Math::Vec2(mOccluderEdges[edgeIndex].x,
                                             mOccluderEdges[edgeIndex].y) - mLights[lightIndex].position;
-                    glm::vec2 b = glm::vec2(mOccluderEdges[edgeIndex].z,
+                    Math::Vec2 b = Math::Vec2(mOccluderEdges[edgeIndex].z,
                                             mOccluderEdges[edgeIndex].w) - mLights[lightIndex].position;
 
-                    float aAlong = glm::dot(a, direction);
-                    float bAlong = glm::dot(b, direction);
-                    float aLateral = glm::dot(a, perpendicular);
-                    float bLateral = glm::dot(b, perpendicular);
+                    float aAlong = a.Dot(direction);
+                    float bAlong = b.Dot(direction);
+                    float aLateral = a.Dot(perpendicular);
+                    float bLateral = b.Dot(perpendicular);
 
                     const float kPolyHeight = 100.0f;
                     float aDist = aAlong / radius;
@@ -1116,7 +1116,7 @@ void main()
 
         float directionalHalfSize = std::sqrt(mOrthoWidth * mOrthoWidth + mOrthoHeight * mOrthoHeight) * 0.5f;
         float directionalDistance = directionalHalfSize * 4.0f;
-        glm::vec2 canvasCenter(mOrthoWidth * 0.5f, mOrthoHeight * 0.5f);
+        Math::Vec2 canvasCenter(mOrthoWidth * 0.5f, mOrthoHeight * 0.5f);
         for (int lightIndex = 0; lightIndex < mDirectionalLightCount; ++lightIndex)
         {
             if (!mDirectionalLights[lightIndex].useShadow)
@@ -1128,19 +1128,19 @@ void main()
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glm::vec2 direction = mDirectionalLights[lightIndex].direction;
-            glm::vec2 perpendicular(-direction.y, direction.x);
+            Math::Vec2 direction = mDirectionalLights[lightIndex].direction;
+            Math::Vec2 perpendicular(-direction.y, direction.x);
             mShadowVertices.clear();
             for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
             {
-                glm::vec2 a = glm::vec2(mOccluderEdges[edgeIndex].x,
+                Math::Vec2 a = Math::Vec2(mOccluderEdges[edgeIndex].x,
                                         mOccluderEdges[edgeIndex].y) - canvasCenter;
-                glm::vec2 b = glm::vec2(mOccluderEdges[edgeIndex].z,
+                Math::Vec2 b = Math::Vec2(mOccluderEdges[edgeIndex].z,
                                         mOccluderEdges[edgeIndex].w) - canvasCenter;
-                float aLateral = glm::dot(a, perpendicular) / directionalHalfSize;
-                float bLateral = glm::dot(b, perpendicular) / directionalHalfSize;
-                float aDepth = (glm::dot(a, direction) + directionalDistance * 0.5f) / directionalDistance;
-                float bDepth = (glm::dot(b, direction) + directionalDistance * 0.5f) / directionalDistance;
+                float aLateral = a.Dot(perpendicular) / directionalHalfSize;
+                float bLateral = b.Dot(perpendicular) / directionalHalfSize;
+                float aDepth = (a.Dot(direction) + directionalDistance * 0.5f) / directionalDistance;
+                float bDepth = (b.Dot(direction) + directionalDistance * 0.5f) / directionalDistance;
 
                 mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth, 1.0f});
                 mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth, 1.0f});
@@ -1170,13 +1170,13 @@ void main()
         mOccluderEdges.clear();
         for (size_t o = 0; o < mOccluderCount; ++o)
         {
-            const ct::Vector<glm::vec2> &pts = *mOccluders[o].points;
+            const ct::Vector<Math::Vec2> &pts = *mOccluders[o].points;
             int n = (int)pts.size();
             for (int e = 0; e < n; ++e)
             {
-                glm::vec2 a = mOccluders[o].xform.Transform(pts[e]);
-                glm::vec2 b = mOccluders[o].xform.Transform(pts[(e + 1) % n]);
-                mOccluderEdges.push_back(glm::vec4(a, b));
+                Math::Vec2 a = mOccluders[o].xform.Transform(pts[e]);
+                Math::Vec2 b = mOccluders[o].xform.Transform(pts[(e + 1) % n]);
+                mOccluderEdges.push_back(Math::Vec4(a.x, a.y, b.x, b.y));
             }
         }
     }

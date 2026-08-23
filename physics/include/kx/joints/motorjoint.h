@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 #include "joint.h"
 
@@ -12,8 +12,8 @@ namespace kx
     public:
         MotorJoint(Body *a, Body *b);
 
-        void SetLinearOffset(const glm::vec2 &offset);
-        const glm::vec2 &LinearOffset() const { return mLinearOffset; }
+        void SetLinearOffset(const Math::Vec2 &offset);
+        const Math::Vec2 &LinearOffset() const { return mLinearOffset; }
 
         void SetAngularOffset(float offset);
         float AngularOffset() const { return mAngularOffset; }
@@ -27,25 +27,25 @@ namespace kx
         void SetCorrectionFactor(float factor);
         float CorrectionFactor() const { return mCorrectionFactor; }
 
-        glm::vec2 AnchorA() const override;
-        glm::vec2 AnchorB() const override;
+        Math::Vec2 AnchorA() const override;
+        Math::Vec2 AnchorB() const override;
 
     protected:
         void InitVelocity(float dt) override;
         void SolveVelocity(float dt) override;
 
     private:
-        glm::vec2 mLinearOffset;
+        Math::Vec2 mLinearOffset;
         float mAngularOffset;
-        glm::vec2 mLinearImpulse;
+        Math::Vec2 mLinearImpulse;
         float mAngularImpulse;
         float mMaxForce;
         float mMaxTorque;
         float mCorrectionFactor;
 
-        glm::vec2 mRA;
-        glm::vec2 mRB;
-        glm::vec2 mLinearError;
+        Math::Vec2 mRA;
+        Math::Vec2 mRB;
+        Math::Vec2 mLinearError;
         float mAngularError;
         float mLinearMass11;
         float mLinearMass12;

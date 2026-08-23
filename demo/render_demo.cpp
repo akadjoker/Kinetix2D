@@ -1,7 +1,6 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include <ct/string.hpp>
 
@@ -81,41 +80,41 @@ int main()
 
     k2d::GameObject *bg = scene.createObject("bg");
     k2d::SpriteComponent *bgSprite = bg->addComponent<k2d::SpriteComponent>(whiteTex);
-    bgSprite->setSize(glm::vec2(4000.0f, 4000.0f));
+    bgSprite->setSize(Math::Vec2(4000.0f, 4000.0f));
     bgSprite->setColor(10, 12, 16);
-    bg->setPosition(glm::vec2(640.0f, 360.0f));
+    bg->setPosition(Math::Vec2(640.0f, 360.0f));
     bg->setZIndex(-10);
 
     k2d::GameObject *a = scene.createObject("a");
     k2d::SpriteComponent *sa = a->addComponent<k2d::SpriteComponent>(checkerTex);
-    sa->setSize(glm::vec2(220.0f, 220.0f));
-    a->setPosition(glm::vec2(300.0f, 220.0f));
+    sa->setSize(Math::Vec2(220.0f, 220.0f));
+    a->setPosition(Math::Vec2(300.0f, 220.0f));
     a->setZIndex(0);
 
     k2d::GameObject *b = scene.createObject("b");
     k2d::SpriteComponent *sb = b->addComponent<k2d::SpriteComponent>(stripesTex);
-    sb->setSize(glm::vec2(220.0f, 220.0f));
-    b->setPosition(glm::vec2(360.0f, 260.0f));
+    sb->setSize(Math::Vec2(220.0f, 220.0f));
+    b->setPosition(Math::Vec2(360.0f, 260.0f));
     b->setZIndex(1);
 
     k2d::GameObject *c = scene.createObject("c");
     k2d::SpriteComponent *sc = c->addComponent<k2d::SpriteComponent>(whiteTex);
-    sc->setSize(glm::vec2(220.0f, 220.0f));
+    sc->setSize(Math::Vec2(220.0f, 220.0f));
     sc->setColor(130, 45, 45);
-    c->setPosition(glm::vec2(420.0f, 300.0f));
+    c->setPosition(Math::Vec2(420.0f, 300.0f));
     c->setZIndex(2);
 
     k2d::GameObject *y1 = scene.createObject("y1");
     k2d::SpriteComponent *sy1 = y1->addComponent<k2d::SpriteComponent>(checkerTex);
-    sy1->setSize(glm::vec2(160.0f, 160.0f));
+    sy1->setSize(Math::Vec2(160.0f, 160.0f));
     sy1->setYSort(true);
-    y1->setPosition(glm::vec2(700.0f, 220.0f));
+    y1->setPosition(Math::Vec2(700.0f, 220.0f));
 
     k2d::GameObject *y2 = scene.createObject("y2");
     k2d::SpriteComponent *sy2 = y2->addComponent<k2d::SpriteComponent>(stripesTex);
-    sy2->setSize(glm::vec2(160.0f, 160.0f));
+    sy2->setSize(Math::Vec2(160.0f, 160.0f));
     sy2->setYSort(true);
-    y2->setPosition(glm::vec2(700.0f, 300.0f));
+    y2->setPosition(Math::Vec2(700.0f, 300.0f));
 
     const int kTile = 32;
     const int kAtlas = 4;
@@ -164,7 +163,7 @@ int main()
     light->setCastShadow(true);
     light->setShadowColor(0.0f, 0.0f, 0.0f, 1.0f);
     light->setShadowFilter(k2d::SHADOW_FILTER_PCF5);
-    lightObj->setPosition(glm::vec2(640.0f, 360.0f));
+    lightObj->setPosition(Math::Vec2(640.0f, 360.0f));
 
     k2d::GameObject *directionalObj = scene.createObject("directional_light");
     k2d::DirectionalLight2D *directional = directionalObj->addComponent<k2d::DirectionalLight2D>();
@@ -175,39 +174,39 @@ int main()
     directional->setShadowFilter(k2d::SHADOW_FILTER_PCF13);
     directionalObj->setRotationDegrees(-35.0f);
 
-    const glm::vec2 columnA[4] = {glm::vec2(-22.0f, -130.0f), glm::vec2(22.0f, -130.0f),
-                                  glm::vec2(22.0f, 130.0f), glm::vec2(-22.0f, 130.0f)};
+    const Math::Vec2 columnA[4] = {Math::Vec2(-22.0f, -130.0f), Math::Vec2(22.0f, -130.0f),
+                                  Math::Vec2(22.0f, 130.0f), Math::Vec2(-22.0f, 130.0f)};
     k2d::GameObject *col1 = scene.createObject("col1");
     k2d::LightOccluder2D *occl1 = col1->addComponent<k2d::LightOccluder2D>();
     occl1->setPolygon(columnA, 4);
-    col1->setPosition(glm::vec2(500.0f, 270.0f));
+    col1->setPosition(Math::Vec2(500.0f, 270.0f));
     k2d::SpriteComponent *col1Sprite = col1->addComponent<k2d::SpriteComponent>(whiteTex);
-    col1Sprite->setSize(glm::vec2(44.0f, 260.0f));
+    col1Sprite->setSize(Math::Vec2(44.0f, 260.0f));
     col1Sprite->setColor(150, 60, 60);
 
-    const glm::vec2 columnB[4] = {glm::vec2(-30.0f, -100.0f), glm::vec2(30.0f, -100.0f),
-                                  glm::vec2(30.0f, 100.0f), glm::vec2(-30.0f, 100.0f)};
+    const Math::Vec2 columnB[4] = {Math::Vec2(-30.0f, -100.0f), Math::Vec2(30.0f, -100.0f),
+                                  Math::Vec2(30.0f, 100.0f), Math::Vec2(-30.0f, 100.0f)};
     k2d::GameObject *col2 = scene.createObject("col2");
     k2d::LightOccluder2D *occl2 = col2->addComponent<k2d::LightOccluder2D>();
     occl2->setPolygon(columnB, 4);
-    col2->setPosition(glm::vec2(830.0f, 420.0f));
+    col2->setPosition(Math::Vec2(830.0f, 420.0f));
     k2d::SpriteComponent *col2Sprite = col2->addComponent<k2d::SpriteComponent>(whiteTex);
-    col2Sprite->setSize(glm::vec2(60.0f, 200.0f));
+    col2Sprite->setSize(Math::Vec2(60.0f, 200.0f));
     col2Sprite->setColor(150, 60, 60);
 
-    const glm::vec2 barC[4] = {glm::vec2(-150.0f, -18.0f), glm::vec2(150.0f, -18.0f),
-                               glm::vec2(150.0f, 18.0f), glm::vec2(-150.0f, 18.0f)};
+    const Math::Vec2 barC[4] = {Math::Vec2(-150.0f, -18.0f), Math::Vec2(150.0f, -18.0f),
+                               Math::Vec2(150.0f, 18.0f), Math::Vec2(-150.0f, 18.0f)};
     k2d::GameObject *col3 = scene.createObject("col3");
     k2d::LightOccluder2D *occl3 = col3->addComponent<k2d::LightOccluder2D>();
     occl3->setPolygon(barC, 4);
-    col3->setPosition(glm::vec2(670.0f, 160.0f));
+    col3->setPosition(Math::Vec2(670.0f, 160.0f));
     k2d::SpriteComponent *col3Sprite = col3->addComponent<k2d::SpriteComponent>(whiteTex);
-    col3Sprite->setSize(glm::vec2(300.0f, 36.0f));
+    col3Sprite->setSize(Math::Vec2(300.0f, 36.0f));
     col3Sprite->setColor(150, 60, 60);
 
     k2d::Camera2D camera;
-    camera.position = glm::vec2(640.0f, 360.0f);
-    camera.zoom = glm::vec2(1.0f, 1.0f);
+    camera.position = Math::Vec2(640.0f, 360.0f);
+    camera.zoom = Math::Vec2(1.0f, 1.0f);
 
     int lastDrawCalls = 0;
     bool running = true;
@@ -240,14 +239,14 @@ int main()
                 z = 0.1f;
             if (z > 8.0f)
                 z = 8.0f;
-            camera.zoom = glm::vec2(z, z);
+            camera.zoom = Math::Vec2(z, z);
         }
 
         float cullX, cullY, cullX2, cullY2;
         camera.VisibleRect(cullX, cullY, cullX2, cullY2, (float)device.Width(), (float)device.Height());
         tileMap->setCullRect(cullX, cullY, cullX2 - cullX, cullY2 - cullY);
 
-        glm::vec2 mouseWorld = camera.ScreenToWorld(
+        Math::Vec2 mouseWorld = camera.ScreenToWorld(
             input.MouseX(), input.MouseY(),
             (float)device.Width(), (float)device.Height());
         lightObj->setPosition(mouseWorld);
@@ -270,7 +269,7 @@ int main()
         canvas.SetProjection(camera.Projection((float)device.Width(), (float)device.Height()));
         scene.render(canvas);
 
-        batch.SetProjection(glm::ortho(0.0f, (float)device.Width(), (float)device.Height(), 0.0f, -1.0f, 1.0f));
+        batch.SetProjection(Math::Mat4::Ortho(0.0f, (float)device.Width(), (float)device.Height(), 0.0f, -1.0f, 1.0f));
 
         ct::String hud;
         hud += "tiles ";

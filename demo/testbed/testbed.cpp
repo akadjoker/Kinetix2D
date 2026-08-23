@@ -46,7 +46,7 @@ int TestbedDemoCount()
     return (int)DemoRegistry().size();
 }
 
-Demo::Demo(Testbed &tb, const glm::vec2 &gravity)
+Demo::Demo(Testbed &tb, const Math::Vec2 &gravity)
     : mTB(tb), mWorld(new kx::World(gravity))
 {
     mWorld->SetTimeSource(&k2d::Device::TimeSeconds);
@@ -88,7 +88,7 @@ bool Testbed::Init()
 
     mBatch.Resize(mDevice.Width(), mDevice.Height());
 
-    mCamera.center = glm::vec2(0.0f, 0.0f);
+    mCamera.center = Math::Vec2(0.0f, 0.0f);
     mCamera.zoom = 1.5f;
 
     k2d::Profiler::Get().SetEnabled(true);
@@ -138,7 +138,7 @@ void Testbed::SetStatus(const char *fmt, ...)
     va_end(args);
 }
 
-glm::vec2 Testbed::MouseWorld()
+Math::Vec2 Testbed::MouseWorld()
 {
     k2d::Input &input = mDevice.GetInput();
     return CameraScreenToWorld(mCamera, input.MouseX(), input.MouseY(),
@@ -209,7 +209,7 @@ void Testbed::UpdateMouseGrab()
         return;
 
     k2d::Input &input = mDevice.GetInput();
-    glm::vec2 mouse = MouseWorld();
+    Math::Vec2 mouse = MouseWorld();
 
     if (input.MousePressed(0) && !mGrab && !mDevice.ImGuiWantsMouse())
     {

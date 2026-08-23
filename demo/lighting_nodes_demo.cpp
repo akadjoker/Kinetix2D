@@ -69,57 +69,57 @@ int main()
         for (int x = 0; x < 40; ++x)
             floor->setTile(x, y, 1 + ((x / 2 + y / 2) % (kAtlas * kAtlas)));
 
-    const glm::vec2 creaturePositions[4] = {
-        glm::vec2(480.0f, 320.0f), glm::vec2(800.0f, 300.0f),
-        glm::vec2(500.0f, 500.0f), glm::vec2(780.0f, 520.0f)};
+    const Math::Vec2 creaturePositions[4] = {
+        Math::Vec2(480.0f, 320.0f), Math::Vec2(800.0f, 300.0f),
+        Math::Vec2(500.0f, 500.0f), Math::Vec2(780.0f, 520.0f)};
     for (int i = 0; i < 4; ++i)
     {
         k2d::GameObject *obj = scene.createObject("creature");
         obj->setPosition(creaturePositions[i]);
         k2d::SpriteComponent *sprite = obj->addComponent<k2d::SpriteComponent>(wabbit);
-        sprite->setSize(glm::vec2(96.0f, 96.0f));
-        sprite->setPivot(glm::vec2(0.5f, 0.5f));
+        sprite->setSize(Math::Vec2(96.0f, 96.0f));
+        sprite->setPivot(Math::Vec2(0.5f, 0.5f));
     }
 
-    const glm::vec2 markerPositions[14] = {
-        glm::vec2(120.0f, 90.0f), glm::vec2(260.0f, 60.0f), glm::vec2(430.0f, 130.0f),
-        glm::vec2(620.0f, 70.0f), glm::vec2(920.0f, 90.0f), glm::vec2(1120.0f, 60.0f),
-        glm::vec2(160.0f, 300.0f), glm::vec2(300.0f, 440.0f), glm::vec2(620.0f, 250.0f),
-        glm::vec2(690.0f, 400.0f), glm::vec2(950.0f, 260.0f), glm::vec2(1090.0f, 420.0f),
-        glm::vec2(430.0f, 620.0f), glm::vec2(880.0f, 660.0f)};
+    const Math::Vec2 markerPositions[14] = {
+        Math::Vec2(120.0f, 90.0f), Math::Vec2(260.0f, 60.0f), Math::Vec2(430.0f, 130.0f),
+        Math::Vec2(620.0f, 70.0f), Math::Vec2(920.0f, 90.0f), Math::Vec2(1120.0f, 60.0f),
+        Math::Vec2(160.0f, 300.0f), Math::Vec2(300.0f, 440.0f), Math::Vec2(620.0f, 250.0f),
+        Math::Vec2(690.0f, 400.0f), Math::Vec2(950.0f, 260.0f), Math::Vec2(1090.0f, 420.0f),
+        Math::Vec2(430.0f, 620.0f), Math::Vec2(880.0f, 660.0f)};
     for (int i = 0; i < 14; ++i)
     {
         k2d::GameObject *obj = scene.createObject("occluder_marker");
         obj->setPosition(markerPositions[i]);
         k2d::SpriteComponent *sprite = obj->addComponent<k2d::SpriteComponent>(markerTex);
-        sprite->setSize(glm::vec2(28.0f, 28.0f));
-        sprite->setPivot(glm::vec2(0.5f, 0.5f));
+        sprite->setSize(Math::Vec2(28.0f, 28.0f));
+        sprite->setPivot(Math::Vec2(0.5f, 0.5f));
         sprite->setColor(10, 10, 12);
 
         k2d::LightOccluder2D *occluder = obj->addComponent<k2d::LightOccluder2D>();
-        glm::vec2 square[4] = {glm::vec2(-14.0f, -14.0f), glm::vec2(14.0f, -14.0f),
-                                glm::vec2(14.0f, 14.0f), glm::vec2(-14.0f, 14.0f)};
+        Math::Vec2 square[4] = {Math::Vec2(-14.0f, -14.0f), Math::Vec2(14.0f, -14.0f),
+                                Math::Vec2(14.0f, 14.0f), Math::Vec2(-14.0f, 14.0f)};
         occluder->setPolygon(square, 4);
     }
 
     struct LightSetup
     {
-        glm::vec2 position;
-        glm::vec3 color;
+        Math::Vec2 position;
+        Math::Vec3 color;
         float radius;
     };
     const LightSetup lightSetups[4] = {
-        {glm::vec2(280.0f, 620.0f), glm::vec3(1.0f, 0.55f, 0.15f), 620.0f},  
-        {glm::vec2(1020.0f, 200.0f), glm::vec3(0.55f, 0.65f, 1.0f), 650.0f}, 
-        {glm::vec2(950.0f, 600.0f), glm::vec3(0.35f, 1.0f, 0.45f), 600.0f},  
-        {glm::vec2(300.0f, 180.0f), glm::vec3(1.0f, 1.0f, 0.95f), 550.0f}};  
+        {Math::Vec2(280.0f, 620.0f), Math::Vec3(1.0f, 0.55f, 0.15f), 620.0f},  
+        {Math::Vec2(1020.0f, 200.0f), Math::Vec3(0.55f, 0.65f, 1.0f), 650.0f}, 
+        {Math::Vec2(950.0f, 600.0f), Math::Vec3(0.35f, 1.0f, 0.45f), 600.0f},  
+        {Math::Vec2(300.0f, 180.0f), Math::Vec3(1.0f, 1.0f, 0.95f), 550.0f}};  
     k2d::Light2D *lights[4];
     for (int i = 0; i < 4; ++i)
     {
         k2d::GameObject *obj = scene.createObject("point_light");
         obj->setPosition(lightSetups[i].position);
         k2d::Light2D *light = obj->addComponent<k2d::Light2D>();
-        light->setColor(lightSetups[i].color.r, lightSetups[i].color.g, lightSetups[i].color.b);
+        light->setColor(lightSetups[i].color.x, lightSetups[i].color.y, lightSetups[i].color.z);
         light->setEnergy(1.0f); 
         light->setRadius(lightSetups[i].radius);
         light->setCastShadow(true);
@@ -150,9 +150,9 @@ int main()
 
         for (int i = 0; i < 4; ++i)
         {
-            glm::vec2 base = lightSetups[i].position;
+            Math::Vec2 base = lightSetups[i].position;
             float wobble = std::sin(time * 0.35f + (float)i * 1.7f) * 25.0f;
-            lights[i]->owner()->setPosition(base + glm::vec2(wobble, wobble * 0.5f));
+            lights[i]->owner()->setPosition(base + Math::Vec2(wobble, wobble * 0.5f));
         }
 
         scene.update(dt);

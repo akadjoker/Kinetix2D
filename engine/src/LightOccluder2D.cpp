@@ -11,7 +11,7 @@ namespace k2d
     {
     }
 
-    void LightOccluder2D::setPolygon(const glm::vec2 *points, int count)
+    void LightOccluder2D::setPolygon(const Math::Vec2 *points, int count)
     {
         mPoints.clear();
         for (int i = 0; i < count; ++i)

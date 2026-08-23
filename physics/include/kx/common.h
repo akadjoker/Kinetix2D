@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cmath>
 #include <cstdint>
 
@@ -30,48 +30,51 @@ namespace kx
 
     inline float Clamp(float a, float lo, float hi) { return a < lo ? lo : (a > hi ? hi : a); }
 
-    inline float Cross(const glm::vec2 &a, const glm::vec2 &b) { return a.x * b.y - a.y * b.x; }
-    inline glm::vec2 Cross(const glm::vec2 &a, float s) { return glm::vec2(s * a.y, -s * a.x); }
-    inline glm::vec2 Cross(float s, const glm::vec2 &a) { return glm::vec2(-s * a.y, s * a.x); }
-    inline float Dot(const glm::vec2 &a, const glm::vec2 &b) { return a.x * b.x + a.y * b.y; }
-    inline float DistanceSquared(const glm::vec2 &a, const glm::vec2 &b)
+    inline float Cross(const Math::Vec2 &a, const Math::Vec2 &b) { return a.x * b.y - a.y * b.x; }
+    inline Math::Vec2 Cross(const Math::Vec2 &a, float s) { return Math::Vec2(s * a.y, -s * a.x); }
+    inline Math::Vec2 Cross(float s, const Math::Vec2 &a) { return Math::Vec2(-s * a.y, s * a.x); }
+    inline float Dot(const Math::Vec2 &a, const Math::Vec2 &b) { return a.x * b.x + a.y * b.y; }
+    inline float DistanceSquared(const Math::Vec2 &a, const Math::Vec2 &b)
     {
-        glm::vec2 c = a - b;
+        Math::Vec2 c = a - b;
         return Dot(c, c);
     }
-    inline float Distance(const glm::vec2 &a, const glm::vec2 &b) { return std::sqrt(DistanceSquared(a, b)); }
+    inline float Distance(const Math::Vec2 &a, const Math::Vec2 &b) { return std::sqrt(DistanceSquared(a, b)); }
 
-    inline glm::vec2 Normalize(const glm::vec2 &v)
+    inline Math::Vec2 Normalize(const Math::Vec2 &v)
     {
         float length = std::sqrt(v.x * v.x + v.y * v.y);
         if (length < kEpsilon)
-            return glm::vec2(0.0f, 0.0f);
+            return Math::Vec2(0.0f, 0.0f);
         float invLength = 1.0f / length;
-        return glm::vec2(v.x * invLength, v.y * invLength);
+        return Math::Vec2(v.x * invLength, v.y * invLength);
     }
 
-    inline Transform MakeTransform(const glm::vec2 &pos, float angleRad)
+    inline Transform MakeTransform(const Math::Vec2 &pos, float angleRad)
     {
         float c = std::cos(angleRad);
         float s = std::sin(angleRad);
         return Transform(c, s, -s, c, pos.x, pos.y);
     }
 
-    inline glm::vec2 Rotate(const Transform &xf, const glm::vec2 &v)
+    inline Math::Vec2 Rotate(const Transform &xf, const Math::Vec2 &v)
     {
-        return glm::vec2(xf.a * v.x + xf.c * v.y, xf.b * v.x + xf.d * v.y);
+        return Math::Vec2(xf.a * v.x + xf.c * v.y, xf.b * v.x + xf.d * v.y);
     }
 
-    inline glm::vec2 InvRotate(const Transform &xf, const glm::vec2 &v)
+    inline Math::Vec2 InvRotate(const Transform &xf, const Math::Vec2 &v)
     {
-        return glm::vec2(xf.a * v.x + xf.b * v.y, xf.c * v.x + xf.d * v.y);
+        return Math::Vec2(xf.a * v.x + xf.b * v.y, xf.c * v.x + xf.d * v.y);
     }
 
-    inline glm::vec2 InvTransformPoint(const Transform &xf, const glm::vec2 &p)
+    inline Math::Vec2 InvTransformPoint(const Transform &xf, const Math::Vec2 &p)
     {
         float px = p.x - xf.tx;
         float py = p.y - xf.ty;
-        return glm::vec2(xf.a * px + xf.b * py, xf.c * px + xf.d * py);
+        return Math::Vec2(xf.a * px + xf.b * py, xf.c * px + xf.d * py);
     }
 
-} 
+    inline Math::Vec2 Min(const Math::Vec2 &a, const Math::Vec2 &b) { return Math::Vec2::Min(a, b); }
+    inline Math::Vec2 Max(const Math::Vec2 &a, const Math::Vec2 &b) { return Math::Vec2::Max(a, b); }
+
+}

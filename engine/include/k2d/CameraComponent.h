@@ -19,9 +19,9 @@ namespace k2d
         void setViewport(float width, float height);
         float viewportWidth() const { return mViewportWidth; }
         float viewportHeight() const { return mViewportHeight; }
-        glm::mat4 projection() const;
+        Math::Mat4 projection() const;
         void visibleRect(float &minX, float &minY, float &maxX, float &maxY) const;
-        glm::vec2 screenToWorld(float x, float y) const;
+        Math::Vec2 screenToWorld(float x, float y) const;
 
     private:
         Camera2D mCamera;

@@ -3,7 +3,7 @@
 #include "k2d/Component.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -15,15 +15,15 @@ namespace k2d
 
         LightOccluder2D();
 
-        void setPolygon(const glm::vec2 *points, int count);
-        const ct::Vector<glm::vec2> &points() const { return mPoints; }
+        void setPolygon(const Math::Vec2 *points, int count);
+        const ct::Vector<Math::Vec2> &points() const { return mPoints; }
         unsigned int version() const { return mVersion; }
 
     protected:
         void onRender(RenderQueue &queue) override;
 
     private:
-        ct::Vector<glm::vec2> mPoints;
+        ct::Vector<Math::Vec2> mPoints;
         unsigned int mVersion;
     };
 

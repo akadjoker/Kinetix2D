@@ -14,11 +14,11 @@ namespace
         k2d::AStarGrid2D grid;
         grid.SetSize(5, 5);
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Always);
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
 
-        return ok && path.size() == 5 && path[0] == glm::ivec2(0, 0) &&
-               path[4] == glm::ivec2(4, 4);
+        return ok && path.size() == 5 && path[0] == k2d::IVec2(0, 0) &&
+               path[4] == k2d::IVec2(4, 4);
     }
 
     bool TestGridDiagonalNever()
@@ -26,7 +26,7 @@ namespace
         k2d::AStarGrid2D grid;
         grid.SetSize(5, 5);
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
 
         return ok && path.size() == 9;
@@ -40,7 +40,7 @@ namespace
 
         for (int y = 0; y <= 3; ++y)
             grid.SetSolid(2, y, true);
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 2}, {4, 2}, path);
         if (!ok)
             return false;
@@ -62,12 +62,12 @@ namespace
         grid.SetSolid(2, 1, true);
         grid.SetSolid(2, 3, true);
 
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool failsClosed = !grid.GetIdPath({0, 0}, {2, 2}, path, false);
 
-        ct::Vector<glm::ivec2> partial;
+        ct::Vector<k2d::IVec2> partial;
         bool partialOk = grid.GetIdPath({0, 0}, {2, 2}, partial, true);
-        bool endsShortOfGoal = partialOk && !partial.empty() && partial.back() != glm::ivec2(2, 2);
+        bool endsShortOfGoal = partialOk && !partial.empty() && partial.back() != k2d::IVec2(2, 2);
 
         return failsClosed && endsShortOfGoal;
     }
@@ -79,7 +79,7 @@ namespace
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::OnlyIfNoObstacles);
 
         grid.SetSolid(1, 0, true);
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 0}, {1, 1}, path);
 
         return ok && path.size() > 2;
@@ -93,7 +93,7 @@ namespace
 
         k2d::AStarGrid2D grid;
         map.buildPathfindingGrid(grid);
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
         return ok && !grid.IsSolid(2, 2);
     }
@@ -119,7 +119,7 @@ namespace
         if (grid.IsSolid(0, 0) || !grid.IsSolid(2, 0) || !grid.IsSolid(2, 3) || grid.IsSolid(2, 4))
             return false;
 
-        ct::Vector<glm::ivec2> path;
+        ct::Vector<k2d::IVec2> path;
         bool ok = grid.GetIdPath({0, 2}, {4, 2}, path);
         if (!ok)
             return false;
@@ -137,7 +137,7 @@ namespace
         k2d::AStarGrid2D grid;
         map.buildPathfindingGrid(grid);
 
-        glm::vec2 p = grid.GetPointPosition(1, 1);
+        Math::Vec2 p = grid.GetPointPosition(1, 1);
         return Near(p.x, 30.0f) && Near(p.y, 15.0f);
     }
 

@@ -17,21 +17,21 @@ namespace k2d
         mEntries.clear();
     }
 
-    int SpriteBatch::add(Texture *texture, const glm::vec2 &position, const glm::vec2 &size,
+    int SpriteBatch::add(Texture *texture, const Math::Vec2 &position, const Math::Vec2 &size,
                          const Color &color)
     {
         Entry entry;
         entry.texture = texture;
         entry.position = position;
         entry.size = size;
-        entry.source = glm::vec4(0.0f);
+        entry.source = Math::Vec4(0.0f);
         entry.color = color;
         entry.flags = 0;
         mEntries.push_back(entry);
         return (int)mEntries.size() - 1;
     }
 
-    void SpriteBatch::setSource(int index, const glm::vec4 &source)
+    void SpriteBatch::setSource(int index, const Math::Vec4 &source)
     {
         if (index >= 0 && index < (int)mEntries.size())
             mEntries[index].source = source;

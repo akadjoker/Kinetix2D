@@ -18,13 +18,13 @@ namespace k2d
 
     void Material2D::setSourceRect(float x, float y, float width, float height)
     {
-        mSourceRect = glm::vec4(x, y, width, height);
+        mSourceRect = Math::Vec4(x, y, width, height);
         mHasSourceRect = width != 0.0f && height != 0.0f;
     }
 
     void Material2D::clearSourceRect()
     {
-        mSourceRect = glm::vec4(0.0f);
+        mSourceRect = Math::Vec4(0.0f);
         mHasSourceRect = false;
     }
 

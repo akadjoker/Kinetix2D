@@ -11,12 +11,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-include(FetchContent)
-FetchContent_Declare(
-    glm
-    URL https://github.com/g-truc/glm/archive/refs/tags/1.0.1.zip
-)
-FetchContent_MakeAvailable(glm)
+set(MATHC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MATHC_BUILD_BENCH OFF CACHE BOOL "" FORCE)
+set(MATHC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/math)
 
 add_subdirectory(engine)
 add_subdirectory(physics)

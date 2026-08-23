@@ -7,13 +7,13 @@ namespace
 {
     bool Near(float a, float b, float eps = 0.01f) { return std::fabs(a - b) < eps; }
 
-    float VecLength(const glm::vec2 &v) { return std::sqrt(v.x * v.x + v.y * v.y); }
-    float VecAngleDeg(const glm::vec2 &v) { return std::atan2(v.y, v.x) * 57.29577951f; }
+    float VecLength(const Math::Vec2 &v) { return std::sqrt(v.x * v.x + v.y * v.y); }
+    float VecAngleDeg(const Math::Vec2 &v) { return std::atan2(v.y, v.x) * 57.29577951f; }
 
     bool TestPrefabRangesStayInBoundsAndVary()
     {
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(0.0f, -1.0f);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
         prefab.spreadDegrees = 0.0f;
         prefab.speedMin = 4.0f;
         prefab.speedMax = 10.0f;
@@ -31,7 +31,7 @@ namespace
         particles.SetPrefab(prefab);
 
         for (int i = 0; i < 40; ++i)
-            particles.Emit(glm::vec2(0.0f), prefab);
+            particles.Emit(Math::Vec2(0.0f), prefab);
 
         bool inBounds = true;
         bool speedVaries = false, lifeVaries = false, sizeVaries = false;
@@ -72,7 +72,7 @@ namespace
     bool TestSpreadConeBoundsDirection()
     {
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(1.0f, 0.0f);
+        prefab.direction = Math::Vec2(1.0f, 0.0f);
         prefab.spreadDegrees = 90.0f; 
         prefab.speedMin = prefab.speedMax = 10.0f;
         prefab.lifeMin = prefab.lifeMax = 1.0f;
@@ -80,7 +80,7 @@ namespace
 
         k2d::ParticleSystem particles(64);
         for (int i = 0; i < 40; ++i)
-            particles.Emit(glm::vec2(0.0f), prefab);
+            particles.Emit(Math::Vec2(0.0f), prefab);
 
         bool inCone = true;
         bool speedExact = true;
@@ -89,7 +89,7 @@ namespace
 
         for (size_t i = 0; i < particles.ActiveCount(); ++i)
         {
-            const glm::vec2 &v = particles.Get(i).velocity;
+            const Math::Vec2 &v = particles.Get(i).velocity;
             const float angle = VecAngleDeg(v);
             if (angle < -45.5f || angle > 45.5f)
                 inCone = false;
@@ -105,14 +105,14 @@ namespace
     bool TestDragReducesSpeedOverTime()
     {
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(1.0f, 0.0f);
+        prefab.direction = Math::Vec2(1.0f, 0.0f);
         prefab.speedMin = prefab.speedMax = 10.0f;
         prefab.lifeMin = prefab.lifeMax = 10.0f;
         prefab.sizeMin = prefab.sizeMax = 1.0f;
         prefab.drag = 2.0f;
 
         k2d::ParticleSystem particles(4);
-        particles.Emit(glm::vec2(0.0f), prefab);
+        particles.Emit(Math::Vec2(0.0f), prefab);
 
         float previousSpeed = VecLength(particles.Get(0).velocity);
         bool alwaysDecreasing = true;
@@ -130,15 +130,15 @@ namespace
     bool TestFaceDirectionTracksVelocity()
     {
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(0.0f, -1.0f);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
         prefab.speedMin = prefab.speedMax = 5.0f;
         prefab.lifeMin = prefab.lifeMax = 10.0f;
         prefab.sizeMin = prefab.sizeMax = 1.0f;
         prefab.faceDirection = true;
 
         k2d::ParticleSystem particles(4);
-        particles.SetGravity(glm::vec2(0.0f, 20.0f)); 
-        particles.Emit(glm::vec2(0.0f), prefab);
+        particles.SetGravity(Math::Vec2(0.0f, 20.0f)); 
+        particles.Emit(Math::Vec2(0.0f), prefab);
 
         bool ok = true;
         for (int i = 0; i < 10; ++i)
@@ -155,7 +155,7 @@ namespace
     bool TestColorRampInterpolates()
     {
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(0.0f, -1.0f);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
         prefab.speedMin = prefab.speedMax = 0.0f;
         prefab.lifeMin = prefab.lifeMax = 1.0f;
         prefab.sizeMin = prefab.sizeMax = 1.0f;
@@ -163,7 +163,7 @@ namespace
         prefab.colorEnd = k2d::Color(0.0f, 0.0f, 1.0f, 0.0f);
 
         k2d::ParticleSystem particles(4);
-        particles.Emit(glm::vec2(0.0f), prefab);
+        particles.Emit(Math::Vec2(0.0f), prefab);
         particles.Update(0.5f);
 
         const k2d::Color &c = particles.Get(0).color;
@@ -174,11 +174,11 @@ namespace
 int main()
 {
     k2d::ParticleSystem particles(2);
-    particles.SetGravity(glm::vec2(0.0f, 10.0f));
+    particles.SetGravity(Math::Vec2(0.0f, 10.0f));
 
-    bool first = particles.Emit(glm::vec2(0.0f), glm::vec2(2.0f, 0.0f), 1.0f, 4.0f);
-    bool second = particles.Emit(glm::vec2(0.0f), glm::vec2(0.0f), 0.25f, 2.0f);
-    bool rejected = !particles.Emit(glm::vec2(0.0f), glm::vec2(0.0f), 1.0f, 1.0f);
+    bool first = particles.Emit(Math::Vec2(0.0f), Math::Vec2(2.0f, 0.0f), 1.0f, 4.0f);
+    bool second = particles.Emit(Math::Vec2(0.0f), Math::Vec2(0.0f), 0.25f, 2.0f);
+    bool rejected = !particles.Emit(Math::Vec2(0.0f), Math::Vec2(0.0f), 1.0f, 1.0f);
     particles.Update(0.1f);
 
     bool motion = particles.ActiveCount() == 2 && particles.Get(0).position.x == 0.2f &&
@@ -189,17 +189,17 @@ int main()
     bool allExpired = particles.ActiveCount() == 0;
 
     k2d::ParticlePrefab fire;
-    fire.direction = glm::vec2(0.0f, -1.0f);
+    fire.direction = Math::Vec2(0.0f, -1.0f);
     fire.speedMin = fire.speedMax = 2.0f;
     fire.lifeMin = fire.lifeMax = 0.2f;
     fire.sizeMin = fire.sizeMax = 3.0f;
-    fire.atlasBounds = glm::vec4(16.0f, 8.0f, 12.0f, 12.0f);
+    fire.atlasBounds = Math::Vec4(16.0f, 8.0f, 12.0f, 12.0f);
 
     k2d::ParticleSystem oneShot(4);
     oneShot.SetMode(k2d::ParticleMode::OneShot);
     oneShot.SetPrefab(fire);
     oneShot.SetOneShotCount(3);
-    oneShot.SetEmitterPosition(glm::vec2(5.0f, 6.0f));
+    oneShot.SetEmitterPosition(Math::Vec2(5.0f, 6.0f));
     oneShot.Reset();
     bool oneShotStarted = oneShot.ActiveCount() == 3 && !oneShot.IsPlaying();
     bool atlasBounds = oneShot.Get(0).atlasBounds == fire.atlasBounds;
@@ -211,7 +211,7 @@ int main()
     k2d::ParticlePrefab smoke = fire;
     smoke.lifeMin = smoke.lifeMax = 1.0f;
     loop.SetPrefab(smoke);
-    loop.SetEmitterPosition(glm::vec2(2.0f, 3.0f));
+    loop.SetEmitterPosition(Math::Vec2(2.0f, 3.0f));
     loop.SetEmissionRate(4.0f);
     loop.Start();
     loop.Update(0.5f);
@@ -222,7 +222,7 @@ int main()
 
     k2d::ParticleSystem persistent(2);
     persistent.SetMode(k2d::ParticleMode::Persistent);
-    persistent.Emit(glm::vec2(1.0f), fire);
+    persistent.Emit(Math::Vec2(1.0f), fire);
     persistent.Reset();
     bool resetRestarts = persistent.ActiveCount() == 0 && persistent.IsPlaying();
 

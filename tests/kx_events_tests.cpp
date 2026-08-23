@@ -45,15 +45,15 @@ static void CountEvent(const kx::ContactEvent &event, void *context)
 
 static void TestBeginPersistEnd()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *wall = world.CreateStaticBox(glm::vec2(0.0f), 20.0f, 20.0f);
-    kx::Body *box = world.CreateBox(glm::vec2(0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *wall = world.CreateStaticBox(Math::Vec2(0.0f), 20.0f, 20.0f);
+    kx::Body *box = world.CreateBox(Math::Vec2(0.0f), 10.0f, 10.0f, 1.0f);
     EventLog log{0, 0, 0, false, false};
     wall->SetContactCallback(&CountEvent, &log);
 
     world.Step(1.0f / 60.0f);
     world.Step(1.0f / 60.0f);
-    box->SetPosition(glm::vec2(200.0f, 0.0f));
+    box->SetPosition(Math::Vec2(200.0f, 0.0f));
     world.Step(1.0f / 60.0f);
 
     CHECK(log.begin == 1, "callback Begin emitido uma vez");
@@ -63,9 +63,9 @@ static void TestBeginPersistEnd()
 
 static void TestSensorPassThroughAndUserData()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *sensor = world.CreateStaticBox(glm::vec2(0.0f), 10.0f, 20.0f);
-    kx::Body *ball = world.CreateCircle(glm::vec2(-40.0f, 0.0f), 4.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *sensor = world.CreateStaticBox(Math::Vec2(0.0f), 10.0f, 20.0f);
+    kx::Body *ball = world.CreateCircle(Math::Vec2(-40.0f, 0.0f), 4.0f, 1.0f);
     int sensorBodyTag = 1;
     int ballBodyTag = 2;
     int sensorShapeTag = 3;
@@ -78,7 +78,7 @@ static void TestSensorPassThroughAndUserData()
 
     EventLog log{0, 0, 0, false, false};
     sensor->SetContactCallback(&CountEvent, &log);
-    ball->SetVelocity(glm::vec2(60.0f, 0.0f));
+    ball->SetVelocity(Math::Vec2(60.0f, 0.0f));
 
     for (int i = 0; i < 100; ++i)
         world.Step(1.0f / 60.0f);
@@ -93,10 +93,10 @@ static void TestSensorPassThroughAndUserData()
 
 static void TestSolidStillBlocks()
 {
-    kx::World world(glm::vec2(0.0f));
-    world.CreateStaticBox(glm::vec2(0.0f), 10.0f, 20.0f);
-    kx::Body *ball = world.CreateCircle(glm::vec2(-40.0f, 0.0f), 4.0f, 1.0f);
-    ball->SetVelocity(glm::vec2(60.0f, 0.0f));
+    kx::World world(Math::Vec2(0.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f), 10.0f, 20.0f);
+    kx::Body *ball = world.CreateCircle(Math::Vec2(-40.0f, 0.0f), 4.0f, 1.0f);
+    ball->SetVelocity(Math::Vec2(60.0f, 0.0f));
 
     for (int i = 0; i < 100; ++i)
         world.Step(1.0f / 60.0f);
@@ -106,10 +106,10 @@ static void TestSolidStillBlocks()
 
 static void TestDestroyEmitsEnd()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *sensor = world.CreateStaticBox(glm::vec2(0.0f), 20.0f, 20.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *sensor = world.CreateStaticBox(Math::Vec2(0.0f), 20.0f, 20.0f);
     sensor->SetSensor(0, true);
-    kx::Body *box = world.CreateBox(glm::vec2(0.0f), 10.0f, 10.0f, 1.0f);
+    kx::Body *box = world.CreateBox(Math::Vec2(0.0f), 10.0f, 10.0f, 1.0f);
     EventLog log{0, 0, 0, false, false};
     sensor->SetContactCallback(&CountEvent, &log);
 
@@ -121,14 +121,14 @@ static void TestDestroyEmitsEnd()
 
 static void TestShapeIndicesRemainUnique()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *sensor = world.CreateBody(kx::BodyType::Static, glm::vec2(0.0f));
-    kx::Body *body = world.CreateBody(kx::BodyType::Dynamic, glm::vec2(0.0f));
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *sensor = world.CreateBody(kx::BodyType::Static, Math::Vec2(0.0f));
+    kx::Body *body = world.CreateBody(kx::BodyType::Dynamic, Math::Vec2(0.0f));
     for (int i = 0; i < 9; ++i)
     {
-        sensor->AddCircle(glm::vec2(0.0f), 10.0f, 0.0f);
+        sensor->AddCircle(Math::Vec2(0.0f), 10.0f, 0.0f);
         sensor->SetSensor(i, true);
-        body->AddCircle(glm::vec2(0.0f), 5.0f, 1.0f);
+        body->AddCircle(Math::Vec2(0.0f), 5.0f, 1.0f);
     }
 
     EventLog log{0, 0, 0, false, false};

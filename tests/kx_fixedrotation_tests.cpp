@@ -19,8 +19,8 @@ static void Check(bool condition, const char *name)
 
 static void TestFixedRotationZerosInvI()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f, 0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f, 0.0f), 10.0f, 10.0f, 1.0f);
     Check(body->InvI() > 0.0f, "dinamico normal tem mInvI > 0");
 
     body->SetFixedRotation(true);
@@ -31,11 +31,11 @@ static void TestFixedRotationZerosInvI()
 
 static void TestOffCenterImpulseDoesNotSpin()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f, 0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f, 0.0f), 10.0f, 10.0f, 1.0f);
     body->SetFixedRotation(true);
 
-    body->ApplyImpulse(glm::vec2(0.0f, 10000.0f), body->WorldCenter() + glm::vec2(10.0f, 0.0f));
+    body->ApplyImpulse(Math::Vec2(0.0f, 10000.0f), body->WorldCenter() + Math::Vec2(10.0f, 0.0f));
     Check(std::fabs(body->AngularVelocity()) < 1.0e-6f,
           "impulso descentrado nao gira corpo fixed-rotation");
     Check(body->Velocity().y > 0.0f, "impulso descentrado ainda da velocidade linear");
@@ -43,9 +43,9 @@ static void TestOffCenterImpulseDoesNotSpin()
 
 static void TestFallsAndLandsUpright()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    kx::Body *ground = world.CreateStaticBox(glm::vec2(0.0f, -60.0f), 200.0f, 5.0f);
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f, 0.0f), 5.0f, 5.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    kx::Body *ground = world.CreateStaticBox(Math::Vec2(0.0f, -60.0f), 200.0f, 5.0f);
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f, 0.0f), 5.0f, 5.0f, 1.0f);
     body->SetFixedRotation(true);
 
     for (int i = 0; i < 180; ++i)

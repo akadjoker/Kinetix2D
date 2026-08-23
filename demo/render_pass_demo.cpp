@@ -1,7 +1,6 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include <cmath>
 
@@ -64,40 +63,40 @@ int main()
     k2d::Texture *particleTexture = atlasPixmap.CreateTexture(assets, "pass_particles");
 
     k2d::ParticlePrefab litPrefab;
-    litPrefab.direction = glm::vec2(0.0f, -1.0f);
+    litPrefab.direction = Math::Vec2(0.0f, -1.0f);
     litPrefab.speedMin = litPrefab.speedMax = 55.0f;
     litPrefab.lifeMin = litPrefab.lifeMax = 1.8f;
     litPrefab.sizeMin = litPrefab.sizeMax = 18.0f;
     litPrefab.colorStart = litPrefab.colorEnd = k2d::Color(1.0f, 0.55f, 0.15f, 1.0f);
-    litPrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 16.0f, 16.0f);
+    litPrefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 16.0f, 16.0f);
 
     k2d::ParticleSystem litParticles(256);
     litParticles.SetTexture(particleTexture);
     litParticles.SetMode(k2d::ParticleMode::Loop);
     litParticles.SetPrefab(litPrefab);
-    litParticles.SetEmitterPosition(glm::vec2(410.0f, 500.0f));
+    litParticles.SetEmitterPosition(Math::Vec2(410.0f, 500.0f));
     litParticles.SetEmissionRate(22.0f);
     litParticles.Start();
 
     k2d::ParticlePrefab unlitPrefab = litPrefab;
     unlitPrefab.colorStart = unlitPrefab.colorEnd = k2d::Color(0.25f, 0.8f, 1.0f, 1.0f);
-    unlitPrefab.atlasBounds = glm::vec4(32.0f, 0.0f, 16.0f, 16.0f);
+    unlitPrefab.atlasBounds = Math::Vec4(32.0f, 0.0f, 16.0f, 16.0f);
     k2d::ParticleSystem unlitParticles(256);
     unlitParticles.SetTexture(particleTexture);
     unlitParticles.SetMode(k2d::ParticleMode::Loop);
     unlitParticles.SetPrefab(unlitPrefab);
-    unlitParticles.SetEmitterPosition(glm::vec2(870.0f, 500.0f));
+    unlitParticles.SetEmitterPosition(Math::Vec2(870.0f, 500.0f));
     unlitParticles.SetEmissionRate(22.0f);
     unlitParticles.Start();
 
-    ct::Vector<glm::vec2> occluderPoints;
-    occluderPoints.push_back(glm::vec2(-35.0f, -120.0f));
-    occluderPoints.push_back(glm::vec2(35.0f, -120.0f));
-    occluderPoints.push_back(glm::vec2(35.0f, 120.0f));
-    occluderPoints.push_back(glm::vec2(-35.0f, 120.0f));
+    ct::Vector<Math::Vec2> occluderPoints;
+    occluderPoints.push_back(Math::Vec2(-35.0f, -120.0f));
+    occluderPoints.push_back(Math::Vec2(35.0f, -120.0f));
+    occluderPoints.push_back(Math::Vec2(35.0f, 120.0f));
+    occluderPoints.push_back(Math::Vec2(-35.0f, 120.0f));
 
     k2d::PointLight point;
-    point.position = glm::vec2(640.0f, 330.0f);
+    point.position = Math::Vec2(640.0f, 330.0f);
     point.color = k2d::Color(1.0f, 0.72f, 0.35f, 2.2f);
     point.radius = 420.0f;
     point.useShadow = true;
@@ -106,7 +105,7 @@ int main()
     point.shadowColor = k2d::Color(0.0f, 0.0f, 0.0f, 0.85f);
 
     k2d::DirectionalLight directional;
-    directional.direction = glm::normalize(glm::vec2(-0.6f, 0.8f));
+    directional.direction = Math::Vec2(-0.6f, 0.8f).Normalized();
     directional.color = k2d::Color(0.25f, 0.3f, 0.42f, 0.55f);
     directional.useShadow = true;
     directional.shadowFilter = k2d::SHADOW_FILTER_PCF13;
@@ -127,7 +126,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
         canvas.SetOrtho((float)device.Width(), (float)device.Height());
         batch.Resize(device.Width(), device.Height());
-        batch.SetProjection(glm::ortho(0.0f, (float)device.Width(),
+        batch.SetProjection(Math::Mat4::Ortho(0.0f, (float)device.Width(),
                                        (float)device.Height(), 0.0f, -1.0f, 1.0f));
         batch.BeginFrame();
 

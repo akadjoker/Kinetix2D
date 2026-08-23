@@ -80,7 +80,7 @@ namespace kx
     {
         int32_t proxyId = AllocateNode();
 
-        glm::vec2 r(kAabbExtension, kAabbExtension);
+        Math::Vec2 r(kAabbExtension, kAabbExtension);
         mNodes[proxyId].aabb.lowerBound = aabb.lowerBound - r;
         mNodes[proxyId].aabb.upperBound = aabb.upperBound + r;
         mNodes[proxyId].userData = userData;
@@ -101,17 +101,17 @@ namespace kx
         FreeNode(proxyId);
     }
 
-    bool DynamicTree::MoveProxy(int32_t proxyId, const AABB &aabb, const glm::vec2 &displacement)
+    bool DynamicTree::MoveProxy(int32_t proxyId, const AABB &aabb, const Math::Vec2 &displacement)
     {
         assert(0 <= proxyId && proxyId < mNodeCapacity);
         assert(mNodes[proxyId].IsLeaf());
 
         AABB fatAABB;
-        glm::vec2 r(kAabbExtension, kAabbExtension);
+        Math::Vec2 r(kAabbExtension, kAabbExtension);
         fatAABB.lowerBound = aabb.lowerBound - r;
         fatAABB.upperBound = aabb.upperBound + r;
 
-        glm::vec2 d = kAabbMultiplier * displacement;
+        Math::Vec2 d = kAabbMultiplier * displacement;
 
         if (d.x < 0.0f)
             fatAABB.lowerBound.x += d.x;

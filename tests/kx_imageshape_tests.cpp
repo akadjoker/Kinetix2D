@@ -84,7 +84,7 @@ namespace
 
     double PolylineArea2(const kx::Polyline &line)
     {
-        const ct::Vector<glm::vec2> &pts = line.points;
+        const ct::Vector<Math::Vec2> &pts = line.points;
         size_t n = pts.size();
         if (n < 3)
             return 0.0;
@@ -180,8 +180,8 @@ int main()
         int count = kx::TraceImageOutlines(pix, w, h, 1, 128, lines);
         Check(count == 0, "imagem vazia: zero contornos");
 
-        kx::World world(glm::vec2(0.0f, 500.0f));
-        kx::Body *body = world.CreateFromImage(glm::vec2(0.0f, 0.0f), pix, w, h, 1, 128, 1.0f);
+        kx::World world(Math::Vec2(0.0f, 500.0f));
+        kx::Body *body = world.CreateFromImage(Math::Vec2(0.0f, 0.0f), pix, w, h, 1, 128, 1.0f);
         Check(body == nullptr, "imagem vazia: CreateFromImage devolve nullptr");
     }
 
@@ -197,15 +197,15 @@ int main()
 
     {
         kx::Polyline staircase;
-        staircase.points.push_back(glm::vec2(0.0f, 0.0f));
-        staircase.points.push_back(glm::vec2(5.0f, 0.0f));
-        staircase.points.push_back(glm::vec2(10.0f, 0.0f));
-        staircase.points.push_back(glm::vec2(10.0f, 5.0f));
-        staircase.points.push_back(glm::vec2(10.0f, 10.0f));
-        staircase.points.push_back(glm::vec2(5.0f, 10.0f));
-        staircase.points.push_back(glm::vec2(0.0f, 10.0f));
-        staircase.points.push_back(glm::vec2(0.0f, 5.0f));
-        staircase.points.push_back(glm::vec2(0.0f, 0.0f));
+        staircase.points.push_back(Math::Vec2(0.0f, 0.0f));
+        staircase.points.push_back(Math::Vec2(5.0f, 0.0f));
+        staircase.points.push_back(Math::Vec2(10.0f, 0.0f));
+        staircase.points.push_back(Math::Vec2(10.0f, 5.0f));
+        staircase.points.push_back(Math::Vec2(10.0f, 10.0f));
+        staircase.points.push_back(Math::Vec2(5.0f, 10.0f));
+        staircase.points.push_back(Math::Vec2(0.0f, 10.0f));
+        staircase.points.push_back(Math::Vec2(0.0f, 5.0f));
+        staircase.points.push_back(Math::Vec2(0.0f, 0.0f));
 
         kx::Polyline simplified;
         kx::SimplifyOutline(staircase, 0.05f, simplified);
@@ -213,11 +213,11 @@ int main()
         Check(simplified.points.size() == 5, "SimplifyOutline: retangulo com pontos colineares reduz aos 4 cantos (+fecho)");
 
         bool cornersOk = simplified.points.size() == 5 &&
-                        simplified.points[0] == glm::vec2(0.0f, 0.0f) &&
-                        simplified.points[1] == glm::vec2(10.0f, 0.0f) &&
-                        simplified.points[2] == glm::vec2(10.0f, 10.0f) &&
-                        simplified.points[3] == glm::vec2(0.0f, 10.0f) &&
-                        simplified.points[4] == glm::vec2(0.0f, 0.0f);
+                        simplified.points[0] == Math::Vec2(0.0f, 0.0f) &&
+                        simplified.points[1] == Math::Vec2(10.0f, 0.0f) &&
+                        simplified.points[2] == Math::Vec2(10.0f, 10.0f) &&
+                        simplified.points[3] == Math::Vec2(0.0f, 10.0f) &&
+                        simplified.points[4] == Math::Vec2(0.0f, 0.0f);
         Check(cornersOk, "SimplifyOutline: cantos preservados exatamente (algoritmo de Chipmunk)");
     }
 
@@ -226,10 +226,10 @@ int main()
         unsigned char pix[50 * 50];
         FillLShape(pix, w, h);
 
-        kx::World world(glm::vec2(0.0f, 500.0f));
-        world.CreateStaticBox(glm::vec2(0.0f, 300.0f), 500.0f, 10.0f);
+        kx::World world(Math::Vec2(0.0f, 500.0f));
+        world.CreateStaticBox(Math::Vec2(0.0f, 300.0f), 500.0f, 10.0f);
 
-        kx::Body *body = world.CreateFromImage(glm::vec2(0.0f, 0.0f), pix, w, h, 1, 128, 1.0f);
+        kx::Body *body = world.CreateFromImage(Math::Vec2(0.0f, 0.0f), pix, w, h, 1, 128, 1.0f);
         Check(body != nullptr, "CreateFromImage no L: corpo criado");
 
         if (body)

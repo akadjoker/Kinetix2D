@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cmath>
 
 namespace k2d
@@ -42,7 +42,7 @@ namespace k2d
             return Matrix2D(x, 0.0f, 0.0f, y, 0.0f, 0.0f);
         }
 
-        static Matrix2D TRS(const glm::vec2 &position, float degrees, const glm::vec2 &scale)
+        static Matrix2D TRS(const Math::Vec2 &position, float degrees, const Math::Vec2 &scale)
         {
             float r = degrees * 0.01745329251f;
             float cs = cosf(r);
@@ -63,19 +63,19 @@ namespace k2d
                 b * o.tx + d * o.ty + ty);
         }
 
-        glm::vec2 Transform(float x, float y) const
+        Math::Vec2 Transform(float x, float y) const
         {
-            return glm::vec2(a * x + c * y + tx, b * x + d * y + ty);
+            return Math::Vec2(a * x + c * y + tx, b * x + d * y + ty);
         }
 
-        glm::vec2 Transform(const glm::vec2 &p) const
+        Math::Vec2 Transform(const Math::Vec2 &p) const
         {
             return Transform(p.x, p.y);
         }
 
-        glm::vec2 Position() const
+        Math::Vec2 Position() const
         {
-            return glm::vec2(tx, ty);
+            return Math::Vec2(tx, ty);
         }
 
         Matrix2D AffineInverse() const
@@ -95,15 +95,15 @@ namespace k2d
             return a == 1.0f && b == 0.0f && c == 0.0f && d == 1.0f;
         }
 
-        glm::mat4 ToMat4() const
+        Math::Mat4 ToMat4() const
         {
-            glm::mat4 m(1.0f);
-            m[0][0] = a;
-            m[0][1] = b;
-            m[1][0] = c;
-            m[1][1] = d;
-            m[3][0] = tx;
-            m[3][1] = ty;
+            Math::Mat4 m;
+            m[0].x = a;
+            m[0].y = b;
+            m[1].x = c;
+            m[1].y = d;
+            m[3].x = tx;
+            m[3].y = ty;
             return m;
         }
     };

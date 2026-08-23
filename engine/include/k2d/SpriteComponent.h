@@ -4,7 +4,7 @@
 #include "k2d/Component.h"
 #include "k2d/Material2D.h"
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -23,18 +23,18 @@ namespace k2d
         Material2D &material() { return mMaterial; }
         const Material2D &material() const { return mMaterial; }
 
-        const glm::vec2 &size() const;
-        void setSize(const glm::vec2 &size);
+        const Math::Vec2 &size() const;
+        void setSize(const Math::Vec2 &size);
 
-        const glm::vec2 &pivot() const;
-        void setPivot(const glm::vec2 &pivot);
+        const Math::Vec2 &pivot() const;
+        void setPivot(const Math::Vec2 &pivot);
 
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
 
         void setSourceRect(float x, float y, float width, float height);
         void clearSourceRect();
         void setTiling(float tileX, float tileY);
-        const glm::vec2 &tiling() const { return mMaterial.tiling(); }
+        const Math::Vec2 &tiling() const { return mMaterial.tiling(); }
         void setLightMask(unsigned int mask) { mMaterial.setLightMask(mask); }
         unsigned int lightMask() const { return mMaterial.lightMask(); }
         void setNormalMap(Texture *normalMap) { mMaterial.setNormalMap(normalMap); }
@@ -54,7 +54,7 @@ namespace k2d
 
     private:
         Material2D mMaterial;
-        glm::vec2 mSize;
+        Math::Vec2 mSize;
         bool mYSort;
     };
 

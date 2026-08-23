@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cstdint>
 
 #include <ct/vector.hpp>
@@ -44,7 +44,7 @@ namespace kx
         int32_t CreateProxy(const AABB &aabb, void *userData);
         void DestroyProxy(int32_t proxyId);
 
-        bool MoveProxy(int32_t proxyId, const AABB &aabb, const glm::vec2 &displacement);
+        bool MoveProxy(int32_t proxyId, const AABB &aabb, const Math::Vec2 &displacement);
 
         void *GetUserData(int32_t proxyId) const { return mNodes[proxyId].userData; }
         bool WasMoved(int32_t proxyId) const { return mNodes[proxyId].moved; }

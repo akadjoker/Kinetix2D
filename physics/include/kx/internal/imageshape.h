@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cstdint>
 
 #include <ct/vector.hpp>
@@ -10,7 +10,7 @@ namespace kx
 
     struct Polyline
     {
-        ct::Vector<glm::vec2> points;
+        ct::Vector<Math::Vec2> points;
     };
 
     int TraceImageOutlines(const unsigned char *pixels, int width, int height, int bpp,

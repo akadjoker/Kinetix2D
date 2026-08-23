@@ -34,24 +34,24 @@ namespace
     const float kTol = 1e-4f;
     const int kCases = 15000;
 
-    phys::Vec2 ToPhys(const glm::vec2 &v) { return phys::Vec2(v.x, v.y); }
+    phys::Vec2 ToPhys(const Math::Vec2 &v) { return phys::Vec2(v.x, v.y); }
 
-    phys::Transform MakePhysTransform(const glm::vec2 &pos, float angle)
+    phys::Transform MakePhysTransform(const Math::Vec2 &pos, float angle)
     {
         phys::Transform xf;
         xf.Set(ToPhys(pos), angle);
         return xf;
     }
 
-    glm::vec2 RandVec2(Lcg &rng, float lo, float hi)
+    Math::Vec2 RandVec2(Lcg &rng, float lo, float hi)
     {
-        return glm::vec2(rng.Range(lo, hi), rng.Range(lo, hi));
+        return Math::Vec2(rng.Range(lo, hi), rng.Range(lo, hi));
     }
 
     void MakeRandomCircles(Lcg &rng, phys::CircleShape &pc, kx::Circle &kc)
     {
         float radius = rng.Range(0.1f, 3.0f);
-        glm::vec2 center = RandVec2(rng, -1.0f, 1.0f);
+        Math::Vec2 center = RandVec2(rng, -1.0f, 1.0f);
         pc.center = ToPhys(center);
         pc.radius = radius;
         kc.center = center;
@@ -68,9 +68,9 @@ namespace
 
     bool MakeRandomEdge(Lcg &rng, phys::EdgeShape &pe, kx::Edge &ke)
     {
-        glm::vec2 a = RandVec2(rng, -5.0f, 5.0f);
-        glm::vec2 b = RandVec2(rng, -5.0f, 5.0f);
-        if (glm::length(b - a) < 0.05f)
+        Math::Vec2 a = RandVec2(rng, -5.0f, 5.0f);
+        Math::Vec2 b = RandVec2(rng, -5.0f, 5.0f);
+        if ((b - a).Length() < 0.05f)
             return false;
         pe.SetTwoSided(ToPhys(a), ToPhys(b));
         ke.SetTwoSided(a, b);
@@ -78,7 +78,7 @@ namespace
     }
 
     bool NearlyEqual(float a, float b, float tol) { return std::fabs(a - b) <= tol; }
-    bool NearlyEqual(const glm::vec2 &a, const phys::Vec2 &b, float tol)
+    bool NearlyEqual(const Math::Vec2 &a, const phys::Vec2 &b, float tol)
     {
         return NearlyEqual(a.x, b.x, tol) && NearlyEqual(a.y, b.y, tol);
     }
@@ -157,8 +157,8 @@ int main()
             MakeRandomCircles(rng, pcA, kcA);
             MakeRandomCircles(rng, pcB, kcB);
 
-            glm::vec2 posA = RandVec2(rng, -5.0f, 5.0f);
-            glm::vec2 posB = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posA = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posB = RandVec2(rng, -5.0f, 5.0f);
             float angleA = rng.Range(-kx::kPi, kx::kPi);
             float angleB = rng.Range(-kx::kPi, kx::kPi);
 
@@ -208,8 +208,8 @@ int main()
             kx::Circle kcB;
             MakeRandomCircles(rng, pcB, kcB);
 
-            glm::vec2 posA = RandVec2(rng, -5.0f, 5.0f);
-            glm::vec2 posB = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posA = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posB = RandVec2(rng, -5.0f, 5.0f);
             float angleA = rng.Range(-kx::kPi, kx::kPi);
             float angleB = rng.Range(-kx::kPi, kx::kPi);
 
@@ -252,8 +252,8 @@ int main()
             MakeRandomBox(rng, ppA, kpA);
             MakeRandomBox(rng, ppB, kpB);
 
-            glm::vec2 posA = RandVec2(rng, -5.0f, 5.0f);
-            glm::vec2 posB = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posA = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posB = RandVec2(rng, -5.0f, 5.0f);
             float angleA = rng.Range(-kx::kPi, kx::kPi);
             float angleB = rng.Range(-kx::kPi, kx::kPi);
 
@@ -301,12 +301,12 @@ int main()
             kx::Circle kcB;
             MakeRandomCircles(rng, pcB, kcB);
 
-            glm::vec2 posB = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posB = RandVec2(rng, -5.0f, 5.0f);
             float angleB = rng.Range(-kx::kPi, kx::kPi);
 
             phys::Transform pxfA;
             pxfA.SetIdentity();
-            kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
+            kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
 
             phys::Transform pxfB = MakePhysTransform(posB, angleB);
             kx::Transform kxfB = kx::MakeTransform(posB, angleB);
@@ -351,12 +351,12 @@ int main()
             kx::Polygon kpB;
             MakeRandomBox(rng, ppB, kpB);
 
-            glm::vec2 posB = RandVec2(rng, -5.0f, 5.0f);
+            Math::Vec2 posB = RandVec2(rng, -5.0f, 5.0f);
             float angleB = rng.Range(-kx::kPi, kx::kPi);
 
             phys::Transform pxfA;
             pxfA.SetIdentity();
-            kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
+            kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
 
             phys::Transform pxfB = MakePhysTransform(posB, angleB);
             kx::Transform kxfB = kx::MakeTransform(posB, angleB);

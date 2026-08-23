@@ -38,12 +38,12 @@ public:
 
     void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
     {
-        glm::vec2 c = xf.Transform(0.0f, 0.0f);
+        Math::Vec2 c = xf.Transform(0.0f, 0.0f);
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(c.x, c.y, radius, 24);
     }
 
-    void DrawPolygonShape(const kx::Transform &xf, const glm::vec2 *verts, int count, kx::Color color) override
+    void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count, kx::Color color) override
     {
         if (count <= 0 || count > 16)
             return;
@@ -51,11 +51,11 @@ public:
         float points[(16 + 1) * 2];
         for (int i = 0; i < count; ++i)
         {
-            glm::vec2 p = xf.Transform(verts[i]);
+            Math::Vec2 p = xf.Transform(verts[i]);
             points[i * 2 + 0] = p.x;
             points[i * 2 + 1] = p.y;
         }
-        glm::vec2 first = xf.Transform(verts[0]);
+        Math::Vec2 first = xf.Transform(verts[0]);
         points[count * 2 + 0] = first.x;
         points[count * 2 + 1] = first.y;
 
@@ -63,19 +63,19 @@ public:
         mBatch.DrawPolyline(points, count + 1);
     }
 
-    void DrawSegment(const glm::vec2 &a, const glm::vec2 &b, kx::Color color) override
+    void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawLine(a.x, a.y, b.x, b.y);
     }
 
-    void DrawPoint(const glm::vec2 &p, float size, kx::Color color) override
+    void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(p.x, p.y, size, 10);
     }
 
-    void DrawAABB(const glm::vec2 &lower, const glm::vec2 &upper, kx::Color color) override
+    void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawRect(lower.x, lower.y, upper.x - lower.x, upper.y - lower.y, false);
@@ -100,7 +100,7 @@ struct Car
     kx::WheelJoint *jointFront;
 };
 
-static void SpawnBridge(kx::World &world, const glm::vec2 &dropCenter)
+static void SpawnBridge(kx::World &world, const Math::Vec2 &dropCenter)
 {
     const int kPlanks = 14;
     const float kSpan = 700.0f;
@@ -111,32 +111,32 @@ static void SpawnBridge(kx::World &world, const glm::vec2 &dropCenter)
     float leftX = dropCenter.x - kSpan * 0.5f;
     float y = dropCenter.y;
 
-    kx::Body *leftPillar = world.CreateStaticBox(glm::vec2(leftX, y + 60.0f), 20.0f, 70.0f);
-    kx::Body *rightPillar = world.CreateStaticBox(glm::vec2(leftX + kSpan, y + 60.0f), 20.0f, 70.0f);
+    kx::Body *leftPillar = world.CreateStaticBox(Math::Vec2(leftX, y + 60.0f), 20.0f, 70.0f);
+    kx::Body *rightPillar = world.CreateStaticBox(Math::Vec2(leftX + kSpan, y + 60.0f), 20.0f, 70.0f);
 
     kx::Body *prev = leftPillar;
-    glm::vec2 anchor(leftX, y);
+    Math::Vec2 anchor(leftX, y);
 
     for (int i = 0; i < kPlanks; ++i)
     {
         float cx = leftX + kPlankWidth * ((float)i + 0.5f);
-        kx::Body *plank = world.CreateBox(glm::vec2(cx, y), kPlankHalfWidth, kPlankHalfHeight, 1.0f);
+        kx::Body *plank = world.CreateBox(Math::Vec2(cx, y), kPlankHalfWidth, kPlankHalfHeight, 1.0f);
 
         kx::RevoluteJoint *joint = new kx::RevoluteJoint(prev, plank, anchor);
         world.AddJoint(joint);
 
         prev = plank;
-        anchor = glm::vec2(cx + kPlankHalfWidth + 1.0f, y);
+        anchor = Math::Vec2(cx + kPlankHalfWidth + 1.0f, y);
     }
 
     kx::RevoluteJoint *last = new kx::RevoluteJoint(prev, rightPillar, anchor);
     world.AddJoint(last);
 }
 
-static void SpawnGears(kx::World &world, const glm::vec2 &dropCenter)
+static void SpawnGears(kx::World &world, const Math::Vec2 &dropCenter)
 {
-    glm::vec2 posA = dropCenter + glm::vec2(-50.0f, 0.0f);
-    glm::vec2 posB = dropCenter + glm::vec2(50.0f, 0.0f);
+    Math::Vec2 posA = dropCenter + Math::Vec2(-50.0f, 0.0f);
+    Math::Vec2 posB = dropCenter + Math::Vec2(50.0f, 0.0f);
 
     kx::Body *anchorA = world.CreateBody(kx::BodyType::Static, posA);
     kx::Body *discA = world.CreateCircle(posA, 40.0f, 1.0f);
@@ -153,7 +153,7 @@ static void SpawnGears(kx::World &world, const glm::vec2 &dropCenter)
     world.AddJoint(gear);
 }
 
-static void SpawnBlob(kx::World &world, const glm::vec2 &dropCenter)
+static void SpawnBlob(kx::World &world, const Math::Vec2 &dropCenter)
 {
     const int kRing = 12;
     const float kRingRadius = 30.0f;
@@ -170,7 +170,7 @@ static void SpawnBlob(kx::World &world, const glm::vec2 &dropCenter)
     for (int i = 0; i < kRing; ++i)
     {
         float angle = (float)i * (6.28318531f / (float)kRing);
-        glm::vec2 pos = dropCenter + glm::vec2(kRingRadius * cosf(angle), kRingRadius * sinf(angle));
+        Math::Vec2 pos = dropCenter + Math::Vec2(kRingRadius * cosf(angle), kRingRadius * sinf(angle));
         nodes[i] = world.CreateCircle(pos, kNodeRadius, 1.0f);
         nodes[i]->SetFilter(1, 0xFFFF, kBlobGroup);
     }
@@ -191,30 +191,30 @@ static void SpawnBlob(kx::World &world, const glm::vec2 &dropCenter)
     }
 }
 
-static Car SpawnCar(kx::World &world, const glm::vec2 &pos)
+static Car SpawnCar(kx::World &world, const Math::Vec2 &pos)
 {
     const float kScale = 50.0f;
 
-    glm::vec2 chassisOutline[6] = {
-        glm::vec2(-1.5f * kScale, 0.5f * kScale),
-        glm::vec2(1.5f * kScale, 0.5f * kScale),
-        glm::vec2(1.5f * kScale, 0.0f * kScale),
-        glm::vec2(0.0f * kScale, -0.9f * kScale),
-        glm::vec2(-1.15f * kScale, -0.9f * kScale),
-        glm::vec2(-1.5f * kScale, -0.2f * kScale)};
+    Math::Vec2 chassisOutline[6] = {
+        Math::Vec2(-1.5f * kScale, 0.5f * kScale),
+        Math::Vec2(1.5f * kScale, 0.5f * kScale),
+        Math::Vec2(1.5f * kScale, 0.0f * kScale),
+        Math::Vec2(0.0f * kScale, -0.9f * kScale),
+        Math::Vec2(-1.15f * kScale, -0.9f * kScale),
+        Math::Vec2(-1.5f * kScale, -0.2f * kScale)};
 
     Car car;
     car.chassis = world.CreatePolygon(pos, chassisOutline, 6, 1.0f);
 
     const float wheelRadius = 0.4f * kScale;
-    glm::vec2 rearLocal(-1.0f * kScale, 0.5f * kScale);
-    glm::vec2 frontLocal(1.0f * kScale, 0.5f * kScale);
+    Math::Vec2 rearLocal(-1.0f * kScale, 0.5f * kScale);
+    Math::Vec2 frontLocal(1.0f * kScale, 0.5f * kScale);
 
     car.wheelRear = world.CreateCircle(pos + rearLocal, wheelRadius, 1.0f);
     car.wheelFront = world.CreateCircle(pos + frontLocal, wheelRadius, 1.0f);
 
-    car.jointRear = new kx::WheelJoint(car.chassis, car.wheelRear, pos + rearLocal, glm::vec2(0.0f, -1.0f), 4.0f, 0.7f);
-    car.jointFront = new kx::WheelJoint(car.chassis, car.wheelFront, pos + frontLocal, glm::vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    car.jointRear = new kx::WheelJoint(car.chassis, car.wheelRear, pos + rearLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    car.jointFront = new kx::WheelJoint(car.chassis, car.wheelFront, pos + frontLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
     world.AddJoint(car.jointRear);
     world.AddJoint(car.jointFront);
 
@@ -234,11 +234,11 @@ int main()
 
     batch.Resize(device.Width(), device.Height());
 
-    kx::World world(glm::vec2(0.0f, 500.0f));
-    world.CreateStaticBox(glm::vec2(640.0f, 700.0f), 600.0f, 20.0f);
+    kx::World world(Math::Vec2(0.0f, 500.0f));
+    world.CreateStaticBox(Math::Vec2(640.0f, 700.0f), 600.0f, 20.0f);
 
-    world.CreateEdge(glm::vec2(1240.0f, 700.0f), glm::vec2(1500.0f, 560.0f));
-    world.CreateEdge(glm::vec2(1500.0f, 560.0f), glm::vec2(1800.0f, 560.0f));
+    world.CreateEdge(Math::Vec2(1240.0f, 700.0f), Math::Vec2(1500.0f, 560.0f));
+    world.CreateEdge(Math::Vec2(1500.0f, 560.0f), Math::Vec2(1800.0f, 560.0f));
 
     unsigned char *bunnyPixels = nullptr;
     int bunnyWidth = 0;
@@ -279,7 +279,7 @@ int main()
 
         float mouseX = input.MouseX();
         float mouseY = input.MouseY();
-        glm::vec2 mouse(mouseX, mouseY);
+        Math::Vec2 mouse(mouseX, mouseY);
 
         if (input.MousePressed(0) && !grab && !device.ImGuiWantsMouse())
         {
@@ -307,19 +307,19 @@ int main()
         {
             float hw = 10.0f + (float)(std::rand() % 21);
             float hh = 10.0f + (float)(std::rand() % 21);
-            world.CreateBox(glm::vec2(mouseX, mouseY), hw, hh, 1.0f);
+            world.CreateBox(Math::Vec2(mouseX, mouseY), hw, hh, 1.0f);
         }
 
         if (input.KeyDown(SCANCODE_C))
         {
             float radius = 8.0f + (float)(std::rand() % 18);
-            world.CreateCircle(glm::vec2(mouseX, mouseY), radius, 1.0f);
+            world.CreateCircle(Math::Vec2(mouseX, mouseY), radius, 1.0f);
         }
 
         if (input.KeyPressed(SCANCODE_K))
         {
-            kx::Body *platform = world.CreateKinematicBox(glm::vec2(mouseX, mouseY), 60.0f, 7.0f);
-            platform->SetVelocity(glm::vec2(150.0f, 0.0f));
+            kx::Body *platform = world.CreateKinematicBox(Math::Vec2(mouseX, mouseY), 60.0f, 7.0f);
+            platform->SetVelocity(Math::Vec2(150.0f, 0.0f));
             KinematicPlatform info;
             info.body = platform;
             info.halfWidth = 60.0f;
@@ -328,17 +328,17 @@ int main()
 
         if (input.KeyDown(SCANCODE_V))
         {
-            kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, glm::vec2(mouseX, mouseY));
-            cart->AddBox(15.0f, 5.0f, glm::vec2(0.0f, 0.0f), 1.0f);
-            cart->AddCircle(glm::vec2(-20.0f, 12.0f), 8.0f, 1.0f);
-            cart->AddCircle(glm::vec2(20.0f, 12.0f), 8.0f, 1.0f);
+            kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, Math::Vec2(mouseX, mouseY));
+            cart->AddBox(15.0f, 5.0f, Math::Vec2(0.0f, 0.0f), 1.0f);
+            cart->AddCircle(Math::Vec2(-20.0f, 12.0f), 8.0f, 1.0f);
+            cart->AddCircle(Math::Vec2(20.0f, 12.0f), 8.0f, 1.0f);
         }
 
         if (input.KeyPressed(SCANCODE_G))
-            cars.push_back(SpawnCar(world, glm::vec2(mouseX, mouseY)));
+            cars.push_back(SpawnCar(world, Math::Vec2(mouseX, mouseY)));
 
         if (input.KeyPressed(SCANCODE_I) && bunnyPixels)
-            world.CreateFromImage(glm::vec2(mouseX, mouseY), bunnyPixels, bunnyWidth, bunnyHeight, 4, 128, 1.0f, 2.0f);
+            world.CreateFromImage(Math::Vec2(mouseX, mouseY), bunnyPixels, bunnyWidth, bunnyHeight, 4, 128, 1.0f, 2.0f);
 
         if (cars.size() > 0)
         {
@@ -363,7 +363,7 @@ int main()
 
         if (input.KeyPressed(SCANCODE_E))
         {
-            world.CreateEdge(glm::vec2(mouseX - 100.0f, mouseY), glm::vec2(mouseX + 100.0f, mouseY));
+            world.CreateEdge(Math::Vec2(mouseX - 100.0f, mouseY), Math::Vec2(mouseX + 100.0f, mouseY));
         }
 
         if (input.KeyPressed(SCANCODE_R))
@@ -430,8 +430,8 @@ int main()
         {
             kx::Body *b = kinematics[i].body;
             float hw = kinematics[i].halfWidth;
-            glm::vec2 pos = b->Position();
-            glm::vec2 vel = b->Velocity();
+            Math::Vec2 pos = b->Position();
+            Math::Vec2 vel = b->Velocity();
             if (pos.x - hw <= 0.0f && vel.x < 0.0f)
                 vel.x = -vel.x;
             if (pos.x + hw >= (float)device.Width() && vel.x > 0.0f)
@@ -499,7 +499,7 @@ int main()
         ImGui::End();
 
         {
-            glm::vec2 dropPoint(640.0f, 100.0f);
+            Math::Vec2 dropPoint(640.0f, 100.0f);
 
             ImGui::Begin("Spawn");
             if (ImGui::Button("Box"))
@@ -511,9 +511,9 @@ int main()
             if (ImGui::Button("Cart"))
             {
                 kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, dropPoint);
-                cart->AddBox(15.0f, 5.0f, glm::vec2(0.0f, 0.0f), 1.0f);
-                cart->AddCircle(glm::vec2(-20.0f, 12.0f), 8.0f, 1.0f);
-                cart->AddCircle(glm::vec2(20.0f, 12.0f), 8.0f, 1.0f);
+                cart->AddBox(15.0f, 5.0f, Math::Vec2(0.0f, 0.0f), 1.0f);
+                cart->AddCircle(Math::Vec2(-20.0f, 12.0f), 8.0f, 1.0f);
+                cart->AddCircle(Math::Vec2(20.0f, 12.0f), 8.0f, 1.0f);
             }
 
             if (ImGui::Button("Car"))
@@ -523,10 +523,10 @@ int main()
                 world.CreateFromImage(dropPoint, bunnyPixels, bunnyWidth, bunnyHeight, 4, 128, 1.0f, 2.0f);
             ImGui::SameLine();
             if (ImGui::Button("Edge"))
-                world.CreateEdge(dropPoint - glm::vec2(100.0f, 0.0f), dropPoint + glm::vec2(100.0f, 0.0f));
+                world.CreateEdge(dropPoint - Math::Vec2(100.0f, 0.0f), dropPoint + Math::Vec2(100.0f, 0.0f));
 
             if (ImGui::Button("Bridge"))
-                SpawnBridge(world, glm::vec2(640.0f, 500.0f));
+                SpawnBridge(world, Math::Vec2(640.0f, 500.0f));
             ImGui::SameLine();
             if (ImGui::Button("Gears"))
                 SpawnGears(world, dropPoint);
@@ -554,7 +554,7 @@ int main()
 
             float gravityY = world.Gravity().y;
             if (ImGui::SliderFloat("gravity Y", &gravityY, 0.0f, 1500.0f))
-                world.SetGravity(glm::vec2(world.Gravity().x, gravityY));
+                world.SetGravity(Math::Vec2(world.Gravity().x, gravityY));
             ImGui::End();
         }
 

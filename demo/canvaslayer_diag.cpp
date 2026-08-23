@@ -22,18 +22,18 @@ int main()
 
     k2d::Scene worldScene;
     k2d::GameObject *worldObj = worldScene.createObject("world_square");
-    worldObj->setPosition(glm::vec2(400.0f, 300.0f));
+    worldObj->setPosition(Math::Vec2(400.0f, 300.0f));
     k2d::SpriteComponent *worldSprite = worldObj->addComponent<k2d::SpriteComponent>(orange);
-    worldSprite->setSize(glm::vec2(80.0f, 80.0f));
+    worldSprite->setSize(Math::Vec2(80.0f, 80.0f));
 
     k2d::CanvasLayer hud;
     k2d::GameObject *hudObj = hud.scene().createObject("hud_badge");
-    hudObj->setPosition(glm::vec2(60.0f, 60.0f)); 
+    hudObj->setPosition(Math::Vec2(60.0f, 60.0f)); 
     k2d::SpriteComponent *hudSprite = hudObj->addComponent<k2d::SpriteComponent>(cyan);
-    hudSprite->setSize(glm::vec2(50.0f, 50.0f));
+    hudSprite->setSize(Math::Vec2(50.0f, 50.0f));
 
     k2d::Camera2D camera;
-    camera.position = glm::vec2(400.0f, 300.0f);
+    camera.position = Math::Vec2(400.0f, 300.0f);
 
     bool running = true;
     int frame = 0;

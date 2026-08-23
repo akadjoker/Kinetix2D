@@ -17,15 +17,15 @@ namespace k2d
     {
         mTexture = texture;
         if (mTexture && (mTileSize.x <= 0.0f || mTileSize.y <= 0.0f))
-            mTileSize = glm::vec2((float)mTexture->Width(), (float)mTexture->Height());
+            mTileSize = Math::Vec2((float)mTexture->Width(), (float)mTexture->Height());
     }
 
-    void ParallaxLayer2D::setMotionScale(const glm::vec2 &scale)
+    void ParallaxLayer2D::setMotionScale(const Math::Vec2 &scale)
     {
         mMotionScale = scale;
     }
 
-    void ParallaxLayer2D::setTileSize(const glm::vec2 &size)
+    void ParallaxLayer2D::setTileSize(const Math::Vec2 &size)
     {
         mTileSize = size;
     }
@@ -52,7 +52,7 @@ namespace k2d
         float maxY = 0.0f;
         camera.VisibleRect(minX, minY, maxX, maxY, viewportWidth, viewportHeight);
 
-        glm::vec2 layerCamera = camera.position * (glm::vec2(1.0f) - mMotionScale);
+        Math::Vec2 layerCamera = camera.position * (Math::Vec2(1.0f) - mMotionScale);
         float startX = std::floor((minX - layerCamera.x) / mTileSize.x) * mTileSize.x + layerCamera.x;
         float startY = std::floor((minY - layerCamera.y) / mTileSize.y) * mTileSize.y + layerCamera.y;
 
@@ -84,7 +84,7 @@ namespace k2d
     }
 
     ParallaxLayer2D *ParallaxBackground::createLayer(Texture *texture,
-                                                     const glm::vec2 &motionScale,
+                                                     const Math::Vec2 &motionScale,
                                                      int zIndex)
     {
         ParallaxLayer2D *layer = new ParallaxLayer2D();

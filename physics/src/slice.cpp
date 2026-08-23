@@ -6,15 +6,15 @@ namespace kx
     namespace
     {
 
-        int ClipPolygonToHalfPlane(const glm::vec2 *in, int inCount,
-                                   const glm::vec2 &point, const glm::vec2 &normal,
-                                   glm::vec2 *out, int maxOut)
+        int ClipPolygonToHalfPlane(const Math::Vec2 *in, int inCount,
+                                   const Math::Vec2 &point, const Math::Vec2 &normal,
+                                   Math::Vec2 *out, int maxOut)
         {
             int outCount = 0;
             for (int i = 0; i < inCount; ++i)
             {
-                glm::vec2 a = in[i];
-                glm::vec2 b = in[(i + 1) % inCount];
+                Math::Vec2 a = in[i];
+                Math::Vec2 b = in[(i + 1) % inCount];
                 float da = Dot(a - point, normal);
                 float db = Dot(b - point, normal);
 
@@ -92,7 +92,7 @@ namespace kx
         }
     } 
 
-    bool Slice(World &world, Body *body, const glm::vec2 &point, const glm::vec2 &normal,
+    bool Slice(World &world, Body *body, const Math::Vec2 &point, const Math::Vec2 &normal,
               Body **outPositive, Body **outNegative, float separationSpeed)
     {
         if (outPositive)
@@ -100,21 +100,21 @@ namespace kx
         if (outNegative)
             *outNegative = nullptr;
 
-        glm::vec2 n = Normalize(normal);
+        Math::Vec2 n = Normalize(normal);
         if (Dot(n, n) < 0.5f) 
             return false;
 
         Transform xf = body->GetTransform();
-        glm::vec2 localPoint = InvTransformPoint(xf, point);
+        Math::Vec2 localPoint = InvTransformPoint(xf, point);
 
-        glm::vec2 localNormal = InvRotate(xf, n);
+        Math::Vec2 localNormal = InvRotate(xf, n);
 
         ct::Vector<SlicePiece> positive;
         ct::Vector<SlicePiece> negative;
 
         const int kClipMax = kMaxPolygonVertices + 2;
-        glm::vec2 posBuf[kClipMax];
-        glm::vec2 negBuf[kClipMax];
+        Math::Vec2 posBuf[kClipMax];
+        Math::Vec2 negBuf[kClipMax];
 
         for (int s = 0; s < body->ShapeCount(); ++s)
         {
@@ -153,7 +153,7 @@ namespace kx
                 continue;
             }
 
-            glm::vec2 mid = shape.type == ShapeType::Circle
+            Math::Vec2 mid = shape.type == ShapeType::Circle
                                 ? shape.circle.center
                                 : 0.5f * (shape.edge.vertex1 + shape.edge.vertex2);
             float d = Dot(mid - localPoint, localNormal);

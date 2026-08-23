@@ -1,8 +1,7 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <mathc.h>
 #include <imgui.h>
 
 #include <cmath>
@@ -52,9 +51,9 @@ int main()
     const unsigned char whitePixel[4] = {255, 255, 255, 255};
     k2d::Texture *white = assets.CreateTexture("fx_white", 1, 1, whitePixel);
 
-    const glm::vec2 firePosition(360.0f, 590.0f);
+    const Math::Vec2 firePosition(360.0f, 590.0f);
     k2d::ParticlePrefab firePrefab;
-    firePrefab.direction = glm::vec2(0.0f, -1.0f);
+    firePrefab.direction = Math::Vec2(0.0f, -1.0f);
     firePrefab.spreadDegrees = 14.0f;
     firePrefab.speedMin = 65.0f;
     firePrefab.speedMax = 105.0f;
@@ -71,12 +70,12 @@ int main()
     firePrefab.colorStart = k2d::Color(1.0f, 0.95f, 0.55f, 0.9f);
     firePrefab.colorEnd = k2d::Color(0.9f, 0.25f, 0.05f, 0.0f);
     firePrefab.fadeIn = 0.05f;
-    firePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
+    firePrefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem fire(220);
     fire.SetTexture(particleTexture); fire.SetMode(k2d::ParticleMode::Loop);
     fire.SetPrefab(firePrefab); fire.SetEmitterPosition(firePosition);
     fire.SetEmitterShape(k2d::ParticleEmitterShape::Rectangle);
-    fire.SetEmitterSize(glm::vec2(18.0f, 4.0f));
+    fire.SetEmitterSize(Math::Vec2(18.0f, 4.0f));
     fire.SetEmissionRate(34.0f); fire.Start();
 
     k2d::ParticlePrefab smokePrefab = firePrefab;
@@ -91,13 +90,13 @@ int main()
     smokePrefab.colorStart = k2d::Color(0.7f, 0.72f, 0.78f, 0.42f);
     smokePrefab.colorEnd = k2d::Color(0.5f, 0.5f, 0.55f, 0.0f);
     smokePrefab.fadeIn = 0.15f;
-    smokePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
+    smokePrefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem smoke(100);
     smoke.SetTexture(particleTexture); smoke.SetMode(k2d::ParticleMode::Loop);
-    smoke.SetPrefab(smokePrefab); smoke.SetEmitterPosition(firePosition + glm::vec2(0, -25));
+    smoke.SetPrefab(smokePrefab); smoke.SetEmitterPosition(firePosition + Math::Vec2(0, -25));
     smoke.SetEmitterShape(k2d::ParticleEmitterShape::Circle);
     smoke.SetEmitterRadius(12.0f);
-    smoke.SetEmissionRate(10.0f); smoke.SetGravity(glm::vec2(10.0f, -4.0f)); smoke.Start();
+    smoke.SetEmissionRate(10.0f); smoke.SetGravity(Math::Vec2(10.0f, -4.0f)); smoke.Start();
 
     k2d::ParticleSystem fireworks(700);
     fireworks.SetTexture(particleTexture);
@@ -115,15 +114,15 @@ int main()
         if (fireworkTimer <= 0.0f)
         {
             fireworkTimer = 2.2f;
-            glm::vec2 center(760.0f + (burst % 3) * 120.0f, 180.0f + (burst % 2) * 70.0f);
+            Math::Vec2 center(760.0f + (burst % 3) * 120.0f, 180.0f + (burst % 2) * 70.0f);
             ++burst;
             for (int i = 0; i < 48; ++i)
             {
                 float angle = (float)i / 48.0f * 6.2831853f;
                 float speed = 75.0f + (float)((i * 17) % 45);
-                fireworks.Emit(center, glm::vec2(std::cos(angle), std::sin(angle)) * speed,
+                fireworks.Emit(center, Math::Vec2(std::cos(angle), std::sin(angle)) * speed,
                                 1.5f, 14.0f, k2d::Color(1.0f, 0.65f + (i % 3) * 0.1f, 0.2f, 1.0f),
-                                0.0f, 0.0f, glm::vec4(0.0f, 0.0f, 32.0f, 32.0f));
+                                0.0f, 0.0f, Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f));
             }
         }
 

@@ -23,25 +23,25 @@ namespace k2d
     {
         mMaterial.setTexture(texture);
         if (texture && mSize.x == 0.0f && mSize.y == 0.0f)
-            mSize = glm::vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height()));
+            mSize = Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height()));
     }
 
-    const glm::vec2 &SpriteComponent::size() const
+    const Math::Vec2 &SpriteComponent::size() const
     {
         return mSize;
     }
 
-    void SpriteComponent::setSize(const glm::vec2 &size)
+    void SpriteComponent::setSize(const Math::Vec2 &size)
     {
         mSize = size;
     }
 
-    const glm::vec2 &SpriteComponent::pivot() const
+    const Math::Vec2 &SpriteComponent::pivot() const
     {
         return mMaterial.pivot();
     }
 
-    void SpriteComponent::setPivot(const glm::vec2 &pivot)
+    void SpriteComponent::setPivot(const Math::Vec2 &pivot)
     {
         mMaterial.setPivot(pivot);
     }

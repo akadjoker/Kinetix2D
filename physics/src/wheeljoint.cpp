@@ -7,7 +7,7 @@
 namespace kx
 {
 
-    WheelJoint::WheelJoint(Body *chassis, Body *wheel, const glm::vec2 &worldAnchor, const glm::vec2 &worldAxis,
+    WheelJoint::WheelJoint(Body *chassis, Body *wheel, const Math::Vec2 &worldAnchor, const Math::Vec2 &worldAxis,
                            float frequencyHz, float dampingRatio)
         : Joint(JointType::Wheel, chassis, wheel),
           mImpulse(0.0f), mMotorImpulse(0.0f), mSpringImpulse(0.0f),
@@ -51,12 +51,12 @@ namespace kx
         mDamping = 2.0f * mass * dampingRatio * omega;
     }
 
-    glm::vec2 WheelJoint::AnchorA() const
+    Math::Vec2 WheelJoint::AnchorA() const
     {
         return mBodyA->GetTransform().Transform(mLocalAnchorA);
     }
 
-    glm::vec2 WheelJoint::AnchorB() const
+    Math::Vec2 WheelJoint::AnchorB() const
     {
         return mBodyB->GetTransform().Transform(mLocalAnchorB);
     }
@@ -69,11 +69,11 @@ namespace kx
         Transform xfA = a->GetTransform();
         Transform xfB = b->GetTransform();
 
-        glm::vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
-        glm::vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
-        glm::vec2 rA = worldAnchorA - a->WorldCenter();
-        glm::vec2 rB = worldAnchorB - b->WorldCenter();
-        glm::vec2 d = worldAnchorB - worldAnchorA;
+        Math::Vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
+        Math::Vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
+        Math::Vec2 rA = worldAnchorA - a->WorldCenter();
+        Math::Vec2 rB = worldAnchorB - b->WorldCenter();
+        Math::Vec2 d = worldAnchorB - worldAnchorA;
 
         float mA = a->InvMass(), mB = b->InvMass();
         float iA = a->InvI(), iB = b->InvI();
@@ -129,7 +129,7 @@ namespace kx
             mMotorImpulse = 0.0f;
         }
 
-        glm::vec2 P = mImpulse * mAy + mSpringImpulse * mAx;
+        Math::Vec2 P = mImpulse * mAy + mSpringImpulse * mAx;
         float LA = mImpulse * mSAy + mSpringImpulse * mSAx + mMotorImpulse;
         float LB = mImpulse * mSBy + mSpringImpulse * mSBx + mMotorImpulse;
 
@@ -147,9 +147,9 @@ namespace kx
         float mA = a->InvMass(), mB = b->InvMass();
         float iA = a->InvI(), iB = b->InvI();
 
-        glm::vec2 vA = a->Velocity();
+        Math::Vec2 vA = a->Velocity();
         float wA = a->AngularVelocity();
-        glm::vec2 vB = b->Velocity();
+        Math::Vec2 vB = b->Velocity();
         float wB = b->AngularVelocity();
 
         {
@@ -157,7 +157,7 @@ namespace kx
             float impulse = -mSpringMass * (Cdot + mBias + mGamma * mSpringImpulse);
             mSpringImpulse += impulse;
 
-            glm::vec2 P = impulse * mAx;
+            Math::Vec2 P = impulse * mAx;
             float LA = impulse * mSAx;
             float LB = impulse * mSBx;
 
@@ -190,7 +190,7 @@ namespace kx
             float impulse = -mMass * Cdot;
             mImpulse += impulse;
 
-            glm::vec2 P = impulse * mAy;
+            Math::Vec2 P = impulse * mAy;
             float LA = impulse * mSAy;
             float LB = impulse * mSBy;
 
@@ -214,13 +214,13 @@ namespace kx
         Transform xfA = a->GetTransform();
         Transform xfB = b->GetTransform();
 
-        glm::vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
-        glm::vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
-        glm::vec2 rA = worldAnchorA - a->WorldCenter();
-        glm::vec2 rB = worldAnchorB - b->WorldCenter();
-        glm::vec2 d = worldAnchorB - worldAnchorA;
+        Math::Vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
+        Math::Vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
+        Math::Vec2 rA = worldAnchorA - a->WorldCenter();
+        Math::Vec2 rB = worldAnchorB - b->WorldCenter();
+        Math::Vec2 d = worldAnchorB - worldAnchorA;
 
-        glm::vec2 ay = Rotate(xfA, mLocalYAxisA);
+        Math::Vec2 ay = Rotate(xfA, mLocalYAxisA);
 
         float sAy = Cross(d + rA, ay);
         float sBy = Cross(rB, ay);
@@ -231,7 +231,7 @@ namespace kx
 
         float impulse = invMass != 0.0f ? -C / invMass : 0.0f;
 
-        glm::vec2 P = impulse * ay;
+        Math::Vec2 P = impulse * ay;
         float LA = impulse * sAy;
         float LB = impulse * sBy;
 

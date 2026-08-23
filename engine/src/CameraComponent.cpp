@@ -14,7 +14,7 @@ namespace k2d
         mViewportHeight = height > 0.0f ? height : 0.0f;
     }
 
-    glm::mat4 CameraComponent::projection() const
+    Math::Mat4 CameraComponent::projection() const
     {
         return mCamera.Projection(mViewportWidth, mViewportHeight);
     }
@@ -26,7 +26,7 @@ namespace k2d
                             mViewportWidth, mViewportHeight);
     }
 
-    glm::vec2 CameraComponent::screenToWorld(float x, float y) const
+    Math::Vec2 CameraComponent::screenToWorld(float x, float y) const
     {
         return mCamera.ScreenToWorld(x, y, mViewportWidth, mViewportHeight);
     }

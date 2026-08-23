@@ -26,9 +26,9 @@ namespace
         }
     }
 
-    phys::Vec2 ToPhys(const glm::vec2 &v) { return phys::Vec2(v.x, v.y); }
+    phys::Vec2 ToPhys(const Math::Vec2 &v) { return phys::Vec2(v.x, v.y); }
 
-    phys::Transform PhysXf(const glm::vec2 &pos, float angle)
+    phys::Transform PhysXf(const Math::Vec2 &pos, float angle)
     {
         phys::Transform xf;
         xf.Set(ToPhys(pos), angle);
@@ -36,7 +36,7 @@ namespace
     }
 
     bool Near(float a, float b, float tol = 1e-4f) { return std::fabs(a - b) <= tol; }
-    bool Near(const glm::vec2 &a, const phys::Vec2 &b, float tol = 1e-4f) { return Near(a.x, b.x, tol) && Near(a.y, b.y, tol); }
+    bool Near(const Math::Vec2 &a, const phys::Vec2 &b, float tol = 1e-4f) { return Near(a.x, b.x, tol) && Near(a.y, b.y, tol); }
 
     bool ManifoldsMatch(const kx::Manifold &km, const phys::Manifold &pm, float tol = 1e-4f)
     {
@@ -79,9 +79,9 @@ int main()
 {
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 1.0f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 1.5f;
 
         phys::CircleShape pa, pb;
@@ -90,10 +90,10 @@ int main()
         pb.center = ToPhys(b.center);
         pb.radius = b.radius;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(2.5f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(2.5f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(2.5f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(2.5f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -106,13 +106,13 @@ int main()
 
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 1.0f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 1.5f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
 
         kx::Manifold km;
         kx::CollideCircles(&km, a, kxfA, b, kxfB);
@@ -124,13 +124,13 @@ int main()
 
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 1.0f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 1.0f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(2.0001f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(2.0001f, 0.0f), 0.0f);
 
         kx::Manifold km;
         kx::CollideCircles(&km, a, kxfA, b, kxfB);
@@ -139,13 +139,13 @@ int main()
 
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 1.0f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 5.0f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.5f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.5f, 0.0f), 0.0f);
 
         kx::Manifold km;
         kx::CollideCircles(&km, a, kxfA, b, kxfB);
@@ -156,7 +156,7 @@ int main()
         kx::Polygon poly;
         poly.SetAsBox(1.0f, 1.0f);
         kx::Circle circle;
-        circle.center = glm::vec2(0.0f, 0.0f);
+        circle.center = Math::Vec2(0.0f, 0.0f);
         circle.radius = 0.5f;
 
         phys::PolygonShape pp;
@@ -165,10 +165,10 @@ int main()
         pc.center = phys::Vec2(0.0f, 0.0f);
         pc.radius = 0.5f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -183,7 +183,7 @@ int main()
         kx::Polygon poly;
         poly.SetAsBox(1.0f, 1.0f);
         kx::Circle circle;
-        circle.center = glm::vec2(0.0f, 0.0f);
+        circle.center = Math::Vec2(0.0f, 0.0f);
         circle.radius = 0.3f;
 
         phys::PolygonShape pp;
@@ -192,10 +192,10 @@ int main()
         pc.center = phys::Vec2(0.0f, 0.0f);
         pc.radius = 0.3f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
 
-        glm::vec2 cornerPos(1.5f, 1.5f);
+        Math::Vec2 cornerPos(1.5f, 1.5f);
         kx::Transform kxfB = kx::MakeTransform(cornerPos, 0.0f);
         phys::Transform pxfB = PhysXf(cornerPos, 0.0f);
 
@@ -206,7 +206,7 @@ int main()
 
         Check(ManifoldsMatch(km, pm), "circle on polygon vertex/corner region matches phys");
 
-        glm::vec2 facePos(1.2f, 0.0f);
+        Math::Vec2 facePos(1.2f, 0.0f);
         kx::Transform kxfC = kx::MakeTransform(facePos, 0.0f);
         phys::Transform pxfC = PhysXf(facePos, 0.0f);
 
@@ -226,10 +226,10 @@ int main()
         pa.SetAsBox(1.0f, 1.0f);
         pb.SetAsBox(1.0f, 1.0f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(1.9f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(1.9f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(1.9f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(1.9f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -248,10 +248,10 @@ int main()
         pa.SetAsBox(1.0f, 1.0f);
         pb.SetAsBox(1.0f, 1.0f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(1.9f, 1.9f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(1.9f, 1.9f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(1.9f, 1.9f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(1.9f, 1.9f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -269,10 +269,10 @@ int main()
         pbig.SetAsBox(5.0f, 5.0f);
         psmall.SetAsBox(0.5f, 0.5f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.5f, 0.5f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.5f, 0.5f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.5f, 0.5f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.5f, 0.5f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -291,10 +291,10 @@ int main()
         pa.SetAsBox(1.0f, 1.0f);
         pb.SetAsBox(1.0f, 1.0f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -313,10 +313,10 @@ int main()
         pa.SetAsBox(1.0f, 1.0f);
         pb.SetAsBox(0.7f, 0.7f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(1.4f, 0.0f), kx::kPi * 0.25f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(1.4f, 0.0f), kx::kPi * 0.25f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(1.4f, 0.0f), kx::kPi * 0.25f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(1.4f, 0.0f), kx::kPi * 0.25f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -328,9 +328,9 @@ int main()
 
     {
         kx::Edge edge;
-        edge.SetTwoSided(glm::vec2(-5.0f, 0.0f), glm::vec2(5.0f, 0.0f));
+        edge.SetTwoSided(Math::Vec2(-5.0f, 0.0f), Math::Vec2(5.0f, 0.0f));
         kx::Circle circle;
-        circle.center = glm::vec2(0.0f, 0.0f);
+        circle.center = Math::Vec2(0.0f, 0.0f);
         circle.radius = 1.0f;
 
         phys::EdgeShape pe;
@@ -339,11 +339,11 @@ int main()
         pc.center = phys::Vec2(0.0f, 0.0f);
         pc.radius = 1.0f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
 
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.0f, 0.8f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.0f, 0.8f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.0f, 0.8f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.0f, 0.8f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -353,24 +353,24 @@ int main()
         Check(km.pointCount == 1, "edge-circle interior region hit: pointCount==1");
         Check(ManifoldsMatch(km, pm), "edge-circle interior region matches phys");
 
-        kx::Transform kxfC = kx::MakeTransform(glm::vec2(6.0f, 0.0f), 0.0f);
-        phys::Transform pxfC = PhysXf(glm::vec2(6.0f, 0.0f), 0.0f);
+        kx::Transform kxfC = kx::MakeTransform(Math::Vec2(6.0f, 0.0f), 0.0f);
+        phys::Transform pxfC = PhysXf(Math::Vec2(6.0f, 0.0f), 0.0f);
         kx::Manifold km2;
         phys::Manifold pm2;
         kx::CollideEdgeAndCircle(&km2, edge, kxfA, circle, kxfC);
         phys::CollideEdgeAndCircle(&pm2, pe, pxfA, pc, pxfC);
         Check(ManifoldsMatch(km2, pm2), "edge-circle beyond endpoint B (voronoi region) matches phys");
 
-        kx::Transform kxfD = kx::MakeTransform(glm::vec2(-6.0f, 0.0f), 0.0f);
-        phys::Transform pxfD = PhysXf(glm::vec2(-6.0f, 0.0f), 0.0f);
+        kx::Transform kxfD = kx::MakeTransform(Math::Vec2(-6.0f, 0.0f), 0.0f);
+        phys::Transform pxfD = PhysXf(Math::Vec2(-6.0f, 0.0f), 0.0f);
         kx::Manifold km3;
         phys::Manifold pm3;
         kx::CollideEdgeAndCircle(&km3, edge, kxfA, circle, kxfD);
         phys::CollideEdgeAndCircle(&pm3, pe, pxfA, pc, pxfD);
         Check(ManifoldsMatch(km3, pm3), "edge-circle beyond endpoint A (voronoi region) matches phys");
 
-        kx::Transform kxfE = kx::MakeTransform(glm::vec2(5.0f, 0.0f), 0.0f);
-        phys::Transform pxfE = PhysXf(glm::vec2(5.0f, 0.0f), 0.0f);
+        kx::Transform kxfE = kx::MakeTransform(Math::Vec2(5.0f, 0.0f), 0.0f);
+        phys::Transform pxfE = PhysXf(Math::Vec2(5.0f, 0.0f), 0.0f);
         kx::Manifold km4;
         phys::Manifold pm4;
         kx::CollideEdgeAndCircle(&km4, edge, kxfA, circle, kxfE);
@@ -380,7 +380,7 @@ int main()
 
     {
         kx::Edge edge;
-        edge.SetTwoSided(glm::vec2(-5.0f, 0.0f), glm::vec2(5.0f, 0.0f));
+        edge.SetTwoSided(Math::Vec2(-5.0f, 0.0f), Math::Vec2(5.0f, 0.0f));
         kx::Polygon poly;
         poly.SetAsBox(1.0f, 1.0f);
 
@@ -389,11 +389,11 @@ int main()
         phys::PolygonShape pp;
         pp.SetAsBox(1.0f, 1.0f);
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
 
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.0f, 0.5f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.0f, 0.5f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.0f, 0.5f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.0f, 0.5f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -403,8 +403,8 @@ int main()
         Check(ManifoldsMatch(km, pm), "polygon crossing edge segment matches phys");
         Check(km.pointCount == 2, "polygon resting flush on edge: pointCount==2");
 
-        kx::Transform kxfC = kx::MakeTransform(glm::vec2(0.0f, 1.0f), 0.0f);
-        phys::Transform pxfC = PhysXf(glm::vec2(0.0f, 1.0f), 0.0f);
+        kx::Transform kxfC = kx::MakeTransform(Math::Vec2(0.0f, 1.0f), 0.0f);
+        phys::Transform pxfC = PhysXf(Math::Vec2(0.0f, 1.0f), 0.0f);
         kx::Manifold km2;
         phys::Manifold pm2;
         kx::CollideEdgeAndPolygon(&km2, edge, kxfA, poly, kxfC);
@@ -414,9 +414,9 @@ int main()
 
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 0.01f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 0.01f;
 
         phys::CircleShape pa, pb;
@@ -425,10 +425,10 @@ int main()
         pb.center = phys::Vec2(0.0f, 0.0f);
         pb.radius = 0.01f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(0.015f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(0.015f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(0.015f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(0.015f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;
@@ -439,9 +439,9 @@ int main()
 
     {
         kx::Circle a, b;
-        a.center = glm::vec2(0.0f, 0.0f);
+        a.center = Math::Vec2(0.0f, 0.0f);
         a.radius = 100.0f;
-        b.center = glm::vec2(0.0f, 0.0f);
+        b.center = Math::Vec2(0.0f, 0.0f);
         b.radius = 100.0f;
 
         phys::CircleShape pa, pb;
@@ -450,10 +450,10 @@ int main()
         pb.center = phys::Vec2(0.0f, 0.0f);
         pb.radius = 100.0f;
 
-        kx::Transform kxfA = kx::MakeTransform(glm::vec2(0.0f, 0.0f), 0.0f);
-        kx::Transform kxfB = kx::MakeTransform(glm::vec2(150.0f, 0.0f), 0.0f);
-        phys::Transform pxfA = PhysXf(glm::vec2(0.0f, 0.0f), 0.0f);
-        phys::Transform pxfB = PhysXf(glm::vec2(150.0f, 0.0f), 0.0f);
+        kx::Transform kxfA = kx::MakeTransform(Math::Vec2(0.0f, 0.0f), 0.0f);
+        kx::Transform kxfB = kx::MakeTransform(Math::Vec2(150.0f, 0.0f), 0.0f);
+        phys::Transform pxfA = PhysXf(Math::Vec2(0.0f, 0.0f), 0.0f);
+        phys::Transform pxfB = PhysXf(Math::Vec2(150.0f, 0.0f), 0.0f);
 
         kx::Manifold km;
         phys::Manifold pm;

@@ -5,7 +5,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -19,9 +19,9 @@ namespace k2d
 
         Polygon2D();
 
-        void setPolygon(const glm::vec2 *points, int count);
-        const ct::Vector<glm::vec2> &polygon() const { return mPolygon; }
-        const ct::Vector<glm::vec2> &triangles() const { return mTriangles; }
+        void setPolygon(const Math::Vec2 *points, int count);
+        const ct::Vector<Math::Vec2> &polygon() const { return mPolygon; }
+        const ct::Vector<Math::Vec2> &triangles() const { return mTriangles; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
         const Color &color() const { return mColor; }
         void setTexture(Texture *texture);
@@ -34,8 +34,8 @@ namespace k2d
         void onRender(RenderQueue &queue) override;
 
     private:
-        ct::Vector<glm::vec2> mPolygon;
-        ct::Vector<glm::vec2> mTriangles;
+        ct::Vector<Math::Vec2> mPolygon;
+        ct::Vector<Math::Vec2> mTriangles;
         Texture *mTexture;
         Color mColor;
         BlendMode mBlendMode;

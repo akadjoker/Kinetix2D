@@ -173,7 +173,7 @@ namespace k2d
         int x = (clip->frame % columns) * clip->frameWidth;
         int y = (clip->frame / columns) * clip->frameHeight;
         sprite->setTexture(clip->texture);
-        sprite->setSize(glm::vec2((float)clip->frameWidth, (float)clip->frameHeight));
+        sprite->setSize(Math::Vec2((float)clip->frameWidth, (float)clip->frameHeight));
         sprite->setSourceRect((float)x, (float)y, (float)clip->frameWidth, (float)clip->frameHeight);
     }
 

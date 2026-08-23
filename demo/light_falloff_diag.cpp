@@ -31,14 +31,14 @@ int main()
 
     k2d::Scene scene;
     k2d::GameObject *floorObject = scene.createObject("floor");
-    floorObject->setPosition(glm::vec2(640.0f, 400.0f));
+    floorObject->setPosition(Math::Vec2(640.0f, 400.0f));
     k2d::SpriteComponent *floor = floorObject->addComponent<k2d::SpriteComponent>(white);
-    floor->setSize(glm::vec2(1280.0f, 800.0f));
-    floor->setPivot(glm::vec2(0.5f, 0.5f));
+    floor->setSize(Math::Vec2(1280.0f, 800.0f));
+    floor->setPivot(Math::Vec2(0.5f, 0.5f));
     floor->setColor(255, 255, 255);
 
     k2d::GameObject *lightObject = scene.createObject("light");
-    lightObject->setPosition(glm::vec2(640.0f, 400.0f));
+    lightObject->setPosition(Math::Vec2(640.0f, 400.0f));
     k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 1.0f, 1.0f);
     light->setEnergy(1.0f);

@@ -21,18 +21,18 @@ int main()
 
     k2d::Scene scene;
     k2d::GameObject *parent = scene.createObject("parent");
-    parent->setPosition(glm::vec2(300.0f, 300.0f));
+    parent->setPosition(Math::Vec2(300.0f, 300.0f));
     parent->setRotationDegrees(20.0f);
     k2d::SpriteComponent *parentSprite = parent->addComponent<k2d::SpriteComponent>(tex);
-    parentSprite->setSize(glm::vec2(100.0f, 60.0f));
+    parentSprite->setSize(Math::Vec2(100.0f, 60.0f));
 
     k2d::GameObject *child = scene.createObject("child", parent);
-    child->setPosition(glm::vec2(140.0f, 0.0f));
+    child->setPosition(Math::Vec2(140.0f, 0.0f));
     k2d::SpriteComponent *childSprite = child->addComponent<k2d::SpriteComponent>(tex);
-    childSprite->setSize(glm::vec2(40.0f, 40.0f));
+    childSprite->setSize(Math::Vec2(40.0f, 40.0f));
 
     k2d::GameObject *grandchild = scene.createObject("grandchild", child);
-    grandchild->setPosition(glm::vec2(0.0f, 70.0f));
+    grandchild->setPosition(Math::Vec2(0.0f, 70.0f));
 
     bool running = true;
     int frame = 0;
@@ -53,7 +53,7 @@ int main()
         scene.render(canvas);
 
         batch.Resize(device.Width(), device.Height());
-        batch.SetProjection(glm::ortho(0.0f, w, h, 0.0f, -1.0f, 1.0f));
+        batch.SetProjection(Math::Mat4::Ortho(0.0f, w, h, 0.0f, -1.0f, 1.0f));
         batch.BeginFrame();
         k2d::SceneDebugOptions opts;
         opts.showNames = true;

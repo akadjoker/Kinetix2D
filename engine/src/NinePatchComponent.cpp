@@ -45,7 +45,7 @@ namespace k2d
         item.xform = owner()->globalTransform();
         item.blendMode = mBlendMode;
 
-        glm::vec2 origin = -mPivot * mSize;
+        Math::Vec2 origin = -mPivot * mSize;
         float dstY = origin.y;
         float srcY = 0.0f;
         for (int row = 0; row < 3; ++row)

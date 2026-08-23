@@ -4,7 +4,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -26,7 +26,7 @@ namespace k2d
     struct ParticlePrefab
     {
 
-        glm::vec2 direction = glm::vec2(0.0f, -1.0f);
+        Math::Vec2 direction = Math::Vec2(0.0f, -1.0f);
         float spreadDegrees = 0.0f;
         float speedMin = 0.0f;
         float speedMax = 0.0f;
@@ -54,7 +54,7 @@ namespace k2d
         Color colorStart = Color(1.0f);
         Color colorEnd = Color(1.0f);
 
-        glm::vec4 atlasBounds = glm::vec4(0.0f);
+        Math::Vec4 atlasBounds = Math::Vec4(0.0f);
     };
 
     class BatchRenderer;
@@ -63,8 +63,8 @@ namespace k2d
 
     struct Particle
     {
-        glm::vec2 position;
-        glm::vec2 velocity;
+        Math::Vec2 position;
+        Math::Vec2 velocity;
         Color colorStart;
         Color colorEnd;
         Color color;
@@ -80,7 +80,7 @@ namespace k2d
         float drag;
         bool faceDirection;
         float faceDirectionOffsetDegrees;
-        glm::vec4 atlasBounds;
+        Math::Vec4 atlasBounds;
     };
 
     class ParticleSystem
@@ -90,21 +90,21 @@ namespace k2d
 
         void SetTexture(Texture *texture);
         Texture *GetTexture() const { return mTexture; }
-        void SetGravity(const glm::vec2 &gravity) { mGravity = gravity; }
-        const glm::vec2 &Gravity() const { return mGravity; }
+        void SetGravity(const Math::Vec2 &gravity) { mGravity = gravity; }
+        const Math::Vec2 &Gravity() const { return mGravity; }
         void SetCapacity(size_t capacity);
 
         void SetMode(ParticleMode mode) { mMode = mode; }
         ParticleMode GetMode() const { return mMode; }
         void SetPrefab(const ParticlePrefab &prefab) { mPrefab = prefab; }
         const ParticlePrefab &GetPrefab() const { return mPrefab; }
-        void SetEmitterPosition(const glm::vec2 &position) { mEmitterPosition = position; }
-        const glm::vec2 &EmitterPosition() const { return mEmitterPosition; }
+        void SetEmitterPosition(const Math::Vec2 &position) { mEmitterPosition = position; }
+        const Math::Vec2 &EmitterPosition() const { return mEmitterPosition; }
         void SetEmitterShape(ParticleEmitterShape shape) { mEmitterShape = shape; }
         ParticleEmitterShape GetEmitterShape() const { return mEmitterShape; }
-        void SetEmitterRadius(float radius) { mEmitterSize = glm::vec2(radius > 0.0f ? radius : 0.0f); }
-        void SetEmitterSize(const glm::vec2 &size) { mEmitterSize = size; }
-        const glm::vec2 &EmitterSize() const { return mEmitterSize; }
+        void SetEmitterRadius(float radius) { mEmitterSize = Math::Vec2(radius > 0.0f ? radius : 0.0f); }
+        void SetEmitterSize(const Math::Vec2 &size) { mEmitterSize = size; }
+        const Math::Vec2 &EmitterSize() const { return mEmitterSize; }
         void SetEmissionRate(float particlesPerSecond);
         float EmissionRate() const { return mEmissionRate; }
         void SetOneShotCount(size_t count) { mOneShotCount = count; }
@@ -116,15 +116,15 @@ namespace k2d
         bool IsPlaying() const { return mPlaying; }
         bool IsFinished() const { return mFinished; }
 
-        bool Emit(const glm::vec2 &position, const glm::vec2 &velocity,
+        bool Emit(const Math::Vec2 &position, const Math::Vec2 &velocity,
                   float lifetime, float size, const Color &color = Color(1.0f),
                   float rotation = 0.0f, float angularVelocity = 0.0f);
-        bool Emit(const glm::vec2 &position, const glm::vec2 &velocity,
+        bool Emit(const Math::Vec2 &position, const Math::Vec2 &velocity,
                   float lifetime, float size, const Color &color,
                   float rotation, float angularVelocity,
-                  const glm::vec4 &atlasBounds);
+                  const Math::Vec4 &atlasBounds);
 
-        bool Emit(const glm::vec2 &position, const ParticlePrefab &prefab);
+        bool Emit(const Math::Vec2 &position, const ParticlePrefab &prefab);
         void Update(float deltaTime);
 
         void Draw(BatchRenderer &batch) const;
@@ -138,24 +138,24 @@ namespace k2d
 
     private:
         Texture *mTexture;
-        glm::vec2 mGravity;
+        Math::Vec2 mGravity;
         size_t mCapacity;
         ct::Vector<Particle> mParticles;
         ParticleMode mMode;
         ParticlePrefab mPrefab;
-        glm::vec2 mEmitterPosition;
+        Math::Vec2 mEmitterPosition;
         float mEmissionRate;
         float mEmissionAccumulator;
         size_t mOneShotCount;
         bool mPlaying;
         bool mFinished;
         ParticleEmitterShape mEmitterShape;
-        glm::vec2 mEmitterSize;
+        Math::Vec2 mEmitterSize;
         unsigned int mRandomState;
 
         float Random01();
         float RandomRange(float minValue, float maxValue);
-        glm::vec2 EmitPosition();
+        Math::Vec2 EmitPosition();
     };
 
 }

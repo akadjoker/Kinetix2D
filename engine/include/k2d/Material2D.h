@@ -3,7 +3,7 @@
 #include "k2d/CanvasTypes.h"
 #include "k2d/Color.h"
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -19,13 +19,13 @@ namespace k2d
         void setTexture(Texture *texture) { mTexture = texture; }
         const Color &color() const { return mColor; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        const glm::vec4 &sourceRect() const { return mSourceRect; }
+        const Math::Vec4 &sourceRect() const { return mSourceRect; }
         bool hasSourceRect() const { return mHasSourceRect; }
         void setSourceRect(float x, float y, float width, float height);
         void clearSourceRect();
 
-        const glm::vec2 &tiling() const { return mTiling; }
-        void setTiling(float tileX, float tileY) { mTiling = glm::vec2(tileX, tileY); }
+        const Math::Vec2 &tiling() const { return mTiling; }
+        void setTiling(float tileX, float tileY) { mTiling = Math::Vec2(tileX, tileY); }
 
         unsigned int lightMask() const { return mLightMask; }
         void setLightMask(unsigned int mask) { mLightMask = mask; }
@@ -35,8 +35,8 @@ namespace k2d
 
         unsigned int customShader() const { return mCustomShader; }
         void setCustomShader(unsigned int program) { mCustomShader = program; }
-        const glm::vec2 &pivot() const { return mPivot; }
-        void setPivot(const glm::vec2 &pivot) { mPivot = pivot; }
+        const Math::Vec2 &pivot() const { return mPivot; }
+        void setPivot(const Math::Vec2 &pivot) { mPivot = pivot; }
         bool flipX() const { return mFlipX; }
         bool flipY() const { return mFlipY; }
         void setFlip(bool flipX, bool flipY) { mFlipX = flipX; mFlipY = flipY; }
@@ -46,9 +46,9 @@ namespace k2d
     private:
         Texture *mTexture;
         Color mColor;
-        glm::vec4 mSourceRect;
-        glm::vec2 mTiling;
-        glm::vec2 mPivot;
+        Math::Vec4 mSourceRect;
+        Math::Vec2 mTiling;
+        Math::Vec2 mPivot;
         BlendMode mBlendMode;
         bool mHasSourceRect;
         bool mFlipX;

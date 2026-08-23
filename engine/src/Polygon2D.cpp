@@ -15,7 +15,7 @@ namespace k2d
     {
     }
 
-    void Polygon2D::setPolygon(const glm::vec2 *points, int count)
+    void Polygon2D::setPolygon(const Math::Vec2 *points, int count)
     {
         mPolygon.clear();
         mTriangles.clear();
@@ -26,7 +26,7 @@ namespace k2d
             mPolygon.push_back(points[i]);
 
         const int maxTriangles = count - 2;
-        ct::Vector<glm::vec2> triangles;
+        ct::Vector<Math::Vec2> triangles;
         triangles.resize((size_t)maxTriangles * 3);
         int triangleCount = kx::Triangulate(mPolygon.data(), count, triangles.data(), maxTriangles);
         for (int i = 0; i < triangleCount * 3; ++i)

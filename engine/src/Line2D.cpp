@@ -14,7 +14,7 @@ namespace k2d
     {
     }
 
-    void Line2D::setPoints(const glm::vec2 *points, int count)
+    void Line2D::setPoints(const Math::Vec2 *points, int count)
     {
         mPoints.clear();
         if (points && count > 0)
@@ -52,19 +52,19 @@ namespace k2d
         float half = mWidth * 0.5f;
         for (int i = 0; i < segmentCount; ++i)
         {
-            const glm::vec2 &p0 = mPoints[i];
-            const glm::vec2 &p1 = mPoints[(i + 1) % n];
-            glm::vec2 dir = p1 - p0;
-            float len = glm::length(dir);
+            const Math::Vec2 &p0 = mPoints[i];
+            const Math::Vec2 &p1 = mPoints[(i + 1) % n];
+            Math::Vec2 dir = p1 - p0;
+            float len = dir.Length();
             if (len < 0.0001f)
                 continue;
             dir /= len;
-            glm::vec2 normal(-dir.y, dir.x);
+            Math::Vec2 normal(-dir.y, dir.x);
 
-            glm::vec2 a0 = p0 - dir * half + normal * half;
-            glm::vec2 a1 = p0 - dir * half - normal * half;
-            glm::vec2 b0 = p1 + dir * half + normal * half;
-            glm::vec2 b1 = p1 + dir * half - normal * half;
+            Math::Vec2 a0 = p0 - dir * half + normal * half;
+            Math::Vec2 a1 = p0 - dir * half - normal * half;
+            Math::Vec2 b0 = p1 + dir * half + normal * half;
+            Math::Vec2 b1 = p1 + dir * half - normal * half;
 
             mTriangles.push_back(a1);
             mTriangles.push_back(a0);

@@ -27,26 +27,26 @@ int main()
     k2d::Scene scene;
 
     k2d::GameObject *backdropObject = scene.createObject("backdrop");
-    backdropObject->setPosition(glm::vec2(450.0f, 250.0f));
+    backdropObject->setPosition(Math::Vec2(450.0f, 250.0f));
     k2d::SpriteComponent *backdrop = backdropObject->addComponent<k2d::SpriteComponent>(gray);
-    backdrop->setSize(glm::vec2(900.0f, 500.0f));
+    backdrop->setSize(Math::Vec2(900.0f, 500.0f));
     backdrop->setColor(20, 20, 22);
 
     k2d::GameObject *spriteObject = scene.createObject("panel");
-    spriteObject->setPosition(glm::vec2(350.0f, 250.0f));
+    spriteObject->setPosition(Math::Vec2(350.0f, 250.0f));
     k2d::SpriteComponent *sprite = spriteObject->addComponent<k2d::SpriteComponent>(gray);
-    sprite->setSize(glm::vec2(240.0f, 160.0f));
+    sprite->setSize(Math::Vec2(240.0f, 160.0f));
     sprite->setColor(150, 150, 150);
     sprite->setNormalMap(normalMap);
 
     k2d::GameObject *controlObject = scene.createObject("control");
-    controlObject->setPosition(glm::vec2(700.0f, 250.0f));
+    controlObject->setPosition(Math::Vec2(700.0f, 250.0f));
     k2d::SpriteComponent *control = controlObject->addComponent<k2d::SpriteComponent>(gray);
-    control->setSize(glm::vec2(120.0f, 160.0f));
+    control->setSize(Math::Vec2(120.0f, 160.0f));
     control->setColor(150, 150, 150);
 
     k2d::GameObject *lightObject = scene.createObject("light");
-    lightObject->setPosition(glm::vec2(650.0f, 250.0f));
+    lightObject->setPosition(Math::Vec2(650.0f, 250.0f));
     k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 1.0f, 1.0f);
     light->setEnergy(1.0f);

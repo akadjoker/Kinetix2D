@@ -4,8 +4,8 @@
 
 #include <glad/glad.h>
 #include <ct/detail/utils.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
+
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -209,32 +209,32 @@ void main()
         }
         else
         {
-            mCurrentMatrix = glm::mat4(1.0f);
+            mCurrentMatrix = Math::Mat4(1.0f);
         }
     }
 
     void BatchRenderer::LoadIdentity()
     {
-        mCurrentMatrix = glm::mat4(1.0f);
+        mCurrentMatrix = Math::Mat4(1.0f);
     }
 
     void BatchRenderer::Translate(float x, float y, float z)
     {
-        mCurrentMatrix = glm::translate(mCurrentMatrix, glm::vec3(x, y, z));
+        mCurrentMatrix = mCurrentMatrix * Math::Mat4::Translation(Math::Vec3(x, y, z));
     }
 
     void BatchRenderer::Rotate(float angleDeg, float axisX, float axisY, float axisZ)
     {
-        mCurrentMatrix = glm::rotate(mCurrentMatrix, angleDeg * DEG2RAD,
-                                     glm::vec3(axisX, axisY, axisZ));
+        Math::Vec3 axis = Math::Vec3(axisX, axisY, axisZ).Normalized();
+        mCurrentMatrix = mCurrentMatrix * Math::Quaternion::FromAxisAngle(axis, angleDeg * DEG2RAD).ToMat4();
     }
 
     void BatchRenderer::Scale(float x, float y, float z)
     {
-        mCurrentMatrix = glm::scale(mCurrentMatrix, glm::vec3(x, y, z));
+        mCurrentMatrix = mCurrentMatrix * Math::Mat4::Scale(Math::Vec3(x, y, z));
     }
 
-    void BatchRenderer::MultMatrix(const glm::mat4 &m)
+    void BatchRenderer::MultMatrix(const Math::Mat4 &m)
     {
         mCurrentMatrix = mCurrentMatrix * m;
     }
@@ -1380,10 +1380,10 @@ void main()
         float x1 = x0 + width;
         float y1 = y0 + height;
 
-        glm::vec2 p0 = matrix.Transform(x0, y0);
-        glm::vec2 p1 = matrix.Transform(x1, y0);
-        glm::vec2 p2 = matrix.Transform(x1, y1);
-        glm::vec2 p3 = matrix.Transform(x0, y1);
+        Math::Vec2 p0 = matrix.Transform(x0, y0);
+        Math::Vec2 p1 = matrix.Transform(x1, y0);
+        Math::Vec2 p2 = matrix.Transform(x1, y1);
+        Math::Vec2 p3 = matrix.Transform(x0, y1);
 
         SetTextureId(textureId);
         Begin(MODE_QUADS);
@@ -1446,7 +1446,7 @@ void main()
         std::printf("===========================\n");
     }
 
-    void BatchRenderer::SetProjection(const glm::mat4 &matrix)
+    void BatchRenderer::SetProjection(const Math::Mat4 &matrix)
     {
         mProjection = matrix;
     }
@@ -1470,8 +1470,8 @@ void main()
 
     void BatchRenderer::UpdateProjection()
     {
-        mProjection = glm::ortho(0.0f, (float)mWindowWidth,
-                                 (float)mWindowHeight, 0.0f, -1.0f, 1.0f);
+        mProjection = Math::Mat4::Ortho(0.0f, (float)mWindowWidth,
+                                        (float)mWindowHeight, 0.0f, -1.0f, 1.0f);
     }
 
     void BatchRenderer::FlushBatch()
@@ -1538,7 +1538,7 @@ void main()
     void BatchRenderer::ApplyDrawCalls()
     {
         glUseProgram(mProgram);
-        glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
+        glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, mProjection.Data());
         glBindVertexArray(mVAO);
         glActiveTexture(GL_TEXTURE0);
 
@@ -1719,7 +1719,7 @@ void main()
 
     void BatchRenderer::ApplyTransform(float &x, float &y, float &z)
     {
-        glm::vec4 t = mCurrentMatrix * glm::vec4(x, y, z, 1.0f);
+        Math::Vec4 t = mCurrentMatrix * Math::Vec4(x, y, z, 1.0f);
         x = t.x;
         y = t.y;
         z = t.z;

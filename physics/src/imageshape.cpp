@@ -18,13 +18,13 @@ namespace kx
             return (float)pixels[y * width + x];
         }
 
-        void CollectSegment(ct::Vector<Polyline> &lines, const glm::vec2 &v0, const glm::vec2 &v1)
+        void CollectSegment(ct::Vector<Polyline> &lines, const Math::Vec2 &v0, const Math::Vec2 &v1)
         {
             int before = -1;
             int after = -1;
             for (size_t i = 0; i < lines.size(); ++i)
             {
-                const ct::Vector<glm::vec2> &pts = lines[i].points;
+                const ct::Vector<Math::Vec2> &pts = lines[i].points;
                 if (before < 0 && pts.back() == v0)
                     before = (int)i;
                 if (after < 0 && pts[0] == v1)
@@ -39,8 +39,8 @@ namespace kx
                 }
                 else
                 {
-                    ct::Vector<glm::vec2> &lbefore = lines[(size_t)before].points;
-                    const ct::Vector<glm::vec2> &lafter = lines[(size_t)after].points;
+                    ct::Vector<Math::Vec2> &lbefore = lines[(size_t)before].points;
+                    const ct::Vector<Math::Vec2> &lafter = lines[(size_t)after].points;
                     for (size_t i = 0; i < lafter.size(); ++i)
                         lbefore.push_back(lafter[i]);
                     lines[(size_t)after] = lines.back();
@@ -53,8 +53,8 @@ namespace kx
             }
             else if (after >= 0)
             {
-                ct::Vector<glm::vec2> &pts = lines[(size_t)after].points;
-                ct::Vector<glm::vec2> shifted;
+                ct::Vector<Math::Vec2> &pts = lines[(size_t)after].points;
+                ct::Vector<Math::Vec2> shifted;
                 shifted.reserve(pts.size() + 1);
                 shifted.push_back(v0);
                 for (size_t i = 0; i < pts.size(); ++i)
@@ -70,13 +70,13 @@ namespace kx
             }
         }
 
-        void Seg(ct::Vector<Polyline> &lines, const glm::vec2 &a, const glm::vec2 &b)
+        void Seg(ct::Vector<Polyline> &lines, const Math::Vec2 &a, const Math::Vec2 &b)
         {
             if (a != b)
                 CollectSegment(lines, b, a);
         }
 
-        void Segs(ct::Vector<Polyline> &lines, const glm::vec2 &a, const glm::vec2 &b, const glm::vec2 &c)
+        void Segs(ct::Vector<Polyline> &lines, const Math::Vec2 &a, const Math::Vec2 &b, const Math::Vec2 &c)
         {
             Seg(lines, b, c);
             Seg(lines, a, b);
@@ -94,48 +94,48 @@ namespace kx
             switch (code)
             {
             case 0x1:
-                Segs(lines, glm::vec2(x0, ym), glm::vec2(xm, ym), glm::vec2(xm, y0));
+                Segs(lines, Math::Vec2(x0, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y0));
                 break;
             case 0x2:
-                Segs(lines, glm::vec2(xm, y0), glm::vec2(xm, ym), glm::vec2(x1, ym));
+                Segs(lines, Math::Vec2(xm, y0), Math::Vec2(xm, ym), Math::Vec2(x1, ym));
                 break;
             case 0x3:
-                Seg(lines, glm::vec2(x0, ym), glm::vec2(x1, ym));
+                Seg(lines, Math::Vec2(x0, ym), Math::Vec2(x1, ym));
                 break;
             case 0x4:
-                Segs(lines, glm::vec2(xm, y1), glm::vec2(xm, ym), glm::vec2(x0, ym));
+                Segs(lines, Math::Vec2(xm, y1), Math::Vec2(xm, ym), Math::Vec2(x0, ym));
                 break;
             case 0x5:
-                Seg(lines, glm::vec2(xm, y1), glm::vec2(xm, y0));
+                Seg(lines, Math::Vec2(xm, y1), Math::Vec2(xm, y0));
                 break;
             case 0x6:
-                Segs(lines, glm::vec2(xm, y0), glm::vec2(xm, ym), glm::vec2(x0, ym));
-                Segs(lines, glm::vec2(xm, y1), glm::vec2(xm, ym), glm::vec2(x1, ym));
+                Segs(lines, Math::Vec2(xm, y0), Math::Vec2(xm, ym), Math::Vec2(x0, ym));
+                Segs(lines, Math::Vec2(xm, y1), Math::Vec2(xm, ym), Math::Vec2(x1, ym));
                 break;
             case 0x7:
-                Segs(lines, glm::vec2(xm, y1), glm::vec2(xm, ym), glm::vec2(x1, ym));
+                Segs(lines, Math::Vec2(xm, y1), Math::Vec2(xm, ym), Math::Vec2(x1, ym));
                 break;
             case 0x8:
-                Segs(lines, glm::vec2(x1, ym), glm::vec2(xm, ym), glm::vec2(xm, y1));
+                Segs(lines, Math::Vec2(x1, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y1));
                 break;
             case 0x9:
-                Segs(lines, glm::vec2(x1, ym), glm::vec2(xm, ym), glm::vec2(xm, y0));
-                Segs(lines, glm::vec2(x0, ym), glm::vec2(xm, ym), glm::vec2(xm, y1));
+                Segs(lines, Math::Vec2(x1, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y0));
+                Segs(lines, Math::Vec2(x0, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y1));
                 break;
             case 0xA:
-                Seg(lines, glm::vec2(xm, y0), glm::vec2(xm, y1));
+                Seg(lines, Math::Vec2(xm, y0), Math::Vec2(xm, y1));
                 break;
             case 0xB:
-                Segs(lines, glm::vec2(x0, ym), glm::vec2(xm, ym), glm::vec2(xm, y1));
+                Segs(lines, Math::Vec2(x0, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y1));
                 break;
             case 0xC:
-                Seg(lines, glm::vec2(x1, ym), glm::vec2(x0, ym));
+                Seg(lines, Math::Vec2(x1, ym), Math::Vec2(x0, ym));
                 break;
             case 0xD:
-                Segs(lines, glm::vec2(x1, ym), glm::vec2(xm, ym), glm::vec2(xm, y0));
+                Segs(lines, Math::Vec2(x1, ym), Math::Vec2(xm, ym), Math::Vec2(xm, y0));
                 break;
             case 0xE:
-                Segs(lines, glm::vec2(xm, y0), glm::vec2(xm, ym), glm::vec2(x0, ym));
+                Segs(lines, Math::Vec2(xm, y0), Math::Vec2(xm, ym), Math::Vec2(x0, ym));
                 break;
             default:
                 break;
@@ -194,7 +194,7 @@ namespace kx
     namespace
     {
 
-        float Sharpness(const glm::vec2 &a, const glm::vec2 &b, const glm::vec2 &c)
+        float Sharpness(const Math::Vec2 &a, const Math::Vec2 &b, const Math::Vec2 &c)
         {
             return Dot(Normalize(a - b), Normalize(c - b));
         }
@@ -210,14 +210,14 @@ namespace kx
     {
         outSimplified.points.clear();
 
-        const ct::Vector<glm::vec2> &src = line.points;
+        const ct::Vector<Math::Vec2> &src = line.points;
         if (src.size() < 3)
         {
             outSimplified.points = src;
             return;
         }
 
-        ct::Vector<glm::vec2> reduced;
+        ct::Vector<Math::Vec2> reduced;
         reduced.push_back(src[0]);
         reduced.push_back(src[1]);
 
@@ -225,7 +225,7 @@ namespace kx
 
         for (size_t i = 2; i < src.size(); ++i)
         {
-            const glm::vec2 &vert = src[i];
+            const Math::Vec2 &vert = src[i];
             float sharp = Sharpness(reduced[reduced.size() - 2], reduced.back(), vert);
 
             if (sharp <= minSharp)
@@ -249,7 +249,7 @@ namespace kx
 
         double OutlineArea2(const Polyline &line)
         {
-            const ct::Vector<glm::vec2> &pts = line.points;
+            const ct::Vector<Math::Vec2> &pts = line.points;
             size_t n = pts.size();
             if (n < 3)
                 return 0.0;
@@ -312,12 +312,12 @@ namespace kx
             }
         }
 
-        glm::vec2 center((float)width * 0.5f, (float)height * 0.5f);
+        Math::Vec2 center((float)width * 0.5f, (float)height * 0.5f);
         int added = 0;
 
         for (size_t i = 0; i < simplified.size() && ShapeCount() < kMaxShapes; ++i)
         {
-            const ct::Vector<glm::vec2> &pts = simplified[i].points;
+            const ct::Vector<Math::Vec2> &pts = simplified[i].points;
             int count = (int)pts.size();
             if (count < 3)
                 continue;
@@ -328,7 +328,7 @@ namespace kx
             if (loopCount < 3)
                 continue;
 
-            glm::vec2 local[512];
+            Math::Vec2 local[512];
             if (loopCount > 512)
                 loopCount = 512;
             for (int k = 0; k < loopCount; ++k)
@@ -340,7 +340,7 @@ namespace kx
         return added;
     }
 
-    Body *World::CreateFromImage(const glm::vec2 &pos, const unsigned char *pixels, int width, int height, int bpp,
+    Body *World::CreateFromImage(const Math::Vec2 &pos, const unsigned char *pixels, int width, int height, int bpp,
                                  unsigned char threshold, float density, float scale, float simplifyDegrees)
     {
         Body *body = CreateBody(BodyType::Dynamic, pos);

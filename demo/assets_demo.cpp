@@ -1,7 +1,6 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 static const int SCANCODE_ESCAPE = 41;
@@ -58,9 +57,9 @@ int main()
     }
 
     k2d::GameObject *playerObject = scene.createObject("player");
-    playerObject->setPosition(glm::vec2(600.0f, 560.0f));
+    playerObject->setPosition(Math::Vec2(600.0f, 560.0f));
     k2d::SpriteComponent *playerSprite = playerObject->addComponent<k2d::SpriteComponent>();
-    playerSprite->setPivot(glm::vec2(0.5f, 1.0f));
+    playerSprite->setPivot(Math::Vec2(0.5f, 1.0f));
     k2d::Animation2D *playerAnimation = playerObject->addComponent<k2d::Animation2D>();
     playerAnimation->addClip("idle", idle, 48, 48, 5, 7.0f, k2d::AnimationMode::Loop);
     playerAnimation->addClip("run", run, 48, 48, 6, 12.0f, k2d::AnimationMode::Loop);
@@ -72,18 +71,18 @@ int main()
     for (int i = 0; i < 12; ++i)
     {
         k2d::GameObject *propObject = scene.createObject("prop");
-        propObject->setPosition(glm::vec2(80.0f + i * 96.0f, 608.0f));
+        propObject->setPosition(Math::Vec2(80.0f + i * 96.0f, 608.0f));
         k2d::SpriteComponent *prop = propObject->addComponent<k2d::SpriteComponent>(props);
-        prop->setSize(glm::vec2(48.0f, 48.0f));
-        prop->setPivot(glm::vec2(0.5f, 1.0f));
+        prop->setSize(Math::Vec2(48.0f, 48.0f));
+        prop->setPivot(Math::Vec2(0.5f, 1.0f));
         prop->setSourceRect((float)((i % 4) * 16), 0.0f, 16.0f, 16.0f);
     }
 
     k2d::GameObject *fireObject = scene.createObject("fire");
-    fireObject->setPosition(glm::vec2(820.0f, 608.0f));
+    fireObject->setPosition(Math::Vec2(820.0f, 608.0f));
     k2d::SpriteComponent *fireSprite = fireObject->addComponent<k2d::SpriteComponent>(fire);
-    fireSprite->setSize(glm::vec2(48.0f, 48.0f));
-    fireSprite->setPivot(glm::vec2(0.5f, 1.0f));
+    fireSprite->setSize(Math::Vec2(48.0f, 48.0f));
+    fireSprite->setPivot(Math::Vec2(0.5f, 1.0f));
     fireSprite->setColor(255, 130, 40);
 
     k2d::GameObject *lightObject = scene.createObject("player_light");
@@ -104,9 +103,9 @@ int main()
             running = false;
 
         if (input.KeyDown(SCANCODE_A))
-            playerObject->translate(glm::vec2(-180.0f * device.DeltaTime(), 0.0f));
+            playerObject->translate(Math::Vec2(-180.0f * device.DeltaTime(), 0.0f));
         if (input.KeyDown(SCANCODE_D))
-            playerObject->translate(glm::vec2(180.0f * device.DeltaTime(), 0.0f));
+            playerObject->translate(Math::Vec2(180.0f * device.DeltaTime(), 0.0f));
         if (input.KeyPressed(SCANCODE_1)) playerAnimation->play("idle");
         if (input.KeyPressed(SCANCODE_2)) playerAnimation->play("run");
         if (input.KeyPressed(SCANCODE_3)) playerAnimation->play("jump");

@@ -1,7 +1,9 @@
 #pragma once
 
+#include "k2d/IVec2.h"
+
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -31,8 +33,8 @@ namespace k2d
         int Width() const { return mWidth; }
         int Height() const { return mHeight; }
 
-        void SetCellSize(float width, float height) { mCellSize = glm::vec2(width, height); }
-        void SetOffset(const glm::vec2 &offset) { mOffset = offset; }
+        void SetCellSize(float width, float height) { mCellSize = Math::Vec2(width, height); }
+        void SetOffset(const Math::Vec2 &offset) { mOffset = offset; }
 
         void SetHeuristic(Heuristic heuristic) { mHeuristic = heuristic; }
         void SetDiagonalMode(DiagonalMode mode) { mDiagonalMode = mode; }
@@ -46,18 +48,18 @@ namespace k2d
         void SetWeightScale(int x, int y, float weightScale);
         float GetWeightScale(int x, int y) const;
 
-        glm::vec2 GetPointPosition(int x, int y) const;
+        Math::Vec2 GetPointPosition(int x, int y) const;
 
-        bool GetIdPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::ivec2> &outPath,
+        bool GetIdPath(IVec2 from, IVec2 to, ct::Vector<IVec2> &outPath,
                        bool allowPartialPath = false);
-        bool GetPointPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::vec2> &outPath,
+        bool GetPointPath(IVec2 from, IVec2 to, ct::Vector<Math::Vec2> &outPath,
                           bool allowPartialPath = false);
 
     private:
         struct Point
         {
-            glm::ivec2 id{0, 0};
-            glm::vec2 pos{0.0f, 0.0f};
+            IVec2 id{0, 0};
+            Math::Vec2 pos{0.0f, 0.0f};
             float weightScale = 1.0f;
             bool solid = false;
 
@@ -70,14 +72,14 @@ namespace k2d
 
         int ToIndex(int x, int y) const { return (y - mMinY) * mWidth + (x - mMinX); }
         Point *At(int x, int y);
-        float EstimateCost(const glm::ivec2 &from, const glm::ivec2 &to) const;
-        float ComputeCost(const glm::ivec2 &from, const glm::ivec2 &to) const;
-        void GetNeighbors(const Point &point, glm::ivec2 (&outNeighbors)[8], int &outCount) const;
-        bool Solve(const glm::ivec2 &begin, const glm::ivec2 &end, bool allowPartialPath);
+        float EstimateCost(const IVec2 &from, const IVec2 &to) const;
+        float ComputeCost(const IVec2 &from, const IVec2 &to) const;
+        void GetNeighbors(const Point &point, IVec2 (&outNeighbors)[8], int &outCount) const;
+        bool Solve(const IVec2 &begin, const IVec2 &end, bool allowPartialPath);
 
         int mMinX, mMinY, mWidth, mHeight;
-        glm::vec2 mCellSize;
-        glm::vec2 mOffset;
+        Math::Vec2 mCellSize;
+        Math::Vec2 mOffset;
         Heuristic mHeuristic;
         DiagonalMode mDiagonalMode;
 

@@ -7,7 +7,7 @@
 namespace kx
 {
 
-    MouseJoint::MouseJoint(Body *body, const glm::vec2 &target, float maxForce,
+    MouseJoint::MouseJoint(Body *body, const Math::Vec2 &target, float maxForce,
                            float frequencyHz, float dampingRatio)
         : Joint(JointType::Mouse, nullptr, body),
           mTarget(target),
@@ -26,12 +26,12 @@ namespace kx
         mDamping = 2.0f * mass * dampingRatio * omega;
     }
 
-    glm::vec2 MouseJoint::AnchorB() const
+    Math::Vec2 MouseJoint::AnchorB() const
     {
         return mBodyB->GetTransform().Transform(mLocalAnchor);
     }
 
-    void MouseJoint::SetTarget(const glm::vec2 &target)
+    void MouseJoint::SetTarget(const Math::Vec2 &target)
     {
         mTarget = target;
     }
@@ -77,12 +77,12 @@ namespace kx
     {
         Body *b = mBodyB;
 
-        glm::vec2 cdot = b->Velocity() + Cross(b->AngularVelocity(), mRB);
-        glm::vec2 rhs = -(cdot + mC + mGamma * mImpulse);
-        glm::vec2 impulse(mMass00 * rhs.x + mMass01 * rhs.y,
+        Math::Vec2 cdot = b->Velocity() + Cross(b->AngularVelocity(), mRB);
+        Math::Vec2 rhs = -(cdot + mC + mGamma * mImpulse);
+        Math::Vec2 impulse(mMass00 * rhs.x + mMass01 * rhs.y,
                           mMass10 * rhs.x + mMass11 * rhs.y);
 
-        glm::vec2 oldImpulse = mImpulse;
+        Math::Vec2 oldImpulse = mImpulse;
         mImpulse += impulse;
         float maxImpulse = dt * mMaxForce;
         float lenSq = mImpulse.x * mImpulse.x + mImpulse.y * mImpulse.y;

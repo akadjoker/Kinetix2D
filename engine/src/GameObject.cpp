@@ -337,7 +337,7 @@ namespace k2d
         return false;
     }
 
-    const glm::vec2 &GameObject::position() const
+    const Math::Vec2 &GameObject::position() const
     {
         return mPosition;
     }
@@ -347,12 +347,12 @@ namespace k2d
         return mRotationDegrees;
     }
 
-    const glm::vec2 &GameObject::scale() const
+    const Math::Vec2 &GameObject::scale() const
     {
         return mScale;
     }
 
-    void GameObject::setPosition(const glm::vec2 &position)
+    void GameObject::setPosition(const Math::Vec2 &position)
     {
         mPosition = position;
         invalidateTransform();
@@ -364,13 +364,13 @@ namespace k2d
         invalidateTransform();
     }
 
-    void GameObject::setScale(const glm::vec2 &scale)
+    void GameObject::setScale(const Math::Vec2 &scale)
     {
         mScale = scale;
         invalidateTransform();
     }
 
-    void GameObject::translate(const glm::vec2 &offset)
+    void GameObject::translate(const Math::Vec2 &offset)
     {
         setPosition(mPosition + offset);
     }
@@ -392,22 +392,22 @@ namespace k2d
         return mGlobalTransform;
     }
 
-    glm::vec2 GameObject::globalPosition() const
+    Math::Vec2 GameObject::globalPosition() const
     {
         updateGlobalTransform();
         return mGlobalTransform.Position();
     }
 
-    glm::vec2 GameObject::right() const
+    Math::Vec2 GameObject::right() const
     {
         updateGlobalTransform();
-        return glm::normalize(glm::vec2(mGlobalTransform.a, mGlobalTransform.b));
+        return Math::Vec2(mGlobalTransform.a, mGlobalTransform.b).Normalized();
     }
 
-    glm::vec2 GameObject::up() const
+    Math::Vec2 GameObject::up() const
     {
         updateGlobalTransform();
-        return glm::normalize(glm::vec2(mGlobalTransform.c, mGlobalTransform.d));
+        return Math::Vec2(mGlobalTransform.c, mGlobalTransform.d).Normalized();
     }
 
     void GameObject::invalidateTransform()

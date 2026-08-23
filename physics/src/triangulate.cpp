@@ -1261,7 +1261,7 @@ namespace kx
 
     } 
 
-    int Triangulate(const glm::vec2 *outline, int count, glm::vec2 *outTriangles, int maxTriangles)
+    int Triangulate(const Math::Vec2 *outline, int count, Math::Vec2 *outTriangles, int maxTriangles)
     {
         if (count < 3 || !outline || !outTriangles || maxTriangles <= 0)
             return 0;
@@ -1297,9 +1297,9 @@ namespace kx
             for (size_t i = 0; i < triangles.size() && written < maxTriangles; ++i)
             {
                 tri::Triangle *t = triangles[i];
-                outTriangles[written * 3 + 0] = glm::vec2((float)t->GetPoint(0)->x, (float)t->GetPoint(0)->y);
-                outTriangles[written * 3 + 1] = glm::vec2((float)t->GetPoint(1)->x, (float)t->GetPoint(1)->y);
-                outTriangles[written * 3 + 2] = glm::vec2((float)t->GetPoint(2)->x, (float)t->GetPoint(2)->y);
+                outTriangles[written * 3 + 0] = Math::Vec2((float)t->GetPoint(0)->x, (float)t->GetPoint(0)->y);
+                outTriangles[written * 3 + 1] = Math::Vec2((float)t->GetPoint(1)->x, (float)t->GetPoint(1)->y);
+                outTriangles[written * 3 + 2] = Math::Vec2((float)t->GetPoint(2)->x, (float)t->GetPoint(2)->y);
                 ++written;
             }
         }

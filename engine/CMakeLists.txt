@@ -90,7 +90,7 @@ target_include_directories(k2d PUBLIC
 
 target_include_directories(k2d PRIVATE src)
 
-target_link_libraries(k2d PUBLIC glad glm::glm)
+target_link_libraries(k2d PUBLIC glad mathc)
 target_link_libraries(k2d PRIVATE imgui)
 
 if(TARGET SDL2::SDL2)

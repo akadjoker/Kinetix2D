@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 #include "joint.h"
 
@@ -10,13 +10,13 @@ namespace kx
     class RevoluteJoint : public Joint
     {
     public:
-        RevoluteJoint(Body *a, Body *b, const glm::vec2 &worldAnchor);
+        RevoluteJoint(Body *a, Body *b, const Math::Vec2 &worldAnchor);
 
         void SetMotor(bool enabled, float speed, float maxTorque);
         void SetLimits(bool enabled, float lowerRad, float upperRad);
 
-        glm::vec2 AnchorA() const override;
-        glm::vec2 AnchorB() const override;
+        Math::Vec2 AnchorA() const override;
+        Math::Vec2 AnchorB() const override;
 
     protected:
         void InitVelocity(float dt) override;
@@ -24,11 +24,11 @@ namespace kx
         bool SolvePosition() override;
 
     private:
-        glm::vec2 mLocalAnchorA;
-        glm::vec2 mLocalAnchorB;
+        Math::Vec2 mLocalAnchorA;
+        Math::Vec2 mLocalAnchorB;
         float mReferenceAngle;
 
-        glm::vec2 mImpulse;
+        Math::Vec2 mImpulse;
         float mMotorImpulse;
         float mLowerImpulse;
         float mUpperImpulse;
@@ -41,7 +41,7 @@ namespace kx
         float mLowerAngle;
         float mUpperAngle;
 
-        glm::vec2 mRA, mRB;
+        Math::Vec2 mRA, mRB;
         float mK11, mK12, mK22;
         float mAngle;
         float mAxialMass;

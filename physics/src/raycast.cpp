@@ -5,14 +5,14 @@
 namespace kx
 {
 
-    bool RayCastCircle(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
+    bool RayCastCircle(const Math::Vec2 &origin, const Math::Vec2 &translation, float maxFraction,
                        const Circle &circle, const Transform &xf, ShapeRayCastOutput &out)
     {
 
-        glm::vec2 p1 = InvTransformPoint(xf, origin);
-        glm::vec2 d = InvRotate(xf, translation);
+        Math::Vec2 p1 = InvTransformPoint(xf, origin);
+        Math::Vec2 d = InvRotate(xf, translation);
 
-        glm::vec2 s = p1 - circle.center;
+        Math::Vec2 s = p1 - circle.center;
         float b = Dot(s, s) - circle.radius * circle.radius;
 
         float rr = Dot(d, d);
@@ -29,19 +29,19 @@ namespace kx
             return false;
 
         t /= rr;
-        glm::vec2 localPoint = p1 + t * d;
+        Math::Vec2 localPoint = p1 + t * d;
         out.fraction = t;
         out.normal = Rotate(xf, Normalize(localPoint - circle.center));
         return true;
     }
 
-    bool RayCastPolygon(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
+    bool RayCastPolygon(const Math::Vec2 &origin, const Math::Vec2 &translation, float maxFraction,
                         const Polygon &polygon, const Transform &xf, ShapeRayCastOutput &out)
     {
 
-        glm::vec2 p1 = InvTransformPoint(xf, origin);
-        glm::vec2 p2 = InvTransformPoint(xf, origin + translation);
-        glm::vec2 d = p2 - p1;
+        Math::Vec2 p1 = InvTransformPoint(xf, origin);
+        Math::Vec2 p2 = InvTransformPoint(xf, origin + translation);
+        Math::Vec2 d = p2 - p1;
 
         float lower = 0.0f;
         float upper = maxFraction;
@@ -82,21 +82,21 @@ namespace kx
         return true;
     }
 
-    bool RayCastEdge(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
+    bool RayCastEdge(const Math::Vec2 &origin, const Math::Vec2 &translation, float maxFraction,
                      const Edge &edge, const Transform &xf, ShapeRayCastOutput &out)
     {
-        glm::vec2 p1 = InvTransformPoint(xf, origin);
-        glm::vec2 d = InvRotate(xf, translation);
+        Math::Vec2 p1 = InvTransformPoint(xf, origin);
+        Math::Vec2 d = InvRotate(xf, translation);
 
-        glm::vec2 v1 = edge.vertex1;
-        glm::vec2 v2 = edge.vertex2;
-        glm::vec2 e = v2 - v1;
+        Math::Vec2 v1 = edge.vertex1;
+        Math::Vec2 v2 = edge.vertex2;
+        Math::Vec2 e = v2 - v1;
 
         float length = std::sqrt(Dot(e, e));
         if (length < kEpsilon)
             return false;
 
-        glm::vec2 normal = glm::vec2(e.y, -e.x) * (1.0f / length);
+        Math::Vec2 normal = Math::Vec2(e.y, -e.x) * (1.0f / length);
 
         float denominator = Dot(d, normal);
         if (std::fabs(denominator) < kEpsilon)
@@ -106,7 +106,7 @@ namespace kx
         if (t < 0.0f || t > maxFraction)
             return false;
 
-        glm::vec2 point = p1 + t * d;
+        Math::Vec2 point = p1 + t * d;
         float s = Dot(point - v1, e) / Dot(e, e);
         if (s < 0.0f || s > 1.0f)
             return false;
@@ -116,7 +116,7 @@ namespace kx
         return true;
     }
 
-    bool RayCastShape(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
+    bool RayCastShape(const Math::Vec2 &origin, const Math::Vec2 &translation, float maxFraction,
                       const Shape &shape, const Transform &xf, ShapeRayCastOutput &out)
     {
         switch (shape.type)

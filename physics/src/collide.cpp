@@ -9,10 +9,10 @@ namespace kx
     {
         manifold->pointCount = 0;
 
-        glm::vec2 pA = xfA.Transform(circleA.center);
-        glm::vec2 pB = xfB.Transform(circleB.center);
+        Math::Vec2 pA = xfA.Transform(circleA.center);
+        Math::Vec2 pB = xfB.Transform(circleB.center);
 
-        glm::vec2 d = pB - pA;
+        Math::Vec2 d = pB - pA;
         float distSqr = Dot(d, d);
         float radius = circleA.radius + circleB.radius;
         if (distSqr > radius * radius)
@@ -20,7 +20,7 @@ namespace kx
 
         manifold->type = Manifold::kCircles;
         manifold->localPoint = circleA.center;
-        manifold->localNormal = glm::vec2(0.0f, 0.0f);
+        manifold->localNormal = Math::Vec2(0.0f, 0.0f);
         manifold->pointCount = 1;
         manifold->points[0].localPoint = circleB.center;
         manifold->points[0].id.key = 0;
@@ -32,15 +32,15 @@ namespace kx
     {
         manifold->pointCount = 0;
 
-        glm::vec2 c = xfB.Transform(circleB.center);
-        glm::vec2 cLocal = InvTransformPoint(xfA, c);
+        Math::Vec2 c = xfB.Transform(circleB.center);
+        Math::Vec2 cLocal = InvTransformPoint(xfA, c);
 
         int32_t normalIndex = 0;
         float separation = -3.402823466e+38F;
         float radius = polygonA.radius + circleB.radius;
         int32_t vertexCount = polygonA.count;
-        const glm::vec2 *vertices = polygonA.vertices;
-        const glm::vec2 *normals = polygonA.normals;
+        const Math::Vec2 *vertices = polygonA.vertices;
+        const Math::Vec2 *normals = polygonA.normals;
 
         for (int32_t i = 0; i < vertexCount; ++i)
         {
@@ -56,8 +56,8 @@ namespace kx
 
         int32_t vertIndex1 = normalIndex;
         int32_t vertIndex2 = vertIndex1 + 1 < vertexCount ? vertIndex1 + 1 : 0;
-        glm::vec2 v1 = vertices[vertIndex1];
-        glm::vec2 v2 = vertices[vertIndex2];
+        Math::Vec2 v1 = vertices[vertIndex1];
+        Math::Vec2 v2 = vertices[vertIndex2];
 
         if (separation < kEpsilon)
         {
@@ -93,7 +93,7 @@ namespace kx
         }
         else
         {
-            glm::vec2 faceCenter = 0.5f * (v1 + v2);
+            Math::Vec2 faceCenter = 0.5f * (v1 + v2);
             float s = Dot(cLocal - faceCenter, normals[vertIndex1]);
             if (s > radius)
                 return;
@@ -112,7 +112,7 @@ namespace kx
 
         struct ClipVertex
         {
-            glm::vec2 v;
+            Math::Vec2 v;
             ContactID id;
         };
 
@@ -120,12 +120,12 @@ namespace kx
         {
             float newA = A.a * B.a + A.b * B.b;
             float newB = A.c * B.a + A.d * B.b;
-            glm::vec2 p = InvTransformPoint(A, glm::vec2(B.tx, B.ty));
+            Math::Vec2 p = InvTransformPoint(A, Math::Vec2(B.tx, B.ty));
             return Transform(newA, newB, -newB, newA, p.x, p.y);
         }
 
         int32_t ClipSegmentToLine(ClipVertex vOut[2], const ClipVertex vIn[2],
-                                  const glm::vec2 &normal, float offset, int32_t vertexIndexA)
+                                  const Math::Vec2 &normal, float offset, int32_t vertexIndexA)
         {
             int32_t count = 0;
 
@@ -158,17 +158,17 @@ namespace kx
         {
             int32_t count1 = poly1.count;
             int32_t count2 = poly2.count;
-            const glm::vec2 *n1s = poly1.normals;
-            const glm::vec2 *v1s = poly1.vertices;
-            const glm::vec2 *v2s = poly2.vertices;
+            const Math::Vec2 *n1s = poly1.normals;
+            const Math::Vec2 *v1s = poly1.vertices;
+            const Math::Vec2 *v2s = poly2.vertices;
             Transform xf = InvMulTransform(xf2, xf1);
 
             int32_t bestIndex = 0;
             float maxSeparation = -3.402823466e+38F;
             for (int32_t i = 0; i < count1; ++i)
             {
-                glm::vec2 n = Rotate(xf, n1s[i]);
-                glm::vec2 v1 = xf.Transform(v1s[i]);
+                Math::Vec2 n = Rotate(xf, n1s[i]);
+                Math::Vec2 v1 = xf.Transform(v1s[i]);
 
                 float si = 3.402823466e+38F;
                 for (int32_t j = 0; j < count2; ++j)
@@ -193,12 +193,12 @@ namespace kx
                               const Polygon &poly1, const Transform &xf1, int32_t edge1,
                               const Polygon &poly2, const Transform &xf2)
         {
-            const glm::vec2 *normals1 = poly1.normals;
+            const Math::Vec2 *normals1 = poly1.normals;
             int32_t count2 = poly2.count;
-            const glm::vec2 *vertices2 = poly2.vertices;
-            const glm::vec2 *normals2 = poly2.normals;
+            const Math::Vec2 *vertices2 = poly2.vertices;
+            const Math::Vec2 *normals2 = poly2.normals;
 
-            glm::vec2 normal1 = InvRotate(xf2, Rotate(xf1, normals1[edge1]));
+            Math::Vec2 normal1 = InvRotate(xf2, Rotate(xf1, normals1[edge1]));
 
             int32_t index = 0;
             float minDot = 3.402823466e+38F;
@@ -279,20 +279,20 @@ namespace kx
         FindIncidentEdge(incidentEdge, *poly1, xf1, edge1, *poly2, xf2);
 
         int32_t count1 = poly1->count;
-        const glm::vec2 *vertices1 = poly1->vertices;
+        const Math::Vec2 *vertices1 = poly1->vertices;
 
         int32_t iv1 = edge1;
         int32_t iv2 = edge1 + 1 < count1 ? edge1 + 1 : 0;
 
-        glm::vec2 v11 = vertices1[iv1];
-        glm::vec2 v12 = vertices1[iv2];
+        Math::Vec2 v11 = vertices1[iv1];
+        Math::Vec2 v12 = vertices1[iv2];
 
-        glm::vec2 localTangent = Normalize(v12 - v11);
-        glm::vec2 localNormal = Cross(localTangent, 1.0f);
-        glm::vec2 planePoint = 0.5f * (v11 + v12);
+        Math::Vec2 localTangent = Normalize(v12 - v11);
+        Math::Vec2 localNormal = Cross(localTangent, 1.0f);
+        Math::Vec2 planePoint = 0.5f * (v11 + v12);
 
-        glm::vec2 tangent = Rotate(xf1, localTangent);
-        glm::vec2 normal = Cross(tangent, 1.0f);
+        Math::Vec2 tangent = Rotate(xf1, localTangent);
+        Math::Vec2 normal = Cross(tangent, 1.0f);
 
         v11 = xf1.Transform(v11);
         v12 = xf1.Transform(v12);
@@ -347,12 +347,12 @@ namespace kx
     {
         manifold->pointCount = 0;
 
-        glm::vec2 Q = InvTransformPoint(xfA, xfB.Transform(circleB.center));
+        Math::Vec2 Q = InvTransformPoint(xfA, xfB.Transform(circleB.center));
 
-        glm::vec2 A = edgeA.vertex1, B = edgeA.vertex2;
-        glm::vec2 e = B - A;
+        Math::Vec2 A = edgeA.vertex1, B = edgeA.vertex2;
+        Math::Vec2 e = B - A;
 
-        glm::vec2 n(e.y, -e.x);
+        Math::Vec2 n(e.y, -e.x);
         float offset = Dot(n, Q - A);
 
         if (edgeA.oneSided && offset < 0.0f)
@@ -369,16 +369,16 @@ namespace kx
 
         if (v <= 0.0f)
         {
-            glm::vec2 P = A;
-            glm::vec2 d = Q - P;
+            Math::Vec2 P = A;
+            Math::Vec2 d = Q - P;
             if (Dot(d, d) > radius * radius)
                 return;
 
             if (edgeA.oneSided)
             {
-                glm::vec2 A1 = edgeA.vertex0;
-                glm::vec2 B1 = A;
-                glm::vec2 e1 = B1 - A1;
+                Math::Vec2 A1 = edgeA.vertex0;
+                Math::Vec2 B1 = A;
+                Math::Vec2 e1 = B1 - A1;
                 float u1 = Dot(e1, B1 - Q);
                 if (u1 > 0.0f)
                     return;
@@ -388,7 +388,7 @@ namespace kx
             cf.typeA = ContactFeature::kVertex;
             manifold->pointCount = 1;
             manifold->type = Manifold::kCircles;
-            manifold->localNormal = glm::vec2(0.0f, 0.0f);
+            manifold->localNormal = Math::Vec2(0.0f, 0.0f);
             manifold->localPoint = P;
             manifold->points[0].id.key = 0;
             manifold->points[0].id.cf = cf;
@@ -398,16 +398,16 @@ namespace kx
 
         if (u <= 0.0f)
         {
-            glm::vec2 P = B;
-            glm::vec2 d = Q - P;
+            Math::Vec2 P = B;
+            Math::Vec2 d = Q - P;
             if (Dot(d, d) > radius * radius)
                 return;
 
             if (edgeA.oneSided)
             {
-                glm::vec2 B2 = edgeA.vertex3;
-                glm::vec2 A2 = B;
-                glm::vec2 e2 = B2 - A2;
+                Math::Vec2 B2 = edgeA.vertex3;
+                Math::Vec2 A2 = B;
+                Math::Vec2 e2 = B2 - A2;
                 float v2 = Dot(e2, Q - A2);
                 if (v2 > 0.0f)
                     return;
@@ -417,7 +417,7 @@ namespace kx
             cf.typeA = ContactFeature::kVertex;
             manifold->pointCount = 1;
             manifold->type = Manifold::kCircles;
-            manifold->localNormal = glm::vec2(0.0f, 0.0f);
+            manifold->localNormal = Math::Vec2(0.0f, 0.0f);
             manifold->localPoint = P;
             manifold->points[0].id.key = 0;
             manifold->points[0].id.cf = cf;
@@ -426,13 +426,13 @@ namespace kx
         }
 
         float den = Dot(e, e);
-        glm::vec2 P = (1.0f / den) * (u * A + v * B);
-        glm::vec2 d = Q - P;
+        Math::Vec2 P = (1.0f / den) * (u * A + v * B);
+        Math::Vec2 d = Q - P;
         if (Dot(d, d) > radius * radius)
             return;
 
         if (offset < 0.0f)
-            n = glm::vec2(-n.x, -n.y);
+            n = Math::Vec2(-n.x, -n.y);
         n = Normalize(n);
 
         cf.indexA = 0;
@@ -458,7 +458,7 @@ namespace kx
                 kEdgeB
             };
 
-            glm::vec2 normal;
+            Math::Vec2 normal;
             Type type;
             int32_t index;
             float separation;
@@ -466,33 +466,33 @@ namespace kx
 
         struct TempPolygon
         {
-            glm::vec2 vertices[kMaxPolygonVertices];
-            glm::vec2 normals[kMaxPolygonVertices];
+            Math::Vec2 vertices[kMaxPolygonVertices];
+            Math::Vec2 normals[kMaxPolygonVertices];
             int32_t count;
         };
 
         struct ReferenceFace
         {
             int32_t i1, i2;
-            glm::vec2 v1, v2;
-            glm::vec2 normal;
+            Math::Vec2 v1, v2;
+            Math::Vec2 normal;
 
-            glm::vec2 sideNormal1;
+            Math::Vec2 sideNormal1;
             float sideOffset1;
 
-            glm::vec2 sideNormal2;
+            Math::Vec2 sideNormal2;
             float sideOffset2;
         };
 
-        EPAxis ComputeEdgeSeparation(const TempPolygon &polygonB, const glm::vec2 &v1, const glm::vec2 &normal1)
+        EPAxis ComputeEdgeSeparation(const TempPolygon &polygonB, const Math::Vec2 &v1, const Math::Vec2 &normal1)
         {
             EPAxis axis;
             axis.type = EPAxis::kEdgeA;
             axis.index = -1;
             axis.separation = -3.402823466e+38F;
-            axis.normal = glm::vec2(0.0f, 0.0f);
+            axis.normal = Math::Vec2(0.0f, 0.0f);
 
-            glm::vec2 axes[2] = {normal1, -normal1};
+            Math::Vec2 axes[2] = {normal1, -normal1};
 
             for (int32_t j = 0; j < 2; ++j)
             {
@@ -515,17 +515,17 @@ namespace kx
             return axis;
         }
 
-        EPAxis ComputePolygonSeparation(const TempPolygon &polygonB, const glm::vec2 &v1, const glm::vec2 &v2)
+        EPAxis ComputePolygonSeparation(const TempPolygon &polygonB, const Math::Vec2 &v1, const Math::Vec2 &v2)
         {
             EPAxis axis;
             axis.type = EPAxis::kUnknown;
             axis.index = -1;
             axis.separation = -3.402823466e+38F;
-            axis.normal = glm::vec2(0.0f, 0.0f);
+            axis.normal = Math::Vec2(0.0f, 0.0f);
 
             for (int32_t i = 0; i < polygonB.count; ++i)
             {
-                glm::vec2 n = -polygonB.normals[i];
+                Math::Vec2 n = -polygonB.normals[i];
 
                 float s1 = Dot(n, polygonB.vertices[i] - v1);
                 float s2 = Dot(n, polygonB.vertices[i] - v2);
@@ -553,14 +553,14 @@ namespace kx
 
         Transform xf = InvMulTransform(xfA, xfB);
 
-        glm::vec2 centroidB = xf.Transform(polygonB.centroid);
+        Math::Vec2 centroidB = xf.Transform(polygonB.centroid);
 
-        glm::vec2 v1 = edgeA.vertex1;
-        glm::vec2 v2 = edgeA.vertex2;
+        Math::Vec2 v1 = edgeA.vertex1;
+        Math::Vec2 v2 = edgeA.vertex2;
 
-        glm::vec2 edge1 = Normalize(v2 - v1);
+        Math::Vec2 edge1 = Normalize(v2 - v1);
 
-        glm::vec2 normal1(edge1.y, -edge1.x);
+        Math::Vec2 normal1(edge1.y, -edge1.x);
         float offset1 = Dot(normal1, centroidB - v1);
 
         bool oneSided = edgeA.oneSided;
@@ -594,12 +594,12 @@ namespace kx
 
         if (oneSided)
         {
-            glm::vec2 edge0 = Normalize(v1 - edgeA.vertex0);
-            glm::vec2 normal0(edge0.y, -edge0.x);
+            Math::Vec2 edge0 = Normalize(v1 - edgeA.vertex0);
+            Math::Vec2 normal0(edge0.y, -edge0.x);
             bool convex1 = Cross(edge0, edge1) >= 0.0f;
 
-            glm::vec2 edge2 = Normalize(edgeA.vertex3 - v2);
-            glm::vec2 normal2(edge2.y, -edge2.x);
+            Math::Vec2 edge2 = Normalize(edgeA.vertex3 - v2);
+            Math::Vec2 normal2(edge2.y, -edge2.x);
             bool convex2 = Cross(edge1, edge2) >= 0.0f;
 
             const float sinTol = 0.1f;
@@ -694,7 +694,7 @@ namespace kx
             ref.v2 = tempPolygonB.vertices[ref.i2];
             ref.normal = tempPolygonB.normals[ref.i1];
 
-            ref.sideNormal1 = glm::vec2(ref.normal.y, -ref.normal.x);
+            ref.sideNormal1 = Math::Vec2(ref.normal.y, -ref.normal.x);
             ref.sideNormal2 = -ref.sideNormal1;
         }
 

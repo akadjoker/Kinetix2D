@@ -1,6 +1,7 @@
 
 #include <kx/kx.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -17,7 +18,7 @@ static void Check(bool condition, const char *name)
     }
 }
 
-static kx::Body *MakeCharacter(kx::World &world, const glm::vec2 &pos)
+static kx::Body *MakeCharacter(kx::World &world, const Math::Vec2 &pos)
 {
     kx::Body *character = world.CreateBox(pos, 3.0f, 5.0f, 1.0f);
     character->SetFixedRotation(true);
@@ -27,17 +28,17 @@ static kx::Body *MakeCharacter(kx::World &world, const glm::vec2 &pos)
 
 static void TestLateralPlatformCarriesCharacter()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, -60.0f), 300.0f, 5.0f);
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, -60.0f), 300.0f, 5.0f);
 
-    kx::Body *platform = world.CreateKinematicBox(glm::vec2(-100.0f, -45.0f), 30.0f, 3.0f);
+    kx::Body *platform = world.CreateKinematicBox(Math::Vec2(-100.0f, -45.0f), 30.0f, 3.0f);
     platform->SetFriction(1.0f);
 
-    kx::Body *character = MakeCharacter(world, glm::vec2(-100.0f, -35.0f));
+    kx::Body *character = MakeCharacter(world, Math::Vec2(-100.0f, -35.0f));
 
     for (int i = 0; i < 120; ++i)
     {
-        platform->SetVelocity(glm::vec2(50.0f, 0.0f));
+        platform->SetVelocity(Math::Vec2(50.0f, 0.0f));
         world.Step(1.0f / 60.0f);
     }
     Check(std::fabs(character->Position().x - 0.0f) < 12.0f,
@@ -47,7 +48,7 @@ static void TestLateralPlatformCarriesCharacter()
 
     for (int i = 0; i < 120; ++i)
     {
-        platform->SetVelocity(glm::vec2(-50.0f, 0.0f));
+        platform->SetVelocity(Math::Vec2(-50.0f, 0.0f));
         world.Step(1.0f / 60.0f);
     }
     Check(std::fabs(character->Position().x - (-100.0f)) < 12.0f,
@@ -57,17 +58,17 @@ static void TestLateralPlatformCarriesCharacter()
 
 static void TestVerticalPlatformCarriesCharacter()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, -60.0f), 300.0f, 5.0f);
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, -60.0f), 300.0f, 5.0f);
 
-    kx::Body *platform = world.CreateKinematicBox(glm::vec2(0.0f, 10.0f), 30.0f, 3.0f);
+    kx::Body *platform = world.CreateKinematicBox(Math::Vec2(0.0f, 10.0f), 30.0f, 3.0f);
     platform->SetFriction(1.0f);
 
-    kx::Body *character = MakeCharacter(world, glm::vec2(0.0f, 22.0f));
+    kx::Body *character = MakeCharacter(world, Math::Vec2(0.0f, 22.0f));
 
     for (int i = 0; i < 90; ++i)
     {
-        platform->SetVelocity(glm::vec2(0.0f, 60.0f));
+        platform->SetVelocity(Math::Vec2(0.0f, 60.0f));
         world.Step(1.0f / 60.0f);
     }
 
@@ -79,7 +80,7 @@ static void TestVerticalPlatformCarriesCharacter()
 
     for (int i = 0; i < 90; ++i)
     {
-        platform->SetVelocity(glm::vec2(0.0f, -60.0f));
+        platform->SetVelocity(Math::Vec2(0.0f, -60.0f));
         world.Step(1.0f / 60.0f);
     }
     Check(std::fabs(character->Position().y - (10.0f + 8.0f)) < 8.0f,
@@ -88,9 +89,9 @@ static void TestVerticalPlatformCarriesCharacter()
 
 static void TestCharacterFallsUpright()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, -80.0f), 300.0f, 5.0f);
-    kx::Body *character = MakeCharacter(world, glm::vec2(0.0f, 200.0f));
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, -80.0f), 300.0f, 5.0f);
+    kx::Body *character = MakeCharacter(world, Math::Vec2(0.0f, 200.0f));
 
     for (int i = 0; i < 240; ++i)
         world.Step(1.0f / 60.0f);
@@ -101,11 +102,11 @@ static void TestCharacterFallsUpright()
 
 static void TestBoxLaunchedIntoStaticCeiling()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, 60.0f), 200.0f, 5.0f); 
+    kx::World world(Math::Vec2(0.0f, -500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, 60.0f), 200.0f, 5.0f); 
 
-    kx::Body *box = world.CreateBox(glm::vec2(0.0f, 0.0f), 5.0f, 8.0f, 1.0f);
-    box->SetVelocity(glm::vec2(0.0f, 300.0f));
+    kx::Body *box = world.CreateBox(Math::Vec2(0.0f, 0.0f), 5.0f, 8.0f, 1.0f);
+    box->SetVelocity(Math::Vec2(0.0f, 300.0f));
 
     for (int i = 0; i < 120; ++i)
         world.Step(1.0f / 60.0f);
@@ -116,24 +117,24 @@ static void TestBoxLaunchedIntoStaticCeiling()
 
 static void TestSqueezedBetweenPlatformAndCeiling()
 {
-    kx::World world(glm::vec2(0.0f, -500.0f));
+    kx::World world(Math::Vec2(0.0f, -500.0f));
 
-    world.CreateStaticBox(glm::vec2(0.0f, 60.0f), 200.0f, 5.0f);
+    world.CreateStaticBox(Math::Vec2(0.0f, 60.0f), 200.0f, 5.0f);
 
-    world.CreateStaticBox(glm::vec2(0.0f, -80.0f), 300.0f, 5.0f);
+    world.CreateStaticBox(Math::Vec2(0.0f, -80.0f), 300.0f, 5.0f);
 
-    kx::Body *platform = world.CreateKinematicBox(glm::vec2(0.0f, 10.0f), 30.0f, 3.0f);
+    kx::Body *platform = world.CreateKinematicBox(Math::Vec2(0.0f, 10.0f), 30.0f, 3.0f);
     platform->SetFriction(1.0f);
 
-    kx::Body *character = MakeCharacter(world, glm::vec2(0.0f, 22.0f));
+    kx::Body *character = MakeCharacter(world, Math::Vec2(0.0f, 22.0f));
 
     float maxY = -1.0e30f;
 
     for (int i = 0; i < 40; ++i)
     {
-        platform->SetVelocity(glm::vec2(0.0f, 60.0f));
+        platform->SetVelocity(Math::Vec2(0.0f, 60.0f));
         world.Step(1.0f / 60.0f);
-        maxY = glm::max(maxY, character->Position().y);
+        maxY = std::max(maxY, character->Position().y);
     }
 
     const float squeezedY = character->Position().y;
@@ -141,18 +142,18 @@ static void TestSqueezedBetweenPlatformAndCeiling()
 
     for (int i = 0; i < 15; ++i)
     {
-        platform->SetVelocity(glm::vec2(0.0f, -60.0f));
+        platform->SetVelocity(Math::Vec2(0.0f, -60.0f));
         world.Step(1.0f / 60.0f);
     }
     const float releasedY = character->Position().y;
 
     for (int i = 15; i < 40; ++i)
     {
-        platform->SetVelocity(glm::vec2(0.0f, -60.0f));
+        platform->SetVelocity(Math::Vec2(0.0f, -60.0f));
         world.Step(1.0f / 60.0f);
     }
 
-    platform->SetVelocity(glm::vec2(0.0f));
+    platform->SetVelocity(Math::Vec2(0.0f));
     for (int i = 0; i < 80; ++i)
         world.Step(1.0f / 60.0f);
 

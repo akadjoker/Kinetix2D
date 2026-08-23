@@ -4,7 +4,7 @@
 #include "k2d/CanvasTypes.h"
 #include "k2d/Color.h"
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {

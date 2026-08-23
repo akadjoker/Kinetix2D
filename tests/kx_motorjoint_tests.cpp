@@ -18,11 +18,11 @@ static void Check(bool condition, const char *name)
 
 static void TestReachesLinearAndAngularOffset()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *ground = world.CreateBody(kx::BodyType::Static, glm::vec2(0.0f));
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *ground = world.CreateBody(kx::BodyType::Static, Math::Vec2(0.0f));
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f), 10.0f, 10.0f, 1.0f);
     kx::MotorJoint *joint = new kx::MotorJoint(ground, body);
-    joint->SetLinearOffset(glm::vec2(100.0f, -50.0f));
+    joint->SetLinearOffset(Math::Vec2(100.0f, -50.0f));
     joint->SetAngularOffset(0.75f);
     joint->SetMaxForce(1.0e8f);
     joint->SetMaxTorque(1.0e10f);
@@ -31,7 +31,7 @@ static void TestReachesLinearAndAngularOffset()
     for (int i = 0; i < 180; ++i)
         world.Step(1.0f / 60.0f);
 
-    Check(glm::length(body->Position() - glm::vec2(100.0f, -50.0f)) < 1.0f,
+    Check((body->Position() - Math::Vec2(100.0f, -50.0f)).Length() < 1.0f,
           "MotorJoint converge para o offset linear");
     Check(std::fabs(body->Angle() - 0.75f) < 0.02f,
           "MotorJoint converge para o offset angular");
@@ -39,27 +39,27 @@ static void TestReachesLinearAndAngularOffset()
 
 static void TestTracksMovingTarget()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *ground = world.CreateBody(kx::BodyType::Static, glm::vec2(0.0f));
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *ground = world.CreateBody(kx::BodyType::Static, Math::Vec2(0.0f));
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f), 10.0f, 10.0f, 1.0f);
     kx::MotorJoint *joint = new kx::MotorJoint(ground, body);
     joint->SetMaxForce(1.0e8f);
     joint->SetMaxTorque(1.0e10f);
     world.AddJoint(joint);
 
-    glm::vec2 target(0.0f);
+    Math::Vec2 target(0.0f);
     float angle = 0.0f;
     for (int i = 0; i < 240; ++i)
     {
         float time = i / 60.0f;
-        target = glm::vec2(80.0f * std::sin(time), 40.0f * std::cos(0.5f * time));
+        target = Math::Vec2(80.0f * std::sin(time), 40.0f * std::cos(0.5f * time));
         angle = 0.5f * std::sin(0.75f * time);
         joint->SetLinearOffset(target);
         joint->SetAngularOffset(angle);
         world.Step(1.0f / 60.0f);
     }
 
-    Check(glm::length(body->Position() - target) < 5.0f,
+    Check((body->Position() - target).Length() < 5.0f,
           "MotorJoint acompanha alvo linear em movimento");
     Check(std::fabs(body->Angle() - angle) < 0.08f,
           "MotorJoint acompanha alvo angular em movimento");
@@ -67,11 +67,11 @@ static void TestTracksMovingTarget()
 
 static void TestMaxForceLimitsAcceleration()
 {
-    kx::World world(glm::vec2(0.0f));
-    kx::Body *ground = world.CreateBody(kx::BodyType::Static, glm::vec2(0.0f));
-    kx::Body *body = world.CreateBox(glm::vec2(0.0f), 10.0f, 10.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f));
+    kx::Body *ground = world.CreateBody(kx::BodyType::Static, Math::Vec2(0.0f));
+    kx::Body *body = world.CreateBox(Math::Vec2(0.0f), 10.0f, 10.0f, 1.0f);
     kx::MotorJoint *joint = new kx::MotorJoint(ground, body);
-    joint->SetLinearOffset(glm::vec2(1000.0f, 0.0f));
+    joint->SetLinearOffset(Math::Vec2(1000.0f, 0.0f));
     joint->SetMaxForce(100.0f);
     joint->SetMaxTorque(0.0f);
     world.AddJoint(joint);

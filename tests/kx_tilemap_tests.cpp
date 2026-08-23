@@ -4,10 +4,10 @@
 
 int main()
 {
-    kx::World world(glm::vec2(0.0f, 100.0f));
+    kx::World world(Math::Vec2(0.0f, 100.0f));
     kx::TileMapCollider collider(world);
     collider.SetMapSize(8, 4);
-    collider.SetCellSize(glm::vec2(10.0f, 10.0f));
+    collider.SetCellSize(Math::Vec2(10.0f, 10.0f));
     for (int x = 0; x < 8; ++x)
         collider.SetSolid(x, 3, true);
     collider.Rebuild();
@@ -15,7 +15,7 @@ int main()
     bool merged = collider.Bodies().size() == 1 &&
                   collider.Bodies()[0]->ShapeCount() == 1;
 
-    kx::Body *body = world.CreateCircle(glm::vec2(35.0f, 10.0f), 4.0f, 1.0f);
+    kx::Body *body = world.CreateCircle(Math::Vec2(35.0f, 10.0f), 4.0f, 1.0f);
     for (int i = 0; i < 120; ++i)
         world.Step(1.0f / 60.0f);
     bool collision = body->Position().y < 30.0f && world.ContactCount() > 0;

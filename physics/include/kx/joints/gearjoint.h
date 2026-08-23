@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 #include "joint.h"
 
@@ -17,8 +17,8 @@ namespace kx
         void SetRatio(float ratio) { mRatio = ratio; }
         float Ratio() const { return mRatio; }
 
-        glm::vec2 AnchorA() const override;
-        glm::vec2 AnchorB() const override;
+        Math::Vec2 AnchorA() const override;
+        Math::Vec2 AnchorB() const override;
 
     protected:
         void InitVelocity(float dt) override;
@@ -38,8 +38,8 @@ namespace kx
         Body *mBodyC;
         Body *mBodyD;
 
-        glm::vec2 mLocalAnchorA;
-        glm::vec2 mLocalAnchorB;
+        Math::Vec2 mLocalAnchorA;
+        Math::Vec2 mLocalAnchorB;
 
         float mReferenceAngleA;
         float mReferenceAngleB;

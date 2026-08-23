@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <ct/vector.hpp>
 
 #include "Matrix2D.h"
@@ -76,7 +76,7 @@ namespace k2d
         void Translate(float x, float y, float z = 0.0f);
         void Rotate(float angleDeg, float axisX, float axisY, float axisZ);
         void Scale(float x, float y, float z = 1.0f);
-        void MultMatrix(const glm::mat4 &m);
+        void MultMatrix(const Math::Mat4 &m);
 
         void SetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
         void SetColor(float r, float g, float b, float a = 1.0f);
@@ -148,8 +148,8 @@ namespace k2d
         void DrawText(float x, float y, float size, const char *text);
         float TextWidth(float size, const char *text) const;
 
-        void SetProjection(const glm::mat4 &matrix);
-        const glm::mat4 &GetProjection() const { return mProjection; }
+        void SetProjection(const Math::Mat4 &matrix);
+        const Math::Mat4 &GetProjection() const { return mProjection; }
 
         void ResetStats();
         void PrintStats() const;
@@ -217,8 +217,8 @@ namespace k2d
         ct::Vector<Vertex> mVertices;
         ct::Vector<unsigned short> mIndices;
         ct::Vector<DrawCall> mDrawCalls;
-        ct::Vector<glm::mat4> mMatrixStack;
-        glm::mat4 mCurrentMatrix;
+        ct::Vector<Math::Mat4> mMatrixStack;
+        Math::Mat4 mCurrentMatrix;
 
         unsigned int mCurrentColor;
         unsigned int mCurrentTextureId;
@@ -229,7 +229,7 @@ namespace k2d
 
         int mWindowWidth;
         int mWindowHeight;
-        glm::mat4 mProjection;
+        Math::Mat4 mProjection;
         bool mDepthTestEnabled;
         bool mDepthWriteEnabled;
         bool mBlendEnabled;

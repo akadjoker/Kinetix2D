@@ -7,7 +7,7 @@
 #include <ct/vector.hpp>
 
 #include <cstdint>
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include "Matrix2D.h"
 
 namespace k2d
@@ -102,19 +102,19 @@ namespace k2d
         int zIndex() const;
         void setZIndex(int zIndex);
 
-        const glm::vec2 &position() const;
+        const Math::Vec2 &position() const;
         float rotationDegrees() const;
-        const glm::vec2 &scale() const;
-        void setPosition(const glm::vec2 &position);
+        const Math::Vec2 &scale() const;
+        void setPosition(const Math::Vec2 &position);
         void setRotationDegrees(float degrees);
-        void setScale(const glm::vec2 &scale);
-        void translate(const glm::vec2 &offset);
+        void setScale(const Math::Vec2 &scale);
+        void translate(const Math::Vec2 &offset);
         void rotate(float degrees);
         const Matrix2D &localTransform() const;
         const Matrix2D &globalTransform() const;
-        glm::vec2 globalPosition() const;
-        glm::vec2 right() const;
-        glm::vec2 up() const;
+        Math::Vec2 globalPosition() const;
+        Math::Vec2 right() const;
+        Math::Vec2 up() const;
 
     private:
         friend class Scene;
@@ -149,9 +149,9 @@ namespace k2d
         ct::Vector<Component *> mPendingComponentDeletes;
         uint32_t mComponentCallbackDepth;
 
-        glm::vec2 mPosition;
+        Math::Vec2 mPosition;
         float mRotationDegrees;
-        glm::vec2 mScale;
+        Math::Vec2 mScale;
         int mZIndex;
         mutable Matrix2D mLocalTransform;
         mutable Matrix2D mGlobalTransform;

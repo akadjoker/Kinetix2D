@@ -25,12 +25,12 @@ int main()
 
     k2d::Scene scene;
     k2d::GameObject *obj = scene.createObject("square");
-    obj->setPosition(glm::vec2(400.0f, 300.0f));
+    obj->setPosition(Math::Vec2(400.0f, 300.0f));
     k2d::SpriteComponent *sprite = obj->addComponent<k2d::SpriteComponent>(tex);
-    sprite->setSize(glm::vec2(120.0f, 120.0f));
+    sprite->setSize(Math::Vec2(120.0f, 120.0f));
 
     k2d::Camera2D camera;
-    camera.position = glm::vec2(400.0f, 300.0f);
+    camera.position = Math::Vec2(400.0f, 300.0f);
 
     k2d::ScreenFade fade;
     fade.SetColor(0, 0, 0);
@@ -58,7 +58,7 @@ int main()
         scene.render(canvas);
 
         batch.Resize(device.Width(), device.Height());
-        batch.SetProjection(glm::ortho(0.0f, w, h, 0.0f, -1.0f, 1.0f));
+        batch.SetProjection(Math::Mat4::Ortho(0.0f, w, h, 0.0f, -1.0f, 1.0f));
         batch.BeginFrame();
         fade.Draw(batch, w, h);
         batch.EndFrame();

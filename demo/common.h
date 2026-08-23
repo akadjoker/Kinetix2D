@@ -4,7 +4,6 @@
 #include <kx/kx.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -32,19 +31,19 @@ inline float Rnd()
 
 struct Camera
 {
-    glm::vec2 center;
+    Math::Vec2 center;
     float zoom;
 
-    glm::mat4 Projection(float screenW, float screenH) const
+    Math::Mat4 Projection(float screenW, float screenH) const
     {
         float hw = screenW * 0.5f / zoom;
         float hh = screenH * 0.5f / zoom;
-        return glm::ortho(center.x - hw, center.x + hw, center.y + hh, center.y - hh, -1.0f, 1.0f);
+        return Math::Mat4::Ortho(center.x - hw, center.x + hw, center.y + hh, center.y - hh, -1.0f, 1.0f);
     }
 
-    glm::vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
+    Math::Vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
     {
-        return glm::vec2(center.x + (sx - screenW * 0.5f) / zoom,
+        return Math::Vec2(center.x + (sx - screenW * 0.5f) / zoom,
                          center.y + (sy - screenH * 0.5f) / zoom);
     }
 };
@@ -58,42 +57,42 @@ public:
 
     void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
     {
-        glm::vec2 c = xf.Transform(0.0f, 0.0f);
+        Math::Vec2 c = xf.Transform(0.0f, 0.0f);
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(c.x, c.y, radius, 12);
     }
 
-    void DrawPolygonShape(const kx::Transform &xf, const glm::vec2 *verts, int count, kx::Color color) override
+    void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count, kx::Color color) override
     {
         if (count <= 0 || count > 16)
             return;
         float points[(16 + 1) * 2];
         for (int i = 0; i < count; ++i)
         {
-            glm::vec2 p = xf.Transform(verts[i]);
+            Math::Vec2 p = xf.Transform(verts[i]);
             points[i * 2 + 0] = p.x;
             points[i * 2 + 1] = p.y;
         }
-        glm::vec2 first = xf.Transform(verts[0]);
+        Math::Vec2 first = xf.Transform(verts[0]);
         points[count * 2 + 0] = first.x;
         points[count * 2 + 1] = first.y;
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawPolyline(points, count + 1);
     }
 
-    void DrawSegment(const glm::vec2 &a, const glm::vec2 &b, kx::Color color) override
+    void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawLine(a.x, a.y, b.x, b.y);
     }
 
-    void DrawPoint(const glm::vec2 &p, float size, kx::Color color) override
+    void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(p.x, p.y, size, 6);
     }
 
-    void DrawAABB(const glm::vec2 &lower, const glm::vec2 &upper, kx::Color color) override
+    void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawRect(lower.x, lower.y, upper.x - lower.x, upper.y - lower.y, false);

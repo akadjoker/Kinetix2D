@@ -63,20 +63,20 @@ int main()
     k2d::Scene scene;
 
     k2d::GameObject *sun = scene.createObject("sun");
-    sun->setPosition(glm::vec2(device.Width() * 0.5f, device.Height() * 0.5f));
+    sun->setPosition(Math::Vec2(device.Width() * 0.5f, device.Height() * 0.5f));
     k2d::SpriteComponent *sunSprite = sun->addComponent<k2d::SpriteComponent>(checkerTex);
-    sunSprite->setSize(glm::vec2(100.0f, 100.0f));
+    sunSprite->setSize(Math::Vec2(100.0f, 100.0f));
     sun->addComponent<Spin>(30.0f);
 
     k2d::GameObject *planet = scene.createObject("planet", sun);
-    planet->setPosition(glm::vec2(180.0f, 0.0f));
+    planet->setPosition(Math::Vec2(180.0f, 0.0f));
     k2d::SpriteComponent *planetSprite = planet->addComponent<k2d::SpriteComponent>(checkerTex);
-    planetSprite->setSize(glm::vec2(40.0f, 40.0f));
+    planetSprite->setSize(Math::Vec2(40.0f, 40.0f));
 
     k2d::GameObject *moon = scene.createObject("moon", planet);
-    moon->setPosition(glm::vec2(60.0f, 0.0f));
+    moon->setPosition(Math::Vec2(60.0f, 0.0f));
     k2d::SpriteComponent *moonSprite = moon->addComponent<k2d::SpriteComponent>(checkerTex);
-    moonSprite->setSize(glm::vec2(16.0f, 16.0f));
+    moonSprite->setSize(Math::Vec2(16.0f, 16.0f));
     moon->addComponent<Spin>(180.0f);
 
     bool running = true;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 #include "joint.h"
 
@@ -10,13 +10,13 @@ namespace kx
     class DistanceJoint : public Joint
     {
     public:
-        DistanceJoint(Body *a, Body *b, const glm::vec2 &worldAnchorA, const glm::vec2 &worldAnchorB);
+        DistanceJoint(Body *a, Body *b, const Math::Vec2 &worldAnchorA, const Math::Vec2 &worldAnchorB);
 
         void SetSpring(float frequencyHz, float dampingRatio);
         void SetLengthRange(float minLength, float maxLength);
 
-        glm::vec2 AnchorA() const override;
-        glm::vec2 AnchorB() const override;
+        Math::Vec2 AnchorA() const override;
+        Math::Vec2 AnchorB() const override;
 
     protected:
         void InitVelocity(float dt) override;
@@ -24,8 +24,8 @@ namespace kx
         bool SolvePosition() override;
 
     private:
-        glm::vec2 mLocalAnchorA;
-        glm::vec2 mLocalAnchorB;
+        Math::Vec2 mLocalAnchorA;
+        Math::Vec2 mLocalAnchorB;
         float mLength;
         float mMinLength;
         float mMaxLength;
@@ -39,8 +39,8 @@ namespace kx
         float mLowerImpulse;
         float mUpperImpulse;
 
-        glm::vec2 mU;
-        glm::vec2 mRA, mRB;
+        Math::Vec2 mU;
+        Math::Vec2 mRA, mRB;
         float mCurrentLength;
         float mMass;
         float mSoftMass;

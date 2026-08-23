@@ -2,8 +2,8 @@
 
 #include "k2d/Matrix2D.h"
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <mathc.h>
+
 
 #include <cmath>
 
@@ -12,18 +12,18 @@ namespace k2d
 
     struct Camera2D
     {
-        glm::vec2 position;      
+        Math::Vec2 position;      
         float rotationDegrees;   
-        glm::vec2 zoom;          
-        glm::vec2 offset;        
+        Math::Vec2 zoom;          
+        Math::Vec2 offset;        
         bool limitEnabled;
-        glm::vec4 limits;        
+        Math::Vec4 limits;        
         bool smoothingEnabled;
         float smoothingSpeed;
         bool deadZoneEnabled;
-        glm::vec4 deadZone;      
+        Math::Vec4 deadZone;      
         bool targetEnabled;
-        glm::vec2 target;
+        Math::Vec2 target;
 
         Camera2D()
             : position(0.0f), rotationDegrees(0.0f), zoom(1.0f, 1.0f), offset(0.0f),
@@ -32,7 +32,7 @@ namespace k2d
 
         void setLimits(float left, float top, float right, float bottom)
         {
-            limits = glm::vec4(left, top, right, bottom);
+            limits = Math::Vec4(left, top, right, bottom);
             limitEnabled = right > left && bottom > top;
         }
 
@@ -46,12 +46,12 @@ namespace k2d
 
         void setDeadZonePixels(float left, float top, float right, float bottom)
         {
-            deadZone = glm::vec4(left, top, right, bottom);
+            deadZone = Math::Vec4(left, top, right, bottom);
             deadZoneEnabled = right > left && bottom > top;
         }
 
         void clearDeadZone() { deadZoneEnabled = false; }
-        void setTarget(const glm::vec2 &value) { target = value; targetEnabled = true; }
+        void setTarget(const Math::Vec2 &value) { target = value; targetEnabled = true; }
         void clearTarget() { targetEnabled = false; }
 
         void update(float deltaTime, float screenW, float screenH)
@@ -59,14 +59,14 @@ namespace k2d
             if (!targetEnabled)
                 return;
 
-            glm::vec2 desired = position;
-            glm::vec2 worldDeadZoneMin = target;
-            glm::vec2 worldDeadZoneMax = target;
+            Math::Vec2 desired = position;
+            Math::Vec2 worldDeadZoneMin = target;
+            Math::Vec2 worldDeadZoneMax = target;
             if (deadZoneEnabled)
             {
-                worldDeadZoneMin += glm::vec2((deadZone.x - screenW * 0.5f) / zoom.x,
+                worldDeadZoneMin += Math::Vec2((deadZone.x - screenW * 0.5f) / zoom.x,
                                               (deadZone.y - screenH * 0.5f) / zoom.y);
-                worldDeadZoneMax += glm::vec2((deadZone.z - screenW * 0.5f) / zoom.x,
+                worldDeadZoneMax += Math::Vec2((deadZone.z - screenW * 0.5f) / zoom.x,
                                               (deadZone.w - screenH * 0.5f) / zoom.y);
             }
             else
@@ -115,12 +115,12 @@ namespace k2d
 
         Matrix2D CameraXform(float screenW, float screenH) const
         {
-            glm::vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
+            Math::Vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
             float angle = rotationDegrees * 0.01745329251f;
-            glm::vec2 screenOffset = glm::vec2(screenW, screenH) * 0.5f * zoomScale;
-            glm::vec2 rotated(screenOffset.x * cosf(angle) - screenOffset.y * sinf(angle),
+            Math::Vec2 screenOffset = Math::Vec2(screenW, screenH) * 0.5f * zoomScale;
+            Math::Vec2 rotated(screenOffset.x * cosf(angle) - screenOffset.y * sinf(angle),
                               screenOffset.x * sinf(angle) + screenOffset.y * cosf(angle));
-            glm::vec2 origin = -rotated + position + offset;
+            Math::Vec2 origin = -rotated + position + offset;
             return Matrix2D::Translation(origin.x, origin.y) *
                    Matrix2D::Rotation(rotationDegrees) *
                    Matrix2D::Scaling(zoomScale.x, zoomScale.y);
@@ -128,24 +128,24 @@ namespace k2d
 
         Matrix2D ViewXform(float screenW, float screenH) const
         {
-            glm::vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
+            Math::Vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
             float angle = rotationDegrees * 0.01745329251f;
-            glm::vec2 screenOffset = glm::vec2(screenW, screenH) * 0.5f * zoomScale;
-            glm::vec2 rotated(screenOffset.x * cosf(angle) - screenOffset.y * sinf(angle),
+            Math::Vec2 screenOffset = Math::Vec2(screenW, screenH) * 0.5f * zoomScale;
+            Math::Vec2 rotated(screenOffset.x * cosf(angle) - screenOffset.y * sinf(angle),
                               screenOffset.x * sinf(angle) + screenOffset.y * cosf(angle));
-            glm::vec2 origin = -rotated + position + offset;
+            Math::Vec2 origin = -rotated + position + offset;
             return Matrix2D::Scaling(zoom.x, zoom.y) *
                    Matrix2D::Rotation(-rotationDegrees) *
                    Matrix2D::Translation(-origin.x, -origin.y);
         }
 
-        glm::mat4 Projection(float screenW, float screenH) const
+        Math::Mat4 Projection(float screenW, float screenH) const
         {
-            glm::mat4 ndc = glm::ortho(0.0f, screenW, screenH, 0.0f, -1.0f, 1.0f);
+            Math::Mat4 ndc = Math::Mat4::Ortho(0.0f, screenW, screenH, 0.0f, -1.0f, 1.0f);
             return ndc * ViewXform(screenW, screenH).ToMat4();
         }
 
-        glm::vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
+        Math::Vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
         {
             return CameraXform(screenW, screenH).Transform(sx, sy);
         }
@@ -153,7 +153,7 @@ namespace k2d
         void VisibleRect(float &minX, float &minY, float &maxX, float &maxY,
                          float screenW, float screenH) const
         {
-            glm::vec2 corners[4] = {
+            Math::Vec2 corners[4] = {
                 ScreenToWorld(0.0f, 0.0f, screenW, screenH),
                 ScreenToWorld(screenW, 0.0f, screenW, screenH),
                 ScreenToWorld(screenW, screenH, screenW, screenH),

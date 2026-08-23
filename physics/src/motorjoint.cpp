@@ -19,7 +19,7 @@ namespace kx
     {
     }
 
-    void MotorJoint::SetLinearOffset(const glm::vec2 &offset)
+    void MotorJoint::SetLinearOffset(const Math::Vec2 &offset)
     {
         if (offset != mLinearOffset)
         {
@@ -54,12 +54,12 @@ namespace kx
         mCorrectionFactor = Clamp(factor, 0.0f, 1.0f);
     }
 
-    glm::vec2 MotorJoint::AnchorA() const
+    Math::Vec2 MotorJoint::AnchorA() const
     {
         return mBodyA->Position();
     }
 
-    glm::vec2 MotorJoint::AnchorB() const
+    Math::Vec2 MotorJoint::AnchorB() const
     {
         return mBodyB->Position();
     }
@@ -72,7 +72,7 @@ namespace kx
         Body *b = mBodyB;
         Transform xfA = a->GetTransform();
 
-        glm::vec2 target = xfA.Transform(mLinearOffset);
+        Math::Vec2 target = xfA.Transform(mLinearOffset);
         mRA = target - a->WorldCenter();
         mRB = b->Position() - b->WorldCenter();
 
@@ -106,7 +106,7 @@ namespace kx
         mLinearError = b->Position() - target;
         mAngularError = b->Angle() - a->Angle() - mAngularOffset;
 
-        glm::vec2 impulse = mLinearImpulse;
+        Math::Vec2 impulse = mLinearImpulse;
         a->SetVelocity(a->Velocity() - mA * impulse);
         a->SetAngularVelocity(a->AngularVelocity() - iA * (Cross(mRA, impulse) + mAngularImpulse));
         b->SetVelocity(b->Velocity() + mB * impulse);
@@ -123,9 +123,9 @@ namespace kx
         float iB = b->InvI();
         float invDt = dt > 0.0f ? 1.0f / dt : 0.0f;
 
-        glm::vec2 vA = a->Velocity();
+        Math::Vec2 vA = a->Velocity();
         float wA = a->AngularVelocity();
-        glm::vec2 vB = b->Velocity();
+        Math::Vec2 vB = b->Velocity();
         float wB = b->AngularVelocity();
 
         float angularCdot = wB - wA + invDt * mCorrectionFactor * mAngularError;
@@ -137,12 +137,12 @@ namespace kx
         wA -= iA * angularImpulse;
         wB += iB * angularImpulse;
 
-        glm::vec2 linearCdot = vB + Cross(wB, mRB) - vA - Cross(wA, mRA) +
+        Math::Vec2 linearCdot = vB + Cross(wB, mRB) - vA - Cross(wA, mRA) +
                                invDt * mCorrectionFactor * mLinearError;
-        glm::vec2 linearImpulse(
+        Math::Vec2 linearImpulse(
             -(mLinearMass11 * linearCdot.x + mLinearMass12 * linearCdot.y),
             -(mLinearMass12 * linearCdot.x + mLinearMass22 * linearCdot.y));
-        glm::vec2 oldLinearImpulse = mLinearImpulse;
+        Math::Vec2 oldLinearImpulse = mLinearImpulse;
         mLinearImpulse += linearImpulse;
 
         float maxLinearImpulse = dt * mMaxForce;

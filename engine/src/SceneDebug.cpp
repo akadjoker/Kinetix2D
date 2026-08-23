@@ -11,11 +11,11 @@ namespace k2d
     {
         void DrawNode(BatchRenderer &batch, GameObject &node, const SceneDebugOptions &options)
         {
-            glm::vec2 origin = node.globalPosition();
+            Math::Vec2 origin = node.globalPosition();
 
             if (options.showHierarchyLines && node.parent())
             {
-                glm::vec2 parentOrigin = node.parent()->globalPosition();
+                Math::Vec2 parentOrigin = node.parent()->globalPosition();
                 batch.SetColor((unsigned char)120, (unsigned char)120, (unsigned char)120, (unsigned char)140);
                 batch.DrawLine(parentOrigin.x, parentOrigin.y, origin.x, origin.y);
             }
@@ -24,8 +24,8 @@ namespace k2d
             {
                 if (SpriteComponent *sprite = node.getComponent<SpriteComponent>())
                 {
-                    const glm::vec2 &size = sprite->size();
-                    const glm::vec2 &pivot = sprite->pivot();
+                    const Math::Vec2 &size = sprite->size();
+                    const Math::Vec2 &pivot = sprite->pivot();
                     batch.PushMatrix();
                     batch.MultMatrix(node.globalTransform().ToMat4());
                     batch.SetColor((unsigned char)80, (unsigned char)200, (unsigned char)255, (unsigned char)200);
@@ -36,8 +36,8 @@ namespace k2d
 
             if (options.showAxes)
             {
-                glm::vec2 right = node.right() * options.axisLength;
-                glm::vec2 up = node.up() * options.axisLength;
+                Math::Vec2 right = node.right() * options.axisLength;
+                Math::Vec2 up = node.up() * options.axisLength;
                 batch.SetColor((unsigned char)255, (unsigned char)60, (unsigned char)60, (unsigned char)255);
                 batch.DrawLine(origin.x, origin.y, origin.x + right.x, origin.y + right.y);
                 batch.SetColor((unsigned char)60, (unsigned char)255, (unsigned char)90, (unsigned char)255);

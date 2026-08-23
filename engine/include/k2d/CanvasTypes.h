@@ -4,7 +4,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -26,7 +26,7 @@ namespace k2d
 
     struct PointLight
     {
-        glm::vec2 position;
+        Math::Vec2 position;
         Color color;
         float radius;
         bool useShadow;
@@ -41,7 +41,7 @@ namespace k2d
 
     struct DirectionalLight
     {
-        glm::vec2 direction;
+        Math::Vec2 direction;
         Color color;
         bool useShadow;
         ShadowFilter shadowFilter;
@@ -54,7 +54,7 @@ namespace k2d
     struct Occluder
     {
         Matrix2D xform;                        
-        const ct::Vector<glm::vec2> *points;   
+        const ct::Vector<Math::Vec2> *points;   
         unsigned int version;                  
     };
 
@@ -81,7 +81,7 @@ namespace k2d
         float pivotX, pivotY;
         Color color;
         unsigned char flags;
-        const ct::Vector<glm::vec2> *polygonPoints;
+        const ct::Vector<Math::Vec2> *polygonPoints;
         unsigned int polygonPointCount;
 
         unsigned int lightMask;

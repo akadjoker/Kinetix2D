@@ -15,7 +15,7 @@ namespace
         void onUpdate(float deltaTime) override
         {
             ++gUpdates;
-            owner()->translate(glm::vec2(deltaTime, 0.0f));
+            owner()->translate(Math::Vec2(deltaTime, 0.0f));
         }
 
         void onLateUpdate(float) override
@@ -35,14 +35,14 @@ int main()
     k2d::Scene scene;
     k2d::GameObject *parent = scene.createObject("parent");
     k2d::GameObject *child = scene.createObject("child", parent);
-    child->setPosition(glm::vec2(10.0f, 5.0f));
-    parent->setPosition(glm::vec2(20.0f, 30.0f));
+    child->setPosition(Math::Vec2(10.0f, 5.0f));
+    parent->setPosition(Math::Vec2(20.0f, 30.0f));
     parent->setRotationDegrees(90.0f);
     child->addComponent<CounterScript>();
 
     bool hierarchy = scene.objectCount() == 2 && scene.find("child") == child &&
                      child->parent() == parent;
-    glm::vec2 global = child->globalPosition();
+    Math::Vec2 global = child->globalPosition();
     bool transform = Near(global.x, 15.0f) && Near(global.y, 40.0f);
 
     gUpdates = 0;

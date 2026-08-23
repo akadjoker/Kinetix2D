@@ -34,28 +34,28 @@ int main()
     k2d::Scene scene;
 
     k2d::GameObject *patchObject = scene.createObject("patch");
-    patchObject->setPosition(glm::vec2(60.0f, 60.0f));
+    patchObject->setPosition(Math::Vec2(60.0f, 60.0f));
     k2d::NinePatchComponent *patch = patchObject->addComponent<k2d::NinePatchComponent>();
     patch->setTexture(panelTex);
-    patch->setSize(glm::vec2(400.0f, 260.0f));
+    patch->setSize(Math::Vec2(400.0f, 260.0f));
     patch->setMargins(8.0f, 8.0f, 8.0f, 8.0f);
 
     k2d::GameObject *lineObject = scene.createObject("zigzag");
-    lineObject->setPosition(glm::vec2(550.0f, 80.0f));
+    lineObject->setPosition(Math::Vec2(550.0f, 80.0f));
     k2d::Line2D *line = lineObject->addComponent<k2d::Line2D>();
-    glm::vec2 zigzag[6] = {{0, 0}, {60, 120}, {120, 0}, {180, 120}, {240, 0}, {300, 120}};
+    Math::Vec2 zigzag[6] = {{0, 0}, {60, 120}, {120, 0}, {180, 120}, {240, 0}, {300, 120}};
     line->setPoints(zigzag, 6);
     line->setWidth(14.0f);
     line->setColor(255, 210, 60, 255);
 
     k2d::GameObject *pentObject = scene.createObject("pentagon");
-    pentObject->setPosition(glm::vec2(720.0f, 420.0f));
+    pentObject->setPosition(Math::Vec2(720.0f, 420.0f));
     k2d::Line2D *pentagon = pentObject->addComponent<k2d::Line2D>();
-    glm::vec2 penta[5];
+    Math::Vec2 penta[5];
     for (int i = 0; i < 5; ++i)
     {
         float a = (float)i / 5.0f * 6.2831853f - 1.5707963f;
-        penta[i] = glm::vec2(cosf(a), sinf(a)) * 90.0f;
+        penta[i] = Math::Vec2(cosf(a), sinf(a)) * 90.0f;
     }
     pentagon->setPoints(penta, 5);
     pentagon->setClosed(true);

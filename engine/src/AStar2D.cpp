@@ -6,7 +6,7 @@
 namespace k2d
 {
 
-    void AStar2D::AddPoint(int id, const glm::vec2 &pos, float weightScale)
+    void AStar2D::AddPoint(int id, const Math::Vec2 &pos, float weightScale)
     {
         Point &p = mPoints[id]; 
         p.pos = pos;
@@ -32,16 +32,16 @@ namespace k2d
         return mPoints.contains(id);
     }
 
-    void AStar2D::SetPointPosition(int id, const glm::vec2 &pos)
+    void AStar2D::SetPointPosition(int id, const Math::Vec2 &pos)
     {
         if (Point *p = mPoints.find(id))
             p->pos = pos;
     }
 
-    glm::vec2 AStar2D::GetPointPosition(int id) const
+    Math::Vec2 AStar2D::GetPointPosition(int id) const
     {
         const Point *p = mPoints.find(id);
-        return p ? p->pos : glm::vec2(0.0f);
+        return p ? p->pos : Math::Vec2(0.0f);
     }
 
     void AStar2D::SetPointWeightScale(int id, float weightScale)
@@ -114,7 +114,7 @@ namespace k2d
         return (int)mPoints.size();
     }
 
-    int AStar2D::GetClosestPoint(const glm::vec2 &point, bool includeDisabled) const
+    int AStar2D::GetClosestPoint(const Math::Vec2 &point, bool includeDisabled) const
     {
         int closestId = -1;
         float closestDistSq = std::numeric_limits<float>::max();
@@ -124,7 +124,7 @@ namespace k2d
         {
             if (!includeDisabled && it->value.disabled)
                 continue;
-            glm::vec2 d = it->value.pos - point;
+            Math::Vec2 d = it->value.pos - point;
             float distSq = d.x * d.x + d.y * d.y;
             if (distSq < closestDistSq)
             {
@@ -155,7 +155,7 @@ namespace k2d
 
         auto estimate = [](const Point &a, const Point &b)
         {
-            glm::vec2 d = a.pos - b.pos;
+            Math::Vec2 d = a.pos - b.pos;
             return std::sqrt(d.x * d.x + d.y * d.y);
         };
 
@@ -262,7 +262,7 @@ namespace k2d
         return true;
     }
 
-    bool AStar2D::GetPointPath(int fromId, int toId, ct::Vector<glm::vec2> &outPath, bool allowPartialPath)
+    bool AStar2D::GetPointPath(int fromId, int toId, ct::Vector<Math::Vec2> &outPath, bool allowPartialPath)
     {
         outPath.clear();
         ct::Vector<int> idPath;

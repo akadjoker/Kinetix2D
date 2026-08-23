@@ -2,7 +2,7 @@
 
 #include "k2d/Scene.h"
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {

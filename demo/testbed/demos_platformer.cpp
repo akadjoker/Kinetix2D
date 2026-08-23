@@ -9,29 +9,29 @@ class Platformer : public Demo
 {
 public:
     explicit Platformer(Testbed &tb)
-        : Demo(tb, glm::vec2(0.0f, -500.0f)),
+        : Demo(tb, Math::Vec2(0.0f, -500.0f)),
           mTime(0.0f), mContacts(0), mVerticalContacts(0),
           mCeilingContacts(0), mVerticalDirection(1.0f),
           mGrounded(false), mCrushed(false)
     {
-        T().Cam().center = glm::vec2(0.0f, 10.0f);
+        T().Cam().center = Math::Vec2(0.0f, 10.0f);
         T().Cam().zoom = 0.8f;
 
-        World().CreateStaticBox(glm::vec2(0.0f, -80.0f), 400.0f, 5.0f);
+        World().CreateStaticBox(Math::Vec2(0.0f, -80.0f), 400.0f, 5.0f);
 
-        World().CreateStaticBox(glm::vec2(-160.0f, -20.0f), 40.0f, 3.0f);
-        World().CreateStaticBox(glm::vec2(30.0f, -15.0f), 35.0f, 3.0f);
-        World().CreateStaticBox(glm::vec2(190.0f, -40.0f), 35.0f, 3.0f);
+        World().CreateStaticBox(Math::Vec2(-160.0f, -20.0f), 40.0f, 3.0f);
+        World().CreateStaticBox(Math::Vec2(30.0f, -15.0f), 35.0f, 3.0f);
+        World().CreateStaticBox(Math::Vec2(190.0f, -40.0f), 35.0f, 3.0f);
 
-        mLateral = World().CreateKinematicBox(glm::vec2(-120.0f, -45.0f), 30.0f, 3.0f);
+        mLateral = World().CreateKinematicBox(Math::Vec2(-120.0f, -45.0f), 30.0f, 3.0f);
         mLateral->SetFriction(1.0f);
 
-        mVertical = World().CreateKinematicBox(glm::vec2(30.0f, 12.0f), 30.0f, 3.0f);
+        mVertical = World().CreateKinematicBox(Math::Vec2(30.0f, 12.0f), 30.0f, 3.0f);
         mVertical->SetFriction(1.0f);
 
-        mCeiling = World().CreateStaticBox(glm::vec2(30.0f, 60.0f), 40.0f, 3.0f);
+        mCeiling = World().CreateStaticBox(Math::Vec2(30.0f, 60.0f), 40.0f, 3.0f);
 
-        mCharacter = World().CreateBox(glm::vec2(0.0f, -60.0f), 5.0f, 8.0f, 1.0f);
+        mCharacter = World().CreateBox(Math::Vec2(0.0f, -60.0f), 5.0f, 8.0f, 1.0f);
         mCharacter->SetFixedRotation(true);
         mCharacter->SetFriction(0.6f);
         mCharacter->SetContactCallback(&Platformer::OnContact, this);
@@ -53,7 +53,7 @@ public:
         mGrounded = mCharacter && mContacts > 0;
 
         float lateralV = 110.0f * std::cos(mTime * 1.2f);
-        mLateral->SetVelocity(glm::vec2(lateralV, 0.0f));
+        mLateral->SetVelocity(Math::Vec2(lateralV, 0.0f));
 
         const float verticalMin = -55.0f;
         const float verticalMax = 85.0f;
@@ -63,7 +63,7 @@ public:
             mVerticalDirection = -1.0f;
 
         float verticalV = 70.0f * mVerticalDirection;
-        mVertical->SetVelocity(glm::vec2(0.0f, verticalV));
+        mVertical->SetVelocity(Math::Vec2(0.0f, verticalV));
 
         k2d::Input &input = T().Input();
         float dir = 0.0f;
@@ -77,13 +77,13 @@ public:
 
         if (mCharacter && dir != 0.0f)
         {
-            glm::vec2 v = mCharacter->Velocity();
+            Math::Vec2 v = mCharacter->Velocity();
             v.x = dir * moveSpeed;
             mCharacter->SetVelocity(v);
         }
         if (mCharacter && input.KeyPressed(SCANCODE_SPACE) && mGrounded)
         {
-            glm::vec2 v = mCharacter->Velocity();
+            Math::Vec2 v = mCharacter->Velocity();
             v.y = jumpSpeed;
             mCharacter->SetVelocity(v);
         }

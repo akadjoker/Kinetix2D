@@ -9,7 +9,7 @@ typedef class Demo *(*DemoCreateFcn)(Testbed &tb);
 class Demo
 {
 public:
-    Demo(Testbed &tb, const glm::vec2 &gravity);
+    Demo(Testbed &tb, const Math::Vec2 &gravity);
     virtual ~Demo();
 
     virtual void Step(float) {}
@@ -35,16 +35,16 @@ int TestbedRegisterDemo(const char *category, const char *name, DemoCreateFcn cr
 const DemoEntry *TestbedDemos();
 int TestbedDemoCount();
 
-inline glm::mat4 CameraProjection(const Camera &cam, float screenW, float screenH)
+inline Math::Mat4 CameraProjection(const Camera &cam, float screenW, float screenH)
 {
     float hw = screenW * 0.5f / cam.zoom;
     float hh = screenH * 0.5f / cam.zoom;
-    return glm::ortho(cam.center.x - hw, cam.center.x + hw, cam.center.y - hh, cam.center.y + hh, -1.0f, 1.0f);
+    return Math::Mat4::Ortho(cam.center.x - hw, cam.center.x + hw, cam.center.y - hh, cam.center.y + hh, -1.0f, 1.0f);
 }
 
-inline glm::vec2 CameraScreenToWorld(const Camera &cam, float sx, float sy, float screenW, float screenH)
+inline Math::Vec2 CameraScreenToWorld(const Camera &cam, float sx, float sy, float screenW, float screenH)
 {
-    return glm::vec2(cam.center.x + (sx - screenW * 0.5f) / cam.zoom,
+    return Math::Vec2(cam.center.x + (sx - screenW * 0.5f) / cam.zoom,
                      cam.center.y - (sy - screenH * 0.5f) / cam.zoom);
 }
 
@@ -64,7 +64,7 @@ public:
     kx::DebugDraw &DebugDraw() { return mDebugDraw; }
     Camera &Cam() { return mCamera; }
 
-    glm::vec2 MouseWorld();
+    Math::Vec2 MouseWorld();
     unsigned DrawFlags() const { return mDrawFlags; }
 
     void SwitchDemo(int index);

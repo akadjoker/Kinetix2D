@@ -5,7 +5,7 @@
 #include "k2d/Color.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -19,8 +19,8 @@ namespace k2d
 
         Line2D();
 
-        void setPoints(const glm::vec2 *points, int count);
-        const ct::Vector<glm::vec2> &points() const { return mPoints; }
+        void setPoints(const Math::Vec2 *points, int count);
+        const ct::Vector<Math::Vec2> &points() const { return mPoints; }
         void setWidth(float width);
         float width() const { return mWidth; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
@@ -38,8 +38,8 @@ namespace k2d
     private:
         void rebuild();
 
-        ct::Vector<glm::vec2> mPoints;
-        ct::Vector<glm::vec2> mTriangles;
+        ct::Vector<Math::Vec2> mPoints;
+        ct::Vector<Math::Vec2> mTriangles;
         float mWidth;
         Color mColor;
         Texture *mTexture;

@@ -4,7 +4,7 @@
 #include "k2d/CanvasTypes.h"
 #include "k2d/Color.h"
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <ct/vector.hpp>
 
 namespace k2d
@@ -18,14 +18,14 @@ namespace k2d
         ParallaxLayer2D();
 
         void setTexture(Texture *texture);
-        void setMotionScale(const glm::vec2 &scale);
-        void setTileSize(const glm::vec2 &size);
+        void setMotionScale(const Math::Vec2 &scale);
+        void setTileSize(const Math::Vec2 &size);
         void setColor(const Color &color);
         void setZIndex(int zIndex);
 
         Texture *texture() const { return mTexture; }
-        const glm::vec2 &motionScale() const { return mMotionScale; }
-        const glm::vec2 &tileSize() const { return mTileSize; }
+        const Math::Vec2 &motionScale() const { return mMotionScale; }
+        const Math::Vec2 &tileSize() const { return mTileSize; }
         int zIndex() const { return mZIndex; }
 
         void submit(RenderQueue &queue, const Camera2D &camera,
@@ -33,8 +33,8 @@ namespace k2d
 
     private:
         Texture *mTexture;
-        glm::vec2 mMotionScale;
-        glm::vec2 mTileSize;
+        Math::Vec2 mMotionScale;
+        Math::Vec2 mTileSize;
         Color mColor;
         int mZIndex;
     };
@@ -48,7 +48,7 @@ namespace k2d
         ParallaxBackground(const ParallaxBackground &) = delete;
         ParallaxBackground &operator=(const ParallaxBackground &) = delete;
 
-        ParallaxLayer2D *createLayer(Texture *texture, const glm::vec2 &motionScale,
+        ParallaxLayer2D *createLayer(Texture *texture, const Math::Vec2 &motionScale,
                                      int zIndex = -100);
         void clear();
         std::size_t layerCount() const { return mLayers.size(); }

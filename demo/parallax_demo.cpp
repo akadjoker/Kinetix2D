@@ -1,7 +1,6 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 static unsigned int Color(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
@@ -28,20 +27,20 @@ int main()
         return 1;
 
     k2d::ParallaxBackground background;
-    k2d::ParallaxLayer2D *sky = background.createLayer(tiles, glm::vec2(0.10f), -30);
-    sky->setTileSize(glm::vec2(192.0f, 240.0f));
+    k2d::ParallaxLayer2D *sky = background.createLayer(tiles, Math::Vec2(0.10f), -30);
+    sky->setTileSize(Math::Vec2(192.0f, 240.0f));
     sky->setColor(Color(45, 55, 90, 255));
 
-    k2d::ParallaxLayer2D *hills = background.createLayer(tiles, glm::vec2(0.35f), -20);
-    hills->setTileSize(glm::vec2(144.0f, 180.0f));
+    k2d::ParallaxLayer2D *hills = background.createLayer(tiles, Math::Vec2(0.35f), -20);
+    hills->setTileSize(Math::Vec2(144.0f, 180.0f));
     hills->setColor(Color(90, 75, 90, 220));
 
-    k2d::ParallaxLayer2D *foreground = background.createLayer(tiles, glm::vec2(0.70f), -10);
-    foreground->setTileSize(glm::vec2(96.0f, 120.0f));
+    k2d::ParallaxLayer2D *foreground = background.createLayer(tiles, Math::Vec2(0.70f), -10);
+    foreground->setTileSize(Math::Vec2(96.0f, 120.0f));
     foreground->setColor(Color(150, 105, 90, 220));
 
     k2d::Camera2D camera;
-    camera.position = glm::vec2(640.0f, 360.0f);
+    camera.position = Math::Vec2(640.0f, 360.0f);
     bool running = true;
     while (running)
     {

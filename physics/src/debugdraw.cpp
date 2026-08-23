@@ -44,8 +44,8 @@ namespace kx
                 DrawShape(shape, xf, shapeColor, draw);
             }
 
-            glm::vec2 origin = xf.Transform(glm::vec2(0.0f, 0.0f));
-            glm::vec2 tip = xf.Transform(glm::vec2(20.0f, 0.0f));
+            Math::Vec2 origin = xf.Transform(Math::Vec2(0.0f, 0.0f));
+            Math::Vec2 tip = xf.Transform(Math::Vec2(20.0f, 0.0f));
             draw.DrawSegment(origin, tip, Color{255, 255, 255, 255});
         }
 
@@ -74,8 +74,8 @@ namespace kx
             for (int i = 1; i < body.ShapeCount(); ++i)
             {
                 AABB shapeAabb = ComputeShapeAABB(body.Shapes()[i], xf);
-                aabb.lowerBound = glm::min(aabb.lowerBound, shapeAabb.lowerBound);
-                aabb.upperBound = glm::max(aabb.upperBound, shapeAabb.upperBound);
+                aabb.lowerBound = Min(aabb.lowerBound, shapeAabb.lowerBound);
+                aabb.upperBound = Max(aabb.upperBound, shapeAabb.upperBound);
             }
 
             draw.DrawAABB(aabb.lowerBound, aabb.upperBound, Color{200, 200, 60, 160});
@@ -96,7 +96,7 @@ namespace kx
             for (int32_t p = 0; p < c.manifold.pointCount; ++p)
             {
                 draw.DrawPoint(worldManifold.points[p], 4.0f, pointColor);
-                glm::vec2 tip = worldManifold.points[p] + arrowLength * worldManifold.normal;
+                Math::Vec2 tip = worldManifold.points[p] + arrowLength * worldManifold.normal;
                 draw.DrawSegment(worldManifold.points[p], tip, normalColor);
             }
         }
@@ -110,8 +110,8 @@ namespace kx
             const ct::Vector<Joint *> &joints = world.Joints();
             for (size_t i = 0; i < joints.size(); ++i)
             {
-                glm::vec2 a = joints[i]->AnchorA();
-                glm::vec2 b = joints[i]->AnchorB();
+                Math::Vec2 a = joints[i]->AnchorA();
+                Math::Vec2 b = joints[i]->AnchorB();
                 Color jointColor{120, 200, 255, 255};
                 draw.DrawSegment(a, b, jointColor);
                 draw.DrawPoint(a, 3.0f, jointColor);

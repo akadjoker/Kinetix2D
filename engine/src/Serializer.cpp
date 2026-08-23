@@ -24,7 +24,7 @@ namespace k2d
 
     namespace
     {
-        ct::Json WriteVec2(const glm::vec2 &v)
+        ct::Json WriteVec2(const Math::Vec2 &v)
         {
             ct::Json a = ct::Json::array();
             a.push_back(ct::Json(v.x));
@@ -32,14 +32,14 @@ namespace k2d
             return a;
         }
 
-        glm::vec2 ReadVec2(const ct::Json &j, glm::vec2 def = glm::vec2(0.0f))
+        Math::Vec2 ReadVec2(const ct::Json &j, Math::Vec2 def = Math::Vec2(0.0f))
         {
             if (!j.is_array() || j.size() < 2)
                 return def;
-            return glm::vec2((float)j[0].as_double(def.x), (float)j[1].as_double(def.y));
+            return Math::Vec2((float)j[0].as_double(def.x), (float)j[1].as_double(def.y));
         }
 
-        ct::Json WriteVec4(const glm::vec4 &v)
+        ct::Json WriteVec4(const Math::Vec4 &v)
         {
             ct::Json a = ct::Json::array();
             a.push_back(ct::Json(v.x));
@@ -49,11 +49,11 @@ namespace k2d
             return a;
         }
 
-        glm::vec4 ReadVec4(const ct::Json &j, glm::vec4 def = glm::vec4(0.0f))
+        Math::Vec4 ReadVec4(const ct::Json &j, Math::Vec4 def = Math::Vec4(0.0f))
         {
             if (!j.is_array() || j.size() < 4)
                 return def;
-            return glm::vec4((float)j[0].as_double(def.x), (float)j[1].as_double(def.y),
+            return Math::Vec4((float)j[0].as_double(def.x), (float)j[1].as_double(def.y),
                               (float)j[2].as_double(def.z), (float)j[3].as_double(def.w));
         }
 
@@ -154,10 +154,10 @@ namespace k2d
 
             sprite.setSize(ReadVec2(data["size"], sprite.size()));
             sprite.setPivot(ReadVec2(data["pivot"], sprite.pivot()));
-            const glm::vec2 tiling = ReadVec2(data["tiling"], glm::vec2(1.0f, 1.0f));
+            const Math::Vec2 tiling = ReadVec2(data["tiling"], Math::Vec2(1.0f, 1.0f));
             sprite.setTiling(tiling.x, tiling.y);
 
-            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            const Color color = ReadColor(data["color"], Color(1.0f, 1.0f, 1.0f, 1.0f));
             sprite.setColor((unsigned char)std::lround(color.r * 255.0f),
                              (unsigned char)std::lround(color.g * 255.0f),
                              (unsigned char)std::lround(color.b * 255.0f),
@@ -165,7 +165,7 @@ namespace k2d
 
             if (const ct::Json *rect = data.find("sourceRect"))
             {
-                const glm::vec4 r = ReadVec4(*rect);
+                const Math::Vec4 r = ReadVec4(*rect);
                 sprite.setSourceRect(r.x, r.y, r.z, r.w);
             }
 
@@ -232,7 +232,7 @@ namespace k2d
 
             if (const ct::Json *rect = data.find("cullRect"))
             {
-                const glm::vec4 r = ReadVec4(*rect);
+                const Math::Vec4 r = ReadVec4(*rect);
                 tileMap.setCullRect(r.x, r.y, r.z, r.w);
             }
             tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
@@ -270,7 +270,7 @@ namespace k2d
             const ct::Json &pointsJson = data["points"];
             if (pointsJson.is_array() && pointsJson.size() >= 3)
             {
-                ct::Vector<glm::vec2> points;
+                ct::Vector<Math::Vec2> points;
                 for (size_t i = 0; i < pointsJson.size(); ++i)
                     points.push_back(ReadVec2(pointsJson[i]));
                 polygon.setPolygon(points.data(), (int)points.size());
@@ -316,7 +316,7 @@ namespace k2d
             const ct::Json &pointsJson = data["points"];
             if (pointsJson.is_array())
             {
-                ct::Vector<glm::vec2> points;
+                ct::Vector<Math::Vec2> points;
                 for (size_t i = 0; i < pointsJson.size(); ++i)
                     points.push_back(ReadVec2(pointsJson[i]));
                 if (!points.empty())
@@ -360,8 +360,8 @@ namespace k2d
                 if (const ct::Json *tex = data.find("texture"))
                     ninePatch.setTexture(assets->GetTexture(tex->as_cstr()));
 
-            ninePatch.setSize(ReadVec2(data["size"], glm::vec2(64.0f, 64.0f)));
-            const glm::vec4 margins = ReadVec4(data["margins"], glm::vec4(8.0f));
+            ninePatch.setSize(ReadVec2(data["size"], Math::Vec2(64.0f, 64.0f)));
+            const Math::Vec4 margins = ReadVec4(data["margins"], Math::Vec4(8.0f));
             ninePatch.setMargins(margins.x, margins.y, margins.z, margins.w);
             ninePatch.setPivot(ReadVec2(data["pivot"]));
 
@@ -421,7 +421,7 @@ namespace k2d
 
                 const unsigned int color = (unsigned int)e["color"].as_uint(0xFFFFFFFFu);
                 const int index = batch.add(texture, ReadVec2(e["position"]),
-                                             ReadVec2(e["size"], glm::vec2(1.0f)), color);
+                                             ReadVec2(e["size"], Math::Vec2(1.0f)), color);
                 batch.setSource(index, ReadVec4(e["source"]));
                 batch.setFlip(index, e["flipX"].as_bool(false), e["flipY"].as_bool(false));
             }
@@ -585,7 +585,7 @@ namespace k2d
             const ct::Json &pointsJson = data["points"];
             if (!pointsJson.is_array())
                 return;
-            ct::Vector<glm::vec2> points;
+            ct::Vector<Math::Vec2> points;
             for (size_t i = 0; i < pointsJson.size(); ++i)
                 points.push_back(ReadVec2(pointsJson[i]));
             if (!points.empty())
@@ -627,7 +627,7 @@ namespace k2d
             Camera2D &camera = cameraComponent.camera();
             camera.position = ReadVec2(data["position"]);
             camera.rotationDegrees = (float)data["rotationDegrees"].as_double(0.0);
-            camera.zoom = ReadVec2(data["zoom"], glm::vec2(1.0f, 1.0f));
+            camera.zoom = ReadVec2(data["zoom"], Math::Vec2(1.0f, 1.0f));
             camera.offset = ReadVec2(data["offset"]);
             camera.limitEnabled = data["limitEnabled"].as_bool(false);
             camera.limits = ReadVec4(data["limits"]);
@@ -669,7 +669,7 @@ namespace k2d
         ParticlePrefab ReadParticlePrefab(const ct::Json &j)
         {
             ParticlePrefab prefab;
-            prefab.direction = ReadVec2(j["direction"], glm::vec2(0.0f, -1.0f));
+            prefab.direction = ReadVec2(j["direction"], Math::Vec2(0.0f, -1.0f));
             prefab.spreadDegrees = (float)j["spreadDegrees"].as_double(0.0);
             prefab.speedMin = (float)j["speedMin"].as_double(0.0);
             prefab.speedMax = (float)j["speedMax"].as_double(0.0);
@@ -689,7 +689,7 @@ namespace k2d
             prefab.fadeOut = (float)j["fadeOut"].as_double(0.0);
             prefab.colorStart = ReadColor(j["colorStart"], Color(1.0f));
             prefab.colorEnd = ReadColor(j["colorEnd"], Color(1.0f));
-            prefab.atlasBounds = ReadVec4(j["atlasBounds"], glm::vec4(0.0f));
+            prefab.atlasBounds = ReadVec4(j["atlasBounds"], Math::Vec4(0.0f));
             return prefab;
         }
 
@@ -890,7 +890,7 @@ namespace k2d
         object->setZIndex((int)json["zIndex"].as_int(0));
         object->setPosition(ReadVec2(json["position"]));
         object->setRotationDegrees((float)json["rotation"].as_double(0.0));
-        object->setScale(ReadVec2(json["scale"], glm::vec2(1.0f, 1.0f)));
+        object->setScale(ReadVec2(json["scale"], Math::Vec2(1.0f, 1.0f)));
 
         const ct::Json &components = json["components"];
         if (components.is_array())

@@ -7,8 +7,8 @@
 namespace
 {
     bool Near(float a, float b, float eps = 0.01f) { return std::fabs(a - b) < eps; }
-    bool NearVec2(const glm::vec2 &a, const glm::vec2 &b) { return Near(a.x, b.x) && Near(a.y, b.y); }
-    bool NearVec4(const glm::vec4 &a, const glm::vec4 &b)
+    bool NearVec2(const Math::Vec2 &a, const Math::Vec2 &b) { return Near(a.x, b.x) && Near(a.y, b.y); }
+    bool NearVec4(const Math::Vec4 &a, const Math::Vec4 &b)
     {
         return Near(a.x, b.x) && Near(a.y, b.y) && Near(a.z, b.z) && Near(a.w, b.w);
     }
@@ -177,14 +177,14 @@ namespace
         k2d::GameObject *root = srcScene.createObject("Shapes");
 
         k2d::Polygon2D *polygon = root->addComponent<k2d::Polygon2D>();
-        glm::vec2 triangle[3] = {{0.0f, 0.0f}, {10.0f, 0.0f}, {5.0f, 10.0f}};
+        Math::Vec2 triangle[3] = {{0.0f, 0.0f}, {10.0f, 0.0f}, {5.0f, 10.0f}};
         polygon->setPolygon(triangle, 3);
         polygon->setColor(11, 22, 33, 44);
         polygon->setBlendMode(k2d::BLEND_MUL);
 
         k2d::GameObject *lineObj = srcScene.createObject("Line", root);
         k2d::Line2D *line = lineObj->addComponent<k2d::Line2D>();
-        glm::vec2 pts[3] = {{0.0f, 0.0f}, {5.0f, 5.0f}, {10.0f, 0.0f}};
+        Math::Vec2 pts[3] = {{0.0f, 0.0f}, {5.0f, 5.0f}, {10.0f, 0.0f}};
         line->setPoints(pts, 3);
         line->setWidth(6.0f);
         line->setClosed(true);
@@ -344,7 +344,7 @@ namespace
         k2d::Scene srcScene;
         k2d::GameObject *root = srcScene.createObject("Wall");
         k2d::LightOccluder2D *occluder = root->addComponent<k2d::LightOccluder2D>();
-        glm::vec2 pts[4] = {{0.0f, 0.0f}, {40.0f, 0.0f}, {40.0f, 10.0f}, {0.0f, 10.0f}};
+        Math::Vec2 pts[4] = {{0.0f, 0.0f}, {40.0f, 0.0f}, {40.0f, 10.0f}, {0.0f, 10.0f}};
         occluder->setPolygon(pts, 4);
 
         ct::Json written = k2d::Serializer::WriteObject(*root);
@@ -361,13 +361,13 @@ namespace
         k2d::GameObject *root = srcScene.createObject("Cam");
         k2d::CameraComponent *cam = root->addComponent<k2d::CameraComponent>();
         cam->setViewport(1280.0f, 720.0f);
-        cam->camera().position = glm::vec2(100.0f, 50.0f);
+        cam->camera().position = Math::Vec2(100.0f, 50.0f);
         cam->camera().rotationDegrees = 15.0f;
-        cam->camera().zoom = glm::vec2(2.0f, 2.0f);
+        cam->camera().zoom = Math::Vec2(2.0f, 2.0f);
         cam->camera().setLimits(-500.0f, -300.0f, 500.0f, 300.0f);
         cam->camera().setSmoothing(true, 8.0f);
         cam->camera().setDeadZonePixels(50.0f, 40.0f, 200.0f, 160.0f);
-        cam->camera().setTarget(glm::vec2(20.0f, -20.0f));
+        cam->camera().setTarget(Math::Vec2(20.0f, -20.0f));
 
         ct::Json written = k2d::Serializer::WriteObject(*root);
         k2d::Scene dstScene;
@@ -404,7 +404,7 @@ namespace
         pc->setFollowOwner(false);
 
         k2d::ParticlePrefab prefab;
-        prefab.direction = glm::vec2(1.0f, 0.0f);
+        prefab.direction = Math::Vec2(1.0f, 0.0f);
         prefab.spreadDegrees = 30.0f;
         prefab.speedMin = 10.0f;
         prefab.speedMax = 25.0f;
@@ -424,7 +424,7 @@ namespace
         prefab.fadeOut = 0.2f;
         prefab.colorStart = k2d::Color(1.0f, 1.0f, 0.0f, 1.0f);
         prefab.colorEnd = k2d::Color(1.0f, 0.0f, 0.0f, 0.0f);
-        prefab.atlasBounds = glm::vec4(0.0f, 0.0f, 8.0f, 8.0f);
+        prefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 8.0f, 8.0f);
         sys.SetPrefab(prefab);
         sys.Start();
 

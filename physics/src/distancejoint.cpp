@@ -7,7 +7,7 @@
 namespace kx
 {
 
-    DistanceJoint::DistanceJoint(Body *a, Body *b, const glm::vec2 &worldAnchorA, const glm::vec2 &worldAnchorB)
+    DistanceJoint::DistanceJoint(Body *a, Body *b, const Math::Vec2 &worldAnchorA, const Math::Vec2 &worldAnchorB)
         : Joint(JointType::Distance, a, b),
           mStiffness(0.0f), mDamping(0.0f),
           mGamma(0.0f), mBias(0.0f), mImpulse(0.0f), mLowerImpulse(0.0f), mUpperImpulse(0.0f),
@@ -17,7 +17,7 @@ namespace kx
         mLocalAnchorA = InvTransformPoint(a->GetTransform(), worldAnchorA);
         mLocalAnchorB = InvTransformPoint(b->GetTransform(), worldAnchorB);
 
-        glm::vec2 d = worldAnchorB - worldAnchorA;
+        Math::Vec2 d = worldAnchorB - worldAnchorA;
         mLength = std::sqrt(Dot(d, d));
         if (mLength < kLinearSlop)
             mLength = kLinearSlop;
@@ -50,12 +50,12 @@ namespace kx
         mUpperImpulse = 0.0f;
     }
 
-    glm::vec2 DistanceJoint::AnchorA() const
+    Math::Vec2 DistanceJoint::AnchorA() const
     {
         return mBodyA->GetTransform().Transform(mLocalAnchorA);
     }
 
-    glm::vec2 DistanceJoint::AnchorB() const
+    Math::Vec2 DistanceJoint::AnchorB() const
     {
         return mBodyB->GetTransform().Transform(mLocalAnchorB);
     }
@@ -68,8 +68,8 @@ namespace kx
         Transform xfA = a->GetTransform();
         Transform xfB = b->GetTransform();
 
-        glm::vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
-        glm::vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
+        Math::Vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
+        Math::Vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
         mRA = worldAnchorA - a->WorldCenter();
         mRB = worldAnchorB - b->WorldCenter();
         mU = worldAnchorB - worldAnchorA;
@@ -81,7 +81,7 @@ namespace kx
         }
         else
         {
-            mU = glm::vec2(0.0f, 0.0f);
+            mU = Math::Vec2(0.0f, 0.0f);
             mMass = 0.0f;
             mImpulse = 0.0f;
             mLowerImpulse = 0.0f;
@@ -115,7 +115,7 @@ namespace kx
             mSoftMass = mMass;
         }
 
-        glm::vec2 P = (mImpulse + mLowerImpulse - mUpperImpulse) * mU;
+        Math::Vec2 P = (mImpulse + mLowerImpulse - mUpperImpulse) * mU;
         a->SetVelocity(a->Velocity() - mA * P);
         a->SetAngularVelocity(a->AngularVelocity() - iA * Cross(mRA, P));
         b->SetVelocity(b->Velocity() + mB * P);
@@ -130,23 +130,23 @@ namespace kx
         float mA = a->InvMass(), mB = b->InvMass();
         float iA = a->InvI(), iB = b->InvI();
 
-        glm::vec2 vA = a->Velocity();
+        Math::Vec2 vA = a->Velocity();
         float wA = a->AngularVelocity();
-        glm::vec2 vB = b->Velocity();
+        Math::Vec2 vB = b->Velocity();
         float wB = b->AngularVelocity();
 
         if (mMinLength < mMaxLength)
         {
             if (mStiffness > 0.0f)
             {
-                glm::vec2 vpA = vA + Cross(wA, mRA);
-                glm::vec2 vpB = vB + Cross(wB, mRB);
+                Math::Vec2 vpA = vA + Cross(wA, mRA);
+                Math::Vec2 vpB = vB + Cross(wB, mRB);
                 float Cdot = Dot(mU, vpB - vpA);
 
                 float impulse = -mSoftMass * (Cdot + mBias + mGamma * mImpulse);
                 mImpulse += impulse;
 
-                glm::vec2 P = impulse * mU;
+                Math::Vec2 P = impulse * mU;
                 vA -= mA * P;
                 wA -= iA * Cross(mRA, P);
                 vB += mB * P;
@@ -157,15 +157,15 @@ namespace kx
                 float C = mCurrentLength - mMinLength;
                 float bias = (C > 0.0f ? C : 0.0f) / dt;
 
-                glm::vec2 vpA = vA + Cross(wA, mRA);
-                glm::vec2 vpB = vB + Cross(wB, mRB);
+                Math::Vec2 vpA = vA + Cross(wA, mRA);
+                Math::Vec2 vpB = vB + Cross(wB, mRB);
                 float Cdot = Dot(mU, vpB - vpA);
 
                 float impulse = -mMass * (Cdot + bias);
                 float oldImpulse = mLowerImpulse;
                 mLowerImpulse = mLowerImpulse + impulse > 0.0f ? mLowerImpulse + impulse : 0.0f;
                 impulse = mLowerImpulse - oldImpulse;
-                glm::vec2 P = impulse * mU;
+                Math::Vec2 P = impulse * mU;
 
                 vA -= mA * P;
                 wA -= iA * Cross(mRA, P);
@@ -177,15 +177,15 @@ namespace kx
                 float C = mMaxLength - mCurrentLength;
                 float bias = (C > 0.0f ? C : 0.0f) / dt;
 
-                glm::vec2 vpA = vA + Cross(wA, mRA);
-                glm::vec2 vpB = vB + Cross(wB, mRB);
+                Math::Vec2 vpA = vA + Cross(wA, mRA);
+                Math::Vec2 vpB = vB + Cross(wB, mRB);
                 float Cdot = Dot(mU, vpA - vpB);
 
                 float impulse = -mMass * (Cdot + bias);
                 float oldImpulse = mUpperImpulse;
                 mUpperImpulse = mUpperImpulse + impulse > 0.0f ? mUpperImpulse + impulse : 0.0f;
                 impulse = mUpperImpulse - oldImpulse;
-                glm::vec2 P = -impulse * mU;
+                Math::Vec2 P = -impulse * mU;
 
                 vA -= mA * P;
                 wA -= iA * Cross(mRA, P);
@@ -195,14 +195,14 @@ namespace kx
         }
         else
         {
-            glm::vec2 vpA = vA + Cross(wA, mRA);
-            glm::vec2 vpB = vB + Cross(wB, mRB);
+            Math::Vec2 vpA = vA + Cross(wA, mRA);
+            Math::Vec2 vpB = vB + Cross(wB, mRB);
             float Cdot = Dot(mU, vpB - vpA);
 
             float impulse = -mMass * Cdot;
             mImpulse += impulse;
 
-            glm::vec2 P = impulse * mU;
+            Math::Vec2 P = impulse * mU;
             vA -= mA * P;
             wA -= iA * Cross(mRA, P);
             vB += mB * P;
@@ -222,11 +222,11 @@ namespace kx
 
         Transform xfA = a->GetTransform();
         Transform xfB = b->GetTransform();
-        glm::vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
-        glm::vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
-        glm::vec2 rA = worldAnchorA - a->WorldCenter();
-        glm::vec2 rB = worldAnchorB - b->WorldCenter();
-        glm::vec2 u = worldAnchorB - worldAnchorA;
+        Math::Vec2 worldAnchorA = xfA.Transform(mLocalAnchorA);
+        Math::Vec2 worldAnchorB = xfB.Transform(mLocalAnchorB);
+        Math::Vec2 rA = worldAnchorA - a->WorldCenter();
+        Math::Vec2 rB = worldAnchorB - b->WorldCenter();
+        Math::Vec2 u = worldAnchorB - worldAnchorA;
 
         float length = std::sqrt(Dot(u, u));
         if (length > kEpsilon)
@@ -243,7 +243,7 @@ namespace kx
             return true;
 
         float impulse = -mMass * C;
-        glm::vec2 P = impulse * u;
+        Math::Vec2 P = impulse * u;
 
         a->ShiftCenter(-a->InvMass() * P, -a->InvI() * Cross(rA, P));
         b->ShiftCenter(b->InvMass() * P, b->InvI() * Cross(rB, P));

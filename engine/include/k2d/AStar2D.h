@@ -3,7 +3,7 @@
 #include <ct/hashmap.hpp>
 #include <ct/hashset.hpp>
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -11,11 +11,11 @@ namespace k2d
     class AStar2D
     {
     public:
-        void AddPoint(int id, const glm::vec2 &pos, float weightScale = 1.0f);
+        void AddPoint(int id, const Math::Vec2 &pos, float weightScale = 1.0f);
         void RemovePoint(int id);
         bool HasPoint(int id) const;
-        void SetPointPosition(int id, const glm::vec2 &pos);
-        glm::vec2 GetPointPosition(int id) const;
+        void SetPointPosition(int id, const Math::Vec2 &pos);
+        Math::Vec2 GetPointPosition(int id) const;
         void SetPointWeightScale(int id, float weightScale);
         float GetPointWeightScale(int id) const;
         void SetPointDisabled(int id, bool disabled = true);
@@ -28,15 +28,15 @@ namespace k2d
         void Clear();
         int GetPointCount() const;
 
-        int GetClosestPoint(const glm::vec2 &point, bool includeDisabled = false) const;
+        int GetClosestPoint(const Math::Vec2 &point, bool includeDisabled = false) const;
 
         bool GetIdPath(int fromId, int toId, ct::Vector<int> &outPath, bool allowPartialPath = false);
-        bool GetPointPath(int fromId, int toId, ct::Vector<glm::vec2> &outPath, bool allowPartialPath = false);
+        bool GetPointPath(int fromId, int toId, ct::Vector<Math::Vec2> &outPath, bool allowPartialPath = false);
 
     private:
         struct Point
         {
-            glm::vec2 pos{0.0f, 0.0f};
+            Math::Vec2 pos{0.0f, 0.0f};
             float weightScale = 1.0f;
             bool disabled = false;
             ct::HashSet<int> neighbors;

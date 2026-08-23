@@ -28,12 +28,12 @@ namespace kx
                joint == static_cast<const Joint *>(mJoint2);
     }
 
-    glm::vec2 GearJoint::AnchorA() const
+    Math::Vec2 GearJoint::AnchorA() const
     {
         return mBodyA->GetTransform().Transform(mLocalAnchorA);
     }
 
-    glm::vec2 GearJoint::AnchorB() const
+    Math::Vec2 GearJoint::AnchorB() const
     {
         return mBodyB->GetTransform().Transform(mLocalAnchorB);
     }
@@ -81,10 +81,10 @@ namespace kx
 
         float impulse = mass > 0.0f ? -C / mass : 0.0f;
 
-        mBodyA->ShiftCenter(glm::vec2(0.0f, 0.0f), iA * impulse);
-        mBodyC->ShiftCenter(glm::vec2(0.0f, 0.0f), -iC * impulse);
-        mBodyB->ShiftCenter(glm::vec2(0.0f, 0.0f), iB * impulse * mRatio);
-        mBodyD->ShiftCenter(glm::vec2(0.0f, 0.0f), -iD * impulse * mRatio);
+        mBodyA->ShiftCenter(Math::Vec2(0.0f, 0.0f), iA * impulse);
+        mBodyC->ShiftCenter(Math::Vec2(0.0f, 0.0f), -iC * impulse);
+        mBodyB->ShiftCenter(Math::Vec2(0.0f, 0.0f), iB * impulse * mRatio);
+        mBodyD->ShiftCenter(Math::Vec2(0.0f, 0.0f), -iD * impulse * mRatio);
 
         return std::fabs(C) < kAngularSlop;
     }

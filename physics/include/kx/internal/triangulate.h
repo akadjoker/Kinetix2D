@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cstdint>
 
 #include <ct/vector.hpp>
@@ -290,6 +290,6 @@ namespace kx
 
     } 
 
-    int Triangulate(const glm::vec2 *outline, int count, glm::vec2 *outTriangles, int maxTriangles);
+    int Triangulate(const Math::Vec2 *outline, int count, Math::Vec2 *outTriangles, int maxTriangles);
 
 } 

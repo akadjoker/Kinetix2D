@@ -21,18 +21,18 @@ static int gFailures = 0;
 
 static void BuildScene(kx::World &world, kx::Body *out[12])
 {
-    world.CreateStaticBox(glm::vec2(0.0f, 300.0f), 600.0f, 10.0f);
+    world.CreateStaticBox(Math::Vec2(0.0f, 300.0f), 600.0f, 10.0f);
     int n = 0;
     for (int col = 0; col < 4; ++col)
         for (int row = 0; row < 3; ++row)
-            out[n++] = world.CreateBox(glm::vec2(-150.0f + col * 100.0f, 260.0f - row * 45.0f),
+            out[n++] = world.CreateBox(Math::Vec2(-150.0f + col * 100.0f, 260.0f - row * 45.0f),
                                        18.0f, 18.0f, 1.0f);
 }
 
 static void TestTreeMatchesBrute()
 {
-    kx::World treeWorld(glm::vec2(0.0f, 500.0f));
-    kx::World bruteWorld(glm::vec2(0.0f, 500.0f));
+    kx::World treeWorld(Math::Vec2(0.0f, 500.0f));
+    kx::World bruteWorld(Math::Vec2(0.0f, 500.0f));
     treeWorld.SetTreeBroadphase(true);
     bruteWorld.SetTreeBroadphase(false);
 
@@ -54,8 +54,8 @@ static void TestTreeMatchesBrute()
     bool positionsMatch = true;
     for (int i = 0; i < 12; ++i)
     {
-        glm::vec2 d = ta[i]->Position() - ba[i]->Position();
-        if (glm::length(d) > 2.0f)
+        Math::Vec2 d = ta[i]->Position() - ba[i]->Position();
+        if ((d).Length() > 2.0f)
             positionsMatch = false;
     }
     CHECK(positionsMatch, "posicoes finais equivalentes tree vs brute");
@@ -63,10 +63,10 @@ static void TestTreeMatchesBrute()
 
 static void TestRestingStackKeepsContacts()
 {
-    kx::World world(glm::vec2(0.0f, 500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, 300.0f), 600.0f, 10.0f);
+    kx::World world(Math::Vec2(0.0f, 500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, 300.0f), 600.0f, 10.0f);
     for (int i = 0; i < 5; ++i)
-        world.CreateBox(glm::vec2(0.0f, 260.0f - i * 45.0f), 18.0f, 18.0f, 1.0f);
+        world.CreateBox(Math::Vec2(0.0f, 260.0f - i * 45.0f), 18.0f, 18.0f, 1.0f);
 
     for (int s = 0; s < 600; ++s)
         world.Step(1.0f / 60.0f);
@@ -76,7 +76,7 @@ static void TestRestingStackKeepsContacts()
     float maxSpeed = 0.0f;
     for (size_t i = 0; i < world.Bodies().size(); ++i)
     {
-        float sp = glm::length(world.Bodies()[i]->Velocity());
+        float sp = (world.Bodies()[i]->Velocity()).Length();
         if (sp > maxSpeed)
             maxSpeed = sp;
     }
@@ -85,22 +85,22 @@ static void TestRestingStackKeepsContacts()
 
 static void TestTeleportLosesAndRegainsContacts()
 {
-    kx::World world(glm::vec2(0.0f, 500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, 300.0f), 600.0f, 10.0f);
-    kx::Body *box = world.CreateBox(glm::vec2(0.0f, 260.0f), 18.0f, 18.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f, 500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, 300.0f), 600.0f, 10.0f);
+    kx::Body *box = world.CreateBox(Math::Vec2(0.0f, 260.0f), 18.0f, 18.0f, 1.0f);
 
     for (int s = 0; s < 180; ++s)
         world.Step(1.0f / 60.0f);
     CHECK(world.ContactCount() > 0, "assente tem contacto");
 
-    box->SetPosition(glm::vec2(5000.0f, 0.0f));
-    box->SetVelocity(glm::vec2(0.0f, 0.0f));
+    box->SetPosition(Math::Vec2(5000.0f, 0.0f));
+    box->SetVelocity(Math::Vec2(0.0f, 0.0f));
     world.Step(1.0f / 60.0f);
     world.Step(1.0f / 60.0f);
     CHECK(world.ContactCount() == 0, "teleportado para longe perde contactos");
 
-    box->SetPosition(glm::vec2(0.0f, 260.0f));
-    box->SetVelocity(glm::vec2(0.0f, 0.0f));
+    box->SetPosition(Math::Vec2(0.0f, 260.0f));
+    box->SetVelocity(Math::Vec2(0.0f, 0.0f));
     for (int s = 0; s < 120; ++s)
         world.Step(1.0f / 60.0f);
     CHECK(world.ContactCount() > 0, "teleportado de volta recupera contactos");
@@ -108,10 +108,10 @@ static void TestTeleportLosesAndRegainsContacts()
 
 static void TestDestroyPurgesPairs()
 {
-    kx::World world(glm::vec2(0.0f, 500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, 300.0f), 600.0f, 10.0f);
-    kx::Body *doomed = world.CreateBox(glm::vec2(0.0f, 260.0f), 18.0f, 18.0f, 1.0f);
-    kx::Body *keeper = world.CreateBox(glm::vec2(0.0f, 215.0f), 18.0f, 18.0f, 1.0f);
+    kx::World world(Math::Vec2(0.0f, 500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, 300.0f), 600.0f, 10.0f);
+    kx::Body *doomed = world.CreateBox(Math::Vec2(0.0f, 260.0f), 18.0f, 18.0f, 1.0f);
+    kx::Body *keeper = world.CreateBox(Math::Vec2(0.0f, 215.0f), 18.0f, 18.0f, 1.0f);
 
     for (int s = 0; s < 180; ++s)
         world.Step(1.0f / 60.0f);
@@ -128,10 +128,10 @@ static void TestDestroyPurgesPairs()
 
 static void TestBigGridStepsClean()
 {
-    kx::World world(glm::vec2(0.0f, 500.0f));
-    world.CreateStaticBox(glm::vec2(0.0f, 3000.0f), 8000.0f, 10.0f);
+    kx::World world(Math::Vec2(0.0f, 500.0f));
+    world.CreateStaticBox(Math::Vec2(0.0f, 3000.0f), 8000.0f, 10.0f);
     for (int i = 0; i < 2000; ++i)
-        world.CreateBox(glm::vec2((float)(i % 50) * 45.0f, 2950.0f - (float)(i / 50) * 45.0f),
+        world.CreateBox(Math::Vec2((float)(i % 50) * 45.0f, 2950.0f - (float)(i / 50) * 45.0f),
                         15.0f, 15.0f, 1.0f);
     for (int s = 0; s < 120; ++s)
         world.Step(1.0f / 60.0f);

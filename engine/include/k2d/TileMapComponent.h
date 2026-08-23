@@ -4,7 +4,7 @@
 #include "k2d/CanvasTypes.h"
 
 #include <ct/vector.hpp>
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -35,7 +35,7 @@ namespace k2d
         void clearCullRect();
         bool hasCullRect() const { return mCullEnabled; }
 
-        glm::vec4 cullRect() const { return glm::vec4(mCullX, mCullY, mCullW, mCullH); }
+        Math::Vec4 cullRect() const { return Math::Vec4(mCullX, mCullY, mCullW, mCullH); }
         void setBlendMode(BlendMode mode) { mBlendMode = mode; }
         BlendMode blendMode() const { return mBlendMode; }
 

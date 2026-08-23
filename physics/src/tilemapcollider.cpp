@@ -32,13 +32,13 @@ namespace kx
         mSolid.resize(mColumns * mRows, 0);
     }
 
-    void TileMapCollider::SetCellSize(const glm::vec2 &size)
+    void TileMapCollider::SetCellSize(const Math::Vec2 &size)
     {
         mCellSize.x = size.x > 0.0f ? size.x : 1.0f;
         mCellSize.y = size.y > 0.0f ? size.y : 1.0f;
     }
 
-    void TileMapCollider::SetOffset(const glm::vec2 &offset)
+    void TileMapCollider::SetOffset(const Math::Vec2 &offset)
     {
         mOffset = offset;
     }
@@ -127,12 +127,12 @@ namespace kx
                 {
                     if (!body || body->ShapeCount() >= Body::kMaxShapes)
                     {
-                        body = mWorld.CreateBody(BodyType::Static, glm::vec2(0.0f));
+                        body = mWorld.CreateBody(BodyType::Static, Math::Vec2(0.0f));
                         mBodies.push_back(body);
                     }
 
                     const Rectangle &rectangle = rectangles[i];
-                    glm::vec2 center = mOffset + glm::vec2(
+                    Math::Vec2 center = mOffset + Math::Vec2(
                         (chunkX + rectangle.x + rectangle.width * 0.5f) * mCellSize.x,
                         (chunkY + rectangle.y + rectangle.height * 0.5f) * mCellSize.y);
                     body->AddBox(rectangle.width * mCellSize.x * 0.5f,

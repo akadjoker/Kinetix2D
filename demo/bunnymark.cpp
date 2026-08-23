@@ -36,7 +36,7 @@ public:
 protected:
     void onUpdate(float dt) override
     {
-        glm::vec2 p = owner()->position();
+        Math::Vec2 p = owner()->position();
         p.x += mVx * dt;
         p.y += mVy * dt;
         mVy += GRAVITY * dt;
@@ -76,9 +76,9 @@ static void Spawn(k2d::Scene &scene, k2d::Texture *tex, int count)
     for (int i = 0; i < count; ++i)
     {
         k2d::GameObject *bunny = scene.createObject("b");
-        bunny->setPosition(glm::vec2(10.0f, 10.0f));
+        bunny->setPosition(Math::Vec2(10.0f, 10.0f));
         k2d::SpriteComponent *sprite = bunny->addComponent<k2d::SpriteComponent>(tex);
-        sprite->setPivot(glm::vec2(0.0f, 0.0f));
+        sprite->setPivot(Math::Vec2(0.0f, 0.0f));
         bunny->addComponent<BunnyBehavior>();
     }
 }

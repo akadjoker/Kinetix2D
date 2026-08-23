@@ -25,11 +25,11 @@ int main()
 
     k2d::Scene scene;
     k2d::GameObject *obj = scene.createObject("quad");
-    obj->setPosition(glm::vec2(128.0f, 128.0f));
+    obj->setPosition(Math::Vec2(128.0f, 128.0f));
     k2d::Polygon2D *poly = obj->addComponent<k2d::Polygon2D>();
     poly->setTexture(texture);
 
-    glm::vec2 quad[4] = {{-100.0f, -50.0f}, {100.0f, -50.0f}, {100.0f, 50.0f}, {-100.0f, 50.0f}};
+    Math::Vec2 quad[4] = {{-100.0f, -50.0f}, {100.0f, -50.0f}, {100.0f, 50.0f}, {-100.0f, 50.0f}};
     poly->setPolygon(quad, 4);
 
     int frame = 0;

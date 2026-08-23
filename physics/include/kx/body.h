@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <cstdint>
 
 #include "common.h"
@@ -78,14 +78,14 @@ namespace kx
 
         Transform GetTransform() const { return MakeTransform(mPosition, mAngle); }
 
-        const glm::vec2 &Position() const { return mPosition; }
-        void SetPosition(const glm::vec2 &position) { mPosition = position; SetAwake(true); }
+        const Math::Vec2 &Position() const { return mPosition; }
+        void SetPosition(const Math::Vec2 &position) { mPosition = position; SetAwake(true); }
 
         float Angle() const { return mAngle; }
         void SetAngle(float angle) { mAngle = angle; SetAwake(true); }
 
-        const glm::vec2 &Velocity() const { return mLinearVelocity; }
-        void SetVelocity(const glm::vec2 &v) { mLinearVelocity = v; SetAwake(true); }
+        const Math::Vec2 &Velocity() const { return mLinearVelocity; }
+        void SetVelocity(const Math::Vec2 &v) { mLinearVelocity = v; SetAwake(true); }
 
         float AngularVelocity() const { return mAngularVelocity; }
         void SetAngularVelocity(float w) { mAngularVelocity = w; SetAwake(true); }
@@ -109,7 +109,7 @@ namespace kx
                 mSleepTime = 0.0f;
             else
             {
-                mLinearVelocity = glm::vec2(0.0f);
+                mLinearVelocity = Math::Vec2(0.0f);
                 mAngularVelocity = 0.0f;
             }
         }
@@ -133,9 +133,9 @@ namespace kx
         float InvMass() const { return mInvMass; }
         float InvI() const { return mInvI; }
 
-        glm::vec2 WorldCenter() const { return GetTransform().Transform(mLocalCenter); }
+        Math::Vec2 WorldCenter() const { return GetTransform().Transform(mLocalCenter); }
 
-        void ApplyImpulse(const glm::vec2 &impulse, const glm::vec2 &point)
+        void ApplyImpulse(const Math::Vec2 &impulse, const Math::Vec2 &point)
         {
             if (Dot(impulse, impulse) > 0.0f)
                 SetAwake(true);
@@ -143,7 +143,7 @@ namespace kx
             mAngularVelocity += mInvI * Cross(point - WorldCenter(), impulse);
         }
 
-        void ApplyLinearImpulseToCenter(const glm::vec2 &impulse, bool wake = true)
+        void ApplyLinearImpulseToCenter(const Math::Vec2 &impulse, bool wake = true)
         {
             if (wake && Dot(impulse, impulse) > 0.0f)
                 SetAwake(true);
@@ -157,7 +157,7 @@ namespace kx
             mAngularVelocity += mInvI * impulse;
         }
 
-        void ApplyForce(const glm::vec2 &force, const glm::vec2 &point, bool wake = true)
+        void ApplyForce(const Math::Vec2 &force, const Math::Vec2 &point, bool wake = true)
         {
             if (mType != BodyType::Dynamic)
                 return;
@@ -169,7 +169,7 @@ namespace kx
             mTorque += Cross(point - WorldCenter(), force);
         }
 
-        void ApplyForceToCenter(const glm::vec2 &force, bool wake = true)
+        void ApplyForceToCenter(const Math::Vec2 &force, bool wake = true)
         {
             if (mType != BodyType::Dynamic)
                 return;
@@ -242,30 +242,30 @@ namespace kx
                 mShapes[i].filter = mDefaultFilter;
         }
 
-        int AddCircle(const glm::vec2 &localCenter, float radius, float density);
-        int AddBox(float halfWidth, float halfHeight, const glm::vec2 &localCenter, float density);
-        int AddEdge(const glm::vec2 &localA, const glm::vec2 &localB);
+        int AddCircle(const Math::Vec2 &localCenter, float radius, float density);
+        int AddBox(float halfWidth, float halfHeight, const Math::Vec2 &localCenter, float density);
+        int AddEdge(const Math::Vec2 &localA, const Math::Vec2 &localB);
 
-        int AddChain(const glm::vec2 *points, int count, bool loop);
+        int AddChain(const Math::Vec2 *points, int count, bool loop);
 
-        int AddPolygon(const glm::vec2 *points, int count, float density);
-        int AddMesh(const glm::vec2 *outline, int count, float density);
+        int AddPolygon(const Math::Vec2 *points, int count, float density);
+        int AddMesh(const Math::Vec2 *outline, int count, float density);
         int AddFromImage(const unsigned char *pixels, int width, int height, int bpp,
                          unsigned char threshold, float density, float scale = 1.0f, float simplifyDegrees = 2.0f);
 
-        void IntegrateVelocity(const glm::vec2 &gravity, float dt);
+        void IntegrateVelocity(const Math::Vec2 &gravity, float dt);
         void IntegratePosition(float dt);
-        void ShiftCenter(const glm::vec2 &deltaCenter, float deltaAngle);
+        void ShiftCenter(const Math::Vec2 &deltaCenter, float deltaAngle);
 
     private:
         void RecomputeMass();
 
         BodyType mType;
 
-        glm::vec2 mPosition;
+        Math::Vec2 mPosition;
         float mAngle;
 
-        glm::vec2 mLinearVelocity;
+        Math::Vec2 mLinearVelocity;
         float mAngularVelocity;
         float mSleepTime;
         bool mAwake;
@@ -274,13 +274,13 @@ namespace kx
 
         float mInvMass;
         float mInvI;
-        glm::vec2 mLocalCenter;
+        Math::Vec2 mLocalCenter;
         float mFriction;
         float mRestitution;
         float mLinearDamping;
         float mAngularDamping;
         float mGravityScale;
-        glm::vec2 mForce;
+        Math::Vec2 mForce;
         float mTorque;
         uint32_t mId;
         void *mUserData;
@@ -288,7 +288,7 @@ namespace kx
         void *mContactContext;
 
         int32_t mProxyId;
-        glm::vec2 mProxyPosition;
+        Math::Vec2 mProxyPosition;
 
         Filter mDefaultFilter;
         Shape mShapes[kMaxShapes];

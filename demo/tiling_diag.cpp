@@ -33,17 +33,17 @@ int main()
     k2d::Scene scene;
 
     k2d::GameObject *tiledObject = scene.createObject("tiled");
-    tiledObject->setPosition(glm::vec2(320.0f, 320.0f));
+    tiledObject->setPosition(Math::Vec2(320.0f, 320.0f));
     k2d::SpriteComponent *tiled = tiledObject->addComponent<k2d::SpriteComponent>(tex);
-    tiled->setSize(glm::vec2(600.0f, 560.0f));
-    tiled->setPivot(glm::vec2(0.5f, 0.5f));
+    tiled->setSize(Math::Vec2(600.0f, 560.0f));
+    tiled->setPivot(Math::Vec2(0.5f, 0.5f));
     tiled->setTiling(8.0f, 7.0f); 
 
     k2d::GameObject *stretchedObject = scene.createObject("stretched");
-    stretchedObject->setPosition(glm::vec2(960.0f, 320.0f));
+    stretchedObject->setPosition(Math::Vec2(960.0f, 320.0f));
     k2d::SpriteComponent *stretched = stretchedObject->addComponent<k2d::SpriteComponent>(tex);
-    stretched->setSize(glm::vec2(600.0f, 560.0f));
-    stretched->setPivot(glm::vec2(0.5f, 0.5f));
+    stretched->setSize(Math::Vec2(600.0f, 560.0f));
+    stretched->setPivot(Math::Vec2(0.5f, 0.5f));
 
     bool running = true;
     int frame = 0;

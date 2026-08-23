@@ -16,19 +16,19 @@ static float Clampf(float v, float lo, float hi)
 class BouncyHexagons : public Demo
 {
 public:
-    explicit BouncyHexagons(Testbed &tb) : Demo(tb, glm::vec2(0.0f, -100.0f))
+    explicit BouncyHexagons(Testbed &tb) : Demo(tb, Math::Vec2(0.0f, -100.0f))
     {
-        T().Cam().center = glm::vec2(0.0f, 0.0f);
+        T().Cam().center = Math::Vec2(0.0f, 0.0f);
         T().SetStatus("SPACE spawns bouncy hexagons");
 
-        kx::Body *floor = World().CreateEdge(glm::vec2(-320.0f, -240.0f), glm::vec2(320.0f, -240.0f));
+        kx::Body *floor = World().CreateEdge(Math::Vec2(-320.0f, -240.0f), Math::Vec2(320.0f, -240.0f));
         floor->SetRestitution(1.0f);
         floor->SetFriction(1.0f);
 
         for (int i = 0; i < 6; ++i)
         {
             float a = 2.0f * kPi * i / 6.0f;
-            mHex[i] = glm::vec2(18.0f * cosf(a), 18.0f * sinf(a));
+            mHex[i] = Math::Vec2(18.0f * cosf(a), 18.0f * sinf(a));
         }
 
         for (int i = 0; i < 10; ++i)
@@ -45,12 +45,12 @@ public:
 private:
     void Spawn()
     {
-        kx::Body *h = World().CreatePolygon(glm::vec2(Rnd() * 560.0f - 280.0f, 220.0f), mHex, 6, 1.0f);
+        kx::Body *h = World().CreatePolygon(Math::Vec2(Rnd() * 560.0f - 280.0f, 220.0f), mHex, 6, 1.0f);
         h->SetRestitution(1.0f);
         h->SetFriction(0.8f);
     }
 
-    glm::vec2 mHex[6];
+    Math::Vec2 mHex[6];
 };
 
 static Demo *CreateBouncyHexagons(Testbed &tb) { return new BouncyHexagons(tb); }
@@ -59,14 +59,14 @@ static int gDemoBouncyHexagons = TestbedRegisterDemo("Basic", "Bouncy Hexagons",
 class PyramidTopple : public Demo
 {
 public:
-    explicit PyramidTopple(Testbed &tb) : Demo(tb, glm::vec2(0.0f, -300.0f))
+    explicit PyramidTopple(Testbed &tb) : Demo(tb, Math::Vec2(0.0f, -300.0f))
     {
-        T().Cam().center = glm::vec2(0.0f, 20.0f);
+        T().Cam().center = Math::Vec2(0.0f, 20.0f);
         T().SetStatus("grab the dominoes with the mouse to topple the pyramid");
 
         World().SetVelocityIterations(12);
 
-        kx::Body *floor = World().CreateEdge(glm::vec2(-600.0f, -240.0f), glm::vec2(600.0f, -240.0f));
+        kx::Body *floor = World().CreateEdge(Math::Vec2(-600.0f, -240.0f), Math::Vec2(600.0f, -240.0f));
         floor->SetRestitution(1.0f);
         floor->SetFriction(1.0f);
 
@@ -75,30 +75,30 @@ public:
         {
             for (int j = 0; j < n - i; ++j)
             {
-                glm::vec2 offset((j - (n - 1 - i) * 0.5f) * 1.5f * kHeight,
+                Math::Vec2 offset((j - (n - 1 - i) * 0.5f) * 1.5f * kHeight,
                                  (i + 0.5f) * (kHeight + 2.0f * kWidth) - kWidth - 240.0f);
                 AddDomino(offset, false);
-                AddDomino(offset + glm::vec2(0.0f, (kHeight + kWidth) * 0.5f), true);
+                AddDomino(offset + Math::Vec2(0.0f, (kHeight + kWidth) * 0.5f), true);
 
                 if (j == 0)
-                    AddDomino(offset + glm::vec2(0.5f * (kWidth - kHeight), kHeight + kWidth), false);
+                    AddDomino(offset + Math::Vec2(0.5f * (kWidth - kHeight), kHeight + kWidth), false);
 
                 if (j != n - i - 1)
-                    AddDomino(offset + glm::vec2(kHeight * 0.75f, (kHeight + 3.0f * kWidth) * 0.5f), true);
+                    AddDomino(offset + Math::Vec2(kHeight * 0.75f, (kHeight + 3.0f * kWidth) * 0.5f), true);
                 else
-                    AddDomino(offset + glm::vec2(0.5f * (kHeight - kWidth), kHeight + kWidth), false);
+                    AddDomino(offset + Math::Vec2(0.5f * (kHeight - kWidth), kHeight + kWidth), false);
             }
         }
     }
 
 private:
-    void AddDomino(const glm::vec2 &pos, bool flipped)
+    void AddDomino(const Math::Vec2 &pos, bool flipped)
     {
         kx::Body *body = World().CreateBody(kx::BodyType::Dynamic, pos);
         if (flipped)
-            body->AddBox(kHeight * 0.5f, kWidth * 0.5f, glm::vec2(0.0f, 0.0f), 1.0f);
+            body->AddBox(kHeight * 0.5f, kWidth * 0.5f, Math::Vec2(0.0f, 0.0f), 1.0f);
         else
-            body->AddBox(kWidth * 0.5f - kRadius, kHeight * 0.5f, glm::vec2(0.0f, 0.0f), 1.0f);
+            body->AddBox(kWidth * 0.5f - kRadius, kHeight * 0.5f, Math::Vec2(0.0f, 0.0f), 1.0f);
         body->SetFriction(0.6f);
     }
 
@@ -117,12 +117,12 @@ static int gDemoPyramidTopple = TestbedRegisterDemo("Basic", "Pyramid Topple", &
 class Convex : public Demo
 {
 public:
-    explicit Convex(Testbed &tb) : Demo(tb, glm::vec2(0.0f, -500.0f))
+    explicit Convex(Testbed &tb) : Demo(tb, Math::Vec2(0.0f, -500.0f))
     {
-        T().Cam().center = glm::vec2(0.0f, 0.0f);
+        T().Cam().center = Math::Vec2(0.0f, 0.0f);
         T().SetStatus("right click adds a vertex, the convex hull is rebuilt; SPACE clears");
 
-        World().CreateEdge(glm::vec2(-320.0f, -240.0f), glm::vec2(320.0f, -240.0f));
+        World().CreateEdge(Math::Vec2(-320.0f, -240.0f), Math::Vec2(320.0f, -240.0f));
     }
 
     void Step(float) override
@@ -156,10 +156,10 @@ private:
             mHull = nullptr;
         }
         if (mPoints.size() >= 3)
-            mHull = World().CreatePolygon(glm::vec2(0.0f, 0.0f), mPoints.data(), (int)mPoints.size(), 1.0f);
+            mHull = World().CreatePolygon(Math::Vec2(0.0f, 0.0f), mPoints.data(), (int)mPoints.size(), 1.0f);
     }
 
-    ct::Vector<glm::vec2> mPoints;
+    ct::Vector<Math::Vec2> mPoints;
     kx::Body *mHull;
 };
 
@@ -169,20 +169,20 @@ static int gDemoConvex = TestbedRegisterDemo("Basic", "Convex", &CreateConvex);
 class TheoJansen : public Demo
 {
 public:
-    explicit TheoJansen(Testbed &tb) : Demo(tb, glm::vec2(0.0f, -500.0f))
+    explicit TheoJansen(Testbed &tb) : Demo(tb, Math::Vec2(0.0f, -500.0f))
     {
-        T().Cam().center = glm::vec2(0.0f, -20.0f);
+        T().Cam().center = Math::Vec2(0.0f, -20.0f);
         T().SetStatus("arrow keys drive the walking machine");
 
         World().SetVelocityIterations(20);
 
-        kx::Body *left = World().CreateEdge(glm::vec2(-320.0f, -240.0f), glm::vec2(-320.0f, 240.0f));
+        kx::Body *left = World().CreateEdge(Math::Vec2(-320.0f, -240.0f), Math::Vec2(-320.0f, 240.0f));
         left->SetRestitution(1.0f);
         left->SetFriction(1.0f);
-        kx::Body *right = World().CreateEdge(glm::vec2(320.0f, -240.0f), glm::vec2(320.0f, 240.0f));
+        kx::Body *right = World().CreateEdge(Math::Vec2(320.0f, -240.0f), Math::Vec2(320.0f, 240.0f));
         right->SetRestitution(1.0f);
         right->SetFriction(1.0f);
-        kx::Body *floor = World().CreateEdge(glm::vec2(-320.0f, -240.0f), glm::vec2(320.0f, -240.0f));
+        kx::Body *floor = World().CreateEdge(Math::Vec2(-320.0f, -240.0f), Math::Vec2(320.0f, -240.0f));
         floor->SetRestitution(1.0f);
         floor->SetFriction(1.0f);
 
@@ -190,20 +190,20 @@ public:
         const float side = 30.0f;
         const float crankRadius = 13.0f;
 
-        mChassis = World().CreateBody(kx::BodyType::Dynamic, glm::vec2(0.0f, 0.0f));
-        mChassis->AddBox(offset, mSegRadius, glm::vec2(0.0f, 0.0f), 1.0f);
+        mChassis = World().CreateBody(kx::BodyType::Dynamic, Math::Vec2(0.0f, 0.0f));
+        mChassis->AddBox(offset, mSegRadius, Math::Vec2(0.0f, 0.0f), 1.0f);
 
-        mCrank = World().CreateCircle(glm::vec2(0.0f, 0.0f), crankRadius, 1.0f);
+        mCrank = World().CreateCircle(Math::Vec2(0.0f, 0.0f), crankRadius, 1.0f);
 
-        mMotor = new kx::RevoluteJoint(mChassis, mCrank, glm::vec2(0.0f, 0.0f));
+        mMotor = new kx::RevoluteJoint(mChassis, mCrank, Math::Vec2(0.0f, 0.0f));
         World().AddJoint(mMotor);
 
         const int offsets[4] = {30, -30, 30, -30};
-        const glm::vec2 anchors[4] = {
-            glm::vec2(crankRadius, 0.0f),
-            glm::vec2(0.0f, crankRadius),
-            glm::vec2(-crankRadius, 0.0f),
-            glm::vec2(0.0f, -crankRadius)};
+        const Math::Vec2 anchors[4] = {
+            Math::Vec2(crankRadius, 0.0f),
+            Math::Vec2(0.0f, crankRadius),
+            Math::Vec2(-crankRadius, 0.0f),
+            Math::Vec2(0.0f, -crankRadius)};
 
         for (int i = 0; i < 4; ++i)
             MakeLeg(side, (float)offsets[i], anchors[i]);
@@ -229,16 +229,16 @@ public:
     }
 
 private:
-    void MakeLeg(float side, float offset, const glm::vec2 &anchor)
+    void MakeLeg(float side, float offset, const Math::Vec2 &anchor)
     {
-        glm::vec2 pin(offset, 0.0f);
+        Math::Vec2 pin(offset, 0.0f);
 
         kx::Body *upper = World().CreateBody(kx::BodyType::Dynamic, pin);
-        upper->AddBox(mSegRadius, side * 0.5f, glm::vec2(0.0f, side * 0.5f), 1.0f);
+        upper->AddBox(mSegRadius, side * 0.5f, Math::Vec2(0.0f, side * 0.5f), 1.0f);
 
         kx::Body *lower = World().CreateBody(kx::BodyType::Dynamic, pin);
-        lower->AddBox(mSegRadius, side * 0.5f, glm::vec2(0.0f, -side * 0.5f), 1.0f);
-        lower->AddCircle(glm::vec2(0.0f, -side), mSegRadius * 2.0f, 1.0f);
+        lower->AddBox(mSegRadius, side * 0.5f, Math::Vec2(0.0f, -side * 0.5f), 1.0f);
+        lower->AddCircle(Math::Vec2(0.0f, -side), mSegRadius * 2.0f, 1.0f);
         lower->SetFriction(1.0f);
 
         kx::RevoluteJoint *upperPivot = new kx::RevoluteJoint(mChassis, upper, pin);
@@ -249,9 +249,9 @@ private:
         kx::GearJoint *gear = new kx::GearJoint(upperPivot, lowerPivot, 1.0f);
         World().AddJoint(gear);
 
-        kx::DistanceJoint *rodUpper = new kx::DistanceJoint(mCrank, upper, anchor, glm::vec2(offset, side));
+        kx::DistanceJoint *rodUpper = new kx::DistanceJoint(mCrank, upper, anchor, Math::Vec2(offset, side));
         World().AddJoint(rodUpper);
-        kx::DistanceJoint *rodLower = new kx::DistanceJoint(mCrank, lower, anchor, glm::vec2(offset, 0.0f));
+        kx::DistanceJoint *rodLower = new kx::DistanceJoint(mCrank, lower, anchor, Math::Vec2(offset, 0.0f));
         World().AddJoint(rodLower);
     }
 
@@ -269,31 +269,31 @@ static int gDemoTheoJansen = TestbedRegisterDemo("Joints", "Theo Jansen", &Creat
 class Tank : public Demo
 {
 public:
-    explicit Tank(Testbed &tb) : Demo(tb, glm::vec2(0.0f, -500.0f))
+    explicit Tank(Testbed &tb) : Demo(tb, Math::Vec2(0.0f, -500.0f))
     {
-        T().Cam().center = glm::vec2(0.0f, 60.0f);
+        T().Cam().center = Math::Vec2(0.0f, 60.0f);
         T().Cam().zoom = 1.2f;
         T().SetStatus("the tank chases the mouse; SPACE spawns boxes to push");
 
-        World().CreateStaticBox(glm::vec2(0.0f, -60.0f), 520.0f, 10.0f);
+        World().CreateStaticBox(Math::Vec2(0.0f, -60.0f), 520.0f, 10.0f);
 
-        mHull = World().CreateBody(kx::BodyType::Dynamic, glm::vec2(0.0f, 0.0f));
-        mHull->AddBox(42.0f, 22.0f, glm::vec2(0.0f, 0.0f), 1.0f);
-        mHull->AddBox(16.0f, 8.0f, glm::vec2(0.0f, 28.0f), 0.5f);
+        mHull = World().CreateBody(kx::BodyType::Dynamic, Math::Vec2(0.0f, 0.0f));
+        mHull->AddBox(42.0f, 22.0f, Math::Vec2(0.0f, 0.0f), 1.0f);
+        mHull->AddBox(16.0f, 8.0f, Math::Vec2(0.0f, 28.0f), 0.5f);
         mHull->SetFriction(0.8f);
 
         const float x = 30.0f;
         const float y = -14.0f;
         const float radius = 16.0f;
-        const glm::vec2 wheelPos[4] = {
-            glm::vec2(-x, y), glm::vec2(x, y),
-            glm::vec2(-x, -y), glm::vec2(x, -y)};
+        const Math::Vec2 wheelPos[4] = {
+            Math::Vec2(-x, y), Math::Vec2(x, y),
+            Math::Vec2(-x, -y), Math::Vec2(x, -y)};
 
         for (int i = 0; i < 4; ++i)
         {
             kx::Body *wheel = World().CreateCircle(wheelPos[i], radius, 1.0f);
             wheel->SetFriction(1.0f);
-            mWheels[i] = new kx::WheelJoint(mHull, wheel, wheelPos[i], glm::vec2(0.0f, 1.0f), 4.0f, 0.7f);
+            mWheels[i] = new kx::WheelJoint(mHull, wheel, wheelPos[i], Math::Vec2(0.0f, 1.0f), 4.0f, 0.7f);
             World().AddJoint(mWheels[i]);
         }
 
@@ -307,8 +307,8 @@ public:
         if (input.KeyPressed(SCANCODE_SPACE))
             SpawnBox();
 
-        glm::vec2 mouse = T().MouseWorld();
-        glm::vec2 toMouse = mouse - mHull->Position();
+        Math::Vec2 mouse = T().MouseWorld();
+        Math::Vec2 toMouse = mouse - mHull->Position();
         float targetAngle = atan2f(toMouse.y, toMouse.x);
         float diff = targetAngle - mHull->Angle();
         while (diff > kPi)
@@ -333,7 +333,7 @@ public:
 private:
     void SpawnBox()
     {
-        kx::Body *box = World().CreateBox(glm::vec2(Rnd() * 400.0f - 200.0f, 180.0f), 12.0f, 12.0f, 1.0f);
+        kx::Body *box = World().CreateBox(Math::Vec2(Rnd() * 400.0f - 200.0f, 180.0f), 12.0f, 12.0f, 1.0f);
         box->SetFriction(0.5f);
     }
 

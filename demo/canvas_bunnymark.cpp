@@ -1,7 +1,6 @@
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 #include <vector>
@@ -20,8 +19,8 @@ namespace
 {
     struct Bunny
     {
-        glm::vec2 position;
-        glm::vec2 velocity;
+        Math::Vec2 position;
+        Math::Vec2 velocity;
     };
 
     static unsigned gSeed = 12345u;
@@ -44,7 +43,7 @@ namespace
     protected:
         void onUpdate(float deltaTime) override
         {
-            glm::vec2 position = owner()->position();
+            Math::Vec2 position = owner()->position();
             mVelocity.y += 400.0f * deltaTime;
             position += mVelocity * deltaTime;
 
@@ -62,7 +61,7 @@ namespace
         }
 
     private:
-        glm::vec2 mVelocity;
+        Math::Vec2 mVelocity;
     };
 
     unsigned int PackColor(unsigned char r, unsigned char g, unsigned char b)
@@ -83,9 +82,9 @@ namespace
         for (int i = 0; i < count; ++i)
         {
             Bunny bunny;
-            bunny.position = glm::vec2(20.0f + Random01() * spawnWidth,
+            bunny.position = Math::Vec2(20.0f + Random01() * spawnWidth,
                                        20.0f + Random01() * spawnHeight);
-            bunny.velocity = glm::vec2(80.0f + Random01() * 220.0f,
+            bunny.velocity = Math::Vec2(80.0f + Random01() * 220.0f,
                                        -80.0f + Random01() * 160.0f);
             bunnies.push_back(bunny);
         }
@@ -97,10 +96,10 @@ namespace
         for (int i = 0; i < count; ++i)
         {
             k2d::GameObject *object = scene.createObject("canvas_bunny");
-            object->setPosition(glm::vec2(20.0f + Random01() * width,
+            object->setPosition(Math::Vec2(20.0f + Random01() * width,
                                           20.0f + Random01() * height));
             k2d::SpriteComponent *sprite = object->addComponent<k2d::SpriteComponent>(texture);
-            sprite->setPivot(glm::vec2(0.0f, 0.0f));
+            sprite->setPivot(Math::Vec2(0.0f, 0.0f));
             object->addComponent<CanvasBunnyBehavior>();
         }
     }
@@ -141,7 +140,7 @@ int main()
                          (float)device.Height() - 40.0f);
 
     k2d::Camera2D camera;
-    camera.position = glm::vec2(device.Width() * 0.5f, device.Height() * 0.5f);
+    camera.position = Math::Vec2(device.Width() * 0.5f, device.Height() * 0.5f);
     bool showProfiler = true;
     bool useComponents = false;
     k2d::Profiler::Get().SetEnabled(true);
@@ -190,7 +189,7 @@ int main()
         gComponentMaxX = screenWidth - bunnyWidth;
         gComponentMaxY = screenHeight - bunnyHeight;
 
-        camera.position = glm::vec2(screenWidth * 0.5f, screenHeight * 0.5f);
+        camera.position = Math::Vec2(screenWidth * 0.5f, screenHeight * 0.5f);
         canvas.SetProjection(camera.Projection(screenWidth, screenHeight));
 
         float frustumMinX, frustumMinY, frustumMaxX, frustumMaxY;
@@ -224,7 +223,7 @@ int main()
 
         if (device.WasResized())
         {
-            camera.position = glm::vec2(device.Width() * 0.5f, device.Height() * 0.5f);
+            camera.position = Math::Vec2(device.Width() * 0.5f, device.Height() * 0.5f);
             glViewport(0, 0, device.Width(), device.Height());
         }
 

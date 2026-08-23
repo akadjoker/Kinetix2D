@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 
 namespace kx
 {
@@ -26,8 +26,8 @@ namespace kx
         Body *BodyA() const { return mBodyA; }
         Body *BodyB() const { return mBodyB; }
 
-        virtual glm::vec2 AnchorA() const = 0;
-        virtual glm::vec2 AnchorB() const = 0;
+        virtual Math::Vec2 AnchorA() const = 0;
+        virtual Math::Vec2 AnchorB() const = 0;
 
         bool CollideConnected() const { return mCollideConnected; }
         void SetCollideConnected(bool collide) { mCollideConnected = collide; }

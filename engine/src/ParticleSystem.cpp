@@ -49,18 +49,18 @@ namespace k2d
         mEmissionRate = particlesPerSecond > 0.0f ? particlesPerSecond : 0.0f;
     }
 
-    bool ParticleSystem::Emit(const glm::vec2 &position, const glm::vec2 &velocity,
+    bool ParticleSystem::Emit(const Math::Vec2 &position, const Math::Vec2 &velocity,
                               float lifetime, float size, const Color &color,
                               float rotation, float angularVelocity)
     {
         return Emit(position, velocity, lifetime, size, color, rotation,
-                    angularVelocity, glm::vec4(0.0f));
+                    angularVelocity, Math::Vec4(0.0f));
     }
 
-    bool ParticleSystem::Emit(const glm::vec2 &position, const glm::vec2 &velocity,
+    bool ParticleSystem::Emit(const Math::Vec2 &position, const Math::Vec2 &velocity,
                               float lifetime, float size, const Color &color,
                               float rotation, float angularVelocity,
-                              const glm::vec4 &atlasBounds)
+                              const Math::Vec4 &atlasBounds)
     {
         if (mParticles.size() >= mCapacity || lifetime <= 0.0f || size <= 0.0f)
             return false;
@@ -87,7 +87,7 @@ namespace k2d
         return true;
     }
 
-    bool ParticleSystem::Emit(const glm::vec2 &position, const ParticlePrefab &prefab)
+    bool ParticleSystem::Emit(const Math::Vec2 &position, const ParticlePrefab &prefab)
     {
         if (mParticles.size() >= mCapacity)
             return false;
@@ -97,15 +97,15 @@ namespace k2d
         if (life <= 0.0f || size <= 0.0f)
             return false;
 
-        glm::vec2 dir = prefab.direction;
+        Math::Vec2 dir = prefab.direction;
         const float dirLen = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        dir = dirLen > 1e-6f ? dir / dirLen : glm::vec2(0.0f, -1.0f);
+        dir = dirLen > 1e-6f ? dir / dirLen : Math::Vec2(0.0f, -1.0f);
         if (prefab.spreadDegrees > 0.0f)
         {
             const float half = prefab.spreadDegrees * 0.5f;
             const float angle = RandomRange(-half, half) * 0.01745329252f; 
             const float c = std::cos(angle), s = std::sin(angle);
-            dir = glm::vec2(dir.x * c - dir.y * s, dir.x * s + dir.y * c);
+            dir = Math::Vec2(dir.x * c - dir.y * s, dir.x * s + dir.y * c);
         }
         const float speed = RandomRange(prefab.speedMin, prefab.speedMax);
 
@@ -150,19 +150,19 @@ namespace k2d
         return minValue + Random01() * (maxValue - minValue);
     }
 
-    glm::vec2 ParticleSystem::EmitPosition()
+    Math::Vec2 ParticleSystem::EmitPosition()
     {
         if (mEmitterShape == ParticleEmitterShape::Point)
             return mEmitterPosition;
         if (mEmitterShape == ParticleEmitterShape::Rectangle)
         {
-            return mEmitterPosition + glm::vec2((Random01() * 2.0f - 1.0f) * mEmitterSize.x,
+            return mEmitterPosition + Math::Vec2((Random01() * 2.0f - 1.0f) * mEmitterSize.x,
                                                 (Random01() * 2.0f - 1.0f) * mEmitterSize.y);
         }
 
         float angle = Random01() * 6.28318530718f;
         float radius = std::sqrt(Random01()) * mEmitterSize.x;
-        return mEmitterPosition + glm::vec2(std::cos(angle), std::sin(angle)) * radius;
+        return mEmitterPosition + Math::Vec2(std::cos(angle), std::sin(angle)) * radius;
     }
 
     void ParticleSystem::Start()
@@ -251,7 +251,7 @@ namespace k2d
         {
             const Particle &particle = mParticles[i];
             Matrix2D transform = Matrix2D::TRS(particle.position, particle.rotation,
-                                               glm::vec2(particle.size, particle.size));
+                                               Math::Vec2(particle.size, particle.size));
             batch.SetColor(particle.color.r, particle.color.g, particle.color.b, particle.color.a);
             batch.DrawTexture(mTexture->Id(), transform, 1.0f, 1.0f,
                               mTexture->Width(), mTexture->Height(), 0.5f, 0.5f,
@@ -272,7 +272,7 @@ namespace k2d
         {
             const Particle &particle = mParticles[i];
             Matrix2D transform = Matrix2D::TRS(particle.position, particle.rotation,
-                                               glm::vec2(particle.size, particle.size));
+                                               Math::Vec2(particle.size, particle.size));
 
             item.commands.push_back(RenderCommand::MakeTransform(transform));
             RenderCommand command = RenderCommand::MakeRect(mTexture->Id(),

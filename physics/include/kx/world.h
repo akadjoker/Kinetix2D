@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <mathc.h>
 #include <ct/hashmap.hpp>
 #include <ct/pool.hpp>
 #include <ct/vector.hpp>
@@ -20,10 +20,10 @@ namespace kx
         int shapeIndexA;
         int shapeIndexB;
         Manifold manifold;
-        glm::vec2 normal;
-        glm::vec2 tangent;
-        glm::vec2 rA[kMaxManifoldPoints];
-        glm::vec2 rB[kMaxManifoldPoints];
+        Math::Vec2 normal;
+        Math::Vec2 tangent;
+        Math::Vec2 rA[kMaxManifoldPoints];
+        Math::Vec2 rB[kMaxManifoldPoints];
         float normalMass[kMaxManifoldPoints];
         float tangentMass[kMaxManifoldPoints];
         float velocityBias[kMaxManifoldPoints];
@@ -89,48 +89,48 @@ namespace kx
     {
         Body *body;
         int shapeIndex;
-        glm::vec2 point;
-        glm::vec2 normal;
+        Math::Vec2 point;
+        Math::Vec2 normal;
         float fraction;
     };
 
     struct BulletSweep
     {
         Body *body;
-        glm::vec2 prevCenter;
+        Math::Vec2 prevCenter;
     };
 
     class World
     {
     public:
-        explicit World(const glm::vec2 &gravity);
+        explicit World(const Math::Vec2 &gravity);
         ~World();
 
         World(const World &) = delete;
         World &operator=(const World &) = delete;
 
-        Body *CreateBody(BodyType type, const glm::vec2 &pos, float angle = 0.0f);
-        Body *CreateBox(const glm::vec2 &pos, float halfWidth, float halfHeight, float density);
-        Body *CreateCircle(const glm::vec2 &pos, float radius, float density);
-        Body *CreateStaticBox(const glm::vec2 &pos, float halfWidth, float halfHeight);
-        Body *CreateKinematicBox(const glm::vec2 &pos, float halfWidth, float halfHeight);
-        Body *CreateEdge(const glm::vec2 &a, const glm::vec2 &b);
-        Body *CreateChain(const glm::vec2 *points, int count, bool loop);
-        Body *CreatePolygon(const glm::vec2 &pos, const glm::vec2 *points, int count, float density);
-        Body *CreateMesh(const glm::vec2 &pos, const glm::vec2 *outline, int count, float density);
-        Body *CreateFromImage(const glm::vec2 &pos, const unsigned char *pixels, int width, int height, int bpp,
+        Body *CreateBody(BodyType type, const Math::Vec2 &pos, float angle = 0.0f);
+        Body *CreateBox(const Math::Vec2 &pos, float halfWidth, float halfHeight, float density);
+        Body *CreateCircle(const Math::Vec2 &pos, float radius, float density);
+        Body *CreateStaticBox(const Math::Vec2 &pos, float halfWidth, float halfHeight);
+        Body *CreateKinematicBox(const Math::Vec2 &pos, float halfWidth, float halfHeight);
+        Body *CreateEdge(const Math::Vec2 &a, const Math::Vec2 &b);
+        Body *CreateChain(const Math::Vec2 *points, int count, bool loop);
+        Body *CreatePolygon(const Math::Vec2 &pos, const Math::Vec2 *points, int count, float density);
+        Body *CreateMesh(const Math::Vec2 &pos, const Math::Vec2 *outline, int count, float density);
+        Body *CreateFromImage(const Math::Vec2 &pos, const unsigned char *pixels, int width, int height, int bpp,
                               unsigned char threshold, float density, float scale = 1.0f, float simplifyDegrees = 2.0f);
         void Destroy(Body *body);
 
-        Body *BodyAtPoint(const glm::vec2 &point) const;
+        Body *BodyAtPoint(const Math::Vec2 &point) const;
         void QueryAABB(const AABB &aabb, ct::Vector<Body *> &out) const;
-        void QueryCircle(const glm::vec2 &center, float radius, ct::Vector<Body *> &out) const;
+        void QueryCircle(const Math::Vec2 &center, float radius, ct::Vector<Body *> &out) const;
 
-        bool RayCastClosest(const glm::vec2 &origin, const glm::vec2 &translation, RayCastHit &outHit,
+        bool RayCastClosest(const Math::Vec2 &origin, const Math::Vec2 &translation, RayCastHit &outHit,
                             uint16_t categoryMask = 0xFFFF, bool includeSensors = false,
                             const Body *ignoreBody = nullptr) const;
 
-        void RayCastAll(const glm::vec2 &origin, const glm::vec2 &translation, ct::Vector<RayCastHit> &outHits,
+        void RayCastAll(const Math::Vec2 &origin, const Math::Vec2 &translation, ct::Vector<RayCastHit> &outHits,
                         uint16_t categoryMask = 0xFFFF, bool includeSensors = false,
                         const Body *ignoreBody = nullptr) const;
 
@@ -139,8 +139,8 @@ namespace kx
 
         void Step(float dt);
 
-        const glm::vec2 &Gravity() const { return mGravity; }
-        void SetGravity(const glm::vec2 &gravity) { mGravity = gravity; }
+        const Math::Vec2 &Gravity() const { return mGravity; }
+        void SetGravity(const Math::Vec2 &gravity) { mGravity = gravity; }
 
         const ct::Vector<Body *> &Bodies() const { return mBodies; }
         const ct::Vector<ContactInfo> &Contacts() const { return mContacts; }
@@ -182,7 +182,7 @@ namespace kx
 
         void DestroyJointInternal(Joint *joint);
 
-        void RayCastGather(const glm::vec2 &origin, const glm::vec2 &translation,
+        void RayCastGather(const Math::Vec2 &origin, const Math::Vec2 &translation,
                            uint16_t categoryMask, bool includeSensors, const Body *ignoreBody,
                            bool stopAtFirst, ct::Vector<RayCastHit> &outHits) const;
 
@@ -197,7 +197,7 @@ namespace kx
                    static_cast<uint64_t>(c.shapeIndexB);
         }
 
-        glm::vec2 mGravity;
+        Math::Vec2 mGravity;
         ct::Pool<Body> mBodyPool;
         ct::Vector<Body *> mBodies;
         ct::Vector<ContactInfo> mContacts;
@@ -222,9 +222,9 @@ namespace kx
         int mVelocityIterations;
     };
 
-    void Explode(World &world, const glm::vec2 &center, float radius, float force, float falloff);
+    void Explode(World &world, const Math::Vec2 &center, float radius, float force, float falloff);
 
-    bool Slice(World &world, Body *body, const glm::vec2 &point, const glm::vec2 &normal,
+    bool Slice(World &world, Body *body, const Math::Vec2 &point, const Math::Vec2 &normal,
               Body **outPositive, Body **outNegative, float separationSpeed = 0.0f);
 
 } 

@@ -8,19 +8,19 @@ namespace k2d
 
     namespace
     {
-        float HeuristicEuclidean(const glm::ivec2 &from, const glm::ivec2 &to)
+        float HeuristicEuclidean(const IVec2 &from, const IVec2 &to)
         {
             float dx = (float)std::abs(to.x - from.x);
             float dy = (float)std::abs(to.y - from.y);
             return std::sqrt(dx * dx + dy * dy);
         }
 
-        float HeuristicManhattan(const glm::ivec2 &from, const glm::ivec2 &to)
+        float HeuristicManhattan(const IVec2 &from, const IVec2 &to)
         {
             return (float)(std::abs(to.x - from.x) + std::abs(to.y - from.y));
         }
 
-        float HeuristicOctile(const glm::ivec2 &from, const glm::ivec2 &to)
+        float HeuristicOctile(const IVec2 &from, const IVec2 &to)
         {
             float dx = (float)std::abs(to.x - from.x);
             float dy = (float)std::abs(to.y - from.y);
@@ -28,7 +28,7 @@ namespace k2d
             return (dx < dy) ? kDiag * dx + dy : kDiag * dy + dx;
         }
 
-        float HeuristicChebyshev(const glm::ivec2 &from, const glm::ivec2 &to)
+        float HeuristicChebyshev(const IVec2 &from, const IVec2 &to)
         {
             float dx = (float)std::abs(to.x - from.x);
             float dy = (float)std::abs(to.y - from.y);
@@ -56,7 +56,7 @@ namespace k2d
             for (int x = 0; x < mWidth; ++x)
             {
                 Point p;
-                p.id = glm::ivec2(x, y);
+                p.id = IVec2(x, y);
                 mPoints.push_back(p);
             }
         }
@@ -117,12 +117,12 @@ namespace k2d
         return mPoints[(size_t)ToIndex(x, y)].weightScale;
     }
 
-    glm::vec2 AStarGrid2D::GetPointPosition(int x, int y) const
+    Math::Vec2 AStarGrid2D::GetPointPosition(int x, int y) const
     {
-        return mOffset + glm::vec2((float)x + 0.5f, (float)y + 0.5f) * mCellSize;
+        return mOffset + Math::Vec2((float)x + 0.5f, (float)y + 0.5f) * mCellSize;
     }
 
-    float AStarGrid2D::EstimateCost(const glm::ivec2 &from, const glm::ivec2 &to) const
+    float AStarGrid2D::EstimateCost(const IVec2 &from, const IVec2 &to) const
     {
         switch (mHeuristic)
         {
@@ -133,13 +133,13 @@ namespace k2d
         }
     }
 
-    float AStarGrid2D::ComputeCost(const glm::ivec2 &from, const glm::ivec2 &to) const
+    float AStarGrid2D::ComputeCost(const IVec2 &from, const IVec2 &to) const
     {
 
         return EstimateCost(from, to);
     }
 
-    void AStarGrid2D::GetNeighbors(const Point &point, glm::ivec2 (&outNeighbors)[8], int &outCount) const
+    void AStarGrid2D::GetNeighbors(const Point &point, IVec2 (&outNeighbors)[8], int &outCount) const
     {
         outCount = 0;
         int x = point.id.x;
@@ -155,10 +155,10 @@ namespace k2d
         bool cardinalBottom = hasBottom && !IsSolid(x, y + 1);
         bool cardinalLeft = hasLeft && !IsSolid(x - 1, y);
 
-        if (cardinalTop) outNeighbors[outCount++] = glm::ivec2(x, y - 1);
-        if (cardinalRight) outNeighbors[outCount++] = glm::ivec2(x + 1, y);
-        if (cardinalBottom) outNeighbors[outCount++] = glm::ivec2(x, y + 1);
-        if (cardinalLeft) outNeighbors[outCount++] = glm::ivec2(x - 1, y);
+        if (cardinalTop) outNeighbors[outCount++] = IVec2(x, y - 1);
+        if (cardinalRight) outNeighbors[outCount++] = IVec2(x + 1, y);
+        if (cardinalBottom) outNeighbors[outCount++] = IVec2(x, y + 1);
+        if (cardinalLeft) outNeighbors[outCount++] = IVec2(x - 1, y);
 
         bool diagTopLeft = false, diagTopRight = false, diagBottomRight = false, diagBottomLeft = false;
         switch (mDiagonalMode)
@@ -183,16 +183,16 @@ namespace k2d
         }
 
         if (diagTopLeft && hasLeft && hasTop && !IsSolid(x - 1, y - 1))
-            outNeighbors[outCount++] = glm::ivec2(x - 1, y - 1);
+            outNeighbors[outCount++] = IVec2(x - 1, y - 1);
         if (diagTopRight && hasRight && hasTop && !IsSolid(x + 1, y - 1))
-            outNeighbors[outCount++] = glm::ivec2(x + 1, y - 1);
+            outNeighbors[outCount++] = IVec2(x + 1, y - 1);
         if (diagBottomRight && hasRight && hasBottom && !IsSolid(x + 1, y + 1))
-            outNeighbors[outCount++] = glm::ivec2(x + 1, y + 1);
+            outNeighbors[outCount++] = IVec2(x + 1, y + 1);
         if (diagBottomLeft && hasLeft && hasBottom && !IsSolid(x - 1, y + 1))
-            outNeighbors[outCount++] = glm::ivec2(x - 1, y + 1);
+            outNeighbors[outCount++] = IVec2(x - 1, y + 1);
     }
 
-    bool AStarGrid2D::Solve(const glm::ivec2 &begin, const glm::ivec2 &end, bool allowPartialPath)
+    bool AStarGrid2D::Solve(const IVec2 &begin, const IVec2 &end, bool allowPartialPath)
     {
         mLastClosestIndex = -1;
         ++mPass;
@@ -232,7 +232,7 @@ namespace k2d
         absG[(size_t)beginIndex] = 0.0f;
         absF[(size_t)beginIndex] = beginPoint.fScore;
 
-        glm::ivec2 neighbors[8];
+        IVec2 neighbors[8];
         bool foundRoute = false;
 
         while (!mOpenHeap.empty())
@@ -302,7 +302,7 @@ namespace k2d
         return foundRoute;
     }
 
-    bool AStarGrid2D::GetIdPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::ivec2> &outPath,
+    bool AStarGrid2D::GetIdPath(IVec2 from, IVec2 to, ct::Vector<IVec2> &outPath,
                                 bool allowPartialPath)
     {
         outPath.clear();
@@ -311,7 +311,7 @@ namespace k2d
             return false;
 
         int walkIndex = found ? mEndIndex : mLastClosestIndex;
-        ct::Vector<glm::ivec2> reversed;
+        ct::Vector<IVec2> reversed;
         while (walkIndex >= 0)
         {
             reversed.push_back(mPoints[(size_t)walkIndex].id);
@@ -322,11 +322,11 @@ namespace k2d
         return true;
     }
 
-    bool AStarGrid2D::GetPointPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::vec2> &outPath,
+    bool AStarGrid2D::GetPointPath(IVec2 from, IVec2 to, ct::Vector<Math::Vec2> &outPath,
                                    bool allowPartialPath)
     {
         outPath.clear();
-        ct::Vector<glm::ivec2> idPath;
+        ct::Vector<IVec2> idPath;
         if (!GetIdPath(from, to, idPath, allowPartialPath))
             return false;
         for (size_t i = 0; i < idPath.size(); ++i)
