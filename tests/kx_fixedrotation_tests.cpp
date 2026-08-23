@@ -1,6 +1,4 @@
-// Unit test for Body::SetFixedRotation.
-// Port of b2BodyDef.fixedRotation (Box2D) / cpBodySetMoment(INFINITY) (Chipmunk):
-// a dynamic body with infinite moment of inertia that never rotates.
+
 #include <kx/kx.h>
 
 #include <cmath>

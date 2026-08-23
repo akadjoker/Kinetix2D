@@ -25,11 +25,6 @@ namespace kx
         void SolveVelocity(float dt) override;
         bool SolvePosition() override;
 
-        // A GearJoint reaches past its own BodyA()/BodyB() into the two anchor
-        // bodies of its underlying revolute joints, and into the revolute joints
-        // themselves — World needs to know about both to cascade-destroy safely.
-        // Defined in gearjoint.cpp: casting RevoluteJoint* to Joint* needs the
-        // complete RevoluteJoint type, which this header only forward-declares.
         bool DependsOnBody(const Body *body) const override
         {
             return body == mBodyC || body == mBodyD;
@@ -55,4 +50,4 @@ namespace kx
         float mMass;
     };
 
-} // namespace kx
+} 

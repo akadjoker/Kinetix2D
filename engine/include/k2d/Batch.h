@@ -251,4 +251,4 @@ namespace k2d
         unsigned char mRunR, mRunG, mRunB, mRunA;
     };
 
-} // namespace k2d
+} 

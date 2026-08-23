@@ -228,7 +228,7 @@ namespace kx
             c[1].id.cf.typeB = ContactFeature::kVertex;
         }
 
-    } // namespace
+    } 
 
     void CollidePolygons(Manifold *manifold,
                          const Polygon &polyA, const Transform &xfA,
@@ -543,7 +543,7 @@ namespace kx
             return axis;
         }
 
-    } // namespace
+    } 
 
     void CollideEdgeAndPolygon(Manifold *manifold,
                                const Edge &edgeA, const Transform &xfA,
@@ -754,4 +754,4 @@ namespace kx
         manifold->pointCount = pointCount;
     }
 
-} // namespace kx
+} 

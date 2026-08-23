@@ -97,9 +97,6 @@ namespace k2d
             return removeComponent(T::Type);
         }
 
-        // Runtime-typed access for code that walks every attached component
-        // generically (Serializer) instead of asking for one T at compile
-        // time. Null if nothing of that type is attached.
         Component *rawComponent(ComponentType type) const;
 
         int zIndex() const;

@@ -5,11 +5,6 @@
 static const int SCANCODE_RIGHT = 79;
 static const int SCANCODE_LEFT = 80;
 
-// Simple platformer demo: a fixed-rotation character (Box2D fixedRotation /
-// Chipmunk infinite moment of inertia) running over static platforms and riding
-// two kinematic sliding platforms — one lateral, one vertical.
-//
-// Controls: LEFT/RIGHT move, SPACE jumps (only when grounded).
 class Platformer : public Demo
 {
 public:
@@ -22,28 +17,20 @@ public:
         T().Cam().center = glm::vec2(0.0f, 10.0f);
         T().Cam().zoom = 0.8f;
 
-        // Ground
         World().CreateStaticBox(glm::vec2(0.0f, -80.0f), 400.0f, 5.0f);
 
-        // Static platforms
         World().CreateStaticBox(glm::vec2(-160.0f, -20.0f), 40.0f, 3.0f);
         World().CreateStaticBox(glm::vec2(30.0f, -15.0f), 35.0f, 3.0f);
         World().CreateStaticBox(glm::vec2(190.0f, -40.0f), 35.0f, 3.0f);
 
-        // Lateral sliding platform (left-right, ping-pong)
         mLateral = World().CreateKinematicBox(glm::vec2(-120.0f, -45.0f), 30.0f, 3.0f);
         mLateral->SetFriction(1.0f);
 
-        // Vertical sliding platform (up-down, ping-pong)
         mVertical = World().CreateKinematicBox(glm::vec2(30.0f, 12.0f), 30.0f, 3.0f);
         mVertical->SetFriction(1.0f);
 
-        // Ceiling above the vertical platform. Contact with both the rising
-        // platform and this ceiling is interpreted by the demo as crushing.
         mCeiling = World().CreateStaticBox(glm::vec2(30.0f, 60.0f), 40.0f, 3.0f);
 
-        // Character: dynamic body with fixed rotation + contact callback
-        // to know when it is grounded (so it can jump).
         mCharacter = World().CreateBox(glm::vec2(0.0f, -60.0f), 5.0f, 8.0f, 1.0f);
         mCharacter->SetFixedRotation(true);
         mCharacter->SetFriction(0.6f);
@@ -54,9 +41,6 @@ public:
     {
         mTime += dt;
 
-        // Contact callbacks correm dentro de World::Step. A remocao fica
-        // deferida para aqui, fora do envio de eventos, para nao alterar as
-        // colecoes de contactos enquanto estao a ser percorridas.
         if (mCrushed && mCharacter)
         {
             mCharacter->SetContactCallback(nullptr);
@@ -68,7 +52,6 @@ public:
         }
         mGrounded = mCharacter && mContacts > 0;
 
-        // Kinematic sliding platforms (velocity-driven ping-pong, no drift).
         float lateralV = 110.0f * std::cos(mTime * 1.2f);
         mLateral->SetVelocity(glm::vec2(lateralV, 0.0f));
 
@@ -82,8 +65,6 @@ public:
         float verticalV = 70.0f * mVerticalDirection;
         mVertical->SetVelocity(glm::vec2(0.0f, verticalV));
 
-        // Character control: only override horizontal velocity while a
-        // direction key is held, so the platforms can carry it when idle.
         k2d::Input &input = T().Input();
         float dir = 0.0f;
         if (input.KeyDown(SCANCODE_RIGHT))
@@ -137,8 +118,6 @@ private:
                 --demo->mCeilingContacts;
         }
 
-        // O motor apenas comunicou os contactos. A decisao de gameplay e da
-        // demo: comprimido por uma plataforma ascendente contra o teto = morte.
         if (demo->mVerticalContacts > 0 && demo->mCeilingContacts > 0 &&
             demo->mVertical->Velocity().y > 0.0f)
             demo->mCrushed = true;

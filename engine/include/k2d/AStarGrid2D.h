@@ -6,7 +6,6 @@
 namespace k2d
 {
 
-
     class AStarGrid2D
     {
     public:
@@ -18,11 +17,6 @@ namespace k2d
             Chebyshev
         };
 
-        // How diagonal moves are allowed relative to the two cells a diagonal
-        // step "cuts past". AtLeastOneWalkable matches Godot's default: you
-        // can cut a diagonal corner as long as one of the two side cells is
-        // open (stops you phasing through an actual wall corner but doesn't
-        // forbid grazing a single solid corner).
         enum class DiagonalMode
         {
             Always,
@@ -43,8 +37,6 @@ namespace k2d
         void SetHeuristic(Heuristic heuristic) { mHeuristic = heuristic; }
         void SetDiagonalMode(DiagonalMode mode) { mDiagonalMode = mode; }
 
-        // Clears solid/weight state without resizing (Godot's fill_solid_region
-        // with the full rect is the common case; this is the direct clear()).
         void Clear();
 
         bool IsInBounds(int x, int y) const;
@@ -56,8 +48,6 @@ namespace k2d
 
         glm::vec2 GetPointPosition(int x, int y) const;
 
-        // Returns false only when no path (not even a partial one) exists,
-        // e.g. out-of-bounds endpoints. outPath is left empty in that case.
         bool GetIdPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::ivec2> &outPath,
                        bool allowPartialPath = false);
         bool GetPointPath(glm::ivec2 from, glm::ivec2 to, ct::Vector<glm::vec2> &outPath,
@@ -71,7 +61,6 @@ namespace k2d
             float weightScale = 1.0f;
             bool solid = false;
 
-            // Pathfinding scratch state, valid only while `pass` matches.
             int prevIndex = -1;
             float gScore = 0.0f;
             float fScore = 0.0f;
@@ -97,7 +86,6 @@ namespace k2d
         int mEndIndex;
         int mLastClosestIndex;
 
-        // Reused across Solve() calls -- see comment in the .cpp.
         ct::Vector<int> mOpenHeap;
     };
 

@@ -1,8 +1,4 @@
-// Headless coverage for k2d::Serializer: the GameObject-tree <-> ct::Json
-// walker plus the SpriteComponent row in its factory table. Runs without a
-// GL context, so texture references are exercised with assets=nullptr here
-// (a real GL texture round-trip is covered separately by serializer_diag,
-// which needs a live Device).
+
 #include <k2d/k2d.h>
 
 #include <cstdio>
@@ -17,9 +13,6 @@ namespace
         return Near(a.x, b.x) && Near(a.y, b.y) && Near(a.z, b.z) && Near(a.w, b.w);
     }
 
-    // Builds a small tree (root sprite + one child sprite) with every
-    // serializable field set to a non-default value, round-trips it through
-    // Serializer -> ct::Json text -> Serializer, and checks the copy matches.
     bool TestRoundTripThroughText()
     {
         k2d::Scene srcScene;
@@ -81,8 +74,7 @@ namespace
             ok = ok && NearVec2(copySprite->size(), {64.0f, 48.0f});
             ok = ok && NearVec2(copySprite->pivot(), {0.25f, 0.75f});
             ok = ok && NearVec2(copySprite->tiling(), {3.0f, 2.0f});
-            // Material2D::color() is normalized (0..1); compare against the
-            // source sprite's own normalized value, not the raw 0..255 bytes.
+
             ok = ok && NearVec4(copySprite->material().color(), rootSprite->material().color());
             ok = ok && copySprite->material().hasSourceRect();
             ok = ok && NearVec4(copySprite->material().sourceRect(), {4.0f, 8.0f, 16.0f, 16.0f});
@@ -106,9 +98,6 @@ namespace
         return ok;
     }
 
-    // Defaults (a bare object with no components/children) must round-trip
-    // to sane values, not garbage from an all-zero glm::vec2 default -- scale
-    // in particular must come back (1,1), not (0,0).
     bool TestDefaultsRoundTrip()
     {
         k2d::Scene srcScene;
@@ -125,11 +114,6 @@ namespace
                copy->childCount() == 0 && copy->getComponent<k2d::SpriteComponent>() == nullptr;
     }
 
-    // ScriptComponent has no factory row and never can: its constructor is
-    // protected, meant only for a user's own unknown-to-the-engine subclass.
-    // Attaching one (via a minimal test subclass, exactly how real game code
-    // would) must be silently skipped on write, not crash and not leak an
-    // empty/garbage entry into the components array.
     class DummyScript : public k2d::ScriptComponent
     {
     public:
@@ -139,7 +123,7 @@ namespace
     bool TestUnregisteredTypeIsSkipped()
     {
         if (k2d::Serializer::IsRegistered(k2d::ComponentType::Script))
-            return false; // this test needs an actually-unregistered type
+            return false; 
 
         k2d::Scene scene;
         k2d::GameObject *root = scene.createObject("Mixed");
@@ -152,7 +136,6 @@ namespace
                components.is_array() && components.size() == 1;
     }
 
-    // TileMapComponent: texture ref, cell grid (incl. empty cell 0), cull rect.
     bool TestTileMapRoundTrip()
     {
         k2d::Scene srcScene;
@@ -177,16 +160,13 @@ namespace
         ok = ok && copyMap->columns() == 3 && copyMap->rows() == 2;
         ok = ok && copyMap->atlasTilesX() == 5;
         ok = ok && copyMap->getTile(0, 0) == 3 && copyMap->getTile(2, 1) == 7 &&
-             copyMap->getTile(1, 0) == 0; // untouched cell stays empty
+             copyMap->getTile(1, 0) == 0; 
         ok = ok && copyMap->hasCullRect();
         ok = ok && NearVec4(copyMap->cullRect(), {10.0f, 20.0f, 100.0f, 80.0f});
         ok = ok && copyMap->blendMode() == k2d::BLEND_ADD;
         return ok;
     }
 
-    // Polygon2D and Line2D: both use the packed r|g<<8|b<<16|a<<24 color
-    // convention (not Material2D's normalized floats) -- confirms the
-    // unpack/repack round-trips bytes exactly.
     bool TestPolygonAndLineRoundTrip()
     {
         k2d::Scene srcScene;
@@ -238,7 +218,6 @@ namespace
         return ok;
     }
 
-    // NinePatchComponent: margins (its own setter/getter pair, not Material2D's).
     bool TestNinePatchRoundTrip()
     {
         k2d::Scene srcScene;
@@ -263,8 +242,6 @@ namespace
                copyPatch->blendMode() == k2d::BLEND_SUB;
     }
 
-    // SpriteBatch: per-entry position/size/source/color/flip, entry count,
-    // component-level blend mode.
     bool TestSpriteBatchRoundTrip()
     {
         k2d::Scene srcScene;
@@ -292,10 +269,6 @@ namespace
                copyBatch->blendMode() == k2d::BLEND_ADD;
     }
 
-    // Animation2D: full clip list (not just the active one), active clip name.
-    // Live playback position (frame/accumulator) is deliberately not saved --
-    // a loaded instance starts its active clip fresh, so only check it landed
-    // on the right clip and the authored per-clip fields survived.
     bool TestAnimationRoundTrip()
     {
         k2d::Scene srcScene;
@@ -320,10 +293,6 @@ namespace
         return ok;
     }
 
-    // Light2D and DirectionalLight2D share ComponentType::Light -- this is
-    // the one case Serializer must disambiguate at write time (dynamic_cast,
-    // see FindEntryForComponent). Attach one of each to sibling objects and
-    // confirm both come back as their own concrete class with the right data.
     bool TestLightDisambiguation()
     {
         k2d::Scene srcScene;
@@ -360,16 +329,12 @@ namespace
              Near(copyPoint->height(), 12.0f);
         ok = ok && NearVec4(copyDir->color(), {0.2f, 0.3f, 0.9f, 1.0f});
         ok = ok && Near(copyDir->energy(), 0.6f) && copyDir->castShadow() == false;
-        // Cross-check via dynamic_cast (not getComponent<T>(), which doesn't
-        // type-check across two classes sharing one ComponentType slot): the
-        // point light's component must actually BE a Light2D, never a
-        // DirectionalLight2D wearing the same slot, and vice-versa.
+
         ok = ok && dynamic_cast<k2d::DirectionalLight2D *>(copyPoint) == nullptr;
         ok = ok && dynamic_cast<k2d::Light2D *>(copyDir) == nullptr;
         return ok;
     }
 
-    // LightOccluder2D: polygon points.
     bool TestOccluderRoundTrip()
     {
         k2d::Scene srcScene;
@@ -386,8 +351,6 @@ namespace
                NearVec2(copyOccluder->points()[2], {40.0f, 10.0f});
     }
 
-    // CameraComponent: the Camera2D struct's fields (limits, dead zone,
-    // smoothing, target) plus viewport size.
     bool TestCameraRoundTrip()
     {
         k2d::Scene srcScene;
@@ -420,7 +383,6 @@ namespace
         return ok;
     }
 
-    // ParticleComponent: the whole ParticlePrefab plus system-level settings.
     bool TestParticleComponentRoundTrip()
     {
         k2d::Scene srcScene;

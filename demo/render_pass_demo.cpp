@@ -147,7 +147,6 @@ int main()
         litParticles.Submit(queue, 2);
         queue.Flush(canvas);
 
-        // Deliberately uses the other path: this group does not receive lights.
         unlitParticles.Draw(batch);
         batch.SetColor((unsigned char)255, (unsigned char)255,
                        (unsigned char)255, (unsigned char)255);

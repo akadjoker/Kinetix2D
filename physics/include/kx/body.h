@@ -98,13 +98,6 @@ namespace kx
             RecomputeMass();
         }
 
-        // CCD leve: World::Step, apos mover o corpo, faz um raycast do centro anterior
-        // ao novo contra a DynamicTree; se cruzar geometria estatica/kinematic pelo
-        // caminho, a posicao e recuada para mesmo antes do impacto (nao e TOI real —
-        // nao resolve corpo-dynamic-contra-corpo-dynamic, nem faz sub-stepping do
-        // solver — mas evita o caso mais comum de tunel: projeteis/personagens rapidos
-        // a atravessar paredes/chao finos). So ativa para corpos onde isto realmente
-        // importa, dado o custo extra de um raycast por step.
         bool IsBullet() const { return mBullet; }
         void SetBullet(bool bullet) { mBullet = bullet; }
 
@@ -164,10 +157,6 @@ namespace kx
             mAngularVelocity += mInvI * impulse;
         }
 
-        // Forca/torque continuas: acumuladas em mForce/mTorque e aplicadas uma vez em
-        // IntegrateVelocity (multiplicadas por dt), tal como b2Body::ApplyForce. Ao
-        // contrario de ApplyImpulse, o efeito escala com dt — chamar todos os steps
-        // para um efeito continuo (ex.: thruster), nao um impulso instantaneo.
         void ApplyForce(const glm::vec2 &force, const glm::vec2 &point, bool wake = true)
         {
             if (mType != BodyType::Dynamic)
@@ -257,17 +246,6 @@ namespace kx
         int AddBox(float halfWidth, float halfHeight, const glm::vec2 &localCenter, float density);
         int AddEdge(const glm::vec2 &localA, const glm::vec2 &localB);
 
-        // Cadeia de segmentos ligados (terreno, chao de plataformas, contornos de
-        // niveis) — equivalente ao b2ChainShape do Box2D. Cada segmento e "one-sided":
-        // so colide vindo do lado para onde aponta a normal (e.y,-e.x) do segmento
-        // v[i]->v[i+1] — a mesma convencao CCW-para-fora usada pelos poligonos deste
-        // motor. Os "ghost vertices" (o ponto antes/depois de cada segmento na cadeia)
-        // sao ligados automaticamente entre segmentos consecutivos, para que um corpo
-        // deslizando sobre a junta de dois segmentos nao fique preso num "degrau"
-        // interno (o mesmo problema que o Box2D resolve com b2ChainShape em vez de
-        // b2EdgeShape's soltos). loop=true fecha a cadeia (liga o ultimo ponto ao
-        // primeiro); count minimo e 3 com loop, 2 sem. Devolve o numero de segmentos
-        // adicionados (pode ficar aquem do pedido se kMaxShapes for atingido).
         int AddChain(const glm::vec2 *points, int count, bool loop);
 
         int AddPolygon(const glm::vec2 *points, int count, float density);
@@ -319,4 +297,4 @@ namespace kx
         friend class World;
     };
 
-} // namespace kx
+} 

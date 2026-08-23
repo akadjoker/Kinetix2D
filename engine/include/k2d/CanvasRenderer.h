@@ -8,7 +8,6 @@
 namespace k2d
 {
 
-
     class CanvasRenderer
     {
     public:
@@ -38,39 +37,13 @@ namespace k2d
         void SetProjection(const glm::mat4 &matrix);
         void SetOrtho(float width, float height);
 
-        // Godot's Light2D "texture" property (default: a soft radial-gradient
-        // cookie; renderer_canvas_render.h Light, sampled in canvas.glsl as
-        // atlas_texture): shared by every point light this frame, since a real
-        // per-light texture atlas is future work. Pass 0 to fall back to the
-        // procedural falloff (1 - dist/radius)^2 used before this existed.
         void SetDefaultLightTexture(unsigned int textureId);
 
-        // Godot's CanvasModulate node (canvas.glsl:716, color *=
-        // canvas_modulation): darkens the UNLIT pass only -- the light loops
-        // multiply by the original base color, so lights reveal true surface
-        // colors inside their radius. Default white = no darkening.
         void SetCanvasModulate(float r, float g, float b);
 
-        // Godot's per-material canvas_item shader: compiles `fragmentSource`
-        // against the engine's own built-in vertex stage, so the varyings a
-        // custom fragment shader can read are exactly the built-in ones --
-        // `in vec2 v_texcoord; in vec4 v_color; in vec2 v_world; flat in uint
-        // v_lightMask;` plus whatever uniforms it declares itself (u_texture,
-        // bound at unit 0, is set up automatically same as the default
-        // program; anything else -- including all lighting/shadow uniforms --
-        // is NOT forwarded, unlike Godot's canvas_item shaders which inherit
-        // the full light loop unless overridden. Assign the returned program
-        // via Material2D::setCustomShader/SpriteComponent::setCustomShader.
-        // Returns 0 on a compile/link error (logged to stdout).
         unsigned int CreateShader(const char *fragmentSource);
         void DestroyShader(unsigned int program);
 
-        // Draws a sorted canvas item list plus the canvas lights and occluders
-        // (from RenderQueue). Godot's _record_item_commands: item world xform is
-        // the base, kTransform commands replace the draw transform, kRect emits
-        // a textured quad. Lights are applied as uniforms in the canvas shader
-        // (Godot's canvas_render_items p_lights); shadow-casting lights first
-        // bake the occluders into the shadow atlas (light_update_shadow).
         void DrawItems(const RenderItem *items, size_t count,
                        const PointLight *lights, size_t lightCount,
                        const DirectionalLight *directionalLights, size_t directionalLightCount,
@@ -87,7 +60,7 @@ namespace k2d
             float x, y, z;
             float u, v;
             unsigned char r, g, b, a;
-            unsigned int lightMask; // Godot's CanvasItem light_mask -- see EmitQuad/EmitPolygon
+            unsigned int lightMask;
         };
 #pragma pack(pop)
 
@@ -98,7 +71,7 @@ namespace k2d
             size_t vertexAlignment;
             unsigned int textureId;
             unsigned int normalTextureId;
-            unsigned int program; // 0 = built-in mProgram
+            unsigned int program;
             BlendMode blendMode;
         };
 
@@ -122,7 +95,6 @@ namespace k2d
                          int texWidth = 0, int texHeight = 0);
         void FlattenOccluderEdges();
 
-
         Config mConfig;
         Stats mStats;
 
@@ -133,13 +105,6 @@ namespace k2d
         unsigned int mCurrentTextureId;
         glm::mat4 mProjection;
 
-        // World-space occluder edges flattened once per frame (FlattenOccluderEdges),
-        // then rasterized into the shadow atlas per light/sector (RenderShadowAtlas).
-        // Unbounded, matching Godot: it draws every LightOccluderInstance's real
-        // geometry (rasterizer_canvas_gles3.cpp, light_update_shadow) rather than
-        // packing edges into a fixed-size shader uniform array -- this list is
-        // CPU-side only now (see u_occluderEdges removal below), so there is no
-        // GLES3 uniform budget tying its size to a small constant.
         ct::Vector<glm::vec4> mOccluderEdges;
 
         unsigned int mVAO;
@@ -191,9 +156,6 @@ namespace k2d
         float mOrthoWidth;
         float mOrthoHeight;
 
-        // Raw, un-divided clip-space coordinates (x, y, z, w). w carries the
-        // true light-local "along" distance so the GPU's own perspective
-        // divide/clip does the lateral/along projection -- see RenderShadowAtlas.
         struct ShadowVertex
         {
             float x, y, z, w;
@@ -201,4 +163,4 @@ namespace k2d
         ct::Vector<ShadowVertex> mShadowVertices;
     };
 
-} // namespace k2d
+}

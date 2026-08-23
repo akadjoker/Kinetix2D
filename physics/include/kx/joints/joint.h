@@ -39,12 +39,6 @@ namespace kx
         virtual void SolveVelocity(float dt) = 0;
         virtual bool SolvePosition() { return true; }
 
-        // Most joints only ever reference BodyA()/BodyB(), so World can find every
-        // joint attached to a body by comparing against those two. GearJoint is the
-        // exception: it also holds raw pointers to two other Body*s (the anchors of
-        // its underlying revolute joints) and to those two RevoluteJoint*s themselves.
-        // Override these so World::Destroy(Body*) / World::DestroyJoint(Joint*) can
-        // cascade-destroy dependents instead of leaving a dangling pointer behind.
         virtual bool DependsOnBody(const Body *body) const
         {
             (void)body;
@@ -64,4 +58,4 @@ namespace kx
         friend class World;
     };
 
-} // namespace kx
+} 

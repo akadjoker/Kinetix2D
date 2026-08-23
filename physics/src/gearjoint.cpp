@@ -89,4 +89,4 @@ namespace kx
         return std::fabs(C) < kAngularSlop;
     }
 
-} // namespace kx
+} 

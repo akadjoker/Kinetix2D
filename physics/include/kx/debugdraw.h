@@ -36,4 +36,4 @@ namespace kx
 
     void Draw(World &world, DebugDraw &draw, unsigned flags);
 
-} // namespace kx
+} 

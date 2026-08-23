@@ -23,8 +23,6 @@ static const int SCANCODE_F2 = 59;
 static const int SCANCODE_F3 = 60;
 static const int SCANCODE_F4 = 61;
 
- 
-
 static unsigned gSeed = 777;
 inline float Rnd()
 {

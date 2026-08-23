@@ -1,6 +1,4 @@
-// Diagnostic: one white light on a flat white floor, no shadows, no motion.
-// Screenshot + pixel measurements give the exact rendered falloff curve to
-// compare against the light texture / Godot's expected curve.
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
@@ -18,11 +16,7 @@ int main()
         return 1;
 
     k2d::Assets assets;
-    // fire.png: 32x32, white RGB with the radial gradient in the ALPHA
-    // channel -- exercises the alpha-gradient cookie path (the neutral
-    // Godot texture keeps its gradient in RGB instead).
-    // Bare name: FileSystem's search paths (assets, ../assets, ../../assets,
-    // exe-dir variants) resolve it from either the project root or bin/.
+
     k2d::Texture *lightTexture = assets.LoadTexture("light_cookie", "fire.png");
     std::printf("lightTexture=%p\n", (void *)lightTexture);
     std::fflush(stdout);
@@ -66,8 +60,6 @@ int main()
         canvas.SetOrtho((float)device.Width(), (float)device.Height());
         scene.render(canvas);
 
-        // Self-capture: grab the framebuffer once warm, then exit -- no
-        // external X11 screenshot race.
         ++frame;
         if (frame == 30)
         {

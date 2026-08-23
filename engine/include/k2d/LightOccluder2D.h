@@ -8,9 +8,6 @@
 namespace k2d
 {
 
-    // Godot's LightOccluder2D. A polygon that casts shadows from Light2D with
-    // shadow enabled. Registers itself into the router each frame; the canvas
-    // renderer bakes it into the shadow atlas.
     class LightOccluder2D : public Component
     {
     public:

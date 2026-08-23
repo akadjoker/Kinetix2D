@@ -236,29 +236,6 @@ void main()
 }
 )";
 
-        // Raw clip-space coordinates (see ShadowVertex / RenderShadowAtlas): x is
-        // the un-divided lateral offset, w is the true "along" light distance.
-        // The GPU's own perspective divide + clip-space clipping does the
-        // lateral/along projection, matching Godot's real occluder shadow pass
-        // (drivers/gles3/shaders/canvas_occlusion.glsl).
-        // a_v = (x_clip, y_clip, dist, w_clip), all four LINEAR functions of
-        // the world-space edge parameter -- a hard requirement: the GPU clipper
-        // lerps clip coordinates along the edge, so any nonlinear component
-        // (an earlier version used z = depthNdc * w, quadratic in `along`)
-        // decodes to garbage depths on edges it has to clip. This mirrors
-        // Godot's occluder pass exactly (light_update_shadow's
-        // Projection::set_frustum, 90 deg, near = radius/1000, far =
-        // radius*1.1, canvas_occlusion.glsl): point lights put lateral/R in x,
-        // along/R in dist and w (perspective divide -> tangent projection,
-        // near/far clipping on the frustum below); directional lights are
-        // orthographic: w = 1, x = lateral, dist = depth in [0,1].
-        //
-        // gl_Position.z applies that same frustum's hyperbolic mapping of
-        // dist for GL_LESS nearest-edge selection; the value STORED in the
-        // atlas is the varying v_dist -- perspective-correct interpolation
-        // reconstructs the true world distance at every fragment, which
-        // gl_FragCoord.z (screen-linear) cannot (Godot stores its depth
-        // varying for the same reason).
         static const char *SHADOW_VERTEX_SHADER_SOURCE = R"(#version 300 es
 layout(location = 0) in vec4 a_v;
 out float v_dist;
@@ -338,8 +315,6 @@ void main()
             a = (packed >> 24) & 0xFF;
         }
 
-        // Godot's _render_batch blend state (rasterizer_canvas_gles3.cpp:742):
-        // the non-transparent-render-target variant.
         static void ApplyBlend(BlendMode mode)
         {
             switch (mode)
@@ -366,7 +341,7 @@ void main()
                 break;
             }
         }
-    } // namespace
+    } 
 
     CanvasRenderer::CanvasRenderer()
         : mConfig(), mStats(), mVertices(), mIndices(), mDrawCalls(),
@@ -476,9 +451,7 @@ void main()
 
     unsigned int CanvasRenderer::CreateShader(const char *fragmentSource)
     {
-        // Reuses the built-in vertex stage (CreateProgram, the same helper
-        // the shadow program is compiled with) so a custom fragment shader
-        // gets v_texcoord/v_color/v_world/v_lightMask for free.
+
         GLuint program = CreateProgram(VERTEX_SHADER_SOURCE, fragmentSource);
         if (!program)
             return 0;
@@ -502,9 +475,7 @@ void main()
         mDefaultLightTexture = textureId;
         if (mDefaultLightTexture != 0)
         {
-            // Smooth sampling regardless of how the caller loaded the texture
-            // (Texture::Load defaults to nearest, wrong for a gradient cookie),
-            // and clamp so a light near the canvas edge can't wrap the gradient.
+
             glBindTexture(GL_TEXTURE_2D, mDefaultLightTexture);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -690,11 +661,7 @@ void main()
         {
             const glm::vec2 &local = points[i];
             glm::vec2 p = matrix.Transform(local);
-            // Auto-UV, same formula Godot's Polygon2D uses when no explicit
-            // uv array is authored: local vertex position / texture size, so
-            // the texture maps across the shape instead of sampling one
-            // fixed texel everywhere. texWidth/texHeight are 0 for an
-            // untextured polygon -- leave UV at 0 then, nothing samples it.
+
             float u = texWidth > 0 ? local.x / (float)texWidth : 0.0f;
             float v = texHeight > 0 ? local.y / (float)texHeight : 0.0f;
             mVertices.push_back(Vertex{p.x, p.y, 0.0f, u, v, r, g, b, a, lightMask});
@@ -865,13 +832,6 @@ void main()
             glEnable(GL_BLEND);
             ApplyBlend(call.blendMode);
 
-            // Custom per-material shader (Material2D::setCustomShader): swap
-            // the whole program, since it may not declare the same lighting
-            // uniforms the built-in one does -- see CreateShader. u_mvp is
-            // looked up fresh each switch since custom programs aren't
-            // pre-cached like mMvpLoc; switching back to the built-in
-            // program needs no re-upload, GL keeps each program's uniform
-            // state independently.
             GLuint wantProgram = (call.program != 0) ? call.program : mProgram;
             if (wantProgram != activeProgram)
             {
@@ -885,11 +845,6 @@ void main()
             GLuint tex = (call.textureId != 0) ? call.textureId : mWhiteTexture;
             glBindTexture(GL_TEXTURE_2D, tex);
 
-            // Normal map is per-draw-call (it comes from the sprite's own
-            // material, not from a light), unlike the light/shadow/cookie
-            // uniforms set once above for the whole frame. Only meaningful
-            // on the built-in program -- a custom shader that wants normal
-            // mapping declares u_normalMap/u_hasNormalMap itself.
             if (wantProgram == mProgram)
             {
                 glUniform1i(mHasNormalMapLoc, call.normalTextureId != 0 ? 1 : 0);
@@ -989,8 +944,7 @@ void main()
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (void *)offsetof(Vertex, r));
         glEnableVertexAttribArray(2);
-        // Integer attribute (Godot's CanvasItem light_mask) needs
-        // glVertexAttribIPointer, not the float-normalizing glVertexAttribPointer.
+
         glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, (void *)offsetof(Vertex, lightMask));
         glEnableVertexAttribArray(3);
 
@@ -1135,27 +1089,12 @@ void main()
                                             mOccluderEdges[edgeIndex].y) - mLights[lightIndex].position;
                     glm::vec2 b = glm::vec2(mOccluderEdges[edgeIndex].z,
                                             mOccluderEdges[edgeIndex].w) - mLights[lightIndex].position;
-                    // True point-light perspective: emit RAW, un-divided clip
-                    // coordinates with w = along and let the GPU's perspective
-                    // divide + clip-space clipping do the lateral/along
-                    // projection and the near-plane cull. `along` is left
-                    // un-clamped, including negative -- the hardware clips it
-                    // robustly at along == 0.
+
                     float aAlong = glm::dot(a, direction);
                     float bAlong = glm::dot(b, direction);
                     float aLateral = glm::dot(a, perpendicular);
                     float bLateral = glm::dot(b, perpendicular);
-                    // Radius-normalized, ALL components linear in the edge
-                    // parameter (see SHADOW_VERTEX_SHADER_SOURCE): x = lateral/R
-                    // (x_ndc = lateral/along = tangent after the divide),
-                    // dist = w = along/R (the frustum's near/far clip at
-                    // 0.001R / 1.1R culls the behind-the-light part cleanly).
-                    // y = +-kPolyHeight: Godot's POLY_HEIGHT extrusion -- a
-                    // large CONSTANT so y_ndc = +-height/along always overfills
-                    // the 2px-tall viewport and the quad is a planar ribbon.
-                    // (+-along here previously made a self-intersecting bowtie
-                    // on edges crossing the light plane; measured in the atlas
-                    // as flat endpoint depths where hyperbolic values belong.)
+
                     const float kPolyHeight = 100.0f;
                     float aDist = aAlong / radius;
                     float bDist = bAlong / radius;
@@ -1202,10 +1141,7 @@ void main()
                 float bLateral = glm::dot(b, perpendicular) / directionalHalfSize;
                 float aDepth = (glm::dot(a, direction) + directionalDistance * 0.5f) / directionalDistance;
                 float bDepth = (glm::dot(b, direction) + directionalDistance * 0.5f) / directionalDistance;
-                // Directional light: parallel rays, orthographic -- w = 1 (no
-                // perspective divide), dist carries the [0,1] depth directly
-                // (v_dist stores it; gl_Position.z's frustum remap is merely
-                // monotonic, which is all GL_LESS ordering needs).
+
                 mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth, 1.0f});
                 mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth, 1.0f});
                 mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth, 1.0f});
@@ -1230,9 +1166,7 @@ void main()
 
     void CanvasRenderer::FlattenOccluderEdges()
     {
-        // Unbounded (see mOccluderEdges declaration): every occluder in the
-        // scene contributes its edges, matching Godot drawing every
-        // LightOccluderInstance rather than truncating to a fixed budget.
+
         mOccluderEdges.clear();
         for (size_t o = 0; o < mOccluderCount; ++o)
         {
@@ -1264,4 +1198,4 @@ void main()
         std::printf("============================\n");
     }
 
-} // namespace k2d
+} 

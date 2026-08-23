@@ -18,4 +18,4 @@ namespace kx
 
     void SimplifyOutline(const Polyline &line, float toleranceRadians, Polyline &outSimplified);
 
-} // namespace kx
+} 

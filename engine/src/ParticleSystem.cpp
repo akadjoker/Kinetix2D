@@ -81,13 +81,13 @@ namespace k2d
         particle.position = position;
         particle.velocity = velocity;
         particle.colorStart = color;
-        particle.colorEnd = color; // flat: manual Emit doesn't ramp
+        particle.colorEnd = color; 
         particle.color = color;
         particle.age = 0.0f;
         particle.lifetime = lifetime;
         particle.size = size;
         particle.startSize = size;
-        particle.endSize = size; // flat, matches the pre-ranged Emit's behaviour
+        particle.endSize = size; 
         particle.fadeIn = 0.0f;
         particle.fadeOut = 0.0f;
         particle.rotation = rotation;
@@ -116,7 +116,7 @@ namespace k2d
         if (prefab.spreadDegrees > 0.0f)
         {
             const float half = prefab.spreadDegrees * 0.5f;
-            const float angle = RandomRange(-half, half) * 0.01745329252f; // deg->rad
+            const float angle = RandomRange(-half, half) * 0.01745329252f; 
             const float c = std::cos(angle), s = std::sin(angle);
             dir = glm::vec2(dir.x * c - dir.y * s, dir.x * s + dir.y * c);
         }
@@ -303,4 +303,4 @@ namespace k2d
         }
     }
 
-} // namespace k2d
+} 

@@ -190,9 +190,6 @@ int main()
         gComponentMaxX = screenWidth - bunnyWidth;
         gComponentMaxY = screenHeight - bunnyHeight;
 
-        // This test has a fixed camera centered on the current window. Keep
-        // both the camera and its projection/frustum derived from the same
-        // dimensions every frame, including after a resize.
         camera.position = glm::vec2(screenWidth * 0.5f, screenHeight * 0.5f);
         canvas.SetProjection(camera.Projection(screenWidth, screenHeight));
 

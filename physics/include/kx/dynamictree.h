@@ -54,12 +54,7 @@ namespace kx
         template <typename T>
         void Query(T *callback, const AABB &aabb) const
         {
-            // mQueryStack é escrátaria e reutilizada entre chamadas (só clear(), nunca
-            // desaloca) — sem isto, ct::Vector começa nula e cada Query() fazia um
-            // malloc/free só para percorrer a árvore. FindNewPairs chama Query() uma vez
-            // por proxy movido a cada Step(), portanto isto corria centenas de vezes por
-            // frame numa cena com muitos corpos em movimento. Não é thread-safe (nem a
-            // árvore o é de resto), mas evita o round-trip a heap no caso comum.
+
             mQueryStack.clear();
             mQueryStack.push_back(mRoot);
 
@@ -115,10 +110,7 @@ namespace kx
         int32_t mFreeList;
         int32_t mInsertionCount;
 
-        // Scratch buffer para Query() — ver comentário em Query(). mutable porque Query
-        // é const (não muda a árvore), mas precisa de memória de trabalho reentrante-nao,
-        // reutilizável entre chamadas.
         mutable ct::Vector<int32_t> mQueryStack;
     };
 
-} // namespace kx
+} 

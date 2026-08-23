@@ -241,4 +241,4 @@ namespace kx
         return std::fabs(C) <= kLinearSlop;
     }
 
-} // namespace kx
+} 

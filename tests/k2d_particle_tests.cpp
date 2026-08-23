@@ -10,9 +10,6 @@ namespace
     float VecLength(const glm::vec2 &v) { return std::sqrt(v.x * v.x + v.y * v.y); }
     float VecAngleDeg(const glm::vec2 &v) { return std::atan2(v.y, v.x) * 57.29577951f; }
 
-    // Every ranged field must (a) never leave its configured [min,max] and
-    // (b) actually vary across a batch -- otherwise "randomization" would
-    // silently be a no-op returning the min every time.
     bool TestPrefabRangesStayInBoundsAndVary()
     {
         k2d::ParticlePrefab prefab;
@@ -72,14 +69,11 @@ namespace
                rotationVaries && angularVelocityVaries;
     }
 
-    // A spread cone around `direction` must never rotate a particle's
-    // velocity past +/-spreadDegrees/2, and speed must stay exactly
-    // speedMin==speedMax (spread only rotates, never scales).
     bool TestSpreadConeBoundsDirection()
     {
         k2d::ParticlePrefab prefab;
         prefab.direction = glm::vec2(1.0f, 0.0f);
-        prefab.spreadDegrees = 90.0f; // +/-45 degrees around +X
+        prefab.spreadDegrees = 90.0f; 
         prefab.speedMin = prefab.speedMax = 10.0f;
         prefab.lifeMin = prefab.lifeMax = 1.0f;
         prefab.sizeMin = prefab.sizeMax = 1.0f;
@@ -108,8 +102,6 @@ namespace
         return inCone && speedExact && varies;
     }
 
-    // drag damps velocity every frame: speed must strictly decrease and
-    // never go negative (dragFactor clamps at 0).
     bool TestDragReducesSpeedOverTime()
     {
         k2d::ParticlePrefab prefab;
@@ -135,8 +127,6 @@ namespace
         return alwaysDecreasing;
     }
 
-    // faceDirection must keep rotation glued to the velocity heading, even
-    // as gravity curves that heading over time.
     bool TestFaceDirectionTracksVelocity()
     {
         k2d::ParticlePrefab prefab;
@@ -147,7 +137,7 @@ namespace
         prefab.faceDirection = true;
 
         k2d::ParticleSystem particles(4);
-        particles.SetGravity(glm::vec2(0.0f, 20.0f)); // pulls the straight-up shot into an arc
+        particles.SetGravity(glm::vec2(0.0f, 20.0f)); 
         particles.Emit(glm::vec2(0.0f), prefab);
 
         bool ok = true;
@@ -162,8 +152,6 @@ namespace
         return ok;
     }
 
-    // Deterministic (min==max life, no randomness in play): color must be
-    // exactly the linear midpoint of colorStart/colorEnd at half life.
     bool TestColorRampInterpolates()
     {
         k2d::ParticlePrefab prefab;

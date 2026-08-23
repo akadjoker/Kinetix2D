@@ -24,7 +24,7 @@ namespace
         return sDemos;
     }
 
-} // namespace
+} 
 
 int TestbedRegisterDemo(const char *category, const char *name, DemoCreateFcn create)
 {

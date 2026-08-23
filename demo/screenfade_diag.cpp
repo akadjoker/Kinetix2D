@@ -1,6 +1,4 @@
-// Diagnostic: a world sprite behind a panning Camera2D, ScreenFade fading
-// out to black over 1s -- captures at ~50% alpha. Confirms the fade covers
-// the whole window and is unaffected by the camera transform.
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
@@ -46,10 +44,10 @@ int main()
         if (device.GetInput().KeyDown(41))
             running = false;
 
-        float dt = 1.0f / 30.0f; // fixed step so frame 15 lands at exactly t=0.5s
+        float dt = 1.0f / 30.0f; 
         scene.update(dt);
         fade.Update(dt);
-        camera.position.x += 40.0f * dt; // pan, to prove the fade ignores it
+        camera.position.x += 40.0f * dt; 
 
         float w = (float)device.Width();
         float h = (float)device.Height();

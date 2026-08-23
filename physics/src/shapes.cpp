@@ -116,7 +116,7 @@ namespace kx
             return c;
         }
 
-    } // namespace
+    } 
 
     void Polygon::Set(const glm::vec2 *points, int32_t pointCount)
     {
@@ -283,4 +283,4 @@ namespace kx
         return massData;
     }
 
-} // namespace kx
+} 

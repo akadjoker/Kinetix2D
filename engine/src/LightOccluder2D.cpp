@@ -31,4 +31,4 @@ namespace k2d
         queue.AddOccluder(occluder);
     }
 
-} // namespace k2d
+} 

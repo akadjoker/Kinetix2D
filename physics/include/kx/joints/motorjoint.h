@@ -53,4 +53,4 @@ namespace kx
         float mAngularMass;
     };
 
-} // namespace kx
+} 

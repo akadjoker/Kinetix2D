@@ -82,7 +82,7 @@ namespace kx
                 }
             }
 
-        } // namespace
+        } 
 
         Edge::Edge(Point &p1, Point &p2) : p(&p1), q(&p2), valid(true)
         {
@@ -1259,7 +1259,7 @@ namespace kx
                 delete nodes_[i];
         }
 
-    } // namespace tri
+    } 
 
     int Triangulate(const glm::vec2 *outline, int count, glm::vec2 *outTriangles, int maxTriangles)
     {
@@ -1310,4 +1310,4 @@ namespace kx
         return written;
     }
 
-} // namespace kx
+} 

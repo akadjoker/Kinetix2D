@@ -60,8 +60,7 @@ namespace k2d
                 continue;
             dir /= len;
             glm::vec2 normal(-dir.y, dir.x);
-            // Extend by half the width at each end so consecutive segments'
-            // quads overlap and cover the joint -- see class comment.
+
             glm::vec2 a0 = p0 - dir * half + normal * half;
             glm::vec2 a1 = p0 - dir * half - normal * half;
             glm::vec2 b0 = p1 + dir * half + normal * half;
@@ -98,4 +97,4 @@ namespace k2d
         item.commands.push_back(command);
     }
 
-} // namespace k2d
+} 

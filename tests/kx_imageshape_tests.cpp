@@ -114,7 +114,7 @@ namespace
         return total;
     }
 
-} // namespace
+} 
 
 int main()
 {

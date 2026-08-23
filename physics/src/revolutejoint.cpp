@@ -234,4 +234,4 @@ namespace kx
         return positionError <= kLinearSlop && angularError <= kAngularSlop;
     }
 
-} // namespace kx
+} 

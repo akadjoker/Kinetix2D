@@ -22,7 +22,7 @@ namespace k2d
         const ct::Vector<glm::vec2> &polygon() const { return mPolygon; }
         const ct::Vector<glm::vec2> &triangles() const { return mTriangles; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        unsigned int color() const { return mColor; } // packed r|g<<8|b<<16|a<<24, same layout setColor() writes
+        unsigned int color() const { return mColor; } 
         void setTexture(Texture *texture);
         Texture *texture() const { return mTexture; }
         void setBlendMode(BlendMode mode) { mBlendMode = mode; }

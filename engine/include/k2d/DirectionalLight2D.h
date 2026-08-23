@@ -27,8 +27,7 @@ namespace k2d
         ShadowFilter shadowFilter() const { return mShadowFilter; }
         void setCullMask(unsigned int mask);
         unsigned int cullMask() const { return mCullMask; }
-        // 0..1 mix factor between in-plane and straight-down, for
-        // normal-mapped sprites only. See DirectionalLight::height (CanvasTypes.h).
+
         void setHeight(float height) { mHeight = height; }
         float height() const { return mHeight; }
 

@@ -9,10 +9,6 @@ namespace k2d
 
     class CanvasRenderer;
 
-    // Collects canvas items and dispatches them to the canvas renderer, sorted
-    // as Godot sorts canvas items (servers/rendering/renderer_canvas_cull.cpp,
-    // ItemYSort): z_index ascending, then y-sort by world y, else submission
-    // order. The router owns the data (items) and never touches GL.
     class RenderQueue
     {
     public:

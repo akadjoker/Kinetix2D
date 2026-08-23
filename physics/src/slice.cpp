@@ -5,10 +5,7 @@ namespace kx
 
     namespace
     {
-        // Sutherland-Hodgman: recorta um poligono convexo (CCW) contra o semiplano
-        // Dot(v-point,normal) >= 0, mantendo esse lado. maxOut deve ser pelo menos
-        // inCount+2 (o pior caso: a reta entra e sai do poligono, acrescentando 2
-        // vertices novos a lista de vertices originais que sobrevivem).
+
         int ClipPolygonToHalfPlane(const glm::vec2 *in, int inCount,
                                    const glm::vec2 &point, const glm::vec2 &normal,
                                    glm::vec2 *out, int maxOut)
@@ -85,8 +82,7 @@ namespace kx
                     body->AddEdge(p.edge.vertex1, p.edge.vertex2);
                     break;
                 }
-                // Filtro so existe ao nivel do corpo (ver nota em Slice); aplica-se o da
-                // ultima shape processada. isSensor/userData sao mesmo por shape.
+
                 body->SetFilter(p.filter.category, p.filter.mask, p.filter.group);
                 body->SetSensor(shapeIndex, p.isSensor);
                 body->SetShapeUserData(shapeIndex, p.userData);
@@ -94,7 +90,7 @@ namespace kx
 
             return body;
         }
-    } // namespace
+    } 
 
     bool Slice(World &world, Body *body, const glm::vec2 &point, const glm::vec2 &normal,
               Body **outPositive, Body **outNegative, float separationSpeed)
@@ -105,13 +101,12 @@ namespace kx
             *outNegative = nullptr;
 
         glm::vec2 n = Normalize(normal);
-        if (Dot(n, n) < 0.5f) // normal degenerada (quase zero)
+        if (Dot(n, n) < 0.5f) 
             return false;
 
         Transform xf = body->GetTransform();
         glm::vec2 localPoint = InvTransformPoint(xf, point);
-        // Transform deste motor e so rotacao+translacao (sem escala), por isso rodar um
-        // vetor unitario com InvRotate mantem-no unitario.
+
         glm::vec2 localNormal = InvRotate(xf, n);
 
         ct::Vector<SlicePiece> positive;
@@ -158,8 +153,6 @@ namespace kx
                 continue;
             }
 
-            // Circle/Edge nao sao cortadas — ficam inteiras do lado do seu centro (ou
-            // ponto medio, no caso da edge).
             glm::vec2 mid = shape.type == ShapeType::Circle
                                 ? shape.circle.center
                                 : 0.5f * (shape.edge.vertex1 + shape.edge.vertex2);
@@ -177,7 +170,7 @@ namespace kx
         }
 
         if (positive.empty() || negative.empty())
-            return false; // a reta nao atravessa o corpo: nada para cortar
+            return false; 
 
         Body *posBody = BuildSlicedBody(world, *body, positive);
         Body *negBody = BuildSlicedBody(world, *body, negative);
@@ -197,4 +190,4 @@ namespace kx
         return true;
     }
 
-} // namespace kx
+} 

@@ -1,8 +1,4 @@
-// Diagnostic: default-shader sprite (lit) -> custom-shader sprite (color
-// invert) -> default-shader sprite (lit) again, in that submission order, so
-// ApplyDrawCalls has to switch programs twice mid-frame. Confirms: (1) the
-// custom shader's own effect renders, (2) the built-in program's lighting is
-// unaffected by having switched away and back.
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
@@ -50,30 +46,25 @@ int main()
     backdrop->setSize(glm::vec2(900.0f, 400.0f));
     backdrop->setColor(25, 25, 30);
 
-    // Default-shader sprite #1 (lit).
     k2d::GameObject *litObject1 = scene.createObject("lit1");
     litObject1->setPosition(glm::vec2(200.0f, 200.0f));
     k2d::SpriteComponent *lit1 = litObject1->addComponent<k2d::SpriteComponent>(orange);
     lit1->setSize(glm::vec2(120.0f, 120.0f));
     lit1->setColor(230, 140, 40);
 
-    // Custom-shader sprite (color-inverted): submitted BETWEEN the two lit
-    // sprites so ApplyDrawCalls must switch programs twice.
     k2d::GameObject *invertedObject = scene.createObject("inverted");
     invertedObject->setPosition(glm::vec2(450.0f, 200.0f));
     k2d::SpriteComponent *inverted = invertedObject->addComponent<k2d::SpriteComponent>(orange);
     inverted->setSize(glm::vec2(120.0f, 120.0f));
-    inverted->setColor(230, 140, 40); // same base color as the lit sprites -- should render INVERTED (cyan-ish)
+    inverted->setColor(230, 140, 40); 
     inverted->setCustomShader(invertShader);
 
-    // Default-shader sprite #2 (lit) -- same setup as #1, must look the same.
     k2d::GameObject *litObject2 = scene.createObject("lit2");
     litObject2->setPosition(glm::vec2(700.0f, 200.0f));
     k2d::SpriteComponent *lit2 = litObject2->addComponent<k2d::SpriteComponent>(orange);
     lit2->setSize(glm::vec2(120.0f, 120.0f));
     lit2->setColor(230, 140, 40);
 
-    // One light illuminating all three sprite positions roughly evenly.
     k2d::GameObject *lightObject = scene.createObject("light");
     lightObject->setPosition(glm::vec2(450.0f, 100.0f));
     k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();

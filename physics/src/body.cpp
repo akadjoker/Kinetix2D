@@ -106,10 +106,6 @@ namespace kx
             glm::vec2 v1 = points[i1];
             glm::vec2 v2 = points[i2];
 
-            // Nas pontas de uma cadeia aberta nao ha vizinho real: o ghost fica igual ao
-            // proprio extremo do segmento, o que anula com seguranca o ajuste de
-            // convexidade nesse lado (CollideEdgeAndCircle/CollideEdgeAndPolygon tratam
-            // um ghost degenerado — normal(0,0) — como "convexo", ou seja, nao rejeitam).
             glm::vec2 vPrev = v1;
             glm::vec2 vNext = v2;
             if (loop || i > 0)
@@ -159,12 +155,6 @@ namespace kx
         mInvI = 0.0f;
         mLocalCenter = glm::vec2(0.0f, 0.0f);
 
-        // NOTA: aqui so se verifica o tipo, nao o estado de sono. AddCircle/AddBox/
-        // AddPolygon/AddEdge/AddMesh (API publica, chamavel a qualquer momento) chamam
-        // RecomputeMass() diretamente sem acordar o corpo primeiro; excluir corpos
-        // adormecidos deixava-os com massa "infinita" (mInvMass=0) ate algo os acordar
-        // explicitamente. O Box2D recalcula sempre a massa ao adicionar/remover uma
-        // fixture, independentemente do estado de sono — mantemos esse comportamento.
         if (mType != BodyType::Dynamic)
             return;
 
@@ -212,9 +202,6 @@ namespace kx
             mInvI = I > 0.0f ? 1.0f / I : 0.0f;
         }
 
-        // Port de b2BodyDef.fixedRotation / cpBodySetMoment(INFINITY):
-        // rotacao fixa => momento de inercia infinito => mInvI = 0.
-        // Nenhum impulso/torque do solver gira o corpo (character).
         if (mFixedRotation)
             mInvI = 0.0f;
 
@@ -228,13 +215,7 @@ namespace kx
 
         if (!mAwake)
         {
-            // BUG corrigido: esta funcao nao verificava mAwake, pelo que um corpo
-            // "adormecido" continuava a acumular gravidade em mLinearVelocity todos os
-            // steps (SetAwake(false) so zera a velocidade UMA vez, ao adormecer). Se
-            // nada mais o acordasse, a velocidade crescia indefinidamente e escondida
-            // — na primeira vez que o corpo fosse acordado (ou colidisse), aplicava-se
-            // de repente um "pop" com a velocidade acumulada de todos esses steps.
-            // Uma forca em fila enquanto dormia tambem nao deve sobreviver ao despertar.
+
             mForce = glm::vec2(0.0f);
             mTorque = 0.0f;
             return;
@@ -243,8 +224,6 @@ namespace kx
         mLinearVelocity += dt * (mGravityScale * gravity + mInvMass * mForce);
         mAngularVelocity += dt * mInvI * mTorque;
 
-        // Damping implicito (mesma formula do Box2D): estavel para qualquer dt, ao
-        // contrario de "v *= (1 - damping*dt)" que pode inverter o sinal com dt grande.
         mLinearVelocity *= 1.0f / (1.0f + dt * mLinearDamping);
         mAngularVelocity *= 1.0f / (1.0f + dt * mAngularDamping);
 
@@ -282,4 +261,4 @@ namespace kx
         mPosition = center - xf.Transform(mLocalCenter);
     }
 
-} // namespace kx
+} 

@@ -46,4 +46,4 @@ namespace kx
         float mSoftMass;
     };
 
-} // namespace kx
+} 

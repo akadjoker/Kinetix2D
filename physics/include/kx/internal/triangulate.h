@@ -288,8 +288,8 @@ namespace kx
             bool mFailed = false;
         };
 
-    } // namespace tri
+    } 
 
     int Triangulate(const glm::vec2 *outline, int count, glm::vec2 *outTriangles, int maxTriangles);
 
-} // namespace kx
+} 

@@ -8,8 +8,6 @@
 namespace k2d
 {
 
-    // Godot's Light2D (point light). Registers a PointLight into the router each
-    // frame; the canvas renderer accumulates it additively in the canvas shader.
     class Light2D : public Component
     {
     public:
@@ -29,12 +27,10 @@ namespace k2d
         const glm::vec4 &shadowColor() const { return mShadowColor; }
         void setShadowFilter(ShadowFilter filter);
         ShadowFilter shadowFilter() const { return mShadowFilter; }
-        // Godot's range_item_cull_mask: only illuminates items whose light
-        // mask shares a bit with this. Default 1 (bit 0).
+
         void setCullMask(unsigned int mask);
         unsigned int cullMask() const { return mCullMask; }
-        // Z offset above the 2D plane, for normal-mapped sprites only. See
-        // PointLight::height (CanvasTypes.h).
+
         void setHeight(float height) { mHeight = height; }
         float height() const { return mHeight; }
 

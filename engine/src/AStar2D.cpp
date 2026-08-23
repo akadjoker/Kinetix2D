@@ -8,7 +8,7 @@ namespace k2d
 
     void AStar2D::AddPoint(int id, const glm::vec2 &pos, float weightScale)
     {
-        Point &p = mPoints[id]; // inserts a default Point if new
+        Point &p = mPoints[id]; 
         p.pos = pos;
         p.weightScale = weightScale;
     }
@@ -18,7 +18,7 @@ namespace k2d
         Point *p = mPoints.find(id);
         if (!p)
             return;
-        // Drop the reverse edges other points hold to this one.
+
         for (auto it = p->neighbors.begin(); it != p->neighbors.end(); ++it)
         {
             if (Point *other = mPoints.find(*it))
@@ -118,7 +118,7 @@ namespace k2d
     {
         int closestId = -1;
         float closestDistSq = std::numeric_limits<float>::max();
-        // ct::HashMap::begin/end aren't const-qualified; this is read-only.
+
         auto &points = const_cast<ct::HashMap<int, Point> &>(mPoints);
         for (auto it = points.begin(); it != points.end(); ++it)
         {
@@ -165,8 +165,6 @@ namespace k2d
         beginPoint->absF = beginPoint->fScore;
         beginPoint->openPass = mPass;
 
-        // Same min-heap-by-fScore approach as AStarGrid2D::Solve, over point
-        // ids instead of grid indices (see that file's comment).
         auto worse = [this](int a, int b)
         {
             const Point *pa = mPoints.find(a);

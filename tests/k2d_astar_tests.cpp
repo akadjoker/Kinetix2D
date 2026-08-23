@@ -9,8 +9,6 @@ namespace
 {
     bool Near(float a, float b, float eps = 0.001f) { return std::fabs(a - b) < eps; }
 
-    // --- AStarGrid2D ---------------------------------------------------
-
     bool TestGridDiagonalAlways()
     {
         k2d::AStarGrid2D grid;
@@ -18,8 +16,7 @@ namespace
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Always);
         ct::Vector<glm::ivec2> path;
         bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
-        // Open grid, diagonals allowed: corner-to-corner is 4 diagonal steps
-        // -> 5 points on the path.
+
         return ok && path.size() == 5 && path[0] == glm::ivec2(0, 0) &&
                path[4] == glm::ivec2(4, 4);
     }
@@ -31,7 +28,7 @@ namespace
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
         ct::Vector<glm::ivec2> path;
         bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
-        // Cardinal-only: Manhattan distance 8 -> 9 points on the path.
+
         return ok && path.size() == 9;
     }
 
@@ -40,8 +37,7 @@ namespace
         k2d::AStarGrid2D grid;
         grid.SetSize(5, 5);
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
-        // Solid wall column at x=2, rows 0..3 -- only row 4 is open, forcing
-        // a detour down and back up.
+
         for (int y = 0; y <= 3; ++y)
             grid.SetSolid(2, y, true);
         ct::Vector<glm::ivec2> path;
@@ -50,9 +46,8 @@ namespace
             return false;
         for (size_t i = 0; i < path.size(); ++i)
             if (grid.IsSolid(path[i].x, path[i].y))
-                return false; // path must never cross a solid cell
-        // Direct cardinal distance without the wall would be 5 points;
-        // the detour must be longer.
+                return false; 
+
         return path.size() > 5;
     }
 
@@ -60,8 +55,7 @@ namespace
     {
         k2d::AStarGrid2D grid;
         grid.SetSize(5, 5);
-        // Fully enclose (2,2) with solid cells on all 4 cardinal sides,
-        // diagonal movement off so corners can't sneak in either.
+
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
         grid.SetSolid(1, 2, true);
         grid.SetSolid(3, 2, true);
@@ -83,24 +77,20 @@ namespace
         k2d::AStarGrid2D grid;
         grid.SetSize(3, 3);
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::OnlyIfNoObstacles);
-        // Block the cell directly above the diagonal target's row so the
-        // (0,0)->(1,1) cut has one solid flanking cell (1,0).
+
         grid.SetSolid(1, 0, true);
         ct::Vector<glm::ivec2> path;
         bool ok = grid.GetIdPath({0, 0}, {1, 1}, path);
-        // With one flanking cell solid, OnlyIfNoObstacles must refuse the
-        // direct diagonal cut -- path has to detour via (0,1), so > 2 points.
+
         return ok && path.size() > 2;
     }
-
-    // --- TileMapComponent -> AStarGrid2D ----------------------------------
 
     bool TestTileMapBlankCellsAreWalkable()
     {
         k2d::TileMapComponent map;
         map.setCellSize(16.0f, 16.0f);
         map.setMapSize(5, 5);
-        // No tiles painted at all -- an all-blank map must be fully open.
+
         k2d::AStarGrid2D grid;
         map.buildPathfindingGrid(grid);
         ct::Vector<glm::ivec2> path;
@@ -114,18 +104,16 @@ namespace
         map.setCellSize(16.0f, 16.0f);
         map.setMapSize(5, 5);
         map.setAtlasTilesX(4);
-        // Atlas tile id 2 is our "wall" tile. Paint a wall column at x=2,
-        // rows 0..3, leaving only row 4 open (mirrors TestGridWallDetour).
+
         for (int y = 0; y <= 3; ++y)
             map.setTile(2, y, 2);
-        // A different, non-wall tile elsewhere must stay walkable.
+
         map.setTile(0, 0, 5);
 
         k2d::AStarGrid2D grid;
         const int solidIds[] = {2};
         map.buildPathfindingGrid(grid, solidIds, 1);
-        // buildPathfindingGrid only sets size/cell size/solids -- diagonal
-        // mode is the caller's call, same as any other AStarGrid2D.
+
         grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
 
         if (grid.IsSolid(0, 0) || !grid.IsSolid(2, 0) || !grid.IsSolid(2, 3) || grid.IsSolid(2, 4))
@@ -138,7 +126,7 @@ namespace
         for (size_t i = 0; i < path.size(); ++i)
             if (grid.IsSolid(path[i].x, path[i].y))
                 return false;
-        return path.size() > 5; // must detour, same as the wall-column test above
+        return path.size() > 5; 
     }
 
     bool TestTileMapGridPositionsMatchCellSize()
@@ -148,12 +136,10 @@ namespace
         map.setMapSize(3, 3);
         k2d::AStarGrid2D grid;
         map.buildPathfindingGrid(grid);
-        // Cell (1,1) center in the tilemap's local space: ((1+0.5)*20, (1+0.5)*10).
+
         glm::vec2 p = grid.GetPointPosition(1, 1);
         return Near(p.x, 30.0f) && Near(p.y, 15.0f);
     }
-
-    // --- AStar2D ---------------------------------------------------------
 
     bool TestPointGraphDirectDiagonal()
     {
@@ -166,7 +152,7 @@ namespace
         astar.ConnectPoints(1, 2);
         astar.ConnectPoints(2, 3);
         astar.ConnectPoints(3, 0);
-        astar.ConnectPoints(0, 2); // shortcut across the square
+        astar.ConnectPoints(0, 2); 
 
         ct::Vector<int> path;
         bool ok = astar.GetIdPath(0, 2, path);
@@ -184,7 +170,6 @@ namespace
         astar.ConnectPoints(1, 2);
         astar.ConnectPoints(2, 3);
         astar.ConnectPoints(3, 0);
-        // No 0-2 shortcut this time.
 
         ct::Vector<int> path;
         bool ok = astar.GetIdPath(0, 2, path);
@@ -206,7 +191,7 @@ namespace
 
         ct::Vector<int> path;
         bool ok = astar.GetIdPath(0, 2, path);
-        // Only route left is via 3.
+
         return ok && path.size() == 3 && path[1] == 3;
     }
 
@@ -225,7 +210,7 @@ namespace
         k2d::AStar2D astar;
         astar.AddPoint(0, {0.0f, 0.0f});
         astar.AddPoint(1, {10.0f, 0.0f});
-        astar.AddPoint(2, {20.0f, 0.0f}); // isolated -- no connections at all
+        astar.AddPoint(2, {20.0f, 0.0f}); 
         astar.ConnectPoints(0, 1);
 
         ct::Vector<int> path;

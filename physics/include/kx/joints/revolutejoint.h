@@ -49,4 +49,4 @@ namespace kx
         friend class GearJoint;
     };
 
-} // namespace kx
+} 

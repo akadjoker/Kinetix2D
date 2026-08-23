@@ -35,8 +35,6 @@ int TestbedRegisterDemo(const char *category, const char *name, DemoCreateFcn cr
 const DemoEntry *TestbedDemos();
 int TestbedDemoCount();
 
-// Testbed world is Y-up (positive y = up), matching the Chipmunk/Box2D testbed
-// convention so reference demos port without coordinate flips.
 inline glm::mat4 CameraProjection(const Camera &cam, float screenW, float screenH)
 {
     float hw = screenW * 0.5f / cam.zoom;

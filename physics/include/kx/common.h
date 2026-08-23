@@ -74,4 +74,4 @@ namespace kx
         return glm::vec2(xf.a * px + xf.b * py, xf.c * px + xf.d * py);
     }
 
-} // namespace kx
+} 

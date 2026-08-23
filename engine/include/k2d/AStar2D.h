@@ -8,7 +8,6 @@
 namespace k2d
 {
 
-
     class AStar2D
     {
     public:
@@ -29,8 +28,6 @@ namespace k2d
         void Clear();
         int GetPointCount() const;
 
-        // Nearest point by straight-line distance; -1 if there are no
-        // (eligible) points at all.
         int GetClosestPoint(const glm::vec2 &point, bool includeDisabled = false) const;
 
         bool GetIdPath(int fromId, int toId, ct::Vector<int> &outPath, bool allowPartialPath = false);

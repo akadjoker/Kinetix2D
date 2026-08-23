@@ -26,4 +26,4 @@ namespace kx
                                const Edge &edgeA, const Transform &xfA,
                                const Polygon &polygonB, const Transform &xfB);
 
-} // namespace kx
+} 

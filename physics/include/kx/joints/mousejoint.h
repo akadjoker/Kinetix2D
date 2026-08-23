@@ -37,4 +37,4 @@ namespace kx
         float mMass00, mMass01, mMass10, mMass11;
     };
 
-} // namespace kx
+} 

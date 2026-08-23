@@ -1,7 +1,4 @@
-// Testes para as correcoes/funcionalidades da review exaustiva da fisica (2026-08-22):
-// destruicao de corpos com joints anexados, RecomputeMass em corpos adormecidos,
-// corpos adormecidos acordarem ao serem tocados, raycast, chain shapes (terreno
-// one-sided) e Slice (corte de shapes).
+
 #include <kx/kx.h>
 
 #include <cstdio>
@@ -29,7 +26,6 @@ static void StepN(kx::World &world, int steps)
         world.Step(1.0f / 60.0f);
 }
 
-// Bug #1: destruir um corpo com um joint anexado nao pode deixar ponteiros pendentes.
 static void TestDestroyBodyWithJoint()
 {
     kx::World world(glm::vec2(0.0f, 500.0f));
@@ -42,13 +38,10 @@ static void TestDestroyBodyWithJoint()
     world.Destroy(a);
     CHECK(world.Joints().size() == 0, "destruir corpo remove o joint anexado");
 
-    // Se sobrasse um ponteiro pendente, isto e o que despoletava o use-after-free.
     StepN(world, 10);
     CHECK(true, "Step() apos destruir corpo com joint nao crasha");
 }
 
-// GearJoint depende de dois Body* (mBodyC/mBodyD) que nao sao o seu proprio
-// BodyA()/BodyB() — tem de cascatear via DependsOnBody.
 static void TestDestroyBodyWithGearJointDependency()
 {
     kx::World world(glm::vec2(0.0f));
@@ -65,11 +58,6 @@ static void TestDestroyBodyWithGearJointDependency()
 
     CHECK(world.Joints().size() == 3, "3 joints criados (2 revolute + 1 gear)");
 
-    // axleC e mBodyC do GearJoint, nao o seu BodyA()/BodyB() (que sao wheelA/wheelB) —
-    // sem DependsOnBody, o GearJoint sobrevivia com mJoint1 (rjA) tambem destruido.
-    // axleC e tambem o BodyA() direto de rjA, por isso rjA e removido de qualquer forma;
-    // o que este teste garante e que o GearJoint (que NAO tem axleC como seu proprio
-    // BodyA()/BodyB()) cascateia com ele, e que rjB (nao relacionado) sobrevive.
     world.Destroy(axleC);
     CHECK(world.Joints().size() == 1, "destruir axleC cascateia: rjA e o GearJoint desaparecem, rjB sobrevive");
     CHECK(world.Joints().size() == 1 && world.Joints()[0] == rjB, "o joint sobrevivente e mesmo rjB");
@@ -78,7 +66,6 @@ static void TestDestroyBodyWithGearJointDependency()
     CHECK(true, "Step() apos cascata de joints nao crasha");
 }
 
-// Bug #2: adicionar uma shape a um corpo adormecido nao pode zerar a massa.
 static void TestRecomputeMassWhileAsleep()
 {
     kx::World world(glm::vec2(0.0f));
@@ -93,8 +80,6 @@ static void TestRecomputeMassWhileAsleep()
     CHECK(body->Mass() > massBefore * 1.5f, "massa recalculada corretamente mesmo adormecido (nao ficou 0/infinita)");
 }
 
-// Bug descoberto durante a implementacao: um corpo adormecido nunca acordava ao ser
-// atingido por outro corpo (nada chamava SetAwake(true) por colisao).
 static void TestSleepingBodyWakesOnImpact()
 {
     kx::World world(glm::vec2(0.0f, 500.0f));
@@ -115,8 +100,6 @@ static void TestSleepingBodyWakesOnImpact()
           "corpo acordado reage ao impacto (nao fica congelado na posicao)");
 }
 
-// Ids reciclados (ver World::CreateBody / Destroy) nao podem corromper o par
-// corpo-a-corpo ao longo de sucessivas criacoes/destruicoes.
 static void TestBodyIdRecyclingStaysConsistent()
 {
     kx::World world(glm::vec2(0.0f, 500.0f));
@@ -131,8 +114,7 @@ static void TestBodyIdRecyclingStaysConsistent()
 
     kx::Body *final = world.CreateBox(glm::vec2(0.0f, 0.0f), 5.0f, 5.0f, 1.0f);
     StepN(world, 180);
-    // Chao em y=100 (halfHeight 10 -> topo em y=90), caixa com halfHeight 5 -> repousa
-    // perto de y=85.
+
     CHECK(final->Position().y > 78.0f && final->Position().y < 90.0f,
           "corpo assenta normalmente apos muita reciclagem de ids");
 }
@@ -153,8 +135,6 @@ static void TestRayCast()
     CHECK(!missFound, "raycast que nao atinge nada devolve false");
 }
 
-// AddChain: um corpo a deslizar sobre a junta de dois segmentos nao pode ficar preso
-// ("degrau" interno), e a colisao so pode acontecer vindo do lado da normal (one-sided).
 static void TestChainShape()
 {
     kx::World world(glm::vec2(0.0f, 500.0f));
@@ -162,7 +142,7 @@ static void TestChainShape()
     world.CreateChain(points, 3, false);
 
     kx::Body *ball = world.CreateCircle(glm::vec2(-5.0f, -50.0f), 10.0f, 1.0f);
-    ball->SetVelocity(glm::vec2(150.0f, 0.0f)); // atravessa a junta em x=0 enquanto cai
+    ball->SetVelocity(glm::vec2(150.0f, 0.0f)); 
 
     float minY = 1e30f;
     for (int i = 0; i < 90; ++i)
@@ -174,7 +154,6 @@ static void TestChainShape()
     CHECK(ball->Position().y > -20.0f && ball->Position().y < 20.0f,
           "bola assenta na chain ao atravessar a junta entre segmentos, sem ficar presa");
 
-    // Do lado errado (por baixo, encostando por dentro), o chain e atravessavel.
     kx::Body *fromBelow = world.CreateCircle(glm::vec2(-5.0f, 30.0f), 10.0f, 1.0f);
     for (int i = 0; i < 30; ++i)
         world.Step(1.0f / 60.0f);
@@ -188,7 +167,6 @@ static void TestSliceSplitsBodyInTwo()
     float totalMassBefore = box->Mass();
     size_t bodiesBefore = world.BodyCount();
 
-    // normal=(1,0): "positive" = Dot(v-point,normal)>=0 = lado de x maior (direita).
     kx::Body *positive = nullptr;
     kx::Body *negative = nullptr;
     bool sliced = kx::Slice(world, box, glm::vec2(0.0f, 0.0f), glm::vec2(1.0f, 0.0f), &positive, &negative, 20.0f);
@@ -201,8 +179,6 @@ static void TestSliceSplitsBodyInTwo()
     CHECK(positive->Velocity().x > 0.0f && negative->Velocity().x < 0.0f,
           "separationSpeed afasta as duas metades uma da outra (positive para +x, negative para -x)");
 
-    // Uma reta cujo ponto fica fora da caixa (x=1000, normal=(1,0) -> reta vertical em
-    // x=1000) deixa a caixa inteira (x em [-50,50]) do lado negativo: nao ha corte.
     kx::World world2(glm::vec2(0.0f));
     kx::Body *box2 = world2.CreateBox(glm::vec2(0.0f, 0.0f), 50.0f, 50.0f, 1.0f);
     size_t bodiesBefore2 = world2.BodyCount();
@@ -239,13 +215,9 @@ static void TestForceDampingGravityScale()
     CHECK(thruster->Position().y < -50.0f, "ApplyForceToCenter continua a acelerar o corpo ao longo do tempo");
 }
 
-// CCD leve (Body::SetBullet): um projetil rapido nao pode atravessar uma parede fina
-// nem no primeiro step, nem em nenhum dos seguintes (a bala fica parada a empurrar a
-// parede, nao so "sobrevive um step e depois atravessa" — foi exatamente este o bug
-// que a primeira versao do SolveBulletSweeps tinha).
 static void TestBulletCCD()
 {
-    // Sem CCD: atravessa uma parede fina a alta velocidade.
+
     {
         kx::World world(glm::vec2(0.0f));
         world.CreateStaticBox(glm::vec2(0.0f, 0.0f), 2.0f, 200.0f);
@@ -253,11 +225,10 @@ static void TestBulletCCD()
         slug->SetGravityScale(0.0f);
         slug->SetVelocity(glm::vec2(3000.0f, 0.0f));
 
-        StepN(world, 10); // -300 a 3000u/s, 50u/step -> precisa de ~6 steps so para chegar a x=0
+        StepN(world, 10); 
         CHECK(slug->Position().x > 50.0f, "sem SetBullet, o projetil atravessa a parede fina (baseline do problema)");
     }
 
-    // Com CCD: fica preso do lado de fora, mesmo ao longo de varios steps.
     {
         kx::World world(glm::vec2(0.0f));
         world.CreateStaticBox(glm::vec2(0.0f, 0.0f), 2.0f, 200.0f);
@@ -278,9 +249,6 @@ static void TestBulletCCD()
               "e fica parado mesmo encostado a face de fora da parede");
     }
 
-    // Contra outro corpo dynamic, o CCD leve nao intervem (fica por conta do solver
-    // discreto normal) — aqui so confirmamos que nao crasha nem se comporta de forma
-    // absurda.
     {
         kx::World world(glm::vec2(0.0f));
         kx::Body *target = world.CreateCircle(glm::vec2(0.0f, 0.0f), 5.0f, 1.0f);

@@ -226,9 +226,6 @@ namespace k2d
             }
         }
 
-        // The window manager can apply the real initial size after Init(),
-        // without sending a resize event to the application. Keep the logical
-        // window size and the physical GL drawable size synchronized anyway.
         int windowWidth = 0;
         int windowHeight = 0;
         SDL_GetWindowSize(mWindow, &windowWidth, &windowHeight);

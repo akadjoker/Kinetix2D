@@ -121,7 +121,7 @@ namespace k2d
     {
         if (!texture)
             return nullptr;
-        // ct::HashMap::begin/end aren't const-qualified; this is read-only.
+
         auto &textures = const_cast<ct::HashMap<ct::String, Texture *> &>(mTextures);
         for (auto &entry : textures)
         {

@@ -81,7 +81,6 @@ namespace kx
             draw.DrawAABB(aabb.lowerBound, aabb.upperBound, Color{200, 200, 60, 160});
         }
 
-
         void DrawContact(const ContactInfo &c, DebugDraw &draw)
         {
             float radiusA = ShapeRadius(c.a->Shapes()[c.shapeIndexA]);
@@ -102,7 +101,7 @@ namespace kx
             }
         }
 
-    } // namespace
+    } 
 
     void Draw(World &world, DebugDraw &draw, unsigned flags)
     {
@@ -141,4 +140,4 @@ namespace kx
         }
     }
 
-} // namespace kx
+} 

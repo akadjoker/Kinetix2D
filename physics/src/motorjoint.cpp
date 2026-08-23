@@ -165,4 +165,4 @@ namespace kx
         b->SetAngularVelocity(wB);
     }
 
-} // namespace kx
+} 

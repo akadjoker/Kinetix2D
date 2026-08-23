@@ -1,70 +1,3 @@
-/*
-HOW TO USE:
-
-    In exactly one translation unit (.c or .cpp file), #define MSF_GIF_IMPL before including the header, like so:
-
-    #define MSF_GIF_IMPL
-    #include "msf_gif.h"
-
-    Everywhere else, just include the header like normal.
-
-
-USAGE EXAMPLE:
-
-    int width = 480, height = 320, centisecondsPerFrame = 5, quality = 16;
-    MsfGifState gifState = {};
-    // msf_gif_bgra_flag = true; //optionally, set this flag if your pixels are in BGRA format instead of RGBA
-    // msf_gif_alpha_threshold = 128; //optionally, enable transparency (see function documentation below for details)
-    msf_gif_begin(&gifState, width, height);
-    msf_gif_frame(&gifState, ..., centisecondsPerFrame, quality, width * 4); //frame 1
-    msf_gif_frame(&gifState, ..., centisecondsPerFrame, quality, width * 4); //frame 2
-    msf_gif_frame(&gifState, ..., centisecondsPerFrame, quality, width * 4); //frame 3, etc...
-    MsfGifResult result = msf_gif_end(&gifState);
-    if (result.data) {
-        FILE * fp = fopen("MyGif.gif", "wb");
-        fwrite(result.data, result.dataSize, 1, fp);
-        fclose(fp);
-    }
-    msf_gif_free(result);
-
-Detailed function documentation can be found in the header section below.
-
-
-ERROR HANDLING:
-
-    If memory allocation fails, the functions will signal the error via their return values.
-    If one function call fails, the library will free all of its allocations,
-    and all subsequent calls will safely no-op and return 0 until the next call to `msf_gif_begin()`.
-    Therefore, it's safe to check only the return value of `msf_gif_end()`.
-
-
-REPLACING MALLOC:
-
-    This library uses malloc+realloc+free internally for memory allocation.
-    To facilitate integration with custom memory allocators, these calls go through macros, which can be redefined.
-    The expected function signature equivalents of the macros are as follows:
-
-    void * MSF_GIF_MALLOC(void * context, size_t newSize)
-    void * MSF_GIF_REALLOC(void * context, void * oldMemory, size_t oldSize, size_t newSize)
-    void MSF_GIF_FREE(void * context, void * oldMemory, size_t oldSize)
-
-    If your allocator needs a context pointer, you can set the `customAllocatorContext` field of the MsfGifState struct
-    before calling msf_gif_begin(), and it will be passed to all subsequent allocator macro calls.
-
-    The maximum number of bytes the library will allocate to encode a single gif is bounded by the following formula:
-    `(2 * 1024 * 1024) + (128 * 1024) + (width * height * 8) + ((2048 + width * height * 1.5) * 2 * frameCount)`
-    The peak heap memory usage in bytes, if using a general-purpose heap allocator, is bounded by the following formula:
-    `(2 * 1024 * 1024) + (128 * 1024) + (width * height * 11) + 2048 + (16 * frameCount) + (2 * sizeOfResultingGif)
-
-
-See end of file for license information.
-*/
-
-//version 2.4
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// HEADER                                                                                                           ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef MSF_GIF_H
 #define MSF_GIF_H
@@ -76,23 +9,23 @@ typedef struct {
     void * data;
     size_t dataSize;
 
-    size_t allocSize; //internal use
-    void * contextPointer; //internal use
+    size_t allocSize; 
+    void * contextPointer; 
 } MsfGifResult;
 
-typedef struct { //internal use
+typedef struct { 
     uint32_t * pixels;
     int depth, count, rbits, gbits, bbits;
 } MsfCookedFrame;
 
-typedef struct MsfGifBuffer { //internal use
+typedef struct MsfGifBuffer { 
     struct MsfGifBuffer * next;
     size_t size;
     uint8_t data[1];
 } MsfGifBuffer;
 
 typedef size_t (* MsfGifFileWriteFunc) (const void * buffer, size_t size, size_t count, void * stream);
-typedef struct { //internal use
+typedef struct { 
     MsfGifFileWriteFunc fileWriteFunc;
     void * fileWriteData;
     MsfCookedFrame previousFrame;
@@ -104,109 +37,52 @@ typedef struct { //internal use
     MsfGifBuffer * listTail;
     int width, height;
     void * customAllocatorContext;
-    int framesSubmitted; //needed for transparency to work correctly (because we reach into the previous frame)
+    int framesSubmitted; 
 } MsfGifState;
 
 #ifdef __cplusplus
 extern "C" {
-#endif //__cplusplus
+#endif 
 
-/**
- * @param width                Image width in pixels.
- * @param height               Image height in pixels.
- * @return                     Non-zero on success, 0 on error.
- */
 int msf_gif_begin(MsfGifState * handle, int width, int height);
 
-/**
- * @param pixelData            Pointer to raw framebuffer data. Rows must be contiguous in memory, in RGBA8 format
- *                             (or BGRA8 if you have set `msf_gif_bgra_flag = true`).
- *                             Note: This function does NOT free `pixelData`. You must free it yourself afterwards.
- * @param centiSecondsPerFrame How many hundredths of a second this frame should be displayed for.
- *                             Note: This being specified in centiseconds is a limitation of the GIF format.
- * @param quality              This parameter limits the maximum color accuracy for quantization.
- *                             Actual color accuracy varies dynamically based on how many colors are used in the frame.
- *                             `quality` is clamped between 1 and 16. The recommended default is 16.
- *                             Lowering this value can result in smaller gifs and slightly faster exports,
- *                             but the resulting gifs may look noticeably worse with a more extreme dither pattern.
- * @param pitchInBytes         The number of bytes from the beginning of one row of pixels to the beginning of the next.
- *                             If zero, the rows will be assumed to be contiguous (equivalent to `width * 4`).
- *                             If negative, the rows will be reversed, thus flipping the image vertically.
- *                             Regardless, `pixelData` should always point to the *first* row in memory, not the last.
- * @return                     Non-zero on success, 0 on error.
- */
 int msf_gif_frame(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPerFrame, int quality, int pitchInBytes);
 
-/**
- * @return                     A block of memory containing the gif file data, or NULL on error.
- *                             You are responsible for freeing this via `msf_gif_free()`.
- */
 MsfGifResult msf_gif_end(MsfGifState * handle);
 
-/**
- * @param result                The MsfGifResult struct, verbatim as it was returned from `msf_gif_end()`.
- */
 void msf_gif_free(MsfGifResult result);
 
-//The gif format only supports 1-bit transparency, meaning a pixel will either be fully transparent or fully opaque.
-//Pixels with an alpha value less than the alpha threshold will be treated as transparent.
-//To enable exporting transparent gifs, set it to a value between 1 and 255 (inclusive) before calling msf_gif_frame().
-//Setting it to 0 causes the alpha channel to be ignored. Its initial value is 0.
 extern int msf_gif_alpha_threshold;
 
-//Set `msf_gif_bgra_flag = true` before calling `msf_gif_frame()` if your pixels are in BGRA byte order instead of RBGA.
 extern int msf_gif_bgra_flag;
 
-
-
-//TO-FILE FUNCTIONS
-//These functions are equivalent to the ones above, but they write results to a file incrementally,
-//instead of building a buffer in memory. This can result in lower memory usage when saving large gifs,
-//because memory usage is bounded by only the size of a single frame, and is not dependent on the number of frames.
-//There is currently no reason to use these unless you are on a memory-constrained platform.
-//If in doubt about which API to use, for now you should use the normal (non-file) functions above.
-//The signature of MsfGifFileWriteFunc matches fwrite for convenience, so that you can use the C file API like so:
-//  FILE * fp = fopen("MyGif.gif", "wb");
-//  msf_gif_begin_to_file(&handle, width, height, (MsfGifFileWriteFunc) fwrite, (void *) fp);
-//  msf_gif_frame_to_file(...)
-//  msf_gif_end_to_file(&handle);
-//  fclose(fp);
-//If you use a custom file write function, you must take care to return the same values that fwrite() would return.
-//Note that all three functions will potentially write to the file.
 int msf_gif_begin_to_file(MsfGifState * handle, int width, int height, MsfGifFileWriteFunc func, void * filePointer);
 int msf_gif_frame_to_file(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPerFrame, int quality, int pitchInBytes);
-int msf_gif_end_to_file(MsfGifState * handle); //returns 0 on error and non-zero on success
+int msf_gif_end_to_file(MsfGifState * handle); 
 
 #ifdef __cplusplus
 }
-#endif //__cplusplus
+#endif 
 
-#endif //MSF_GIF_H
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// IMPLEMENTATION                                                                                                   ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#endif 
 
 #ifdef MSF_GIF_IMPL
 #ifndef MSF_GIF_ALREADY_IMPLEMENTED_IN_THIS_TRANSLATION_UNIT
 #define MSF_GIF_ALREADY_IMPLEMENTED_IN_THIS_TRANSLATION_UNIT
 
-//ensure the library user has either defined all of malloc/realloc/free, or none
-#if defined(MSF_GIF_MALLOC) && defined(MSF_GIF_REALLOC) && defined(MSF_GIF_FREE) //ok
-#elif !defined(MSF_GIF_MALLOC) && !defined(MSF_GIF_REALLOC) && !defined(MSF_GIF_FREE) //ok
+#if defined(MSF_GIF_MALLOC) && defined(MSF_GIF_REALLOC) && defined(MSF_GIF_FREE) 
+#elif !defined(MSF_GIF_MALLOC) && !defined(MSF_GIF_REALLOC) && !defined(MSF_GIF_FREE) 
 #else
 #error "You must either define all of MSF_GIF_MALLOC, MSF_GIF_REALLOC, and MSF_GIF_FREE, or define none of them"
 #endif
 
-//provide default allocator definitions that redirect to the standard global allocator
 #if !defined(MSF_GIF_MALLOC)
-#include <stdlib.h> //malloc, etc.
+#include <stdlib.h> 
 #define MSF_GIF_MALLOC(contextPointer, newSize) malloc(newSize)
 #define MSF_GIF_REALLOC(contextPointer, oldMemory, oldSize, newSize) realloc(oldMemory, newSize)
 #define MSF_GIF_FREE(contextPointer, oldMemory, oldSize) free(oldMemory)
 #endif
 
-//instrumentation for capturing profiling traces (useless for the library user, but useful for the library author)
 #ifdef MSF_GIF_ENABLE_TRACING
 #define MsfTimeFunc TimeFunc
 #define MsfTimeLoop TimeLoop
@@ -215,18 +91,17 @@ int msf_gif_end_to_file(MsfGifState * handle); //returns 0 on error and non-zero
 #define MsfTimeFunc
 #define MsfTimeLoop(name)
 #define msf_init_profiling_thread()
-#endif //MSF_GIF_ENABLE_TRACING
+#endif 
 
-#include <string.h> //memcpy
+#include <string.h> 
 
-//TODO: use compiler-specific notation to force-inline functions currently marked inline
-#if defined(__GNUC__) //gcc, clang
+#if defined(__GNUC__) 
 static inline int msf_bit_log(int i) { return 32 - __builtin_clz(i); }
-#elif defined(_MSC_VER) //msvc
+#elif defined(_MSC_VER) 
 #include <intrin.h>
 static inline int msf_bit_log(int i) { unsigned long idx; _BitScanReverse(&idx, i); return idx + 1; }
-#else //fallback implementation for other compilers
-//from https://stackoverflow.com/a/31718095/3064745 - thanks!
+#else 
+
 static inline int msf_bit_log(int i) {
     static const int MultiplyDeBruijnBitPosition[32] = {
         0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
@@ -243,10 +118,6 @@ static inline int msf_bit_log(int i) {
 static inline int msf_imin(int a, int b) { return a < b? a : b; }
 static inline int msf_imax(int a, int b) { return b < a? a : b; }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Frame Cooking                                                                                                    ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 #if (defined (__SSE2__) || defined (_M_X64) || _M_IX86_FP == 2) && !defined(MSF_GIF_NO_SSE2)
 #include <emmintrin.h>
 #endif
@@ -257,12 +128,11 @@ int msf_gif_bgra_flag = 0;
 static void msf_cook_frame(MsfCookedFrame * frame, uint8_t * raw, uint8_t * used,
                            int width, int height, int pitch, int depth)
 { MsfTimeFunc
-    //bit depth for each channel
+
     const static int rdepthsArray[17] = { 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5 };
     const static int gdepthsArray[17] = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6 };
     const static int bdepthsArray[17] = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5 };
-    //this extra level of indirection looks unnecessary but we need to explicitly decay the arrays to pointers
-    //in order to be able to swap them because of C's annoying not-quite-pointers, not-quite-value-types stack arrays.
+
     const int * rdepths = msf_gif_bgra_flag? bdepthsArray : rdepthsArray;
     const int * gdepths =                                   gdepthsArray;
     const int * bdepths = msf_gif_bgra_flag? rdepthsArray : bdepthsArray;
@@ -281,7 +151,6 @@ static void msf_cook_frame(MsfCookedFrame * frame, uint8_t * raw, uint8_t * used
         int paletteSize = (1 << (rbits + gbits + bbits)) + 1;
         memset(used, 0, paletteSize * sizeof(uint8_t));
 
-        //TODO: document what this math does and why it's correct
         int rdiff = (1 << (8 - rbits)) - 1;
         int gdiff = (1 << (8 - gbits)) - 1;
         int bdiff = (1 << (8 - bbits)) - 1;
@@ -315,23 +184,17 @@ static void msf_cook_frame(MsfCookedFrame * frame, uint8_t * raw, uint8_t * used
 
                     __m128i out = _mm_or_si128(_mm_or_si128(r3, g3), b3);
 
-                    //mask in transparency based on threshold
-                    //NOTE: we can theoretically do a sub instead of srli by doing an unsigned compare via bias
-                    //      to maybe save a TINY amount of throughput? but lol who cares maybe I'll do it later -m
                     __m128i invAlphaMask = _mm_cmplt_epi32(_mm_srli_epi32(p, 24), _mm_set1_epi32(msf_gif_alpha_threshold));
                     out = _mm_or_si128(_mm_and_si128(invAlphaMask, _mm_set1_epi32(paletteSize - 1)), _mm_andnot_si128(invAlphaMask, out));
 
-                    //TODO: does storing this as a __m128i then reading it back as a uint32_t violate strict aliasing?
                     uint32_t * c = &cooked[y * width + x];
                     _mm_storeu_si128((__m128i *) c, out);
                 }
             #endif
 
-            //scalar cleanup loop
             for (; x < width; ++x) {
                 uint8_t * p = &raw[y * pitch + x * 4];
 
-                //transparent pixel if alpha is low
                 if (p[3] < msf_gif_alpha_threshold) {
                     cooked[y * width + x] = paletteSize - 1;
                     continue;
@@ -351,7 +214,6 @@ static void msf_cook_frame(MsfCookedFrame * frame, uint8_t * raw, uint8_t * used
             used[cooked[i]] = 1;
         }
 
-        //count used colors, transparent is ignored
         MsfTimeLoop("count") for (int j = 0; j < paletteSize - 1; ++j) {
             count += used[j];
         }
@@ -361,12 +223,8 @@ static void msf_cook_frame(MsfCookedFrame * frame, uint8_t * raw, uint8_t * used
     *frame = ret;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Frame Compression                                                                                                ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 static inline void msf_put_code(uint8_t * * writeHead, uint32_t * blockBits, int len, uint32_t code) {
-    //insert new code into block buffer
+
     int idx = *blockBits / 8;
     int bit = *blockBits % 8;
     (*writeHead)[idx + 0] |= code <<       bit ;
@@ -374,7 +232,6 @@ static inline void msf_put_code(uint8_t * * writeHead, uint32_t * blockBits, int
     (*writeHead)[idx + 2] |= code >> (16 - bit);
     *blockBits += len;
 
-    //prep the next block buffer if the current one is full
     if (*blockBits >= 256 * 8) {
         *blockBits -= 255 * 8;
         (*writeHead) += 256;
@@ -397,40 +254,34 @@ static inline void msf_lzw_reset(MsfStridedList * lzw, int tableSize, int stride
     lzw->stride = stride;
 }
 
-//PERF TODO: is it possible to use the same array for both `used` and `tlb`?
 static MsfGifBuffer * msf_compress_frame(void * allocContext, int width, int height, int centiSeconds,
                                          MsfCookedFrame frame, MsfGifState * handle, uint8_t * used, uint8_t * tlb, int16_t * lzwMem)
 { MsfTimeFunc
-    //NOTE: We reserve enough memory for the theoretical worst case upfront because it's a reasonable amount,
-    //      and prevents us from ever having to check size or realloc during compression.
-    //NOTE: headers + color table + 12 bits per pixel (since 12 bits is the maximum code size)
-    //      + space for at least one full Image Data block (needed for small images since we zero a whole block at a time)
+
     int maxBufSize = offsetof(MsfGifBuffer, data) + 32 + 256 * 3 + width * height * 3 / 2 + (256 + 4);
     MsfGifBuffer * buffer = (MsfGifBuffer *) MSF_GIF_MALLOC(allocContext, maxBufSize);
     if (!buffer) { return NULL; }
     uint8_t * writeHead = buffer->data;
     MsfStridedList lzw = { lzwMem };
 
-    //allocate tlb
     int totalBits = frame.rbits + frame.gbits + frame.bbits;
     int tlbSize = (1 << totalBits) + 1;
 
-    //generate palette
     typedef struct { uint8_t r, g, b; } Color3;
     Color3 table[256] = { {0} };
-    int tableIdx = 1; //we start counting at 1 because 0 is the transparent color
-    //transparent is always last in the table
+    int tableIdx = 1; 
+
     tlb[tlbSize-1] = 0;
     MsfTimeLoop("table") for (int i = 0; i < tlbSize-1; ++i) {
         if (used[i]) {
             tlb[i] = tableIdx;
             int rmask = (1 << frame.rbits) - 1;
             int gmask = (1 << frame.gbits) - 1;
-            //isolate components
+
             int r = i & rmask;
             int g = i >> frame.rbits & gmask;
             int b = i >> (frame.rbits + frame.gbits);
-            //shift into highest bits
+
             r <<= 8 - frame.rbits;
             g <<= 8 - frame.gbits;
             b <<= 8 - frame.bbits;
@@ -447,22 +298,17 @@ static MsfGifBuffer * msf_compress_frame(void * allocContext, int width, int hei
     }
     int hasTransparentPixels = used[tlbSize-1];
 
-    //SPEC: "Because of some algorithmic constraints however, black & white images which have one color bit
-    //       must be indicated as having a code size of 2."
     int tableBits = msf_imax(2, msf_bit_log(tableIdx - 1));
     int tableSize = 1 << tableBits;
-    //NOTE: we don't just compare `depth` field here because it will be wrong for the first frame and we will segfault
+
     MsfCookedFrame previous = handle->previousFrame;
     int hasSamePal = frame.rbits == previous.rbits && frame.gbits == previous.gbits && frame.bbits == previous.bbits;
     int framesCompatible = hasSamePal && !hasTransparentPixels;
 
-    //write the Graphics `Control Extension` and `Image Descriptor` blocks
-    //NOTE: because __attribute__((__packed__)) is annoyingly compiler-specific, we do this unreadable weirdness
     char headerBytes[19] = "\x21\xF9\x04\x05\0\0\0\0" "\x2C\0\0\0\0\0\0\0\0\x80";
-    //NOTE: we need to check the frame number because if we reach into the buffer prior to the first frame,
-    //      we'll just clobber the file header instead, which is a bug
+
     if (hasTransparentPixels && handle->framesSubmitted > 0) {
-        handle->listTail->data[3] = 0x09; //set the previous frame's disposal to background, so transparency is possible
+        handle->listTail->data[3] = 0x09; 
     }
     memcpy(&headerBytes[4], &centiSeconds, 2);
     memcpy(&headerBytes[13], &width, 2);
@@ -471,32 +317,29 @@ static MsfGifBuffer * msf_compress_frame(void * allocContext, int width, int hei
     memcpy(writeHead, headerBytes, 18);
     writeHead += 18;
 
-    //write Local Color Table
     memcpy(writeHead, table, tableSize * sizeof(Color3));
     writeHead += tableSize * sizeof(Color3);
     *writeHead++ = tableBits;
 
-    //prep first Image Data block (analogous to what we do at the end of msf_put_code())
-    memset(writeHead, 0, 256 + 4); //we write up to 4 bytes ahead of the end of the block - see msf_put_code()
+    memset(writeHead, 0, 256 + 4); 
     writeHead[0] = 255;
-    uint32_t blockBits = 8; //relative to block.head
+    uint32_t blockBits = 8; 
 
-    //SPEC: "Encoders should output a Clear code as the first code of each image data stream."
     msf_lzw_reset(&lzw, tableSize, tableIdx);
     msf_put_code(&writeHead, &blockBits, msf_bit_log(lzw.len - 1), tableSize);
 
     int lastCode = framesCompatible && frame.pixels[0] == previous.pixels[0]? 0 : tlb[frame.pixels[0]];
     MsfTimeLoop("compress") for (int i = 1; i < width * height; ++i) {
-        //PERF: branching vs. branchless version of this line is observed to have no discernable impact on speed
+
         int color = framesCompatible && frame.pixels[i] == previous.pixels[i]? 0 : tlb[frame.pixels[i]];
         int code = (&lzw.data[lastCode * lzw.stride])[color];
         if (code < 0) {
-            //write to code stream
+
             int codeBits = msf_bit_log(lzw.len - 1);
             msf_put_code(&writeHead, &blockBits, codeBits, lastCode);
 
             if (lzw.len > 4095) {
-                //reset buffer code table
+
                 msf_put_code(&writeHead, &blockBits, codeBits, tableSize);
                 msf_lzw_reset(&lzw, tableSize, tableIdx);
             } else {
@@ -510,19 +353,16 @@ static MsfGifBuffer * msf_compress_frame(void * allocContext, int width, int hei
         }
     }
 
-    //write code for leftover index buffer contents, then the end code
     msf_put_code(&writeHead, &blockBits, msf_imin(12, msf_bit_log(lzw.len - 1)), lastCode);
     msf_put_code(&writeHead, &blockBits, msf_imin(12, msf_bit_log(lzw.len)), tableSize + 1);
 
-    //flush remaining data
     if (blockBits > 8) {
-        int bytes = (blockBits + 7) / 8; //round up
+        int bytes = (blockBits + 7) / 8; 
         writeHead[0] = bytes - 1;
         writeHead += bytes;
     }
-    *writeHead++ = 0; //terminating block
+    *writeHead++ = 0; 
 
-    //fill in buffer header and shrink buffer to fit data
     buffer->next = NULL;
     buffer->size = writeHead - buffer->data;
     MsfGifBuffer * moved =
@@ -531,16 +371,10 @@ static MsfGifBuffer * msf_compress_frame(void * allocContext, int width, int hei
     return moved;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// To-memory API                                                                                                    ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 static const int lzwAllocSize = 4096 * 256 * sizeof(int16_t);
 static const int tlbAllocSize = ((1 << 16) + 1) * sizeof(uint8_t);
 static const int usedAllocSize = ((1 << 16) + 1) * sizeof(uint8_t);
 
-//NOTE: by C standard library conventions, freeing NULL should be a no-op,
-//      but just in case the user's custom free doesn't follow that rule, we do null checks on our end as well.
 static void msf_free_gif_state(MsfGifState * handle) {
     if (handle->previousFrame.pixels) MSF_GIF_FREE(handle->customAllocatorContext, handle->previousFrame.pixels,
                                                    handle->width * handle->height * sizeof(uint32_t));
@@ -550,34 +384,28 @@ static void msf_free_gif_state(MsfGifState * handle) {
     if (handle->tlbMem) MSF_GIF_FREE(handle->customAllocatorContext, handle->tlbMem, tlbAllocSize);
     if (handle->usedMem) MSF_GIF_FREE(handle->customAllocatorContext, handle->usedMem, usedAllocSize);
     for (MsfGifBuffer * node = handle->listHead; node;) {
-        MsfGifBuffer * next = node->next; //NOTE: we have to copy the `next` pointer BEFORE freeing the node holding it
+        MsfGifBuffer * next = node->next; 
         MSF_GIF_FREE(handle->customAllocatorContext, node, offsetof(MsfGifBuffer, data) + node->size);
         node = next;
     }
-    handle->listHead = NULL; //this implicitly marks the handle as invalid until the next msf_gif_begin() call
+    handle->listHead = NULL; 
 }
 
 int msf_gif_begin(MsfGifState * handle, int width, int height) { MsfTimeFunc
-    //To help avoid potential overflow errors, let's just not even try to support images larger than 1GB in size.
-    //And let's also reject images with width or height more or less than what the gif format itself supports.
-    const int MAX_PIXELS = 268435456; //2^30 / 4 = 1GB / bytesPerPixel
+
+    const int MAX_PIXELS = 268435456; 
     if (width < 1 || height < 1 || width > 65535 || height > 65535 || width >= MAX_PIXELS / height) {
-        handle->listHead = NULL; //this implicitly marks the handle as invalid until the next msf_gif_begin() call
+        handle->listHead = NULL; 
         return 0;
     }
 
-    //NOTE: we cannot stomp the entire struct to zero because we must preserve `customAllocatorContext`.
-    MsfCookedFrame empty = {0}; //god I hate MSVC...
+    MsfCookedFrame empty = {0}; 
     handle->previousFrame = empty;
     handle->currentFrame = empty;
     handle->width = width;
     handle->height = height;
     handle->framesSubmitted = 0;
 
-    //NOTE: Default stack sizes for some platforms are very small. Emscripten in particular uses a 64k stack by default.
-    //      So anything that large or larger must be allocated on the heap, even if its maximum size is compile-time known.
-    //      The `lzw`, `tlb`, and `used` arrays are 2MB, 64KB, and 64KB respectively, so we allocate them here.
-    //      We could make them arrays at global scope, but that would create problems if the library is used from multiple threads.
     handle->lzwMem = (int16_t *) MSF_GIF_MALLOC(handle->customAllocatorContext, lzwAllocSize);
     handle->tlbMem = (uint8_t *) MSF_GIF_MALLOC(handle->customAllocatorContext, tlbAllocSize);
     handle->usedMem = (uint8_t *) MSF_GIF_MALLOC(handle->customAllocatorContext, usedAllocSize);
@@ -586,7 +414,6 @@ int msf_gif_begin(MsfGifState * handle, int width, int height) { MsfTimeFunc
     handle->currentFrame.pixels =
         (uint32_t *) MSF_GIF_MALLOC(handle->customAllocatorContext, handle->width * handle->height * sizeof(uint32_t));
 
-    //setup header buffer header (lol)
     handle->listHead = (MsfGifBuffer *) MSF_GIF_MALLOC(handle->customAllocatorContext, offsetof(MsfGifBuffer, data) + 32);
     if (!handle->listHead || !handle->lzwMem || !handle->previousFrame.pixels || !handle->currentFrame.pixels) {
         msf_free_gif_state(handle);
@@ -596,7 +423,6 @@ int msf_gif_begin(MsfGifState * handle, int width, int height) { MsfTimeFunc
     handle->listHead->next = NULL;
     handle->listHead->size = 32;
 
-    //NOTE: because __attribute__((__packed__)) is annoyingly compiler-specific, we do this unreadable weirdness
     char headerBytes[33] = "GIF89a\0\0\0\0\x70\0\0" "\x21\xFF\x0BNETSCAPE2.0\x03\x01\0\0\0";
     memcpy(&headerBytes[6], &width, 2);
     memcpy(&headerBytes[8], &height, 2);
@@ -607,7 +433,6 @@ int msf_gif_begin(MsfGifState * handle, int width, int height) { MsfTimeFunc
 int msf_gif_frame(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPerFrame, int quality, int pitchInBytes)
 { MsfTimeFunc
     if (!handle->listHead) { return 0; }
-    //TODO: sanity-check `pitchInBytes`
 
     quality = msf_imax(1, msf_imin(16, quality));
     if (pitchInBytes == 0) pitchInBytes = handle->width * 4;
@@ -622,7 +447,6 @@ int msf_gif_frame(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPer
     handle->listTail->next = buffer;
     handle->listTail = buffer;
 
-    //swap current and previous frames
     MsfCookedFrame tmp = handle->previousFrame;
     handle->previousFrame = handle->currentFrame;
     handle->currentFrame = tmp;
@@ -634,11 +458,9 @@ int msf_gif_frame(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPer
 MsfGifResult msf_gif_end(MsfGifState * handle) { MsfTimeFunc
     if (!handle->listHead) { MsfGifResult empty = {0}; return empty; }
 
-    //first pass: determine total size
-    size_t total = 1; //1 byte for trailing marker
+    size_t total = 1; 
     for (MsfGifBuffer * node = handle->listHead; node; node = node->next) { total += node->size; }
 
-    //second pass: write data
     uint8_t * buffer = (uint8_t *) MSF_GIF_MALLOC(handle->customAllocatorContext, total);
     if (buffer) {
         uint8_t * writeHead = buffer;
@@ -649,7 +471,6 @@ MsfGifResult msf_gif_end(MsfGifState * handle) { MsfTimeFunc
         *writeHead++ = 0x3B;
     }
 
-    //third pass: free buffers
     msf_free_gif_state(handle);
 
     MsfGifResult ret = { buffer, total, total, handle->customAllocatorContext };
@@ -660,10 +481,6 @@ void msf_gif_free(MsfGifResult result) { MsfTimeFunc
     if (result.data) { MSF_GIF_FREE(result.contextPointer, result.data, result.allocSize); }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// To-file API                                                                                                      ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 int msf_gif_begin_to_file(MsfGifState * handle, int width, int height, MsfGifFileWriteFunc func, void * filePointer) {
     handle->fileWriteFunc = func;
     handle->fileWriteData = filePointer;
@@ -673,7 +490,6 @@ int msf_gif_begin_to_file(MsfGifState * handle, int width, int height, MsfGifFil
 int msf_gif_frame_to_file(MsfGifState * handle, uint8_t * pixelData, int centiSecondsPerFrame, int quality, int pitchInBytes) {
     if (!msf_gif_frame(handle, pixelData, centiSecondsPerFrame, quality, pitchInBytes)) { return 0; }
 
-    //NOTE: this is a somewhat hacky implementation which is not perfectly efficient, but it's good enough for now
     MsfGifBuffer * head = handle->listHead;
     if (!handle->fileWriteFunc(head->data, head->size, 1, handle->fileWriteData)) { msf_free_gif_state(handle); return 0; }
     handle->listHead = head->next;
@@ -682,54 +498,12 @@ int msf_gif_frame_to_file(MsfGifState * handle, uint8_t * pixelData, int centiSe
 }
 
 int msf_gif_end_to_file(MsfGifState * handle) {
-    //NOTE: this is a somewhat hacky implementation which is not perfectly efficient, but it's good enough for now
+
     MsfGifResult result = msf_gif_end(handle);
     int ret = (int) handle->fileWriteFunc(result.data, result.dataSize, 1, handle->fileWriteData);
     msf_gif_free(result);
     return ret;
 }
 
-#endif //MSF_GIF_ALREADY_IMPLEMENTED_IN_THIS_TRANSLATION_UNIT
-#endif //MSF_GIF_IMPL
-
-/*
-------------------------------------------------------------------------------
-This software is available under 2 licenses -- choose whichever you prefer.
-------------------------------------------------------------------------------
-ALTERNATIVE A - MIT License
-Copyright (c) 2025 Miles Fogle
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-------------------------------------------------------------------------------
-ALTERNATIVE B - Public Domain (www.unlicense.org)
-This is free and unencumbered software released into the public domain.
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
-software, either in source code form or as a compiled binary, for any purpose,
-commercial or non-commercial, and by any means.
-In jurisdictions that recognize copyright laws, the author or authors of this
-software dedicate any and all copyright interest in the software to the public
-domain. We make this dedication for the benefit of the public at large and to
-the detriment of our heirs and successors. We intend this dedication to be an
-overt act of relinquishment in perpetuity of all present and future rights to
-this software under copyright law.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-------------------------------------------------------------------------------
-*/
+#endif 
+#endif 

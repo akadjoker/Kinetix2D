@@ -42,13 +42,6 @@ namespace kx
             return c.a->Type() == BodyType::Static || c.b->Type() == BodyType::Static;
         }
 
-        // "Ativo" = capaz de mover algo por si so (kinematic move sempre segundo a API do
-        // utilizador; dynamic so se estiver acordado). Um contacto/joint onde nenhum dos
-        // lados e ativo (ambos estaticos, ou um estatico e o outro dynamic adormecido, ou
-        // ambos dynamic adormecidos) nao pode produzir movimento nenhum step — resolve-lo
-        // e trabalho desperdicado. E exatamente o que as "islands" do Box2D evitam ao
-        // saltar por completo uma ilha adormecida; aqui nao ha ilhas, mas o mesmo corte
-        // aplica-se por contacto/joint sem precisar de as construir.
         bool BodyIsActive(const Body *b)
         {
             return b->Type() == BodyType::Kinematic ||
@@ -67,10 +60,6 @@ namespace kx
             return (a && BodyIsActive(a)) || (b && BodyIsActive(b));
         }
 
-        // Recolhe corpos cuja fat-AABB (a guardada na árvore) sobrepõe a área da query;
-        // o chamador ainda testa a AABB apertada / forma exata do corpo, tal como faz
-        // FindNewPairs antes de chamar CollidePair. Usado por BodyAtPoint/QueryAABB/
-        // QueryCircle/RayCast* para nao terem de varrer mBodies inteiro.
         struct BodyQueryVisitor
         {
             const DynamicTree *tree;
@@ -138,7 +127,7 @@ namespace kx
             return true;
         }
 
-    } // namespace
+    } 
 
     namespace
     {
@@ -165,12 +154,7 @@ namespace kx
         body->mType = type;
         body->mPosition = pos;
         body->mAngle = angle;
-        // Ids reciclados (ver Destroy) em vez de sempre incrementar: ContactKey empacota
-        // os dois ids em 27 bits cada (ver comentario em ContactKey); sem reciclagem, um
-        // mundo de longa duracao que crie/destrua muitos corpos ia eventualmente
-        // ultrapassar 2^27 ids cumulativos e truncar bits silenciosamente, colidindo a
-        // chave de pares nao relacionados. Reciclar mantem o id limitado pelo pico de
-        // corpos vivos em simultaneo, nao pelo total criado ao longo da sessao.
+
         if (!mFreeBodyIds.empty())
         {
             body->mId = mFreeBodyIds.back();
@@ -242,13 +226,7 @@ namespace kx
 
     void World::Destroy(Body *body)
     {
-        // BUG corrigido: em cima destruir o corpo sem tocar em mJoints, qualquer Joint
-        // com BodyA()/BodyB() == body ficava com um ponteiro pendente — o Step()
-        // seguinte chamava InitVelocity/SolveVelocity/SolvePosition sobre um corpo ja
-        // devolvido a pool (use-after-free). O Box2D limpa sempre os joints de um corpo
-        // em b2World::DestroyBody; aqui replicamos isso, incluindo o caso do GearJoint
-        // (que tambem depende de dois Body* que nao sao o seu proprio BodyA()/BodyB() —
-        // ver Joint::DependsOnBody/DependsOnJoint).
+
         for (size_t i = 0; i < mJoints.size();)
         {
             Joint *joint = mJoints[i];
@@ -260,8 +238,6 @@ namespace kx
 
         RemoveBodyContactEvents(body);
 
-        // Removing a body can change the support graph. Wake the remaining
-        // dynamic bodies that were connected to it before invalidating pairs.
         for (size_t i = 0; i < mContacts.size(); ++i)
         {
             ContactInfo &contact = mContacts[i];
@@ -297,9 +273,6 @@ namespace kx
         for (size_t i = 0; i < mDeadPairs.size(); ++i)
             mPairs.erase(mDeadPairs[i]);
 
-        // Purga impulsos de warm-start guardados com o id deste corpo. Sem isto, um id
-        // reciclado (ver CreateBody) podia herdar o impulso guardado de um contacto
-        // antigo e completamente alheio, pelo menos ate ao fim do proximo Step().
         mStaleKeys.clear();
         for (auto &entry : mImpulseMap)
         {
@@ -347,10 +320,6 @@ namespace kx
             }
         }
 
-        // Cascata: qualquer joint que dependa deste (ex.: um GearJoint que referencie
-        // este RevoluteJoint) tem de ser destruido tambem, ou fica com um ponteiro
-        // pendente. `joint` so e apagado no fim, por isso a comparacao de ponteiros em
-        // DependsOnJoint nunca ve memoria ja liberta.
         for (size_t i = 0; i < mJoints.size();)
         {
             if (mJoints[i]->DependsOnJoint(joint))
@@ -440,17 +409,10 @@ namespace kx
 
     Body *World::BodyAtPoint(const glm::vec2 &point) const
     {
-        // Antes: varrimento O(bodies) recomputando a AABB de cada corpo do zero. A
-        // DynamicTree ja existe e esta sempre atualizada (SyncProxies corre todos os
-        // steps) — usa-la primeiro reduz o numero de corpos testados exatamente a quem
-        // esta mesmo perto do ponto, em vez de todos.
+
         if (mUseTree)
         {
-            // Sincroniza a arvore de forma preguicosa: as queries podem ser chamadas
-            // antes de qualquer Step() (ex.: logo a seguir a criar corpos), altura em
-            // que os seus proxies ainda nao existem (so SyncProxies, chamado dentro de
-            // Step(), os cria). SyncProxies e barato quando nada mudou (MoveProxy sai
-            // cedo se a AABB ainda cabe na fat-AABB guardada).
+
             const_cast<World *>(this)->SyncProxies();
 
             AABB pointAABB{point, point};
@@ -492,7 +454,7 @@ namespace kx
 
         if (mUseTree)
         {
-            const_cast<World *>(this)->SyncProxies(); // ver comentario em BodyAtPoint
+            const_cast<World *>(this)->SyncProxies(); 
 
             ct::Vector<Body *> hits;
             BodyQueryVisitor visitor{&mTree, &hits};
@@ -523,7 +485,7 @@ namespace kx
 
         if (mUseTree)
         {
-            const_cast<World *>(this)->SyncProxies(); // ver comentario em BodyAtPoint
+            const_cast<World *>(this)->SyncProxies(); 
 
             AABB queryAABB{center - r, center + r};
             ct::Vector<Body *> hits;
@@ -582,7 +544,7 @@ namespace kx
         ct::Vector<Body *> candidates;
         if (mUseTree)
         {
-            const_cast<World *>(this)->SyncProxies(); // ver comentario em BodyAtPoint
+            const_cast<World *>(this)->SyncProxies(); 
 
             BodyQueryVisitor visitor{&mTree, &candidates};
             mTree.Query(&visitor, segmentAABB);
@@ -592,11 +554,6 @@ namespace kx
             candidates = mBodies;
         }
 
-        // "stopAtFirst" so encolhe o maxFraction passado a cada teste (uma otimizacao —
-        // menos trabalho para shapes testadas depois de ja se ter um hit proximo), nao
-        // implica que so um hit fique em outHits: a ordem dos candidatos vem da arvore,
-        // nao da distancia ao longo do raio. RayCastClosest escolhe o de menor fraction
-        // no fim, por isso o resultado final e sempre o correto.
         float bestFraction = 1.0f;
         for (size_t i = 0; i < candidates.size(); ++i)
         {
@@ -802,13 +759,6 @@ namespace kx
         Transform xfi = first->GetTransform();
         Transform xfj = second->GetTransform();
 
-        // Um corpo so tem UM proxy na broadphase (AABB uniao de todas as shapes, ver
-        // ComputeBodyAABB) — ao contrario do Box2D, que da um proxy por fixture. Assim
-        // que os dois corpos se sobrepoem, sem este pre-teste por par de shapes
-        // testava-se o produto cartesiano completo (ate 32x32) na narrowphase, mesmo
-        // quando so um par de shapes toca de facto — caro para tilemaps/meshes
-        // multi-shape. O teste de AABB por par e barato e evita a grande maioria das
-        // chamadas a CollideShapePair que nao iam produzir manifold nenhum.
         for (int si = 0; si < first->ShapeCount(); ++si)
         {
             AABB aabbA = ComputeShapeAABB(first->Shapes()[si], xfi);
@@ -943,8 +893,6 @@ namespace kx
 
         double t3 = mClock ? mClock() : 0.0;
 
-        // CCD leve: guarda o centro dos corpos "bullet" ANTES de os mover, para depois
-        // (SolveBulletSweeps) poder varrer o segmento percorrido este step.
         mBulletSweeps.clear();
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
@@ -984,31 +932,15 @@ namespace kx
 
             float distSq = Dot(delta, delta);
             if (distSq < kLinearSlop * kLinearSlop)
-                continue; // deslocamento insignificante este step
+                continue; 
 
-            // ignoreBody=body e essencial aqui: sem isto, o raio de prevCenter ate
-            // newCenter atinge quase sempre a PROPRIA shape do bullet primeiro (ela ja
-            // esta na posicao newCenter, exatamente no fim do segmento), mascarando
-            // qualquer hit real mais longe — ver nota em RayCastClosest.
             RayCastHit hit;
             if (!RayCastClosest(prevCenter, delta, hit, 0xFFFF, false, body))
                 continue;
 
-            // So bloqueia contra geometria estatica/kinematic: um "bullet" contra outro
-            // corpo dynamic fica por conta do solver discreto de contactos normal, para
-            // nao competir com ele.
             if (hit.body->Type() == BodyType::Dynamic)
                 continue;
 
-            // So corrige se a posicao final (ja integrada) ficou mesmo do lado de la da
-            // superficie atingida — nao so porque o raio cruzou qualquer coisa perto do
-            // arranque do segmento. Um corpo "bullet" a repousar/deslizar rente a uma
-            // superficie que ja tocava (o solver de contactos normal, que corre antes
-            // disto, ja o impede de penetrar verticalmente) tambem gera um raio quase
-            // tangente a essa superficie — sem este teste, ficava preso todos os steps.
-            // Em contrapartida, uma bala parada mesmo encostada a uma parede que
-            // continua a tentar avancar TEM de continuar a ser recuada todos os steps —
-            // e exatamente esse caso (fica embutida do lado de dentro) que isto apanha.
             float endSide = Dot(newCenter - hit.point, hit.normal);
             if (endSide >= -kLinearSlop)
                 continue;
@@ -1019,28 +951,13 @@ namespace kx
                 safeFraction = 0.0f;
             glm::vec2 safeCenter = prevCenter + safeFraction * delta;
 
-            // Recua a posicao para mesmo antes do impacto; a velocidade fica intacta —
-            // o proximo Step() ve as shapes praticamente encostadas e o solver de
-            // contactos normal (agora com deteccao discreta a funcionar, sem ter de
-            // "saltar" nada) resolve o resto tal como resolveria qualquer outro contacto.
             body->ShiftCenter(safeCenter - newCenter, 0.0f);
         }
     }
 
     void World::UpdateSleeping(float dt)
     {
-        // Antes: para cada corpo acordado, varria mContacts inteiro a procura de um
-        // vizinho ativo — O(bodies * contacts) por Step(). Agora computa-se
-        // "toca-algo-ativo" para todos os corpos numa unica passagem por mContacts
-        // (O(contacts)), guardado num mapa reutilizado entre steps.
-        //
-        // BUG corrigido ao mesmo tempo: este mapa tambem serve para acordar corpos que
-        // JA estao adormecidos e passaram a tocar algo ativo. Antes, nada fazia isso —
-        // SolveContactVelocitiesOne/WarmStartContacts nao filtram por awake, por isso um
-        // corpo adormecido atingido por outro via a mudanca de velocidade corretamente,
-        // mas a sua posicao ficava congelada (IntegratePosition salta corpos !mAwake) e
-        // ele nunca transitava de volta para acordado — parecia uma "parede invisivel"
-        // sempre que algo batia numa pilha adormecida.
+
         mTouchingActive.clear();
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
@@ -1070,11 +987,6 @@ namespace kx
                     continue;
             }
 
-            // Port da propagacao de ilha do Box2D: um corpo em contacto com um
-            // corpo ativo (kinematic esta sempre ativo; dinamico acordado)
-            // permanece acordado. Sem isto, um corpo esmagado entre uma
-            // plataforma a subir e um teto ficava com velocidade ~0, dormia e
-            // ficava "colado" ao teto quando a plataforma descia.
             if (touchingActive)
             {
                 body->mSleepTime = 0.0f;
@@ -1167,8 +1079,6 @@ namespace kx
                 if (JointIsActive(mJoints[i]))
                     mJoints[i]->SolvePosition();
 
-            // Mesma ordenacao que no solve de velocidades: estatico por ultimo.
-            // Contactos idle saltados pela mesma razao que em SolveContactVelocities.
             for (size_t ci = 0; ci < mContacts.size(); ++ci)
             {
                 ContactInfo &c = mContacts[ci];
@@ -1261,13 +1171,7 @@ namespace kx
 
     void World::WarmStartContacts()
     {
-        // Contactos "idle" (nenhum dos lados ativo — ambos estaticos, ou um estatico e
-        // o outro dynamic adormecido, ou os dois adormecidos) sao ignorados aqui: nada
-        // vai mudar a velocidade deles este step, por isso injetar o impulso guardado
-        // so os empurraria para longe de zero sem ninguem depois os corrigir de volta
-        // (SolveContactVelocities tambem os salta). InitContactConstraints continua a
-        // correr para todos incondicionalmente, por isso o impulso guardado nao se perde
-        // — fica pronto a re-aplicar assim que o contacto voltar a ficar ativo.
+
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];
@@ -1340,10 +1244,7 @@ namespace kx
 
     void World::SolveContactVelocities()
     {
-        // A geometria estatica e infinitamente massiva: resolve-se POR ULTIMO
-        // para dominar. Sem isto, uma plataforma kinematic a empurrar um corpo
-        // contra um teto/parede estatico "vence" a restricao estatica e o corpo
-        // atravessa o teto. Sem passes extra — so a ordem dentro do solve.
+
         for (size_t ci = 0; ci < mContacts.size(); ++ci)
         {
             ContactInfo &c = mContacts[ci];
@@ -1454,4 +1355,4 @@ namespace kx
             mContactStates.erase(mStaleKeys[i]);
     }
 
-} // namespace kx
+} 

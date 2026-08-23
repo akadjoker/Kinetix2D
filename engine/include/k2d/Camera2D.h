@@ -10,22 +10,18 @@
 namespace k2d
 {
 
-    // 2D camera as a transform, ported from Godot's Camera2D::get_camera_transform
-    // (scene/2d/camera_2d.cpp): the canvas transform is the inverse of
-    // T(origin) * R(angle) * S(1/zoom), anchor = drag-center, plus a screen-space
-    // offset applied after rotation. Y-down screen convention.
     struct Camera2D
     {
-        glm::vec2 position;      // world position the camera looks at (screen center)
-        float rotationDegrees;   // camera rotation around the center
-        glm::vec2 zoom;          // > 1 = zoom in (Godot semantics)
-        glm::vec2 offset;        // screen-space offset applied after rotation
+        glm::vec2 position;      
+        float rotationDegrees;   
+        glm::vec2 zoom;          
+        glm::vec2 offset;        
         bool limitEnabled;
-        glm::vec4 limits;        // left, top, right, bottom in world units
+        glm::vec4 limits;        
         bool smoothingEnabled;
         float smoothingSpeed;
         bool deadZoneEnabled;
-        glm::vec4 deadZone;      // left, top, right, bottom in screen pixels
+        glm::vec4 deadZone;      
         bool targetEnabled;
         glm::vec2 target;
 
@@ -117,7 +113,6 @@ namespace k2d
                              : (limits.y + limits.w) * 0.5f;
         }
 
-        // screen pixels -> world (the camera xform, Godot's transform before inverse)
         Matrix2D CameraXform(float screenW, float screenH) const
         {
             glm::vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
@@ -131,7 +126,6 @@ namespace k2d
                    Matrix2D::Scaling(zoomScale.x, zoomScale.y);
         }
 
-        // world -> screen pixels (inverse of CameraXform)
         Matrix2D ViewXform(float screenW, float screenH) const
         {
             glm::vec2 zoomScale(1.0f / zoom.x, 1.0f / zoom.y);
@@ -156,8 +150,6 @@ namespace k2d
             return CameraXform(screenW, screenH).Transform(sx, sy);
         }
 
-        // World-space AABB of the visible area (Godot transforms the screen corners
-        // through the inverse camera transform).
         void VisibleRect(float &minX, float &minY, float &maxX, float &maxY,
                          float screenW, float screenH) const
         {

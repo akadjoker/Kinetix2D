@@ -54,4 +54,4 @@ namespace k2d
         Touch mTouch[MAX_TOUCH];
     };
 
-} // namespace k2d
+} 

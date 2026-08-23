@@ -177,7 +177,7 @@ namespace kx
             }
         }
 
-    } // namespace
+    } 
 
     int TraceImageOutlines(const unsigned char *pixels, int width, int height, int bpp,
                            unsigned char threshold, ct::Vector<Polyline> &outLines)
@@ -204,7 +204,7 @@ namespace kx
             return line.points.size() > 1 && line.points[0] == line.points.back();
         }
 
-    } // namespace
+    } 
 
     void SimplifyOutline(const Polyline &line, float toleranceRadians, Polyline &outSimplified)
     {
@@ -263,7 +263,7 @@ namespace kx
             return area < 0.0 ? -area : area;
         }
 
-    } // namespace
+    } 
 
     int Body::AddFromImage(const unsigned char *pixels, int width, int height, int bpp,
                            unsigned char threshold, float density, float scale, float simplifyDegrees)
@@ -355,4 +355,4 @@ namespace kx
         return body;
     }
 
-} // namespace kx
+} 

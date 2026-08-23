@@ -28,9 +28,6 @@ namespace k2d
         Shader *GetShader(const char *name);
         Texture *GetTexture(const char *name);
 
-        // Reverse lookup: the name a texture was registered under (Load/CreateTexture),
-        // or nullptr if it isn't one of ours (or is nullptr itself). Used by Serializer
-        // to write a texture reference as a name instead of a raw pointer.
         const char *FindTextureName(const Texture *texture) const;
 
         void Clear();

@@ -24,7 +24,7 @@ namespace k2d
         {
             float dx = (float)std::abs(to.x - from.x);
             float dy = (float)std::abs(to.y - from.y);
-            static const float kDiag = 1.4142135623730951f - 1.0f; // sqrt(2) - 1
+            static const float kDiag = 1.4142135623730951f - 1.0f; 
             return (dx < dy) ? kDiag * dx + dy : kDiag * dy + dx;
         }
 
@@ -92,8 +92,8 @@ namespace k2d
     bool AStarGrid2D::IsSolid(int x, int y) const
     {
         if (!IsInBounds(x, y))
-            return true; // Godot's is_point_solid errors out of bounds; treating
-                         // out-of-bounds as solid keeps callers simple here.
+            return true; 
+
         return mPoints[(size_t)ToIndex(x, y)].solid;
     }
 
@@ -135,9 +135,7 @@ namespace k2d
 
     float AStarGrid2D::ComputeCost(const glm::ivec2 &from, const glm::ivec2 &to) const
     {
-        // Same formula family as EstimateCost (see AStarGrid2D.h): Godot keeps
-        // these as two independently-configurable heuristics, but both default
-        // to the same value, so one shared setting covers the common case.
+
         return EstimateCost(from, to);
     }
 
@@ -217,10 +215,6 @@ namespace k2d
         beginPoint.fScore = EstimateCost(begin, end);
         beginPoint.openPass = mPass;
 
-        // Min-heap by fScore (ties broken by preferring the higher gScore,
-        // i.e. the point farther from the start) -- indices into mPoints, same
-        // "worse-than" comparator trick Godot's SortPoints uses with
-        // std::push_heap/pop_heap (see AStarGrid2D.h comment on mOpenHeap).
         auto worse = [this](int a, int b)
         {
             const Point &pa = mPoints[(size_t)a];
@@ -233,9 +227,6 @@ namespace k2d
         mOpenHeap.clear();
         mOpenHeap.push_back(beginIndex);
 
-        // abs_g/abs_f (Godot) track the true cost-so-far/estimate-to-goal for
-        // the "closest point reached" fallback, independent of tie-break
-        // churn on fScore/gScore during the search.
         ct::Vector<float> absG(mPoints.size(), 0.0f);
         ct::Vector<float> absF(mPoints.size(), 0.0f);
         absG[(size_t)beginIndex] = 0.0f;

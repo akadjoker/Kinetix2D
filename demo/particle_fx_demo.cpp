@@ -67,7 +67,7 @@ int main()
     firePrefab.rotationMax = 360.0f;
     firePrefab.angularVelocityMin = -60.0f;
     firePrefab.angularVelocityMax = 60.0f;
-    // Bright yellow-orange core cooling to a dim red as it rises and dies.
+
     firePrefab.colorStart = glm::vec4(1.0f, 0.95f, 0.55f, 0.9f);
     firePrefab.colorEnd = glm::vec4(0.9f, 0.25f, 0.05f, 0.0f);
     firePrefab.fadeIn = 0.05f;
@@ -85,7 +85,7 @@ int main()
     smokePrefab.speedMax = 48.0f;
     smokePrefab.lifeMin = 2.2f; smokePrefab.lifeMax = 3.4f;
     smokePrefab.sizeMin = 30.0f; smokePrefab.sizeMax = 46.0f;
-    smokePrefab.endSize = 60.0f; // smoke puffs grow as they disperse, unlike fire shrinking
+    smokePrefab.endSize = 60.0f; 
     smokePrefab.angularVelocityMin = -20.0f;
     smokePrefab.angularVelocityMax = 20.0f;
     smokePrefab.colorStart = glm::vec4(0.7f, 0.72f, 0.78f, 0.42f);

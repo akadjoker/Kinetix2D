@@ -1,5 +1,4 @@
-// Diagnostic: same small texture, left half tiled (repeat), right half
-// stretched (default) -- self-captures then exits.
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
@@ -16,7 +15,7 @@ int main()
         return 1;
 
     k2d::Assets assets;
-    // Small checker pattern, repeat=true so GL_REPEAT wrap actually tiles.
+
     unsigned char checker[16 * 16 * 4];
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x)
@@ -29,7 +28,7 @@ int main()
             checker[i + 2] = on ? 120 : 90;
             checker[i + 3] = 255;
         }
-    k2d::Texture *tex = assets.CreateTexture("checker", 16, 16, checker, true, /*repeat=*/true);
+    k2d::Texture *tex = assets.CreateTexture("checker", 16, 16, checker, true, true);
 
     k2d::Scene scene;
 
@@ -38,15 +37,13 @@ int main()
     k2d::SpriteComponent *tiled = tiledObject->addComponent<k2d::SpriteComponent>(tex);
     tiled->setSize(glm::vec2(600.0f, 560.0f));
     tiled->setPivot(glm::vec2(0.5f, 0.5f));
-    tiled->setTiling(8.0f, 7.0f); // 8x7 repeats of the 16x16 source across 600x560
+    tiled->setTiling(8.0f, 7.0f); 
 
     k2d::GameObject *stretchedObject = scene.createObject("stretched");
     stretchedObject->setPosition(glm::vec2(960.0f, 320.0f));
     k2d::SpriteComponent *stretched = stretchedObject->addComponent<k2d::SpriteComponent>(tex);
     stretched->setSize(glm::vec2(600.0f, 560.0f));
     stretched->setPivot(glm::vec2(0.5f, 0.5f));
-    // No setTiling call: default (1,1) -- the existing "stretch one copy to
-    // fit" behavior, unchanged.
 
     bool running = true;
     int frame = 0;

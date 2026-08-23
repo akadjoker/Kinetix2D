@@ -91,10 +91,7 @@ namespace k2d
         }
         else if (mMaterial.tiling().x != 1.0f || mMaterial.tiling().y != 1.0f)
         {
-            // src{W,H} > tex{Width,Height} makes u/v run past 1.0 (EmitQuad,
-            // CanvasRenderer.cpp); GL_REPEAT wrap then tiles instead of
-            // clamping -- the texture must have been loaded/created with
-            // repeat=true or the edges smear instead.
+
             rect.srcX = 0.0f;
             rect.srcY = 0.0f;
             rect.srcW = mMaterial.texture()->Width() * mMaterial.tiling().x;

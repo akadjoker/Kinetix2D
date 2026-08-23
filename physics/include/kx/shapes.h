@@ -111,4 +111,4 @@ namespace kx
         float radius;
     };
 
-} // namespace kx
+} 

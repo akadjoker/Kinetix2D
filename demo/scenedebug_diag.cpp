@@ -1,5 +1,4 @@
-// Diagnostic: a small parent/child hierarchy with a rotated sprite, overlaid
-// with DrawSceneDebug (origins, axes, hierarchy lines, sprite bounds).
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>

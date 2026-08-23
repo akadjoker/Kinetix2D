@@ -9,9 +9,7 @@ namespace k2d
 
     namespace
     {
-        // Godot's canvas item sort (renderer_canvas_cull.cpp, ItemYSort):
-        // z_index ascending, y-sorted items by world y (ties by submission order),
-        // otherwise submission order.
+
         bool ItemLess(const RenderItem &a, const RenderItem &b)
         {
             if (a.zIndex != b.zIndex)
@@ -23,7 +21,7 @@ namespace k2d
             }
             return a.seq < b.seq;
         }
-    } // namespace
+    } 
 
     RenderQueue::RenderQueue() : mItems(), mLights(), mDirectionalLights(), mOccluders(), mSeq(0) {}
 
@@ -86,4 +84,4 @@ namespace k2d
                          mOccluders.data(), mOccluders.size());
     }
 
-} // namespace k2d
+} 

@@ -11,11 +11,6 @@ namespace k2d
 
     class Texture;
 
-    // Godot's Line2D: a polyline with width, rendered as a ribbon of quads
-    // (one per segment, extended by half the width at each end so
-    // consecutive segments overlap and hide the joint gap -- a plain butt
-    // join, not Godot's full miter/bevel/round LineJointMode, but visually
-    // close for typical widths).
     class Line2D : public Component
     {
     public:
@@ -28,7 +23,7 @@ namespace k2d
         void setWidth(float width);
         float width() const { return mWidth; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        unsigned int color() const { return mColor; } // packed r|g<<8|b<<16|a<<24, same layout setColor() writes
+        unsigned int color() const { return mColor; } 
         void setTexture(Texture *texture) { mTexture = texture; }
         Texture *texture() const { return mTexture; }
         void setClosed(bool closed);

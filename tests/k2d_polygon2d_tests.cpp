@@ -23,10 +23,6 @@ int main()
     polygon.setPolygon(nullptr, 0);
     ok = ok && !polygon.valid();
 
-    // A large, terrain-scale outline (well past the old fixed 256-triangle
-    // cap kx::Triangulate used to be called with) must triangulate fully --
-    // exactly count-2 triangles for a simple convex polygon, not silently
-    // truncated.
     const int largeCount = 300;
     glm::vec2 largePolygon[largeCount];
     for (int i = 0; i < largeCount; ++i)

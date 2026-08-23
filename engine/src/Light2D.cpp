@@ -65,4 +65,4 @@ namespace k2d
         queue.AddLight(light);
     }
 
-} // namespace k2d
+} 

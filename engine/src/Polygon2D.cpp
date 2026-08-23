@@ -25,11 +25,6 @@ namespace k2d
         for (int i = 0; i < count; ++i)
             mPolygon.push_back(points[i]);
 
-        // A simple polygon triangulates into at most count-2 triangles (the
-        // fan/ear-clipping bound) -- size the scratch buffer exactly to that
-        // instead of a fixed cap, so a large terrain-scale outline never
-        // silently loses geometry (kx::Triangulate used to be called with a
-        // fixed 256-triangle ceiling and would just stop writing past it).
         const int maxTriangles = count - 2;
         ct::Vector<glm::vec2> triangles;
         triangles.resize((size_t)maxTriangles * 3);
@@ -71,4 +66,4 @@ namespace k2d
         item.commands.push_back(command);
     }
 
-} // namespace k2d
+} 

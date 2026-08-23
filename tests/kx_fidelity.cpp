@@ -141,7 +141,7 @@ namespace
                     name, r.pass, r.fail, total, 100.0 * r.pass / total);
     }
 
-} // namespace
+} 
 
 int main()
 {

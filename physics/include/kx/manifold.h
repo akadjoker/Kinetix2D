@@ -65,4 +65,4 @@ namespace kx
         float separations[kMaxManifoldPoints];
     };
 
-} // namespace kx
+} 

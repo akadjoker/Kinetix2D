@@ -8,8 +8,7 @@ namespace kx
     bool RayCastCircle(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
                        const Circle &circle, const Transform &xf, ShapeRayCastOutput &out)
     {
-        // Trabalha no referencial local da shape (mesma tatica de CollidePolygonAndCircle):
-        // resolve p1 + t*d = ponto no circulo, |ponto - centro| = raio, para t.
+
         glm::vec2 p1 = InvTransformPoint(xf, origin);
         glm::vec2 d = InvRotate(xf, translation);
 
@@ -39,9 +38,7 @@ namespace kx
     bool RayCastPolygon(const glm::vec2 &origin, const glm::vec2 &translation, float maxFraction,
                         const Polygon &polygon, const Transform &xf, ShapeRayCastOutput &out)
     {
-        // Clipping do segmento contra o meio-espaco de cada face (poligono convexo):
-        // [lower, upper] encolhe a cada face ate sobrar (quando muito) o troco visivel
-        // a partir de fora. Mesma tecnica do b2PolygonShape::RayCast.
+
         glm::vec2 p1 = InvTransformPoint(xf, origin);
         glm::vec2 p2 = InvTransformPoint(xf, origin + translation);
         glm::vec2 d = p2 - p1;
@@ -103,7 +100,7 @@ namespace kx
 
         float denominator = Dot(d, normal);
         if (std::fabs(denominator) < kEpsilon)
-            return false; // raio paralelo a edge
+            return false; 
 
         float t = Dot(normal, v1 - p1) / denominator;
         if (t < 0.0f || t > maxFraction)
@@ -134,4 +131,4 @@ namespace kx
         }
     }
 
-} // namespace kx
+} 

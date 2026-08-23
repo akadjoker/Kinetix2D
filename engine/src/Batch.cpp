@@ -1790,4 +1790,4 @@ void main()
         return (float)longest * size;
     }
 
-} // namespace k2d
+} 

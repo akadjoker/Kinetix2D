@@ -519,4 +519,4 @@ namespace kx
         assert(mNodeCount + freeCount == mNodeCapacity);
     }
 
-} // namespace kx
+} 

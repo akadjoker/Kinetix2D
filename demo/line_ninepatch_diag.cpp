@@ -1,5 +1,4 @@
-// Diagnostic: a Line2D zigzag (closed + open) and a NinePatchComponent
-// panel stretched from a small bordered texture -- self-captures then exits.
+
 #include <k2d/k2d.h>
 
 #include <glad/glad.h>
@@ -17,8 +16,6 @@ int main()
 
     k2d::Assets assets;
 
-    // 32x32 panel texture: distinct corner / edge / center colors so
-    // nine-patch stretching is visually obvious (margins = 8px each side).
     unsigned char panel[32 * 32 * 4];
     for (int y = 0; y < 32; ++y)
         for (int x = 0; x < 32; ++x)
@@ -27,17 +24,15 @@ int main()
             bool cornerX = x < 8 || x >= 24;
             bool cornerY = y < 8 || y >= 24;
             unsigned char r, g, b;
-            if (cornerX && cornerY) { r = 220; g = 60; b = 60; }   // corners: red
-            else if (cornerX || cornerY) { r = 60; g = 200; b = 90; } // edges: green
-            else { r = 60; g = 110; b = 220; }                      // center: blue
+            if (cornerX && cornerY) { r = 220; g = 60; b = 60; }   
+            else if (cornerX || cornerY) { r = 60; g = 200; b = 90; } 
+            else { r = 60; g = 110; b = 220; }                      
             panel[i + 0] = r; panel[i + 1] = g; panel[i + 2] = b; panel[i + 3] = 255;
         }
     k2d::Texture *panelTex = assets.CreateTexture("panel", 32, 32, panel, true, false);
 
     k2d::Scene scene;
 
-    // NinePatch: 32x32 source stretched to 400x260 -- corners must STAY 8px,
-    // only edges/center stretch.
     k2d::GameObject *patchObject = scene.createObject("patch");
     patchObject->setPosition(glm::vec2(60.0f, 60.0f));
     k2d::NinePatchComponent *patch = patchObject->addComponent<k2d::NinePatchComponent>();
@@ -45,7 +40,6 @@ int main()
     patch->setSize(glm::vec2(400.0f, 260.0f));
     patch->setMargins(8.0f, 8.0f, 8.0f, 8.0f);
 
-    // Line2D: open zigzag.
     k2d::GameObject *lineObject = scene.createObject("zigzag");
     lineObject->setPosition(glm::vec2(550.0f, 80.0f));
     k2d::Line2D *line = lineObject->addComponent<k2d::Line2D>();
@@ -54,7 +48,6 @@ int main()
     line->setWidth(14.0f);
     line->setColor(255, 210, 60, 255);
 
-    // Line2D: closed pentagon, thinner, different color.
     k2d::GameObject *pentObject = scene.createObject("pentagon");
     pentObject->setPosition(glm::vec2(720.0f, 420.0f));
     k2d::Line2D *pentagon = pentObject->addComponent<k2d::Line2D>();

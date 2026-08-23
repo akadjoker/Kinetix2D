@@ -9,7 +9,6 @@ namespace k2d
 
     class CanvasRenderer;
 
-
     class CanvasLayer
     {
     public:
@@ -24,10 +23,6 @@ namespace k2d
 
         void update(float deltaTime) { mScene.update(deltaTime); }
 
-        // Sets a screen-space ortho projection (0,0)-(screenWidth,screenHeight)
-        // on `canvas` and draws this layer's scene. Leaves that projection set
-        // on `canvas` afterward -- set canvas.SetProjection/SetOrtho again
-        // before drawing more world-space content.
         void render(CanvasRenderer &canvas, float screenWidth, float screenHeight);
 
     private:

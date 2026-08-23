@@ -1,10 +1,4 @@
-// Diagnostic: Serializer round-tripping a texture *reference*, which needs
-// a real GL-backed Texture (Assets::CreateTexture) -- the headless
-// k2d_serializer_tests only exercises assets=nullptr. Confirms
-// Assets::FindTextureName resolves a live SpriteComponent's texture to its
-// registered name on write, and Assets::GetTexture resolves it back to the
-// *same* Texture* on read -- no window shown, no render, just Device for
-// the GL context.
+
 #include <k2d/k2d.h>
 
 #include <cstdio>

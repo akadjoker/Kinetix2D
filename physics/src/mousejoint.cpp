@@ -94,4 +94,4 @@ namespace kx
         b->SetAngularVelocity(b->AngularVelocity() + b->InvI() * Cross(mRB, impulse));
     }
 
-} // namespace kx
+} 

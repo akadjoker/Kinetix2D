@@ -54,4 +54,4 @@ namespace kx
         float mGamma;
     };
 
-} // namespace kx
+} 
