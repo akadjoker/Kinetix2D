@@ -74,6 +74,26 @@ bool EditorApplication::initialize()
 
     RegisterZenScriptSerializer();
     SetZenScriptInput(&mDevice.GetInput());
+    SetZenScriptAssets(&mAssets);
+    SetZenScriptOutput([](const char *text, bool isError, void *user)
+    {
+        EditorApplication &self = *static_cast<EditorApplication *>(user);
+        static ct::String lineBuffer;
+        for (const char *c = text; *c; ++c)
+        {
+            if (*c == '\n')
+            {
+                ct::String message(isError ? "[script] ERROR: " : "[script] ");
+                message += lineBuffer;
+                self.log(message);
+                lineBuffer.clear();
+            }
+            else
+            {
+                lineBuffer.push_back(*c);
+            }
+        }
+    }, this);
 
     loadSettings();
     createPanels();
@@ -112,7 +132,10 @@ int EditorApplication::run()
         running = mDevice.PollEvents();
 
         if (mPlaying && !mPaused)
+        {
             mRuntimeScene.update(mDevice.DeltaTime());
+            DispatchZenScriptEvents(mRuntimeScene.root());
+        }
         if (!mPlaying && mSettings.viewportLivePreview)
             tickEditPreview(mScene.root(), mDevice.DeltaTime());
 
@@ -269,6 +292,7 @@ void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selected
 void EditorApplication::startPlay()
 {
     mRuntimeScene.clear();
+    ZenBlackboard::clear();
 
     const ct::Json rootJson = Serializer::WriteObject(mScene.root(), &mAssets);
     GameObject &runtimeRoot = mRuntimeScene.root();
@@ -286,6 +310,7 @@ void EditorApplication::startPlay()
         for (size_t i = 0; i < children.size(); ++i)
             Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
 
+    SetZenScriptsEnabled(true);
     mPlaying = true;
     mPaused = false;
     log("Play: runtime scene cloned from the edited scene");
@@ -294,7 +319,9 @@ void EditorApplication::startPlay()
 
 void EditorApplication::stopPlay()
 {
+    SetZenScriptsEnabled(false);
     mRuntimeScene.clear();
+    ZenBlackboard::clear();
     mPlaying = false;
     mPaused = false;
     log("Stopped preview");
@@ -303,7 +330,10 @@ void EditorApplication::stopPlay()
 void EditorApplication::stepPlay()
 {
     if (mPlaying && mPaused)
+    {
         mRuntimeScene.update(1.0f / 60.0f);
+        DispatchZenScriptEvents(mRuntimeScene.root());
+    }
 }
 
 void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)

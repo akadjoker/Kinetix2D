@@ -195,6 +195,152 @@ static bool testSerialization()
     return ok;
 }
 
+static ct::String gCapturedOutput;
+static bool gCapturedError = false;
+
+static bool testSpawnAndMath()
+{
+    const char *prefabPath = "/tmp/k2d_zen_test_prefab.k2dprefab";
+    FILE *file = std::fopen(prefabPath, "w");
+    if (!file)
+        return false;
+    std::fputs("{\"name\":\"bullet\",\"components\":[],\"children\":[]}", file);
+    std::fclose(file);
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("shooter");
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource(
+        "def ready(node):\n"
+        "    b = node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
+        "    print(\"spawned\", b.get_name(), node.distance_to(30, 40))\n"
+        "    node.look_at(0, 100)\n"
+        "def update(node, dt):\n"
+        "    node.move_toward(60, 0, 25)\n",
+        "spawner");
+
+    k2d::SetZenScriptOutput([](const char *text, bool isError, void *)
+    {
+        gCapturedOutput += text;
+        if (isError)
+            gCapturedError = true;
+    }, nullptr);
+    scene.update(0.016f);
+    k2d::SetZenScriptOutput(nullptr, nullptr);
+
+    k2d::GameObject *bullet = scene.find("bullet");
+    ok = ok && bullet && nearEqual(bullet->position().x, 30.0f) && nearEqual(bullet->position().y, 40.0f);
+    ok = ok && nearEqual(object->rotationDegrees(), 90.0f);
+    ok = ok && nearEqual(object->position().x, 25.0f);
+    scene.update(0.016f);
+    scene.update(0.016f);
+    ok = ok && nearEqual(object->position().x, 60.0f);
+    ok = ok && !gCapturedError && gCapturedOutput.size() > 0;
+    ok = ok && std::strstr(gCapturedOutput.c_str(), "spawned") != nullptr;
+    ok = ok && std::strstr(gCapturedOutput.c_str(), "bullet") != nullptr;
+    ok = ok && std::strstr(gCapturedOutput.c_str(), "50") != nullptr;
+
+    std::remove(prefabPath);
+    return ok;
+}
+
+static bool testScriptsGate()
+{
+    k2d::SetZenScriptsEnabled(false);
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("gated");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("def update(node, dt):\n    node.set_position(9, 9)\n", "gate");
+
+    scene.update(0.016f);
+    ok = ok && nearEqual(object->position().x, 0.0f);
+
+    k2d::SetZenScriptsEnabled(true);
+    scene.update(0.016f);
+    ok = ok && nearEqual(object->position().x, 9.0f);
+    return ok;
+}
+
+static bool testBlackboardAndEvents()
+{
+    k2d::ZenBlackboard::clear();
+
+    k2d::Scene scene;
+    k2d::GameObject *sender = scene.createObject("sender");
+    k2d::ZenScriptComponent *senderScript = sender->addComponent<k2d::ZenScriptComponent>();
+    bool ok = senderScript->loadSource(
+        "fired = False\n"
+        "def update(node, dt):\n"
+        "    global fired\n"
+        "    if not fired:\n"
+        "        fired = True\n"
+        "        set_number(\"hp\", 75)\n"
+        "        set_string(\"stage\", \"boss\")\n"
+        "        set_flag(\"alive\", True)\n"
+        "        emit(\"hit\", 12)\n",
+        "sender");
+
+    k2d::GameObject *receiver = scene.createObject("receiver");
+    k2d::ZenScriptComponent *receiverScript = receiver->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && receiverScript->loadSource(
+                   "def on_event(node, name, value):\n"
+                   "    if name == \"hit\":\n"
+                   "        set_number(\"damage\", value * 2)\n"
+                   "        node.set_position(get_number(\"hp\", 0), 1)\n"
+                   "def update(node, dt):\n"
+                   "    pass\n",
+                   "receiver");
+
+    scene.update(0.016f);
+    ok = ok && k2d::ZenBlackboard::pendingEventCount() == 1;
+    k2d::DispatchZenScriptEvents(scene.root());
+    ok = ok && k2d::ZenBlackboard::pendingEventCount() == 0;
+
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("damage"), 24.0f);
+    ok = ok && nearEqual(receiver->position().x, 75.0f);
+
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("hp"), 75.0f);
+    ok = ok && k2d::ZenBlackboard::getString("stage") == ct::String("boss");
+    ok = ok && k2d::ZenBlackboard::getBool("alive");
+    ok = ok && k2d::ZenBlackboard::has("hp") && !k2d::ZenBlackboard::has("nope");
+
+    k2d::ZenBlackboard::setNumber("from_host", 3.5);
+    k2d::GameObject *reader = scene.createObject("reader");
+    k2d::ZenScriptComponent *readerScript = reader->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && readerScript->loadSource(
+                   "def update(node, dt):\n"
+                   "    node.set_position(get_number(\"from_host\", -1), get_number(\"missing\", 8))\n",
+                   "reader");
+    scene.update(0.016f);
+    ok = ok && nearEqual(reader->position().x, 3.5f) && nearEqual(reader->position().y, 8.0f);
+
+    k2d::BroadcastZenScriptEvent(scene.root(), "hit", 50.0);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("damage"), 100.0f);
+
+    static int hostSeen = 0;
+    static double hostValue = 0.0;
+    k2d::ZenBlackboard::setHostHandler([](const char *name, double value, void *)
+    {
+        if (std::strcmp(name, "hit") == 0)
+        {
+            ++hostSeen;
+            hostValue = value;
+        }
+    }, nullptr);
+    k2d::ZenBlackboard::emit("hit", 7.0);
+    ok = ok && hostSeen == 1 && nearEqual((float)hostValue, 7.0f);
+    k2d::ZenBlackboard::setHostHandler(nullptr, nullptr);
+
+    ok = ok && receiverScript->hasFunction("on_event") && !receiverScript->hasFunction("nope");
+    ok = ok && receiverScript->callEvent("hit", 4.0);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("damage"), 8.0f);
+
+    k2d::ZenBlackboard::clear();
+    ok = ok && !k2d::ZenBlackboard::has("hp") && k2d::ZenBlackboard::pendingEventCount() == 0;
+    return ok;
+}
+
 static bool testExampleScripts()
 {
     k2d::Scene scene;
@@ -216,18 +362,28 @@ static bool testExampleScripts()
 
 int main()
 {
+    k2d::SetZenScriptsEnabled(true);
+
     const bool basics = testBasics();
     const bool hierarchy = testHierarchy();
     const bool components = testComponents();
     const bool inputOk = testInput();
     const bool destroy = testDestroy();
     const bool serialization = testSerialization();
+    const bool spawnMath = testSpawnAndMath();
+    const bool gate = testScriptsGate();
+    const bool channel = testBlackboardAndEvents();
     const bool examples = testExampleScripts();
 
-    std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s examples=%s\n",
+    std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s "
+                "spawn_math=%s gate=%s channel=%s examples=%s\n",
                 basics ? "pass" : "fail", hierarchy ? "pass" : "fail",
                 components ? "pass" : "fail", inputOk ? "pass" : "fail",
                 destroy ? "pass" : "fail", serialization ? "pass" : "fail",
-                examples ? "pass" : "fail");
-    return basics && hierarchy && components && inputOk && destroy && serialization && examples ? 0 : 1;
+                spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
+                channel ? "pass" : "fail", examples ? "pass" : "fail");
+    return basics && hierarchy && components && inputOk && destroy && serialization &&
+                   spawnMath && gate && channel && examples
+               ? 0
+               : 1;
 }

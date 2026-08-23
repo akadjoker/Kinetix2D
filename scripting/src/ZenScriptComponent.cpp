@@ -1,6 +1,7 @@
 #include "k2d/ZenScriptComponent.h"
 
 #include "k2d/Animation2D.h"
+#include "k2d/Assets.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
@@ -14,7 +15,10 @@
 #include <zen/compiler.h>
 #include <zen/module.h>
 #include <zen/object.h>
+#include <zen/zen_host_output.h>
 
+#include <cmath>
+#include <cstdio>
 #include <cstring>
 
 namespace k2d
@@ -23,6 +27,54 @@ namespace k2d
     namespace
     {
         Input *gZenInput = nullptr;
+        Assets *gZenAssets = nullptr;
+        bool gZenScriptsEnabled = false;
+        void (*gZenOutput)(const char *text, bool isError, void *user) = nullptr;
+        void *gZenOutputUser = nullptr;
+
+        void zenHostWriter(const char *text, size_t length, int isError, void *)
+        {
+            if (!gZenOutput)
+            {
+                std::fwrite(text, 1, length, isError ? stderr : stdout);
+                return;
+            }
+            char buffer[1024];
+            const size_t n = length < sizeof(buffer) - 1 ? length : sizeof(buffer) - 1;
+            std::memcpy(buffer, text, n);
+            buffer[n] = '\0';
+            gZenOutput(buffer, isError != 0, gZenOutputUser);
+        }
+
+        void preloadPrefabTextures(const ct::Json &node)
+        {
+            if (!gZenAssets)
+                return;
+            if (node.is_object())
+            {
+                const ct::Json::Object &members = node.members();
+                for (size_t i = 0; i < members.size(); ++i)
+                {
+                    const ct::String &key = members[i].key;
+                    const ct::Json &value = members[i].value;
+                    if ((key == "texture" || key == "normalMap") && value.is_string())
+                    {
+                        const char *path = value.as_cstr("");
+                        if (path[0] && !gZenAssets->GetTexture(path))
+                            gZenAssets->LoadTexture(path, path, true, false);
+                    }
+                    else
+                    {
+                        preloadPrefabTextures(value);
+                    }
+                }
+            }
+            else if (node.is_array())
+            {
+                for (size_t i = 0; i < node.size(); ++i)
+                    preloadPrefabTextures(node[i]);
+            }
+        }
 
         int scancodeFor(const char *name)
         {
@@ -92,6 +144,7 @@ namespace k2d
         zen::Value self = zen::val_nil();
         int readyIdx = -1;
         int updateIdx = -1;
+        int eventIdx = -1;
         bool loaded = false;
         bool started = false;
 
@@ -332,6 +385,100 @@ namespace k2d
             return 1;
         }
 
+        int natNodeSpawn(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            GameObject *node = nodeFromSelf(args);
+            ZenScriptComponent::State *state = stateFromVM(vm);
+            GameObject *spawned = nullptr;
+            if (node && node->scene() && nargs >= 1)
+            {
+                char small[16];
+                const char *path = valueToCString(vm, args[0], small, sizeof(small));
+                FileBuffer buffer;
+                if (FileSystem::Instance().LoadFile(path, buffer, true))
+                {
+                    ct::Json::Error err;
+                    const ct::Json json = ct::Json::parse(buffer.Text(), &err);
+                    if (!err)
+                    {
+                        preloadPrefabTextures(json);
+                        spawned = Serializer::ReadObject(*node->scene(), json, nullptr, gZenAssets);
+                        if (spawned && nargs >= 3)
+                            spawned->setPosition(Math::Vec2((float)zen::to_number(args[1]),
+                                                            (float)zen::to_number(args[2])));
+                    }
+                }
+            }
+            args[0] = (spawned && state) ? state->instanceFor(state->nodeClass, spawned) : zen::val_nil();
+            return 1;
+        }
+
+        int natNodeDistanceTo(zen::VM *, zen::Value *args, int nargs)
+        {
+            GameObject *node = nodeFromSelf(args);
+            double distance = 0.0;
+            if (node && nargs >= 2)
+            {
+                const Math::Vec2 p = node->globalPosition();
+                const double dx = zen::to_number(args[0]) - p.x;
+                const double dy = zen::to_number(args[1]) - p.y;
+                distance = std::sqrt(dx * dx + dy * dy);
+            }
+            args[0] = zen::val_float(distance);
+            return 1;
+        }
+
+        int natNodeAngleTo(zen::VM *, zen::Value *args, int nargs)
+        {
+            GameObject *node = nodeFromSelf(args);
+            double degrees = 0.0;
+            if (node && nargs >= 2)
+            {
+                const Math::Vec2 p = node->globalPosition();
+                degrees = std::atan2(zen::to_number(args[1]) - p.y,
+                                     zen::to_number(args[0]) - p.x) * 57.29577951308232;
+            }
+            args[0] = zen::val_float(degrees);
+            return 1;
+        }
+
+        int natNodeLookAt(zen::VM *, zen::Value *args, int nargs)
+        {
+            GameObject *node = nodeFromSelf(args);
+            if (node && nargs >= 2)
+            {
+                const Math::Vec2 p = node->globalPosition();
+                node->setRotationDegrees((float)(std::atan2(zen::to_number(args[1]) - p.y,
+                                                            zen::to_number(args[0]) - p.x) *
+                                                 57.29577951308232));
+            }
+            return 0;
+        }
+
+        int natNodeMoveToward(zen::VM *, zen::Value *args, int nargs)
+        {
+            GameObject *node = nodeFromSelf(args);
+            if (node && nargs >= 3)
+            {
+                const Math::Vec2 p = node->position();
+                const float tx = (float)zen::to_number(args[0]);
+                const float ty = (float)zen::to_number(args[1]);
+                const float maxDistance = (float)zen::to_number(args[2]);
+                const float dx = tx - p.x;
+                const float dy = ty - p.y;
+                const float length = std::sqrt(dx * dx + dy * dy);
+                if (length <= maxDistance || length < 0.0001f)
+                    node->setPosition(Math::Vec2(tx, ty));
+                else
+                    node->setPosition(Math::Vec2(p.x + dx / length * maxDistance,
+                                                 p.y + dy / length * maxDistance));
+            }
+            const Math::Vec2 result = node ? node->position() : Math::Vec2(0.0f, 0.0f);
+            args[0] = zen::val_float(result.x);
+            args[1] = zen::val_float(result.y);
+            return 2;
+        }
+
         int natNodeGetSprite(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
@@ -473,6 +620,81 @@ namespace k2d
             return 1;
         }
 
+        int natGetNumber(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const double fallback = nargs >= 2 ? zen::to_number(args[1]) : 0.0;
+            args[0] = zen::val_float(ZenBlackboard::getNumber(key, fallback));
+            return 1;
+        }
+
+        int natSetNumber(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            if (nargs >= 2)
+                ZenBlackboard::setNumber(valueToCString(vm, args[0], small, sizeof(small)),
+                                         zen::to_number(args[1]));
+            return 0;
+        }
+
+        int natGetString(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            char smallFallback[16];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const char *fallback =
+                nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+            const ct::String value = ZenBlackboard::getString(key, fallback);
+            args[0] = zen::val_obj((zen::Obj *)vm->make_string(value.c_str()));
+            return 1;
+        }
+
+        int natSetString(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            char smallValue[16];
+            if (nargs >= 2)
+                ZenBlackboard::setString(valueToCString(vm, args[0], small, sizeof(small)),
+                                         valueToCString(vm, args[1], smallValue, sizeof(smallValue)));
+            return 0;
+        }
+
+        int natGetFlag(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const bool fallback = nargs >= 2 && zen::is_truthy(args[1]);
+            args[0] = zen::val_bool(ZenBlackboard::getBool(key, fallback));
+            return 1;
+        }
+
+        int natSetFlag(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            if (nargs >= 2)
+                ZenBlackboard::setBool(valueToCString(vm, args[0], small, sizeof(small)),
+                                       zen::is_truthy(args[1]));
+            return 0;
+        }
+
+        int natHasKey(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_bool(ZenBlackboard::has(key));
+            return 1;
+        }
+
+        int natEmit(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            if (nargs >= 1)
+                ZenBlackboard::emit(valueToCString(vm, args[0], small, sizeof(small)),
+                                    nargs >= 2 ? zen::to_number(args[1]) : 0.0);
+            return 0;
+        }
+
         int natKeyDown(zen::VM *vm, zen::Value *args, int nargs)
         {
             char small[16];
@@ -532,6 +754,8 @@ namespace k2d
 
     ZenScriptComponent::State::State()
     {
+        zen_host_set_writer(&zenHostWriter, nullptr);
+
         vm.open_lib_globals(&zen::zen_lib_base);
         vm.register_lib(&zen::zen_lib_math);
         vm.register_lib(&zen::zen_lib_time);
@@ -563,6 +787,11 @@ namespace k2d
         node.method("get_child", &natNodeGetChild, 1);
         node.method("find", &natNodeFind, 1);
         node.method("create_child", &natNodeCreateChild, 1);
+        node.method("spawn", &natNodeSpawn, -1);
+        node.method("distance_to", &natNodeDistanceTo, 2);
+        node.method("angle_to", &natNodeAngleTo, 2);
+        node.method("look_at", &natNodeLookAt, 2);
+        node.method("move_toward", &natNodeMoveToward, 3);
         node.method("get_sprite", &natNodeGetSprite, 0);
         node.method("get_animation", &natNodeGetAnimation, 0);
         node.method("get_particle", &natNodeGetParticle, 0);
@@ -592,6 +821,15 @@ namespace k2d
         particle.method("is_playing", &natParticleIsPlaying, 0);
         particle.persistent(true).constructable(false);
         particleClass = particle.end();
+
+        vm.def_native("get_number", &natGetNumber, -1);
+        vm.def_native("set_number", &natSetNumber, 2);
+        vm.def_native("get_string", &natGetString, -1);
+        vm.def_native("set_string", &natSetString, 2);
+        vm.def_native("get_flag", &natGetFlag, -1);
+        vm.def_native("set_flag", &natSetFlag, 2);
+        vm.def_native("has_key", &natHasKey, 1);
+        vm.def_native("emit", &natEmit, -1);
 
         vm.def_native("key_down", &natKeyDown, 1);
         vm.def_native("key_pressed", &natKeyPressed, 1);
@@ -630,9 +868,42 @@ namespace k2d
 
         mState->readyIdx = mState->vm.find_global("ready");
         mState->updateIdx = mState->vm.find_global("update");
+        mState->eventIdx = mState->vm.find_global("on_event");
         mState->loaded = true;
         mState->started = false;
         return true;
+    }
+
+    bool ZenScriptComponent::callEvent(const char *event, double value)
+    {
+        if (!mState->loaded || mState->eventIdx < 0 || !owner() || !event)
+            return false;
+        if (zen::is_nil(mState->self))
+            mState->self = mState->instanceFor(mState->nodeClass, owner());
+        zen::Value args[3] = {mState->self,
+                              zen::val_obj((zen::Obj *)mState->vm.make_string(event)),
+                              zen::val_float(value)};
+        mState->vm.call_global(mState->eventIdx, args, 3);
+        return !mState->vm.had_error();
+    }
+
+    bool ZenScriptComponent::callFunction(const char *name, double value)
+    {
+        if (!mState->loaded || !owner() || !name)
+            return false;
+        const int index = mState->vm.find_global(name);
+        if (index < 0)
+            return false;
+        if (zen::is_nil(mState->self))
+            mState->self = mState->instanceFor(mState->nodeClass, owner());
+        zen::Value args[2] = {mState->self, zen::val_float(value)};
+        mState->vm.call_global(index, args, 2);
+        return !mState->vm.had_error();
+    }
+
+    bool ZenScriptComponent::hasFunction(const char *name) const
+    {
+        return mState->loaded && name && mState->vm.find_global(name) >= 0;
     }
 
     bool ZenScriptComponent::loadFile(const char *path)
@@ -655,7 +926,7 @@ namespace k2d
 
     void ZenScriptComponent::onUpdate(float deltaTime)
     {
-        if (!mState->loaded || !owner())
+        if (!gZenScriptsEnabled || !mState->loaded || !owner())
             return;
 
         if (zen::is_nil(mState->self))
@@ -678,9 +949,212 @@ namespace k2d
         }
     }
 
+    namespace
+    {
+        struct BlackboardEntry
+        {
+            ct::String key;
+            double number = 0.0;
+            ct::String text;
+            bool flag = false;
+            int kind = 0;
+        };
+
+        struct PendingEvent
+        {
+            ct::String name;
+            double value = 0.0;
+        };
+
+        ct::Vector<BlackboardEntry> &blackboardEntries()
+        {
+            static ct::Vector<BlackboardEntry> entries;
+            return entries;
+        }
+
+        ct::Vector<PendingEvent> &pendingEvents()
+        {
+            static ct::Vector<PendingEvent> events;
+            return events;
+        }
+
+        ZenBlackboard::Handler gHostHandler = nullptr;
+        void *gHostHandlerUser = nullptr;
+
+        BlackboardEntry *findEntry(const char *key)
+        {
+            if (!key)
+                return nullptr;
+            ct::Vector<BlackboardEntry> &entries = blackboardEntries();
+            for (size_t i = 0; i < entries.size(); ++i)
+                if (entries[i].key == key)
+                    return &entries[i];
+            return nullptr;
+        }
+
+        BlackboardEntry &entryFor(const char *key)
+        {
+            if (BlackboardEntry *existing = findEntry(key))
+                return *existing;
+            BlackboardEntry entry;
+            entry.key = key ? key : "";
+            blackboardEntries().push_back(entry);
+            return blackboardEntries().back();
+        }
+    }
+
+    void ZenBlackboard::setNumber(const char *key, double value)
+    {
+        BlackboardEntry &entry = entryFor(key);
+        entry.number = value;
+        entry.kind = 0;
+    }
+
+    void ZenBlackboard::setString(const char *key, const char *value)
+    {
+        BlackboardEntry &entry = entryFor(key);
+        entry.text = value ? value : "";
+        entry.kind = 1;
+    }
+
+    void ZenBlackboard::setBool(const char *key, bool value)
+    {
+        BlackboardEntry &entry = entryFor(key);
+        entry.flag = value;
+        entry.kind = 2;
+    }
+
+    double ZenBlackboard::getNumber(const char *key, double fallback)
+    {
+        const BlackboardEntry *entry = findEntry(key);
+        if (!entry)
+            return fallback;
+        if (entry->kind == 2)
+            return entry->flag ? 1.0 : 0.0;
+        return entry->kind == 0 ? entry->number : fallback;
+    }
+
+    ct::String ZenBlackboard::getString(const char *key, const char *fallback)
+    {
+        const BlackboardEntry *entry = findEntry(key);
+        if (!entry || entry->kind != 1)
+            return ct::String(fallback ? fallback : "");
+        return entry->text;
+    }
+
+    bool ZenBlackboard::getBool(const char *key, bool fallback)
+    {
+        const BlackboardEntry *entry = findEntry(key);
+        if (!entry)
+            return fallback;
+        if (entry->kind == 2)
+            return entry->flag;
+        return entry->kind == 0 ? entry->number != 0.0 : fallback;
+    }
+
+    bool ZenBlackboard::has(const char *key)
+    {
+        return findEntry(key) != nullptr;
+    }
+
+    void ZenBlackboard::remove(const char *key)
+    {
+        ct::Vector<BlackboardEntry> &entries = blackboardEntries();
+        for (size_t i = 0; i < entries.size(); ++i)
+        {
+            if (entries[i].key == key)
+            {
+                entries.erase(entries.begin() + i);
+                return;
+            }
+        }
+    }
+
+    void ZenBlackboard::clear()
+    {
+        blackboardEntries().clear();
+        pendingEvents().clear();
+    }
+
+    void ZenBlackboard::emit(const char *event, double value)
+    {
+        if (!event || !event[0])
+            return;
+        if (gHostHandler)
+            gHostHandler(event, value, gHostHandlerUser);
+        PendingEvent pending;
+        pending.name = event;
+        pending.value = value;
+        pendingEvents().push_back(pending);
+    }
+
+    std::size_t ZenBlackboard::pendingEventCount()
+    {
+        return pendingEvents().size();
+    }
+
+    void ZenBlackboard::clearEvents()
+    {
+        pendingEvents().clear();
+    }
+
+    void ZenBlackboard::setHostHandler(Handler handler, void *user)
+    {
+        gHostHandler = handler;
+        gHostHandlerUser = user;
+    }
+
+    void BroadcastZenScriptEvent(GameObject &root, const char *event, double value)
+    {
+        const size_t count = root.componentCount<ZenScriptComponent>();
+        for (size_t i = 0; i < count; ++i)
+            if (ZenScriptComponent *script = root.getComponentAt<ZenScriptComponent>(i))
+                if (script->active())
+                    script->callEvent(event, value);
+
+        for (size_t i = 0; i < root.childCount(); ++i)
+            BroadcastZenScriptEvent(*root.child(i), event, value);
+    }
+
+    void DispatchZenScriptEvents(GameObject &root)
+    {
+        ct::Vector<PendingEvent> &events = pendingEvents();
+        if (events.empty())
+            return;
+
+        ct::Vector<PendingEvent> batch;
+        for (size_t i = 0; i < events.size(); ++i)
+            batch.push_back(events[i]);
+        events.clear();
+
+        for (size_t i = 0; i < batch.size(); ++i)
+            BroadcastZenScriptEvent(root, batch[i].name.c_str(), batch[i].value);
+    }
+
+    void SetZenScriptsEnabled(bool enabled)
+    {
+        gZenScriptsEnabled = enabled;
+    }
+
+    bool ZenScriptsEnabled()
+    {
+        return gZenScriptsEnabled;
+    }
+
     void SetZenScriptInput(Input *input)
     {
         gZenInput = input;
+    }
+
+    void SetZenScriptAssets(Assets *assets)
+    {
+        gZenAssets = assets;
+    }
+
+    void SetZenScriptOutput(void (*fn)(const char *text, bool isError, void *user), void *user)
+    {
+        gZenOutput = fn;
+        gZenOutputUser = user;
     }
 
     namespace

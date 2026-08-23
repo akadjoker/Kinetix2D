@@ -15,6 +15,7 @@ file(GLOB CORE_SRCS CONFIGURE_DEPENDS src/*.cpp)
 # --- libzen (static library) ---
 add_library(zen_static STATIC ${CORE_SRCS})
 target_include_directories(zen_static PUBLIC include include/zen PRIVATE src ${ZEN_VENDOR_INCLUDES})
+target_compile_options(zen_static PRIVATE -include zen/zen_host_output.h)
 target_link_libraries(zen_static PUBLIC ${ZEN_VENDOR_LIBS} ${CMAKE_DL_LIBS})
 target_compile_definitions(zen_static PUBLIC ${ZEN_DEFINITIONS})
 target_compile_options(zen_static PRIVATE $<$<CONFIG:Release>:-O3>)
