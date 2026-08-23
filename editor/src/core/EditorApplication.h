@@ -47,6 +47,7 @@ public:
     void shutdown();
 
     Scene &scene() { return mScene; }
+    Scene &runtimeScene() { return mRuntimeScene; }
     Assets &assets() { return mAssets; }
     EditorSelection &selection() { return mSelection; }
     EditorSettings &settings() { return mSettings; }
@@ -96,10 +97,14 @@ private:
     void handleShortcuts();
     void loadSettings();
     void saveSettings();
+    void startPlay();
+    void stopPlay();
+    void stepPlay();
 
     Device mDevice;
     Assets mAssets;
     Scene mScene;
+    Scene mRuntimeScene;
     EditorSelection mSelection;
     EditorSettings mSettings;
     Project mProject;

@@ -102,6 +102,9 @@ int EditorApplication::run()
     {
         running = mDevice.PollEvents();
 
+        if (mPlaying && !mPaused)
+            mRuntimeScene.update(mDevice.DeltaTime());
+
         glClearColor(0.055f, 0.062f, 0.075f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -249,6 +252,46 @@ void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selected
         if (!mSelection.resolve(mScene))
             mSelection.clear();
     }
+}
+
+void EditorApplication::startPlay()
+{
+    mRuntimeScene.clear();
+
+    const ct::Json rootJson = Serializer::WriteObject(mScene.root(), &mAssets);
+    GameObject &runtimeRoot = mRuntimeScene.root();
+    runtimeRoot.setName(rootJson["name"].as_cstr("Scene"));
+    runtimeRoot.setTag(rootJson["tag"].as_cstr(""));
+    runtimeRoot.setActive(rootJson["active"].as_bool(true));
+    runtimeRoot.setVisible(rootJson["visible"].as_bool(true));
+    runtimeRoot.setZIndex(static_cast<int>(rootJson["zIndex"].as_int(0)));
+    runtimeRoot.setPosition(readVec2(rootJson["position"], Math::Vec2(0.0f)));
+    runtimeRoot.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));
+    runtimeRoot.setScale(readVec2(rootJson["scale"], Math::Vec2(1.0f)));
+
+    const ct::Json &children = rootJson["children"];
+    if (children.is_array())
+        for (size_t i = 0; i < children.size(); ++i)
+            Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
+
+    mPlaying = true;
+    mPaused = false;
+    log("Play: runtime scene cloned from the edited scene");
+    mToasts.info("Play");
+}
+
+void EditorApplication::stopPlay()
+{
+    mRuntimeScene.clear();
+    mPlaying = false;
+    mPaused = false;
+    log("Stopped preview");
+}
+
+void EditorApplication::stepPlay()
+{
+    if (mPlaying && mPaused)
+        mRuntimeScene.update(1.0f / 60.0f);
 }
 
 void EditorApplication::undo()
@@ -755,11 +798,7 @@ void EditorApplication::drawToolbar()
     ImGui::SameLine();
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - playbackWidth) * 0.5f);
     if (toolbarIcon("play", ICON_MDI_PLAY, "Play", mPlaying && !mPaused, !mPlaying))
-    {
-        mPlaying = true;
-        mPaused = false;
-        log("Play requested (runtime scene clone is scheduled for M5)");
-    }
+        startPlay();
     toolbarSameLine();
     if (toolbarIcon("pause", ICON_MDI_PAUSE, "Pause", mPaused, mPlaying))
     {
@@ -768,14 +807,10 @@ void EditorApplication::drawToolbar()
     }
     toolbarSameLine();
     if (toolbarIcon("step", ICON_MDI_STEP_FORWARD, "Advance one frame", false, mPlaying && mPaused))
-        log("Single frame step requested");
+        stepPlay();
     toolbarSameLine();
     if (toolbarIcon("stop", ICON_MDI_STOP, "Stop", false, mPlaying))
-    {
-        mPlaying = false;
-        mPaused = false;
-        log("Stopped preview");
-    }
+        stopPlay();
     ImGui::EndChild();
 }
 
