@@ -18,11 +18,17 @@ namespace k2d
         Light2D();
 
         void setColor(float r, float g, float b, float a = 1.0f);
+        const glm::vec4 &color() const { return mColor; }
         void setEnergy(float energy);
+        float energy() const { return mEnergy; }
         void setRadius(float radius);
+        float radius() const { return mRadius; }
         void setCastShadow(bool castShadow);
+        bool castShadow() const { return mCastShadow; }
         void setShadowColor(float r, float g, float b, float a = 1.0f);
+        const glm::vec4 &shadowColor() const { return mShadowColor; }
         void setShadowFilter(ShadowFilter filter);
+        ShadowFilter shadowFilter() const { return mShadowFilter; }
         // Godot's range_item_cull_mask: only illuminates items whose light
         // mask shares a bit with this. Default 1 (bit 0).
         void setCullMask(unsigned int mask);

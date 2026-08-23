@@ -64,10 +64,11 @@ int main()
     k2d::Texture *particleTexture = atlasPixmap.CreateTexture(assets, "pass_particles");
 
     k2d::ParticlePrefab litPrefab;
-    litPrefab.velocity = glm::vec2(0.0f, -55.0f);
-    litPrefab.lifetime = 1.8f;
-    litPrefab.size = 18.0f;
-    litPrefab.color = glm::vec4(1.0f, 0.55f, 0.15f, 1.0f);
+    litPrefab.direction = glm::vec2(0.0f, -1.0f);
+    litPrefab.speedMin = litPrefab.speedMax = 55.0f;
+    litPrefab.lifeMin = litPrefab.lifeMax = 1.8f;
+    litPrefab.sizeMin = litPrefab.sizeMax = 18.0f;
+    litPrefab.colorStart = litPrefab.colorEnd = glm::vec4(1.0f, 0.55f, 0.15f, 1.0f);
     litPrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 16.0f, 16.0f);
 
     k2d::ParticleSystem litParticles(256);
@@ -79,7 +80,7 @@ int main()
     litParticles.Start();
 
     k2d::ParticlePrefab unlitPrefab = litPrefab;
-    unlitPrefab.color = glm::vec4(0.25f, 0.8f, 1.0f, 1.0f);
+    unlitPrefab.colorStart = unlitPrefab.colorEnd = glm::vec4(0.25f, 0.8f, 1.0f, 1.0f);
     unlitPrefab.atlasBounds = glm::vec4(32.0f, 0.0f, 16.0f, 16.0f);
     k2d::ParticleSystem unlitParticles(256);
     unlitParticles.SetTexture(particleTexture);

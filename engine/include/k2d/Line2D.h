@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include "k2d/CanvasTypes.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -27,10 +28,13 @@ namespace k2d
         void setWidth(float width);
         float width() const { return mWidth; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
+        unsigned int color() const { return mColor; } // packed r|g<<8|b<<16|a<<24, same layout setColor() writes
         void setTexture(Texture *texture) { mTexture = texture; }
         Texture *texture() const { return mTexture; }
         void setClosed(bool closed);
         bool closed() const { return mClosed; }
+        void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+        BlendMode blendMode() const { return mBlendMode; }
 
     protected:
         void onRender(RenderQueue &queue) override;
@@ -44,6 +48,7 @@ namespace k2d
         unsigned int mColor;
         Texture *mTexture;
         bool mClosed;
+        BlendMode mBlendMode;
     };
 
 }

@@ -51,6 +51,9 @@ target_link_libraries(canvaslayer_diag PRIVATE k2d)
 add_executable(serializer_diag serializer_diag.cpp)
 target_link_libraries(serializer_diag PRIVATE k2d)
 
+add_executable(polygon_uv_diag polygon_uv_diag.cpp)
+target_link_libraries(polygon_uv_diag PRIVATE k2d)
+
 add_executable(customshader_diag customshader_diag.cpp)
 target_link_libraries(customshader_diag PRIVATE k2d)
 

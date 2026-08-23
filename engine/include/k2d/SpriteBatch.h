@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include "k2d/CanvasTypes.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -34,12 +35,15 @@ namespace k2d
         void setFlip(int index, bool flipX, bool flipY);
         int count() const { return (int)mEntries.size(); }
         const Entry *entry(int index) const;
+        void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+        BlendMode blendMode() const { return mBlendMode; }
 
     protected:
         void onRender(RenderQueue &queue) override;
 
     private:
         ct::Vector<Entry> mEntries;
+        BlendMode mBlendMode;
     };
 
 }

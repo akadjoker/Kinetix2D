@@ -49,6 +49,13 @@ namespace k2d
         bool play(const char *name);
         const char *currentClip() const;
         size_t clipCount() const { return mClips.size(); }
+        // Authored clip data (name/sheet/frameCount/fps/mode) for enumeration,
+        // e.g. by Serializer. Doesn't expose live playback position (frame/
+        // accumulator/direction) -- that's runtime state, not authored config.
+        const AnimationClip *clipAt(size_t index) const
+        {
+            return index < mClips.size() ? &mClips[index] : nullptr;
+        }
 
         void setSpriteSheet(Texture *texture, int frameWidth, int frameHeight,
                             int frameCount, float framesPerSecond);

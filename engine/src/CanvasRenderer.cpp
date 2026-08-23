@@ -558,7 +558,7 @@ void main()
                     {
                         Matrix2D m = item.xform * drawTransform;
                         EmitPolygon(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, m,
-                                   *c.polygonPoints, c.color, c.lightMask);
+                                   *c.polygonPoints, c.color, c.lightMask, c.texWidth, c.texHeight);
                     }
                     break;
                 }
@@ -655,7 +655,8 @@ void main()
     void CanvasRenderer::EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                                      unsigned int customProgram, const Matrix2D &matrix,
                                      const ct::Vector<glm::vec2> &points,
-                                     unsigned int color, unsigned int lightMask)
+                                     unsigned int color, unsigned int lightMask,
+                                     int texWidth, int texHeight)
     {
         if (points.size() < 3)
             return;
@@ -687,8 +688,16 @@ void main()
         size_t base = mVertices.size();
         for (size_t i = 0; i < points.size(); ++i)
         {
-            glm::vec2 p = matrix.Transform(points[i]);
-            mVertices.push_back(Vertex{p.x, p.y, 0.0f, 0.0f, 0.0f, r, g, b, a, lightMask});
+            const glm::vec2 &local = points[i];
+            glm::vec2 p = matrix.Transform(local);
+            // Auto-UV, same formula Godot's Polygon2D uses when no explicit
+            // uv array is authored: local vertex position / texture size, so
+            // the texture maps across the shape instead of sampling one
+            // fixed texel everywhere. texWidth/texHeight are 0 for an
+            // untextured polygon -- leave UV at 0 then, nothing samples it.
+            float u = texWidth > 0 ? local.x / (float)texWidth : 0.0f;
+            float v = texHeight > 0 ? local.y / (float)texHeight : 0.0f;
+            mVertices.push_back(Vertex{p.x, p.y, 0.0f, u, v, r, g, b, a, lightMask});
         }
         for (size_t i = 0; i + 2 < points.size(); i += 3)
         {

@@ -10,7 +10,7 @@ namespace k2d
     NinePatchComponent::NinePatchComponent()
         : Component(Type, ComponentEventRender), mTexture(nullptr), mSize(64.0f, 64.0f),
           mMarginLeft(8.0f), mMarginTop(8.0f), mMarginRight(8.0f), mMarginBottom(8.0f),
-          mPivot(0.0f, 0.0f), mColor(0xFFFFFFFFu)
+          mPivot(0.0f, 0.0f), mColor(0xFFFFFFFFu), mBlendMode(BLEND_MIX)
     {
     }
 
@@ -43,6 +43,7 @@ namespace k2d
 
         RenderItem &item = queue.AddItem(owner()->zIndex());
         item.xform = owner()->globalTransform();
+        item.blendMode = mBlendMode;
 
         glm::vec2 origin = -mPivot * mSize;
         float dstY = origin.y;

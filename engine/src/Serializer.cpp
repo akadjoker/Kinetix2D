@@ -4,6 +4,17 @@
 #include "k2d/Scene.h"
 #include "k2d/Assets.h"
 #include "k2d/SpriteComponent.h"
+#include "k2d/TileMapComponent.h"
+#include "k2d/Polygon2D.h"
+#include "k2d/Line2D.h"
+#include "k2d/NinePatchComponent.h"
+#include "k2d/SpriteBatch.h"
+#include "k2d/Animation2D.h"
+#include "k2d/Light2D.h"
+#include "k2d/DirectionalLight2D.h"
+#include "k2d/LightOccluder2D.h"
+#include "k2d/CameraComponent.h"
+#include "k2d/ParticleComponent.h"
 
 #include <cmath>
 #include <cstring>
@@ -13,7 +24,7 @@ namespace k2d
 
     namespace
     {
-        // ---- small json <-> glm helpers, shared by every component ----------
+        // ---- small json <-> glm/packed-color helpers, shared by every component ----
 
         ct::Json WriteVec2(const glm::vec2 &v)
         {
@@ -48,6 +59,30 @@ namespace k2d
                               (float)j[2].as_double(def.z), (float)j[3].as_double(def.w));
         }
 
+        // Line2D/Polygon2D/NinePatchComponent all store color the same way:
+        // an opaque r|g<<8|b<<16|a<<24 uint with a setColor(r,g,b,a) byte
+        // setter and no float normalization involved (unlike Material2D) --
+        // unpack to [r,g,b,a] bytes for a human-readable file instead of a
+        // raw uint.
+        ct::Json WritePackedColor(unsigned int packed)
+        {
+            ct::Json a = ct::Json::array();
+            a.push_back(ct::Json((int)(packed & 0xFFu)));
+            a.push_back(ct::Json((int)((packed >> 8) & 0xFFu)));
+            a.push_back(ct::Json((int)((packed >> 16) & 0xFFu)));
+            a.push_back(ct::Json((int)((packed >> 24) & 0xFFu)));
+            return a;
+        }
+
+        void ReadPackedColorBytes(const ct::Json &j, unsigned char &r, unsigned char &g,
+                                   unsigned char &b, unsigned char &a)
+        {
+            r = (j.is_array() && j.size() > 0) ? (unsigned char)j[0].as_int(255) : 255;
+            g = (j.is_array() && j.size() > 1) ? (unsigned char)j[1].as_int(255) : 255;
+            b = (j.is_array() && j.size() > 2) ? (unsigned char)j[2].as_int(255) : 255;
+            a = (j.is_array() && j.size() > 3) ? (unsigned char)j[3].as_int(255) : 255;
+        }
+
         // ---- the factory/registry table --------------------------------------
         //
         // One row per serializable Component type. Serializer's public methods
@@ -56,10 +91,18 @@ namespace k2d
         // This is the ONLY place that does; extending coverage to a new
         // component means adding one row (and its two small Write*/Read*
         // functions right above it), not touching Prefab/Scene/anywhere else.
+        //
+        // Two component classes (Light2D, DirectionalLight2D) share a single
+        // ComponentType::Light slot -- a GameObject can only carry one or the
+        // other. `matches` disambiguates on write via dynamic_cast; read never
+        // needs it, the JSON "type" name ("Light2D" vs "DirectionalLight2D")
+        // already says which. Every other row leaves `matches` null (its type
+        // has exactly one class, no disambiguation needed).
 
         using CreateFn = Component *(*)(GameObject &owner);
         using WriteFn = void (*)(const Component &component, ct::Json &data, Assets *assets);
         using ReadFn = void (*)(Component &component, const ct::Json &data, Assets *assets);
+        using MatchFn = bool (*)(const Component &component);
 
         struct TypeEntry
         {
@@ -68,6 +111,7 @@ namespace k2d
             CreateFn create;
             WriteFn write;
             ReadFn read;
+            MatchFn matches; // nullptr = the only row for this ComponentType
         };
 
         // ---- SpriteComponent ---------------------------------------------
@@ -101,6 +145,9 @@ namespace k2d
             data.set("flipY", ct::Json(sprite.flipY()));
             data.set("ySort", ct::Json(sprite.ySort()));
             data.set("blendMode", ct::Json((int)sprite.blendMode()));
+            // customShader is a raw GLuint from CanvasRenderer::CreateShader --
+            // there's no name registry for shaders (unlike Assets/Texture), so
+            // it can't be resolved back on load. Deliberately not serialized.
         }
 
         void ReadSprite(Component &component, const ct::Json &data, Assets *assets)
@@ -120,9 +167,9 @@ namespace k2d
             const glm::vec2 tiling = ReadVec2(data["tiling"], glm::vec2(1.0f, 1.0f));
             sprite.setTiling(tiling.x, tiling.y);
 
+            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
             // Material2D::color() is normalized (0..1) -- setColor() takes 0..255
             // bytes and re-normalizes internally, so convert back on the way in.
-            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
             sprite.setColor((unsigned char)std::lround(color.r * 255.0f),
                              (unsigned char)std::lround(color.g * 255.0f),
                              (unsigned char)std::lround(color.b * 255.0f),
@@ -140,25 +187,667 @@ namespace k2d
             sprite.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
+        // ---- TileMapComponent ----------------------------------------------
+
+        Component *CreateTileMap(GameObject &owner)
+        {
+            return owner.addComponent<TileMapComponent>();
+        }
+
+        void WriteTileMap(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const TileMapComponent &tileMap = static_cast<const TileMapComponent &>(component);
+
+            if (assets)
+                if (const char *texName = assets->FindTextureName(tileMap.texture()))
+                    data.set("texture", ct::Json(texName));
+
+            data.set("cellWidth", ct::Json((double)tileMap.cellWidth()));
+            data.set("cellHeight", ct::Json((double)tileMap.cellHeight()));
+            data.set("columns", ct::Json(tileMap.columns()));
+            data.set("rows", ct::Json(tileMap.rows()));
+            data.set("atlasTilesX", ct::Json(tileMap.atlasTilesX()));
+
+            ct::Json cells = ct::Json::array();
+            cells.reserve((size_t)(tileMap.columns() * tileMap.rows()));
+            for (int y = 0; y < tileMap.rows(); ++y)
+                for (int x = 0; x < tileMap.columns(); ++x)
+                    cells.push_back(ct::Json(tileMap.getTile(x, y)));
+            data.set("cells", cells);
+
+            if (tileMap.hasCullRect())
+                data.set("cullRect", WriteVec4(tileMap.cullRect()));
+            data.set("blendMode", ct::Json((int)tileMap.blendMode()));
+        }
+
+        void ReadTileMap(Component &component, const ct::Json &data, Assets *assets)
+        {
+            TileMapComponent &tileMap = static_cast<TileMapComponent &>(component);
+
+            if (assets)
+                if (const ct::Json *tex = data.find("texture"))
+                    tileMap.setTexture(assets->GetTexture(tex->as_cstr()));
+
+            tileMap.setCellSize((float)data["cellWidth"].as_double(32.0),
+                                 (float)data["cellHeight"].as_double(32.0));
+            const int columns = (int)data["columns"].as_int(0);
+            const int rows = (int)data["rows"].as_int(0);
+            tileMap.setMapSize(columns, rows);
+            tileMap.setAtlasTilesX((int)data["atlasTilesX"].as_int(1));
+
+            const ct::Json &cells = data["cells"];
+            if (cells.is_array())
+            {
+                size_t index = 0;
+                for (int y = 0; y < rows && index < cells.size(); ++y)
+                    for (int x = 0; x < columns && index < cells.size(); ++x, ++index)
+                        tileMap.setTile(x, y, (int)cells[index].as_int(0));
+            }
+
+            if (const ct::Json *rect = data.find("cullRect"))
+            {
+                const glm::vec4 r = ReadVec4(*rect);
+                tileMap.setCullRect(r.x, r.y, r.z, r.w);
+            }
+            tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        // ---- Polygon2D -------------------------------------------------------
+
+        Component *CreatePolygon(GameObject &owner)
+        {
+            return owner.addComponent<Polygon2D>();
+        }
+
+        void WritePolygon(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const Polygon2D &polygon = static_cast<const Polygon2D &>(component);
+
+            if (assets)
+                if (const char *texName = assets->FindTextureName(polygon.texture()))
+                    data.set("texture", ct::Json(texName));
+
+            ct::Json points = ct::Json::array();
+            for (size_t i = 0; i < polygon.polygon().size(); ++i)
+                points.push_back(WriteVec2(polygon.polygon()[i]));
+            data.set("points", points);
+            data.set("color", WritePackedColor(polygon.color()));
+            data.set("blendMode", ct::Json((int)polygon.blendMode()));
+        }
+
+        void ReadPolygon(Component &component, const ct::Json &data, Assets *assets)
+        {
+            Polygon2D &polygon = static_cast<Polygon2D &>(component);
+
+            if (assets)
+                if (const ct::Json *tex = data.find("texture"))
+                    polygon.setTexture(assets->GetTexture(tex->as_cstr()));
+
+            const ct::Json &pointsJson = data["points"];
+            if (pointsJson.is_array() && pointsJson.size() >= 3)
+            {
+                ct::Vector<glm::vec2> points;
+                for (size_t i = 0; i < pointsJson.size(); ++i)
+                    points.push_back(ReadVec2(pointsJson[i]));
+                polygon.setPolygon(points.data(), (int)points.size());
+            }
+
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            polygon.setColor(r, g, b, a);
+            polygon.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        // ---- Line2D ------------------------------------------------------
+
+        Component *CreateLine(GameObject &owner)
+        {
+            return owner.addComponent<Line2D>();
+        }
+
+        void WriteLine(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const Line2D &line = static_cast<const Line2D &>(component);
+
+            if (assets)
+                if (const char *texName = assets->FindTextureName(line.texture()))
+                    data.set("texture", ct::Json(texName));
+
+            ct::Json points = ct::Json::array();
+            for (size_t i = 0; i < line.points().size(); ++i)
+                points.push_back(WriteVec2(line.points()[i]));
+            data.set("points", points);
+            data.set("width", ct::Json((double)line.width()));
+            data.set("closed", ct::Json(line.closed()));
+            data.set("color", WritePackedColor(line.color()));
+            data.set("blendMode", ct::Json((int)line.blendMode()));
+        }
+
+        void ReadLine(Component &component, const ct::Json &data, Assets *assets)
+        {
+            Line2D &line = static_cast<Line2D &>(component);
+
+            if (assets)
+                if (const ct::Json *tex = data.find("texture"))
+                    line.setTexture(assets->GetTexture(tex->as_cstr()));
+
+            const ct::Json &pointsJson = data["points"];
+            if (pointsJson.is_array())
+            {
+                ct::Vector<glm::vec2> points;
+                for (size_t i = 0; i < pointsJson.size(); ++i)
+                    points.push_back(ReadVec2(pointsJson[i]));
+                if (!points.empty())
+                    line.setPoints(points.data(), (int)points.size());
+            }
+
+            line.setWidth((float)data["width"].as_double(4.0));
+            line.setClosed(data["closed"].as_bool(false));
+
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            line.setColor(r, g, b, a);
+            line.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        // ---- NinePatchComponent ------------------------------------------
+
+        Component *CreateNinePatch(GameObject &owner)
+        {
+            return owner.addComponent<NinePatchComponent>();
+        }
+
+        void WriteNinePatch(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const NinePatchComponent &ninePatch = static_cast<const NinePatchComponent &>(component);
+
+            if (assets)
+                if (const char *texName = assets->FindTextureName(ninePatch.texture()))
+                    data.set("texture", ct::Json(texName));
+
+            data.set("size", WriteVec2(ninePatch.size()));
+            data.set("margins", WriteVec4(ninePatch.margins()));
+            data.set("pivot", WriteVec2(ninePatch.pivot()));
+            data.set("color", WritePackedColor(ninePatch.color()));
+            data.set("blendMode", ct::Json((int)ninePatch.blendMode()));
+        }
+
+        void ReadNinePatch(Component &component, const ct::Json &data, Assets *assets)
+        {
+            NinePatchComponent &ninePatch = static_cast<NinePatchComponent &>(component);
+
+            if (assets)
+                if (const ct::Json *tex = data.find("texture"))
+                    ninePatch.setTexture(assets->GetTexture(tex->as_cstr()));
+
+            ninePatch.setSize(ReadVec2(data["size"], glm::vec2(64.0f, 64.0f)));
+            const glm::vec4 margins = ReadVec4(data["margins"], glm::vec4(8.0f));
+            ninePatch.setMargins(margins.x, margins.y, margins.z, margins.w);
+            ninePatch.setPivot(ReadVec2(data["pivot"]));
+
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            ninePatch.setColor(r, g, b, a);
+            ninePatch.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        // ---- SpriteBatch -------------------------------------------------
+
+        Component *CreateSpriteBatch(GameObject &owner)
+        {
+            return owner.addComponent<SpriteBatch>();
+        }
+
+        void WriteSpriteBatch(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const SpriteBatch &batch = static_cast<const SpriteBatch &>(component);
+
+            ct::Json entries = ct::Json::array();
+            for (int i = 0; i < batch.count(); ++i)
+            {
+                const SpriteBatch::Entry *e = batch.entry(i);
+                if (!e)
+                    continue;
+                ct::Json entryJson = ct::Json::object();
+                if (assets)
+                    if (const char *texName = assets->FindTextureName(e->texture))
+                        entryJson.set("texture", ct::Json(texName));
+                entryJson.set("position", WriteVec2(e->position));
+                entryJson.set("size", WriteVec2(e->size));
+                entryJson.set("source", WriteVec4(e->source));
+                // Opaque packed uint round-tripped bit-for-bit -- no formula to
+                // get wrong, unlike the byte-argument setColor() components.
+                entryJson.set("color", ct::Json(e->color));
+                entryJson.set("flipX", ct::Json((e->flags & 0x1u) != 0));
+                entryJson.set("flipY", ct::Json((e->flags & 0x2u) != 0));
+                entries.push_back(entryJson);
+            }
+            data.set("entries", entries);
+            data.set("blendMode", ct::Json((int)batch.blendMode()));
+        }
+
+        void ReadSpriteBatch(Component &component, const ct::Json &data, Assets *assets)
+        {
+            SpriteBatch &batch = static_cast<SpriteBatch &>(component);
+            batch.clear();
+
+            const ct::Json &entries = data["entries"];
+            if (!entries.is_array())
+                return;
+
+            for (size_t i = 0; i < entries.size(); ++i)
+            {
+                const ct::Json &e = entries[i];
+                Texture *texture = nullptr;
+                if (assets)
+                    if (const ct::Json *tex = e.find("texture"))
+                        texture = assets->GetTexture(tex->as_cstr());
+
+                const unsigned int color = (unsigned int)e["color"].as_uint(0xFFFFFFFFu);
+                const int index = batch.add(texture, ReadVec2(e["position"]),
+                                             ReadVec2(e["size"], glm::vec2(1.0f)), color);
+                batch.setSource(index, ReadVec4(e["source"]));
+                batch.setFlip(index, e["flipX"].as_bool(false), e["flipY"].as_bool(false));
+            }
+            batch.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        // ---- Animation2D ---------------------------------------------------
+
+        Component *CreateAnimation(GameObject &owner)
+        {
+            return owner.addComponent<Animation2D>();
+        }
+
+        void WriteAnimation(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const Animation2D &anim = static_cast<const Animation2D &>(component);
+
+            ct::Json clips = ct::Json::array();
+            for (size_t i = 0; i < anim.clipCount(); ++i)
+            {
+                const AnimationClip *clip = anim.clipAt(i);
+                if (!clip)
+                    continue;
+                ct::Json clipJson = ct::Json::object();
+                clipJson.set("name", ct::Json(clip->name.c_str()));
+                if (assets)
+                    if (const char *texName = assets->FindTextureName(clip->texture))
+                        clipJson.set("texture", ct::Json(texName));
+                clipJson.set("frameWidth", ct::Json(clip->frameWidth));
+                clipJson.set("frameHeight", ct::Json(clip->frameHeight));
+                clipJson.set("frameCount", ct::Json(clip->frameCount));
+                clipJson.set("framesPerSecond", ct::Json((double)clip->framesPerSecond));
+                clipJson.set("mode", ct::Json((int)clip->mode));
+                clips.push_back(clipJson);
+            }
+            data.set("clips", clips);
+            // Live playback position (frame/accumulator/pingpong direction) is
+            // runtime state, not authored config -- deliberately not saved, same
+            // reasoning as GameObject's cached transform matrices. A loaded
+            // instance starts its active clip fresh from frame 0.
+            data.set("activeClip", ct::Json(anim.currentClip()));
+            data.set("playing", ct::Json(anim.playing()));
+        }
+
+        void ReadAnimation(Component &component, const ct::Json &data, Assets *assets)
+        {
+            Animation2D &anim = static_cast<Animation2D &>(component);
+
+            const ct::Json &clips = data["clips"];
+            if (clips.is_array())
+            {
+                for (size_t i = 0; i < clips.size(); ++i)
+                {
+                    const ct::Json &clip = clips[i];
+                    Texture *texture = nullptr;
+                    if (assets)
+                        if (const ct::Json *tex = clip.find("texture"))
+                            texture = assets->GetTexture(tex->as_cstr());
+                    anim.addClip(clip["name"].as_cstr(""), texture,
+                                 (int)clip["frameWidth"].as_int(0), (int)clip["frameHeight"].as_int(0),
+                                 (int)clip["frameCount"].as_int(0),
+                                 (float)clip["framesPerSecond"].as_double(0.0),
+                                 (AnimationMode)clip["mode"].as_int((int)AnimationMode::Loop));
+                }
+            }
+
+            const char *activeName = data["activeClip"].as_cstr(nullptr);
+            if (activeName && *activeName)
+                anim.play(activeName);
+            if (data["playing"].as_bool(false))
+                anim.play();
+            else
+                anim.stop();
+        }
+
+        // ---- Light2D / DirectionalLight2D (share ComponentType::Light) -----
+
+        Component *CreatePointLight(GameObject &owner)
+        {
+            return owner.addComponent<Light2D>();
+        }
+
+        Component *CreateDirectionalLight(GameObject &owner)
+        {
+            return owner.addComponent<DirectionalLight2D>();
+        }
+
+        bool IsPointLight(const Component &component)
+        {
+            return dynamic_cast<const Light2D *>(&component) != nullptr;
+        }
+
+        bool IsDirectionalLight(const Component &component)
+        {
+            return dynamic_cast<const DirectionalLight2D *>(&component) != nullptr;
+        }
+
+        void WritePointLight(const Component &component, ct::Json &data, Assets *)
+        {
+            const Light2D &light = static_cast<const Light2D &>(component);
+            data.set("color", WriteVec4(light.color()));
+            data.set("energy", ct::Json((double)light.energy()));
+            data.set("radius", ct::Json((double)light.radius()));
+            data.set("castShadow", ct::Json(light.castShadow()));
+            data.set("shadowColor", WriteVec4(light.shadowColor()));
+            data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
+            data.set("cullMask", ct::Json(light.cullMask()));
+            data.set("height", ct::Json((double)light.height()));
+        }
+
+        void ReadPointLight(Component &component, const ct::Json &data, Assets *)
+        {
+            Light2D &light = static_cast<Light2D &>(component);
+            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f));
+            light.setColor(color.r, color.g, color.b, color.a);
+            light.setEnergy((float)data["energy"].as_double(1.0));
+            light.setRadius((float)data["radius"].as_double(300.0));
+            light.setCastShadow(data["castShadow"].as_bool(false));
+            const glm::vec4 shadowColor = ReadVec4(data["shadowColor"], glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
+            light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
+            light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
+            light.setHeight((float)data["height"].as_double(0.0));
+        }
+
+        void WriteDirectionalLight(const Component &component, ct::Json &data, Assets *)
+        {
+            const DirectionalLight2D &light = static_cast<const DirectionalLight2D &>(component);
+            data.set("color", WriteVec4(light.color()));
+            data.set("energy", ct::Json((double)light.energy()));
+            data.set("castShadow", ct::Json(light.castShadow()));
+            data.set("shadowColor", WriteVec4(light.shadowColor()));
+            data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
+            data.set("cullMask", ct::Json(light.cullMask()));
+            data.set("height", ct::Json((double)light.height()));
+        }
+
+        void ReadDirectionalLight(Component &component, const ct::Json &data, Assets *)
+        {
+            DirectionalLight2D &light = static_cast<DirectionalLight2D &>(component);
+            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f));
+            light.setColor(color.r, color.g, color.b, color.a);
+            light.setEnergy((float)data["energy"].as_double(1.0));
+            light.setCastShadow(data["castShadow"].as_bool(false));
+            const glm::vec4 shadowColor = ReadVec4(data["shadowColor"], glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
+            light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
+            light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
+            light.setHeight((float)data["height"].as_double(0.0));
+        }
+
+        // ---- LightOccluder2D -------------------------------------------------
+
+        Component *CreateOccluder(GameObject &owner)
+        {
+            return owner.addComponent<LightOccluder2D>();
+        }
+
+        void WriteOccluder(const Component &component, ct::Json &data, Assets *)
+        {
+            const LightOccluder2D &occluder = static_cast<const LightOccluder2D &>(component);
+            ct::Json points = ct::Json::array();
+            for (size_t i = 0; i < occluder.points().size(); ++i)
+                points.push_back(WriteVec2(occluder.points()[i]));
+            data.set("points", points);
+        }
+
+        void ReadOccluder(Component &component, const ct::Json &data, Assets *)
+        {
+            LightOccluder2D &occluder = static_cast<LightOccluder2D &>(component);
+            const ct::Json &pointsJson = data["points"];
+            if (!pointsJson.is_array())
+                return;
+            ct::Vector<glm::vec2> points;
+            for (size_t i = 0; i < pointsJson.size(); ++i)
+                points.push_back(ReadVec2(pointsJson[i]));
+            if (!points.empty())
+                occluder.setPolygon(points.data(), (int)points.size());
+        }
+
+        // ---- CameraComponent -------------------------------------------------
+
+        Component *CreateCamera(GameObject &owner)
+        {
+            return owner.addComponent<CameraComponent>();
+        }
+
+        void WriteCamera(const Component &component, ct::Json &data, Assets *)
+        {
+            const CameraComponent &cameraComponent = static_cast<const CameraComponent &>(component);
+            const Camera2D &camera = cameraComponent.camera();
+
+            data.set("viewportWidth", ct::Json((double)cameraComponent.viewportWidth()));
+            data.set("viewportHeight", ct::Json((double)cameraComponent.viewportHeight()));
+            data.set("position", WriteVec2(camera.position));
+            data.set("rotationDegrees", ct::Json((double)camera.rotationDegrees));
+            data.set("zoom", WriteVec2(camera.zoom));
+            data.set("offset", WriteVec2(camera.offset));
+            data.set("limitEnabled", ct::Json(camera.limitEnabled));
+            data.set("limits", WriteVec4(camera.limits));
+            data.set("smoothingEnabled", ct::Json(camera.smoothingEnabled));
+            data.set("smoothingSpeed", ct::Json((double)camera.smoothingSpeed));
+            data.set("deadZoneEnabled", ct::Json(camera.deadZoneEnabled));
+            data.set("deadZone", WriteVec4(camera.deadZone));
+            data.set("targetEnabled", ct::Json(camera.targetEnabled));
+            data.set("target", WriteVec2(camera.target));
+        }
+
+        void ReadCamera(Component &component, const ct::Json &data, Assets *)
+        {
+            CameraComponent &cameraComponent = static_cast<CameraComponent &>(component);
+            cameraComponent.setViewport((float)data["viewportWidth"].as_double(0.0),
+                                         (float)data["viewportHeight"].as_double(0.0));
+
+            Camera2D &camera = cameraComponent.camera();
+            camera.position = ReadVec2(data["position"]);
+            camera.rotationDegrees = (float)data["rotationDegrees"].as_double(0.0);
+            camera.zoom = ReadVec2(data["zoom"], glm::vec2(1.0f, 1.0f));
+            camera.offset = ReadVec2(data["offset"]);
+            camera.limitEnabled = data["limitEnabled"].as_bool(false);
+            camera.limits = ReadVec4(data["limits"]);
+            camera.smoothingEnabled = data["smoothingEnabled"].as_bool(false);
+            camera.smoothingSpeed = (float)data["smoothingSpeed"].as_double(5.0);
+            camera.deadZoneEnabled = data["deadZoneEnabled"].as_bool(false);
+            camera.deadZone = ReadVec4(data["deadZone"]);
+            camera.targetEnabled = data["targetEnabled"].as_bool(false);
+            camera.target = ReadVec2(data["target"]);
+        }
+
+        // ---- ParticleComponent -----------------------------------------------
+
+        ct::Json WriteParticlePrefab(const ParticlePrefab &prefab)
+        {
+            ct::Json j = ct::Json::object();
+            j.set("direction", WriteVec2(prefab.direction));
+            j.set("spreadDegrees", ct::Json((double)prefab.spreadDegrees));
+            j.set("speedMin", ct::Json((double)prefab.speedMin));
+            j.set("speedMax", ct::Json((double)prefab.speedMax));
+            j.set("lifeMin", ct::Json((double)prefab.lifeMin));
+            j.set("lifeMax", ct::Json((double)prefab.lifeMax));
+            j.set("sizeMin", ct::Json((double)prefab.sizeMin));
+            j.set("sizeMax", ct::Json((double)prefab.sizeMax));
+            j.set("endSize", ct::Json((double)prefab.endSize));
+            j.set("rotationMin", ct::Json((double)prefab.rotationMin));
+            j.set("rotationMax", ct::Json((double)prefab.rotationMax));
+            j.set("angularVelocityMin", ct::Json((double)prefab.angularVelocityMin));
+            j.set("angularVelocityMax", ct::Json((double)prefab.angularVelocityMax));
+            j.set("drag", ct::Json((double)prefab.drag));
+            j.set("faceDirection", ct::Json(prefab.faceDirection));
+            j.set("faceDirectionOffsetDegrees", ct::Json((double)prefab.faceDirectionOffsetDegrees));
+            j.set("fadeIn", ct::Json((double)prefab.fadeIn));
+            j.set("fadeOut", ct::Json((double)prefab.fadeOut));
+            j.set("colorStart", WriteVec4(prefab.colorStart));
+            j.set("colorEnd", WriteVec4(prefab.colorEnd));
+            j.set("atlasBounds", WriteVec4(prefab.atlasBounds));
+            return j;
+        }
+
+        ParticlePrefab ReadParticlePrefab(const ct::Json &j)
+        {
+            ParticlePrefab prefab;
+            prefab.direction = ReadVec2(j["direction"], glm::vec2(0.0f, -1.0f));
+            prefab.spreadDegrees = (float)j["spreadDegrees"].as_double(0.0);
+            prefab.speedMin = (float)j["speedMin"].as_double(0.0);
+            prefab.speedMax = (float)j["speedMax"].as_double(0.0);
+            prefab.lifeMin = (float)j["lifeMin"].as_double(1.0);
+            prefab.lifeMax = (float)j["lifeMax"].as_double(1.0);
+            prefab.sizeMin = (float)j["sizeMin"].as_double(1.0);
+            prefab.sizeMax = (float)j["sizeMax"].as_double(1.0);
+            prefab.endSize = (float)j["endSize"].as_double(0.0);
+            prefab.rotationMin = (float)j["rotationMin"].as_double(0.0);
+            prefab.rotationMax = (float)j["rotationMax"].as_double(0.0);
+            prefab.angularVelocityMin = (float)j["angularVelocityMin"].as_double(0.0);
+            prefab.angularVelocityMax = (float)j["angularVelocityMax"].as_double(0.0);
+            prefab.drag = (float)j["drag"].as_double(0.0);
+            prefab.faceDirection = j["faceDirection"].as_bool(false);
+            prefab.faceDirectionOffsetDegrees = (float)j["faceDirectionOffsetDegrees"].as_double(0.0);
+            prefab.fadeIn = (float)j["fadeIn"].as_double(0.0);
+            prefab.fadeOut = (float)j["fadeOut"].as_double(0.0);
+            prefab.colorStart = ReadVec4(j["colorStart"], glm::vec4(1.0f));
+            prefab.colorEnd = ReadVec4(j["colorEnd"], glm::vec4(1.0f));
+            prefab.atlasBounds = ReadVec4(j["atlasBounds"], glm::vec4(0.0f));
+            return prefab;
+        }
+
+        Component *CreateParticle(GameObject &owner)
+        {
+            return owner.addComponent<ParticleComponent>();
+        }
+
+        void WriteParticle(const Component &component, ct::Json &data, Assets *assets)
+        {
+            const ParticleComponent &particleComponent = static_cast<const ParticleComponent &>(component);
+            const ParticleSystem &system = particleComponent.system();
+
+            if (assets)
+                if (const char *texName = assets->FindTextureName(system.GetTexture()))
+                    data.set("texture", ct::Json(texName));
+
+            data.set("capacity", ct::Json(system.Capacity()));
+            data.set("mode", ct::Json((int)system.GetMode()));
+            data.set("emitterShape", ct::Json((int)system.GetEmitterShape()));
+            data.set("emitterSize", WriteVec2(system.EmitterSize()));
+            data.set("emitterPosition", WriteVec2(system.EmitterPosition()));
+            data.set("emissionRate", ct::Json((double)system.EmissionRate()));
+            data.set("oneShotCount", ct::Json(system.OneShotCount()));
+            data.set("gravity", WriteVec2(system.Gravity()));
+            data.set("playing", ct::Json(system.IsPlaying()));
+            data.set("blendMode", ct::Json((int)particleComponent.blendMode()));
+            data.set("ySort", ct::Json(particleComponent.ySort()));
+            data.set("followOwner", ct::Json(particleComponent.followOwner()));
+            data.set("prefab", WriteParticlePrefab(system.GetPrefab()));
+        }
+
+        void ReadParticle(Component &component, const ct::Json &data, Assets *assets)
+        {
+            ParticleComponent &particleComponent = static_cast<ParticleComponent &>(component);
+            ParticleSystem &system = particleComponent.system();
+
+            if (assets)
+                if (const ct::Json *tex = data.find("texture"))
+                    system.SetTexture(assets->GetTexture(tex->as_cstr()));
+
+            system.SetCapacity((size_t)data["capacity"].as_uint(256));
+            system.SetMode((ParticleMode)data["mode"].as_int((int)ParticleMode::Persistent));
+            system.SetEmitterShape((ParticleEmitterShape)data["emitterShape"].as_int((int)ParticleEmitterShape::Point));
+            system.SetEmitterSize(ReadVec2(data["emitterSize"]));
+            system.SetEmitterPosition(ReadVec2(data["emitterPosition"]));
+            system.SetEmissionRate((float)data["emissionRate"].as_double(0.0));
+            system.SetOneShotCount((size_t)data["oneShotCount"].as_uint(1));
+            system.SetGravity(ReadVec2(data["gravity"]));
+            system.SetPrefab(ReadParticlePrefab(data["prefab"]));
+
+            particleComponent.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+            particleComponent.setYSort(data["ySort"].as_bool(false));
+            particleComponent.setFollowOwner(data["followOwner"].as_bool(true));
+
+            if (data["playing"].as_bool(false))
+                system.Start();
+            else
+                system.Stop();
+        }
+
         // ---- registry ------------------------------------------------------
+        //
+        // ComponentType::Script has no row and never will: ScriptComponent's
+        // constructor is protected specifically so only a user's own subclass
+        // (unknown to the engine) can exist -- there's no concrete type here to
+        // even instantiate generically, let alone know its fields.
 
         const TypeEntry *AllEntries(std::size_t &count)
         {
             static const TypeEntry kEntries[] = {
-                {ComponentType::Sprite, "Sprite", &CreateSprite, &WriteSprite, &ReadSprite},
+                {ComponentType::Sprite, "Sprite", &CreateSprite, &WriteSprite, &ReadSprite, nullptr},
+                {ComponentType::TileMap, "TileMap", &CreateTileMap, &WriteTileMap, &ReadTileMap, nullptr},
+                {ComponentType::Polygon2D, "Polygon2D", &CreatePolygon, &WritePolygon, &ReadPolygon, nullptr},
+                {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
+                {ComponentType::NinePatch, "NinePatch", &CreateNinePatch, &WriteNinePatch, &ReadNinePatch, nullptr},
+                {ComponentType::SpriteBatch, "SpriteBatch", &CreateSpriteBatch, &WriteSpriteBatch, &ReadSpriteBatch, nullptr},
+                {ComponentType::Animation, "Animation2D", &CreateAnimation, &WriteAnimation, &ReadAnimation, nullptr},
+                {ComponentType::Light, "Light2D", &CreatePointLight, &WritePointLight, &ReadPointLight, &IsPointLight},
+                {ComponentType::Light, "DirectionalLight2D", &CreateDirectionalLight, &WriteDirectionalLight, &ReadDirectionalLight, &IsDirectionalLight},
+                {ComponentType::Occluder, "LightOccluder2D", &CreateOccluder, &WriteOccluder, &ReadOccluder, nullptr},
+                {ComponentType::Camera, "Camera", &CreateCamera, &WriteCamera, &ReadCamera, nullptr},
+                {ComponentType::Particle, "Particle", &CreateParticle, &WriteParticle, &ReadParticle, nullptr},
             };
             count = sizeof(kEntries) / sizeof(kEntries[0]);
             return kEntries;
         }
 
-        const TypeEntry *FindByType(ComponentType type)
+        bool AnyEntryForType(ComponentType type)
         {
             std::size_t count = 0;
             const TypeEntry *entries = AllEntries(count);
             for (std::size_t i = 0; i < count; ++i)
                 if (entries[i].type == type)
-                    return &entries[i];
-            return nullptr;
+                    return true;
+            return false;
+        }
+
+        // Picks the row for an actually-attached component, resolving the
+        // Light2D/DirectionalLight2D ambiguity via `matches`.
+        const TypeEntry *FindEntryForComponent(const Component &component)
+        {
+            std::size_t count = 0;
+            const TypeEntry *entries = AllEntries(count);
+            const TypeEntry *fallback = nullptr;
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                if (entries[i].type != component.type())
+                    continue;
+                if (entries[i].matches)
+                {
+                    if (entries[i].matches(component))
+                        return &entries[i];
+                }
+                else
+                {
+                    fallback = &entries[i];
+                }
+            }
+            return fallback;
         }
 
         const TypeEntry *FindByName(const char *name)
@@ -175,8 +864,8 @@ namespace k2d
 
         ct::Json WriteComponent(const Component &component, Assets *assets)
         {
+            const TypeEntry *entry = FindEntryForComponent(component);
             ct::Json result = ct::Json::object();
-            const TypeEntry *entry = FindByType(component.type());
             if (!entry)
                 return result; // unregistered type: caller skips empty entries
             result.set("type", ct::Json(entry->name));
@@ -186,14 +875,11 @@ namespace k2d
             return result;
         }
 
-        // Returns false only when the entry names a component type we don't
-        // know how to create (e.g. an older/foreign file) -- not an error for
-        // the caller to abort over, just one component silently skipped.
         void ReadComponent(GameObject &owner, const ct::Json &entryJson, Assets *assets)
         {
             const TypeEntry *entry = FindByName(entryJson["type"].as_cstr(nullptr));
             if (!entry)
-                return;
+                return; // unknown/older component type in the file -- skip it
             Component *component = entry->create(owner);
             if (!component)
                 return; // owner already has one of this type
@@ -203,7 +889,7 @@ namespace k2d
 
     bool Serializer::IsRegistered(ComponentType type)
     {
-        return FindByType(type) != nullptr;
+        return AnyEntryForType(type);
     }
 
     ct::Json Serializer::WriteObject(const GameObject &object, Assets *assets)
@@ -224,9 +910,10 @@ namespace k2d
             const Component *component = object.rawComponent((ComponentType)t);
             if (!component)
                 continue;
-            if (!IsRegistered(component->type()))
-                continue; // not (yet) serializable -- skip rather than drop garbage
-            components.push_back(WriteComponent(*component, assets));
+            ct::Json entryJson = WriteComponent(*component, assets);
+            if (!entryJson.contains("type"))
+                continue; // no registered writer for this component's actual type
+            components.push_back(entryJson);
         }
         j.set("components", components);
 

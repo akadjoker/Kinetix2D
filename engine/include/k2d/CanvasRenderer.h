@@ -122,7 +122,8 @@ namespace k2d
                       bool flipX, bool flipY, unsigned int color, unsigned int lightMask);
         void EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                          unsigned int customProgram, const Matrix2D &matrix,
-                         const ct::Vector<glm::vec2> &points, unsigned int color, unsigned int lightMask);
+                         const ct::Vector<glm::vec2> &points, unsigned int color, unsigned int lightMask,
+                         int texWidth = 0, int texHeight = 0);
         void FlattenOccluderEdges();
 
 

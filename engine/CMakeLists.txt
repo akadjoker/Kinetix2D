@@ -59,6 +59,7 @@ add_library(k2d STATIC
     src/Light2D.cpp
     src/DirectionalLight2D.cpp
     src/ParticleSystem.cpp
+    src/ParticleComponent.cpp
     src/LightOccluder2D.cpp
     src/Scene.cpp
     src/SpriteComponent.cpp

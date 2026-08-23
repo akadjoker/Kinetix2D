@@ -1,8 +1,10 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include "k2d/CanvasTypes.h"
 
 #include <ct/vector.hpp>
+#include <glm/glm.hpp>
 
 namespace k2d
 {
@@ -24,14 +26,24 @@ namespace k2d
         TileMapComponent();
 
         void setTexture(Texture *texture);
+        Texture *texture() const { return mTexture; }
         void setCellSize(float width, float height);
+        float cellWidth() const { return mCellW; }
+        float cellHeight() const { return mCellH; }
         void setMapSize(int columns, int rows);
         void setAtlasTilesX(int tilesX);
+        int atlasTilesX() const { return mAtlasTilesX; }
         void setTile(int x, int y, int atlasTileId);
         bool loadTMX(Assets &assets, const char *tmxPath, const char *textureName = "tmx_tiles");
         int getTile(int x, int y) const;
         void setCullRect(float x, float y, float width, float height);
         void clearCullRect();
+        bool hasCullRect() const { return mCullEnabled; }
+        // x, y, width, height -- same order setCullRect() takes. Only meaningful
+        // when hasCullRect() is true.
+        glm::vec4 cullRect() const { return glm::vec4(mCullX, mCullY, mCullW, mCullH); }
+        void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+        BlendMode blendMode() const { return mBlendMode; }
 
         // Configures `grid` to match this tilemap's dimensions/cell size and
         // marks a cell solid iff its atlas tile id is one of `solidTileIds`
@@ -65,6 +77,7 @@ namespace k2d
         float mCullW;
         float mCullH;
         bool mCullEnabled;
+        BlendMode mBlendMode;
     };
 
 }

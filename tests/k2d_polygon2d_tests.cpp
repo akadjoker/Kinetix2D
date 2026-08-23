@@ -22,6 +22,23 @@ int main()
               std::fabs(triangleArea - 1200.0f) < 0.01f;
     polygon.setPolygon(nullptr, 0);
     ok = ok && !polygon.valid();
-    std::printf("polygon2d=%s\n", ok ? "pass" : "fail");
+
+    // A large, terrain-scale outline (well past the old fixed 256-triangle
+    // cap kx::Triangulate used to be called with) must triangulate fully --
+    // exactly count-2 triangles for a simple convex polygon, not silently
+    // truncated.
+    const int largeCount = 300;
+    glm::vec2 largePolygon[largeCount];
+    for (int i = 0; i < largeCount; ++i)
+    {
+        float angle = (float)i / (float)largeCount * 6.28318530718f;
+        largePolygon[i] = glm::vec2(std::cos(angle), std::sin(angle)) * 1000.0f;
+    }
+    k2d::Polygon2D largePoly;
+    largePoly.setPolygon(largePolygon, largeCount);
+    bool largeOk = largePoly.valid() && largePoly.triangles().size() == (size_t)(largeCount - 2) * 3;
+    std::printf("polygon2d=%s large_untruncated=%s\n", ok ? "pass" : "fail",
+                largeOk ? "pass" : "fail");
+    ok = ok && largeOk;
     return ok ? 0 : 1;
 }

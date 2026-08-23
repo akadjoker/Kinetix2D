@@ -16,10 +16,15 @@ namespace k2d
         DirectionalLight2D();
 
         void setColor(float r, float g, float b, float a = 1.0f);
+        const glm::vec4 &color() const { return mColor; }
         void setEnergy(float energy);
+        float energy() const { return mEnergy; }
         void setCastShadow(bool castShadow);
+        bool castShadow() const { return mCastShadow; }
         void setShadowColor(float r, float g, float b, float a = 1.0f);
+        const glm::vec4 &shadowColor() const { return mShadowColor; }
         void setShadowFilter(ShadowFilter filter);
+        ShadowFilter shadowFilter() const { return mShadowFilter; }
         void setCullMask(unsigned int mask);
         unsigned int cullMask() const { return mCullMask; }
         // 0..1 mix factor between in-plane and straight-down, for

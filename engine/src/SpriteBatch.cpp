@@ -8,7 +8,7 @@ namespace k2d
 {
 
     SpriteBatch::SpriteBatch()
-        : Component(Type, ComponentEventRender), mEntries()
+        : Component(Type, ComponentEventRender), mEntries(), mBlendMode(BLEND_MIX)
     {
     }
 
@@ -54,6 +54,7 @@ namespace k2d
     {
         RenderItem &item = queue.AddItem(owner()->zIndex());
         item.xform = owner()->globalTransform();
+        item.blendMode = mBlendMode;
 
         for (size_t i = 0; i < mEntries.size(); ++i)
         {

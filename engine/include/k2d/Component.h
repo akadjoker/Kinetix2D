@@ -21,6 +21,7 @@ namespace k2d
         Occluder,
         LinePath,
         NinePatch,
+        Particle,
         Count
     };
 

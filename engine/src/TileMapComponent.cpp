@@ -43,7 +43,8 @@ namespace k2d
     TileMapComponent::TileMapComponent()
         : Component(Type, ComponentEventRender), mTexture(nullptr),
           mCellW(32.0f), mCellH(32.0f), mColumns(0), mRows(0), mAtlasTilesX(1),
-          mCullX(0.0f), mCullY(0.0f), mCullW(0.0f), mCullH(0.0f), mCullEnabled(false)
+          mCullX(0.0f), mCullY(0.0f), mCullW(0.0f), mCullH(0.0f), mCullEnabled(false),
+          mBlendMode(BLEND_MIX)
     {
     }
 
@@ -222,6 +223,7 @@ namespace k2d
 
         RenderItem &item = queue.AddItem(owner()->zIndex());
         item.xform = owner()->globalTransform();
+        item.blendMode = mBlendMode;
 
         int minX = 0;
         int minY = 0;

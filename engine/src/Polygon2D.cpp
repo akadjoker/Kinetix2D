@@ -11,7 +11,7 @@ namespace k2d
 
     Polygon2D::Polygon2D()
         : Component(Type, ComponentEventRender), mPolygon(), mTriangles(),
-          mTexture(nullptr), mColor(0xFFFFFFFFu)
+          mTexture(nullptr), mColor(0xFFFFFFFFu), mBlendMode(BLEND_MIX)
     {
     }
 
@@ -25,8 +25,15 @@ namespace k2d
         for (int i = 0; i < count; ++i)
             mPolygon.push_back(points[i]);
 
-        glm::vec2 triangles[3 * 256];
-        int triangleCount = kx::Triangulate(mPolygon.data(), count, triangles, 256);
+        // A simple polygon triangulates into at most count-2 triangles (the
+        // fan/ear-clipping bound) -- size the scratch buffer exactly to that
+        // instead of a fixed cap, so a large terrain-scale outline never
+        // silently loses geometry (kx::Triangulate used to be called with a
+        // fixed 256-triangle ceiling and would just stop writing past it).
+        const int maxTriangles = count - 2;
+        ct::Vector<glm::vec2> triangles;
+        triangles.resize((size_t)maxTriangles * 3);
+        int triangleCount = kx::Triangulate(mPolygon.data(), count, triangles.data(), maxTriangles);
         for (int i = 0; i < triangleCount * 3; ++i)
             mTriangles.push_back(triangles[i]);
     }
@@ -49,9 +56,15 @@ namespace k2d
 
         RenderItem &item = queue.AddItem(owner()->zIndex());
         item.xform = owner()->globalTransform();
+        item.blendMode = mBlendMode;
         RenderCommand command;
         command.type = RenderCommand::kPolygon;
         command.textureId = mTexture ? mTexture->Id() : 0;
+        if (mTexture)
+        {
+            command.texWidth = mTexture->Width();
+            command.texHeight = mTexture->Height();
+        }
         command.color = mColor;
         command.polygonPoints = &mTriangles;
         command.polygonPointCount = (unsigned int)mTriangles.size();

@@ -33,6 +33,7 @@
 #include "k2d/ScriptComponent.h"
 #include "k2d/TileMapComponent.h"
 #include "k2d/ParticleSystem.h"
+#include "k2d/ParticleComponent.h"
 #include "k2d/ParallaxLayer2D.h"
 #include "k2d/Pixmap.h"
 #include "k2d/Profiler.h"

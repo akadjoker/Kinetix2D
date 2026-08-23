@@ -54,15 +54,25 @@ int main()
 
     const glm::vec2 firePosition(360.0f, 590.0f);
     k2d::ParticlePrefab firePrefab;
-    firePrefab.velocity = glm::vec2(0.0f, -85.0f);
-    firePrefab.lifetime = 0.8f;
-    firePrefab.size = 28.0f;
-    firePrefab.color = glm::vec4(1.0f, 0.75f, 0.25f, 0.9f);
+    firePrefab.direction = glm::vec2(0.0f, -1.0f);
+    firePrefab.spreadDegrees = 14.0f;
+    firePrefab.speedMin = 65.0f;
+    firePrefab.speedMax = 105.0f;
+    firePrefab.lifeMin = 0.6f;
+    firePrefab.lifeMax = 1.0f;
+    firePrefab.sizeMin = 22.0f;
+    firePrefab.sizeMax = 32.0f;
     firePrefab.endSize = 8.0f;
-    firePrefab.fadeIn = 0.08f;
-    firePrefab.fadeOut = 0.35f;
+    firePrefab.rotationMin = 0.0f;
+    firePrefab.rotationMax = 360.0f;
+    firePrefab.angularVelocityMin = -60.0f;
+    firePrefab.angularVelocityMax = 60.0f;
+    // Bright yellow-orange core cooling to a dim red as it rises and dies.
+    firePrefab.colorStart = glm::vec4(1.0f, 0.95f, 0.55f, 0.9f);
+    firePrefab.colorEnd = glm::vec4(0.9f, 0.25f, 0.05f, 0.0f);
+    firePrefab.fadeIn = 0.05f;
     firePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
-    k2d::ParticleSystem fire(180);
+    k2d::ParticleSystem fire(220);
     fire.SetTexture(particleTexture); fire.SetMode(k2d::ParticleMode::Loop);
     fire.SetPrefab(firePrefab); fire.SetEmitterPosition(firePosition);
     fire.SetEmitterShape(k2d::ParticleEmitterShape::Rectangle);
@@ -70,9 +80,17 @@ int main()
     fire.SetEmissionRate(34.0f); fire.Start();
 
     k2d::ParticlePrefab smokePrefab = firePrefab;
-    smokePrefab.velocity = glm::vec2(0.0f, -38.0f);
-    smokePrefab.lifetime = 2.8f; smokePrefab.size = 38.0f;
-    smokePrefab.color = glm::vec4(0.7f, 0.72f, 0.78f, 0.42f);
+    smokePrefab.spreadDegrees = 26.0f;
+    smokePrefab.speedMin = 28.0f;
+    smokePrefab.speedMax = 48.0f;
+    smokePrefab.lifeMin = 2.2f; smokePrefab.lifeMax = 3.4f;
+    smokePrefab.sizeMin = 30.0f; smokePrefab.sizeMax = 46.0f;
+    smokePrefab.endSize = 60.0f; // smoke puffs grow as they disperse, unlike fire shrinking
+    smokePrefab.angularVelocityMin = -20.0f;
+    smokePrefab.angularVelocityMax = 20.0f;
+    smokePrefab.colorStart = glm::vec4(0.7f, 0.72f, 0.78f, 0.42f);
+    smokePrefab.colorEnd = glm::vec4(0.5f, 0.5f, 0.55f, 0.0f);
+    smokePrefab.fadeIn = 0.15f;
     smokePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem smoke(100);
     smoke.SetTexture(particleTexture); smoke.SetMode(k2d::ParticleMode::Loop);

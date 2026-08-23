@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include "k2d/CanvasTypes.h"
 
 #include <glm/glm.hpp>
 
@@ -29,9 +30,14 @@ namespace k2d
         const glm::vec2 &size() const { return mSize; }
         // Margins in SOURCE texture pixels -- the untouched corner/edge width.
         void setMargins(float left, float top, float right, float bottom);
+        // x=left, y=top, z=right, w=bottom -- same order setMargins() takes.
+        glm::vec4 margins() const { return glm::vec4(mMarginLeft, mMarginTop, mMarginRight, mMarginBottom); }
         void setPivot(const glm::vec2 &pivot) { mPivot = pivot; }
         const glm::vec2 &pivot() const { return mPivot; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
+        unsigned int color() const { return mColor; } // packed r|g<<8|b<<16|a<<24, same layout setColor() writes
+        void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+        BlendMode blendMode() const { return mBlendMode; }
 
     protected:
         void onRender(RenderQueue &queue) override;
@@ -42,6 +48,7 @@ namespace k2d
         float mMarginLeft, mMarginTop, mMarginRight, mMarginBottom;
         glm::vec2 mPivot;
         unsigned int mColor;
+        BlendMode mBlendMode;
     };
 
 }
