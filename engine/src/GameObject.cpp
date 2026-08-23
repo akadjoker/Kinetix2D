@@ -106,6 +106,16 @@ namespace k2d
         visible ? mFlags |= GameObjectVisible : mFlags &= ~GameObjectVisible;
     }
 
+    bool GameObject::locked() const
+    {
+        return (mFlags & GameObjectLocked) != 0;
+    }
+
+    void GameObject::setLocked(bool locked)
+    {
+        locked ? mFlags |= GameObjectLocked : mFlags &= ~GameObjectLocked;
+    }
+
     bool GameObject::isActiveInHierarchy() const
     {
         for (const GameObject *object = this; object; object = object->mParent)

@@ -20,7 +20,8 @@ namespace k2d
     {
         GameObjectActive = 1 << 0,
         GameObjectVisible = 1 << 1,
-        GameObjectDispose = 1 << 2
+        GameObjectDispose = 1 << 2,
+        GameObjectLocked = 1 << 3
     };
 
     class GameObject final
@@ -42,6 +43,8 @@ namespace k2d
         void setActive(bool active);
         bool visible() const;
         void setVisible(bool visible);
+        bool locked() const;
+        void setLocked(bool locked);
         bool isActiveInHierarchy() const;
         bool isVisibleInHierarchy() const;
         bool isActiveAndVisibleInHierarchy() const;

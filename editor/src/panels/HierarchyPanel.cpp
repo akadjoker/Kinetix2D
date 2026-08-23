@@ -4,6 +4,7 @@
 
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
+#include <k2d/Serializer.h>
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -38,6 +39,14 @@ void HierarchyPanel::drawContents()
 
     GameObject *primary = app().selection().resolve(app().scene());
     const bool hasPrimary = primary && primary != &app().scene().root() && primary->parent();
+
+    ImGui::BeginDisabled(app().selection().count() == 0);
+    if (ImGui::Button(ICON_MDI_CONTENT_DUPLICATE))
+        duplicateSelected();
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Duplicate Selected");
+    ImGui::SameLine();
 
     ImGui::BeginDisabled(!hasPrimary);
     if (ImGui::Button(ICON_MDI_ARROW_UP_BOLD))
@@ -78,6 +87,38 @@ void HierarchyPanel::createNode()
     GameObject *created = app().scene().createObject(name.c_str(), parent);
     app().selection().select(created);
     app().commitChange("Create Node", before);
+}
+
+void HierarchyPanel::duplicateSelected()
+{
+    const ct::Vector<uint64_t> ids = app().selection().ids();
+    if (ids.empty())
+        return;
+
+    const EditorApplication::SceneChange before = app().beginChange();
+    ct::Vector<GameObject *> duplicates;
+    for (size_t i = 0; i < ids.size(); ++i)
+    {
+        GameObject *object = findById(app().scene().root(), ids[i]);
+        if (!object || object == &app().scene().root() || !object->parent())
+            continue;
+        const ct::Json data = Serializer::WriteObject(*object, &app().assets());
+        GameObject *duplicate = Serializer::ReadObject(app().scene(), data, object->parent(), &app().assets());
+        if (duplicate)
+            duplicates.push_back(duplicate);
+    }
+    if (duplicates.empty())
+        return;
+
+    app().selection().clear();
+    for (size_t i = 0; i < duplicates.size(); ++i)
+        app().selection().toggle(duplicates[i]);
+    app().commitChange("Duplicate Node", before);
+    ct::String message("Duplicated ");
+    message.append_number(static_cast<unsigned int>(duplicates.size()));
+    message += " node(s)";
+    app().log(message);
+    app().toasts().success(message);
 }
 
 void HierarchyPanel::moveSelected(int direction)

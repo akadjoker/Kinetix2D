@@ -856,6 +856,14 @@ void InspectorPanel::drawContents()
         return;
     }
 
+    bool locked = object->locked();
+    if (ImGui::Checkbox(ICON_MDI_LOCK " Locked", &locked))
+        applyInstant(app(), locked ? "Lock GameObject" : "Unlock GameObject", [&] { object->setLocked(locked); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Locked objects cannot be edited here or moved in the Scene view.");
+
+    ImGui::BeginDisabled(locked);
+
     char name[256];
     size_t nameLength = object->name().size();
     if (nameLength >= sizeof(name))
@@ -1014,6 +1022,8 @@ void InspectorPanel::drawContents()
         ImGui::TextDisabled("More component types coming later.");
         ImGui::EndPopup();
     }
+
+    ImGui::EndDisabled();
 }
 
 }

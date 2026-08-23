@@ -852,6 +852,7 @@ namespace k2d
         j.set("tag", ct::Json(object.tag().c_str()));
         j.set("active", ct::Json(object.active()));
         j.set("visible", ct::Json(object.visible()));
+        j.set("locked", ct::Json(object.locked()));
         j.set("zIndex", ct::Json(object.zIndex()));
         j.set("position", WriteVec2(object.position()));
         j.set("rotation", ct::Json((double)object.rotationDegrees()));
@@ -889,6 +890,7 @@ namespace k2d
         object->setTag(json["tag"].as_cstr(""));
         object->setActive(json["active"].as_bool(true));
         object->setVisible(json["visible"].as_bool(true));
+        object->setLocked(json["locked"].as_bool(false));
         object->setZIndex((int)json["zIndex"].as_int(0));
         object->setPosition(ReadVec2(json["position"]));
         object->setRotationDegrees((float)json["rotation"].as_double(0.0));

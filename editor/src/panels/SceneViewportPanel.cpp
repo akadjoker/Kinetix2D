@@ -9,7 +9,6 @@
 #include <k2d/GameObject.h>
 #include <k2d/Prefab.h>
 #include <k2d/Scene.h>
-#include <k2d/TileMapComponent.h>
 #include <IconsMaterialDesignIcons.h>
 
 #include <glad/glad.h>
@@ -321,58 +320,6 @@ int SceneViewportPanel::hitTestGizmo(GameObject &selected, const ImVec2 &mouse, 
     return -1;
 }
 
-void SceneViewportPanel::drawTileGrid(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const
-{
-    TileMapComponent *tileMap = selected.getComponent<TileMapComponent>();
-    if (!tileMap)
-        return;
-
-    const Math::Vec2 base = selected.globalPosition();
-    const int columns = tileMap->columns();
-    const int rows = tileMap->rows();
-    const float cellW = tileMap->cellWidth();
-    const float cellH = tileMap->cellHeight();
-    const ImU32 lineColor = IM_COL32(255, 205, 65, 140);
-
-    for (int x = 0; x <= columns; ++x)
-    {
-        const ImVec2 p0 = worldToScreen(base.x + x * cellW, base.y, origin);
-        const ImVec2 p1 = worldToScreen(base.x + x * cellW, base.y + rows * cellH, origin);
-        drawList.AddLine(p0, p1, lineColor, 1.0f);
-    }
-    for (int y = 0; y <= rows; ++y)
-    {
-        const ImVec2 p0 = worldToScreen(base.x, base.y + y * cellH, origin);
-        const ImVec2 p1 = worldToScreen(base.x + columns * cellW, base.y + y * cellH, origin);
-        drawList.AddLine(p0, p1, lineColor, 1.0f);
-    }
-}
-
-bool SceneViewportPanel::paintTile(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin)
-{
-    TileMapComponent *tileMap = selected.getComponent<TileMapComponent>();
-    if (!tileMap)
-        return false;
-
-    const Math::Vec2 world = screenToWorld(mouse, origin);
-    const Math::Vec2 base = selected.globalPosition();
-    const float localX = world.x - base.x;
-    const float localY = world.y - base.y;
-    if (localX < 0.0f || localY < 0.0f)
-        return false;
-
-    const int cellX = static_cast<int>(localX / tileMap->cellWidth());
-    const int cellY = static_cast<int>(localY / tileMap->cellHeight());
-    if (cellX < 0 || cellX >= tileMap->columns() || cellY < 0 || cellY >= tileMap->rows())
-        return false;
-
-    if (tileMap->getTile(cellX, cellY) == mPaintTileId)
-        return false;
-
-    tileMap->setTile(cellX, cellY, mPaintTileId);
-    return true;
-}
-
 void SceneViewportPanel::drawContents()
 {
     app().settings().viewportPan = Math::Vec2(mPan.x, mPan.y);
@@ -383,10 +330,10 @@ void SceneViewportPanel::drawContents()
 
     const char *toolIcons[] = {
         ICON_MDI_CURSOR_DEFAULT, ICON_MDI_ARROW_ALL, ICON_MDI_ROTATE_ORBIT,
-        ICON_MDI_ARROW_EXPAND_ALL, ICON_MDI_HAND, ICON_MDI_PENCIL
+        ICON_MDI_ARROW_EXPAND_ALL, ICON_MDI_HAND
     };
-    const char *tooltips[] = {"Select", "Move", "Rotate", "Scale", "Pan", "Paint Tiles"};
-    for (int tool = 0; tool < 6; ++tool)
+    const char *tooltips[] = {"Select", "Move", "Rotate", "Scale", "Pan"};
+    for (int tool = 0; tool < 5; ++tool)
     {
         if (tool != 0)
             toolbarSameLine();
@@ -399,14 +346,6 @@ void SceneViewportPanel::drawContents()
             app().log(message);
         }
         ImGui::PopID();
-    }
-    if (mTool == 5)
-    {
-        toolbarSameLine();
-        ImGui::SetNextItemWidth(90.0f);
-        ImGui::DragInt("Tile ID", &mPaintTileId, 1.0f, 0, 100000);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("0 erases. Paints the selected object's TileMap.");
     }
     toolbarDivider();
     if (toolbarIcon("snap", ICON_MDI_MAGNET, "Snap to 32 pixel grid", mSnap))
@@ -449,12 +388,10 @@ void SceneViewportPanel::drawContents()
     drawObject(drawList, app().scene().root(), origin);
 
     GameObject *selected = app().selection().resolve(app().scene());
-    const bool gizmoActive = selected && selected != &app().scene().root() && mTool >= 1 && mTool <= 3;
+    const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() &&
+                             mTool >= 1 && mTool <= 3;
     if (gizmoActive)
         drawGizmo(drawList, *selected, origin);
-    const bool tileToolActive = selected && mTool == 5 && selected->getComponent<TileMapComponent>();
-    if (tileToolActive)
-        drawTileGrid(drawList, *selected, origin);
     drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,
@@ -471,13 +408,7 @@ void SceneViewportPanel::drawContents()
     }
     if (hovered && ImGui::GetIO().MouseWheel != 0.0f)
         mZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
-    if (hovered && tileToolActive && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-    {
-        app().beginTransaction("Paint Tiles", app().beginChange());
-        mPainting = true;
-        paintTile(*selected, ImGui::GetIO().MousePos, origin);
-    }
-    else if (hovered && mTool != 4 && mTool != 5 && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+    if (hovered && mTool != 4 && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
     {
         const int hitAxis = gizmoActive ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin) : -1;
         if (hitAxis != -1)
@@ -505,9 +436,6 @@ void SceneViewportPanel::drawContents()
             }
         }
     }
-
-    if (hovered && mPainting && selected && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-        paintTile(*selected, ImGui::GetIO().MousePos, origin);
 
     if (hovered && gizmoActive && mGizmoAxis != -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
@@ -543,10 +471,9 @@ void SceneViewportPanel::drawContents()
 
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
     {
-        if (mGizmoAxis != -1 || mPainting)
+        if (mGizmoAxis != -1)
             app().commitTransaction();
         mGizmoAxis = -1;
-        mPainting = false;
     }
 }
 

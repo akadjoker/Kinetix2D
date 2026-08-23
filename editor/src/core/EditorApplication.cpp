@@ -232,6 +232,7 @@ void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selected
     root.setTag(rootJson["tag"].as_cstr(""));
     root.setActive(rootJson["active"].as_bool(true));
     root.setVisible(rootJson["visible"].as_bool(true));
+    root.setLocked(rootJson["locked"].as_bool(false));
     root.setZIndex(static_cast<int>(rootJson["zIndex"].as_int(0)));
     root.setPosition(readVec2(rootJson["position"], Math::Vec2(0.0f)));
     root.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));

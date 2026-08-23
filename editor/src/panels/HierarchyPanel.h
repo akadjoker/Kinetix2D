@@ -22,6 +22,7 @@ private:
     void drawContents() override;
     void drawObject(GameObject &object);
     void createNode();
+    void duplicateSelected();
     void moveSelected(int direction);
     void deleteSelected();
 };
