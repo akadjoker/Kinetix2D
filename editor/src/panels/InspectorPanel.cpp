@@ -1057,14 +1057,84 @@ void InspectorPanel::drawContents()
             object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
             app().commitChange("Add Sprite Component", addBefore);
         }
+        if (ImGui::MenuItem("NinePatch"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            NinePatchComponent *ninePatch = object->addComponent<NinePatchComponent>();
+            ninePatch->setTexture(placeholderSpriteTexture(app()));
+            app().commitChange("Add NinePatch Component", addBefore);
+        }
+        if (ImGui::MenuItem("TileMap"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            TileMapComponent *tileMap = object->addComponent<TileMapComponent>();
+            tileMap->setMapSize(8, 8);
+            app().commitChange("Add TileMap Component", addBefore);
+        }
+        if (ImGui::MenuItem("Polygon2D"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            Polygon2D *polygon = object->addComponent<Polygon2D>();
+            const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
+                                                Math::Vec2(-26.0f, 20.0f)};
+            polygon->setPolygon(defaultShape, 3);
+            app().commitChange("Add Polygon2D Component", addBefore);
+        }
+        if (ImGui::MenuItem("Line2D"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            Line2D *line = object->addComponent<Line2D>();
+            const Math::Vec2 defaultPoints[2] = {Math::Vec2(-30.0f, 0.0f), Math::Vec2(30.0f, 0.0f)};
+            line->setPoints(defaultPoints, 2);
+            app().commitChange("Add Line2D Component", addBefore);
+        }
+        if (ImGui::MenuItem("SpriteBatch"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<SpriteBatch>();
+            app().commitChange("Add SpriteBatch Component", addBefore);
+        }
+        if (ImGui::MenuItem("Animation2D"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<Animation2D>();
+            app().commitChange("Add Animation2D Component", addBefore);
+        }
+        if (ImGui::MenuItem("Particle"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<ParticleComponent>();
+            app().commitChange("Add Particle Component", addBefore);
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Point Light"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<Light2D>();
+            app().commitChange("Add Point Light Component", addBefore);
+        }
+        if (ImGui::MenuItem("Directional Light"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<DirectionalLight2D>();
+            app().commitChange("Add Directional Light Component", addBefore);
+        }
+        if (ImGui::MenuItem("Light Occluder"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            LightOccluder2D *occluder = object->addComponent<LightOccluder2D>();
+            const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
+                                                Math::Vec2(-26.0f, 20.0f)};
+            occluder->setPolygon(defaultShape, 3);
+            app().commitChange("Add Light Occluder Component", addBefore);
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Camera"))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<CameraComponent>();
             app().commitChange("Add Camera Component", addBefore);
         }
-        ImGui::Separator();
-        ImGui::TextDisabled("More component types coming later.");
         ImGui::EndPopup();
     }
 
