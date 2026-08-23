@@ -186,6 +186,29 @@ void HierarchyPanel::drawObject(GameObject &object)
         app().log(message);
     }
 
+    if (ImGui::BeginPopupContextItem())
+    {
+        if (!app().selection().isSelected(object.id()))
+            app().selection().select(&object);
+
+        if (ImGui::MenuItem(ICON_MDI_PLUS " Create Child"))
+            createNode();
+        ImGui::BeginDisabled(isRoot);
+        if (ImGui::MenuItem(ICON_MDI_CONTENT_DUPLICATE " Duplicate"))
+            duplicateSelected();
+        if (ImGui::MenuItem(object.locked() ? ICON_MDI_LOCK_OPEN " Unlock" : ICON_MDI_LOCK " Lock"))
+        {
+            const EditorApplication::SceneChange lockBefore = app().beginChange();
+            object.setLocked(!object.locked());
+            app().commitChange(object.locked() ? "Lock Node" : "Unlock Node", lockBefore);
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem(ICON_MDI_TRASH_CAN_OUTLINE " Delete"))
+            deleteSelected();
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
+
     if (!isRoot && ImGui::BeginDragDropSource())
     {
         const uint64_t id = object.id();
