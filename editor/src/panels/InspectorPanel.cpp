@@ -758,7 +758,10 @@ enum class ParticlePreset
 {
     Fire,
     Smoke,
-    Explosion
+    Explosion,
+    EngineFlame,
+    Rain,
+    Snow
 };
 
 void applyParticlePreset(EditorApplication &app, ParticleComponent &particleComponent, ParticlePreset preset)
@@ -843,6 +846,87 @@ void applyParticlePreset(EditorApplication &app, ParticleComponent &particleComp
         prefab.colorStart = Color(1.0f, 1.0f, 0.8f, 1.0f);
         prefab.colorEnd = Color(1.0f, 0.3f, 0.05f, 0.0f);
         break;
+    case ParticlePreset::EngineFlame:
+        system.SetMode(ParticleMode::Loop);
+        system.SetEmissionRate(90.0f);
+        system.SetEmitterShape(ParticleEmitterShape::Point);
+        system.SetGravity(Math::Vec2(0.0f, 0.0f));
+        particleComponent.setBlendMode(BLEND_ADD);
+        prefab.direction = Math::Vec2(0.0f, 1.0f);
+        prefab.spreadDegrees = 14.0f;
+        prefab.speedMin = 140.0f;
+        prefab.speedMax = 260.0f;
+        prefab.lifeMin = 0.15f;
+        prefab.lifeMax = 0.4f;
+        prefab.sizeMin = 10.0f;
+        prefab.sizeMax = 16.0f;
+        prefab.endSize = 3.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 360.0f;
+        prefab.angularVelocityMin = -90.0f;
+        prefab.angularVelocityMax = 90.0f;
+        prefab.drag = 1.5f;
+        prefab.fadeIn = 0.02f;
+        prefab.fadeOut = 0.12f;
+        prefab.colorStart = Color(1.0f, 0.95f, 0.6f, 1.0f);
+        prefab.colorEnd = Color(1.0f, 0.35f, 0.05f, 0.0f);
+        break;
+    case ParticlePreset::Rain:
+        system.SetMode(ParticleMode::Loop);
+        system.SetEmissionRate(220.0f);
+        if (system.Capacity() < 600)
+            system.SetCapacity(600);
+        system.SetEmitterShape(ParticleEmitterShape::Rectangle);
+        system.SetEmitterSize(Math::Vec2(300.0f, 4.0f));
+        system.SetGravity(Math::Vec2(0.0f, 260.0f));
+        particleComponent.setBlendMode(BLEND_MIX);
+        prefab.direction = Math::Vec2(0.0f, 1.0f);
+        prefab.spreadDegrees = 4.0f;
+        prefab.speedMin = 380.0f;
+        prefab.speedMax = 520.0f;
+        prefab.lifeMin = 1.6f;
+        prefab.lifeMax = 2.2f;
+        prefab.sizeMin = 2.5f;
+        prefab.sizeMax = 4.0f;
+        prefab.endSize = 0.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 0.0f;
+        prefab.angularVelocityMin = 0.0f;
+        prefab.angularVelocityMax = 0.0f;
+        prefab.drag = 0.0f;
+        prefab.fadeIn = 0.0f;
+        prefab.fadeOut = 0.15f;
+        prefab.colorStart = Color(0.6f, 0.7f, 0.9f, 0.75f);
+        prefab.colorEnd = Color(0.6f, 0.7f, 0.9f, 0.5f);
+        break;
+    case ParticlePreset::Snow:
+        system.SetMode(ParticleMode::Loop);
+        system.SetEmissionRate(45.0f);
+        if (system.Capacity() < 400)
+            system.SetCapacity(400);
+        system.SetEmitterShape(ParticleEmitterShape::Rectangle);
+        system.SetEmitterSize(Math::Vec2(300.0f, 4.0f));
+        system.SetGravity(Math::Vec2(0.0f, 12.0f));
+        particleComponent.setBlendMode(BLEND_MIX);
+        prefab.direction = Math::Vec2(0.0f, 1.0f);
+        prefab.spreadDegrees = 30.0f;
+        prefab.speedMin = 18.0f;
+        prefab.speedMax = 45.0f;
+        prefab.lifeMin = 4.0f;
+        prefab.lifeMax = 7.0f;
+        prefab.sizeMin = 3.0f;
+        prefab.sizeMax = 7.0f;
+        prefab.endSize = 0.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 360.0f;
+        prefab.angularVelocityMin = -40.0f;
+        prefab.angularVelocityMax = 40.0f;
+        prefab.drag = 0.15f;
+        prefab.fadeIn = 0.4f;
+        prefab.fadeOut = 1.2f;
+        prefab.colorStart = Color(1.0f, 1.0f, 1.0f, 0.9f);
+        prefab.colorEnd = Color(0.95f, 0.97f, 1.0f, 0.6f);
+        break;
     }
 
     system.SetPrefab(prefab);
@@ -865,8 +949,19 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
         applyInstant(app, "Apply Explosion Preset",
                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Explosion); });
     }
+    if (ImGui::Button("Engine Flame"))
+    {
+        applyInstant(app, "Apply Engine Flame Preset",
+                    [&] { applyParticlePreset(app, particleComponent, ParticlePreset::EngineFlame); });
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Rain"))
+        applyInstant(app, "Apply Rain Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Rain); });
+    ImGui::SameLine();
+    if (ImGui::Button("Snow"))
+        applyInstant(app, "Apply Snow Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Snow); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Presets set emission, blend mode, gravity and the whole emission prefab below.");
+        ImGui::SetTooltip("Presets set emission, blend mode, gravity, emitter shape and the whole emission prefab below.");
     ImGui::Separator();
 
     Texture *texture = system.GetTexture();
