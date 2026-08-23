@@ -161,6 +161,7 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
         if (!prefab.Load(path))
         {
             app().log("Prefab drop failed: could not load file");
+            app().toasts().error("Could not load prefab");
         }
         else
         {
@@ -171,6 +172,7 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
             if (!created)
             {
                 app().log("Prefab drop failed: could not instantiate");
+                app().toasts().error("Could not instantiate prefab");
             }
             else
             {
@@ -186,6 +188,9 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
                 ct::String message("Instantiated prefab: ");
                 message += created->name();
                 app().log(message);
+                ct::String toast("Instantiated ");
+                toast += created->name();
+                app().toasts().success(toast);
             }
         }
     }

@@ -354,6 +354,7 @@ bool EditorApplication::openScene(const char *path)
         ct::String message("Open scene failed, could not read: ");
         message += path;
         log(message);
+        mToasts.error(message);
         return false;
     }
 
@@ -364,6 +365,7 @@ bool EditorApplication::openScene(const char *path)
         ct::String message("Open scene failed, invalid JSON: ");
         message += path;
         log(message);
+        mToasts.error(message);
         return false;
     }
 
@@ -378,6 +380,9 @@ bool EditorApplication::openScene(const char *path)
     ct::String message("Opened scene: ");
     message += path;
     log(message);
+    ct::String toast("Opened ");
+    toast += EditorFileSystem::fileName(path);
+    mToasts.success(toast);
     return true;
 }
 
@@ -392,6 +397,7 @@ bool EditorApplication::saveScene(const char *path)
         ct::String message("Save scene failed: ");
         message += path;
         log(message);
+        mToasts.error(message);
         return false;
     }
 
@@ -400,6 +406,9 @@ bool EditorApplication::saveScene(const char *path)
     ct::String message("Saved scene: ");
     message += path;
     log(message);
+    ct::String toast("Saved ");
+    toast += EditorFileSystem::fileName(path);
+    mToasts.success(toast);
     return true;
 }
 
@@ -408,6 +417,7 @@ bool EditorApplication::newProject(const char *rootDirectory, const char *name)
     if (!mProject.create(rootDirectory, name))
     {
         log("Could not create project");
+        mToasts.error("Could not create project");
         return false;
     }
 
@@ -418,6 +428,9 @@ bool EditorApplication::newProject(const char *rootDirectory, const char *name)
     ct::String message("Project created: ");
     message += mProject.root();
     log(message);
+    ct::String toast("Project created: ");
+    toast += mProject.name();
+    mToasts.success(toast);
     return true;
 }
 
@@ -426,6 +439,7 @@ bool EditorApplication::openProject(const char *projectFile)
     if (!mProject.load(projectFile))
     {
         log("Could not open project");
+        mToasts.error("Could not open project");
         return false;
     }
 
@@ -439,6 +453,9 @@ bool EditorApplication::openProject(const char *projectFile)
     ct::String message("Project opened: ");
     message += mProject.root();
     log(message);
+    ct::String toast("Project opened: ");
+    toast += mProject.name();
+    mToasts.success(toast);
     return true;
 }
 
@@ -479,7 +496,8 @@ void EditorApplication::drawWorkspace()
     ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
     if (mDefaultLayoutPending)
     {
-        createDefaultDockLayout(dockspaceId);
+        if (ImGui::DockBuilderGetNode(dockspaceId) == nullptr)
+            createDefaultDockLayout(dockspaceId);
         mDefaultLayoutPending = false;
     }
     ImGui::End();
