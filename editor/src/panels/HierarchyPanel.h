@@ -10,6 +10,8 @@ class GameObject;
 namespace k2d::editor
 {
 
+constexpr const char *kNodeDragDropPayload = "K2D_HIERARCHY_NODE";
+
 class HierarchyPanel final : public EditorPanel
 {
 public:

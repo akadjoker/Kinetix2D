@@ -616,6 +616,7 @@ namespace k2d
             data.set("deadZone", WriteVec4(camera.deadZone));
             data.set("targetEnabled", ct::Json(camera.targetEnabled));
             data.set("target", WriteVec2(camera.target));
+            data.set("followTarget", ct::Json(cameraComponent.followTargetName().c_str()));
         }
 
         void ReadCamera(Component &component, const ct::Json &data, Assets *)
@@ -637,6 +638,7 @@ namespace k2d
             camera.deadZone = ReadVec4(data["deadZone"]);
             camera.targetEnabled = data["targetEnabled"].as_bool(false);
             camera.target = ReadVec2(data["target"]);
+            cameraComponent.setFollowTargetName(data["followTarget"].as_cstr(""));
         }
 
         ct::Json WriteParticlePrefab(const ParticlePrefab &prefab)

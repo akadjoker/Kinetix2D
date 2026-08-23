@@ -16,8 +16,6 @@ namespace k2d::editor
 
 namespace
 {
-constexpr const char *kNodeDragDropPayload = "K2D_HIERARCHY_NODE";
-
 GameObject *findById(GameObject &object, uint64_t id)
 {
     if (object.id() == id)

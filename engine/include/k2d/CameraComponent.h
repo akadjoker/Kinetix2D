@@ -3,8 +3,12 @@
 #include "k2d/Camera2D.h"
 #include "k2d/Component.h"
 
+#include <ct/string.hpp>
+
 namespace k2d
 {
+
+    class GameObject;
 
     class CameraComponent : public Component
     {
@@ -23,10 +27,19 @@ namespace k2d
         void visibleRect(float &minX, float &minY, float &maxX, float &maxY) const;
         Math::Vec2 screenToWorld(float x, float y) const;
 
+        void setFollowTarget(const GameObject *target);
+        void setFollowTargetName(const char *name) { mFollowTargetName = name ? name : ""; }
+        const ct::String &followTargetName() const { return mFollowTargetName; }
+        bool hasFollowTarget() const { return !mFollowTargetName.empty(); }
+
+    protected:
+        void onUpdate(float deltaTime) override;
+
     private:
         Camera2D mCamera;
         float mViewportWidth;
         float mViewportHeight;
+        ct::String mFollowTargetName;
     };
 
 }

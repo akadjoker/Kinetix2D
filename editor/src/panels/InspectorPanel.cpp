@@ -2,6 +2,7 @@
 
 #include "core/EditorApplication.h"
 #include "panels/AssetsPanel.h"
+#include "panels/HierarchyPanel.h"
 
 #include <k2d/Animation2D.h>
 #include <k2d/CameraComponent.h>
@@ -14,6 +15,7 @@
 #include <k2d/NinePatchComponent.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Polygon2D.h>
+#include <k2d/Scene.h>
 #include <k2d/SpriteBatch.h>
 #include <k2d/SpriteComponent.h>
 #include <k2d/Texture.h>
@@ -28,6 +30,16 @@ namespace k2d::editor
 
 namespace
 {
+GameObject *findById(GameObject &object, uint64_t id)
+{
+    if (object.id() == id)
+        return &object;
+    for (size_t i = 0; i < object.childCount(); ++i)
+        if (GameObject *found = findById(*object.child(i), id))
+            return found;
+    return nullptr;
+}
+
 const char *componentName(ComponentType type)
 {
     static const char *names[] = {
@@ -586,6 +598,33 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
         Math::Vec2 target = camera.target;
         if (dragVec2(app, "Target", target, 0.5f, "Move Camera Target"))
             camera.target = target;
+    }
+
+    ImGui::TextUnformatted("Follow");
+    ImGui::SameLine();
+    const bool hasFollow = cameraComponent.hasFollowTarget();
+    ct::String followLabel = hasFollow ? cameraComponent.followTargetName() : ct::String("None");
+    if (hasFollow && !app.scene().find(cameraComponent.followTargetName().c_str()))
+        followLabel += " (missing)";
+    ImGui::Button(followLabel.c_str(), ImVec2(150.0f, 0.0f));
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t *>(payload->Data);
+            GameObject *dragged = findById(app.scene().root(), draggedId);
+            if (dragged)
+                applyInstant(app, "Set Camera Follow Target", [&] { cameraComponent.setFollowTarget(dragged); });
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Drag a node here from Hierarchy. Overrides Target every frame while set.");
+    if (hasFollow)
+    {
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_MDI_CLOSE "##clearFollow"))
+            applyInstant(app, "Clear Camera Follow Target", [&] { cameraComponent.setFollowTarget(nullptr); });
     }
 }
 
