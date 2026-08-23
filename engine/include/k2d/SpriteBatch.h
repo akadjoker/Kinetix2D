@@ -34,8 +34,10 @@ namespace k2d
                 const Color &color = Color(0xFFFFFFFFu));
         void setSource(int index, const Math::Vec4 &source);
         void setFlip(int index, bool flipX, bool flipY);
+        void remove(int index);
         int count() const { return (int)mEntries.size(); }
         const Entry *entry(int index) const;
+        Entry *entryAt(int index);
         void setBlendMode(BlendMode mode) { mBlendMode = mode; }
         BlendMode blendMode() const { return mBlendMode; }
 

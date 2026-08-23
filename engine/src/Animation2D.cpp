@@ -45,6 +45,28 @@ namespace k2d
             mActiveClip = 0;
     }
 
+    bool Animation2D::removeClip(const char *name)
+    {
+        for (size_t i = 0; i < mClips.size(); ++i)
+        {
+            if (mClips[i].name != name)
+                continue;
+            mClips.erase(mClips.begin() + i);
+            if (mActiveClip == (int)i)
+            {
+                mActiveClip = mClips.empty() ? -1 : 0;
+                if (mActiveClip >= 0)
+                    applyFrame();
+            }
+            else if (mActiveClip > (int)i)
+            {
+                --mActiveClip;
+            }
+            return true;
+        }
+        return false;
+    }
+
     bool Animation2D::play(const char *name)
     {
         AnimationClip *clip = findClip(name);

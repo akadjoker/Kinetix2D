@@ -25,13 +25,28 @@ int main()
     bool switchClip = animation.play("attack") &&
                       std::strcmp(animation.currentClip(), "attack") == 0 &&
                       animation.frameCount() == 3;
-    std::printf("animation: clips=%s frame_clamped=%s stopped=%s no_texture=%s pingpong=%s loop=%s switch=%s\n",
+
+    bool removeMissing = !animation.removeClip("nope") && animation.clipCount() == 2;
+    bool removeActive = animation.removeClip("attack") && animation.clipCount() == 1 &&
+                        std::strcmp(animation.currentClip(), "idle") == 0;
+    animation.addClip("attack", nullptr, 16, 16, 3, 12.0f, k2d::AnimationMode::OneShot);
+    animation.play("attack");
+    bool removeBefore = animation.removeClip("idle") && animation.clipCount() == 1 &&
+                        std::strcmp(animation.currentClip(), "attack") == 0;
+    bool removeLast = animation.removeClip("attack") && animation.clipCount() == 0 &&
+                      std::strcmp(animation.currentClip(), "") == 0;
+
+    std::printf("animation: clips=%s frame_clamped=%s stopped=%s no_texture=%s pingpong=%s loop=%s switch=%s "
+                "remove_missing=%s remove_active=%s remove_before=%s remove_last=%s\n",
                 clips ? "pass" : "fail",
                 frameClamped ? "pass" : "fail", stopped ? "pass" : "fail",
                 noTexture ? "pass" : "fail", pingPongMode ? "pass" : "fail",
-                loopCompatibility ? "pass" : "fail", switchClip ? "pass" : "fail");
+                loopCompatibility ? "pass" : "fail", switchClip ? "pass" : "fail",
+                removeMissing ? "pass" : "fail", removeActive ? "pass" : "fail",
+                removeBefore ? "pass" : "fail", removeLast ? "pass" : "fail");
     return clips && frameClamped && stopped && noTexture && pingPongMode &&
-                   loopCompatibility && switchClip
+                   loopCompatibility && switchClip && removeMissing && removeActive &&
+                   removeBefore && removeLast
                ? 0
                : 1;
 }

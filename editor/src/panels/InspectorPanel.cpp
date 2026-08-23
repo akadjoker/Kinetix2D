@@ -24,6 +24,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 
 namespace k2d::editor
 {
@@ -234,6 +235,49 @@ void pivotPresetPicker(EditorApplication &app, const char *undoLabel, const Math
     }
 }
 
+template <class Apply>
+void pointListEditor(EditorApplication &app, ct::Vector<Math::Vec2> points, size_t minPoints,
+                     const char *undoLabel, Apply &&apply)
+{
+    for (size_t i = 0; i < points.size(); ++i)
+    {
+        ImGui::PushID(static_cast<int>(i));
+        float values[2] = {points[i].x, points[i].y};
+        char label[16];
+        std::snprintf(label, sizeof(label), "%d", static_cast<int>(i));
+        const bool changed = ImGui::DragFloat2(label, values, 0.5f);
+        if (ImGui::IsItemActivated())
+            app.beginTransaction(undoLabel, app.beginChange());
+        if (changed)
+        {
+            points[i] = Math::Vec2(values[0], values[1]);
+            apply(points);
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            app.commitTransaction();
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::BeginDisabled(points.size() <= minPoints);
+        if (ImGui::Button(ICON_MDI_CLOSE "##removePoint", ImVec2(26.0f, 0.0f)))
+        {
+            points.erase(points.begin() + i);
+            applyInstant(app, undoLabel, [&] { apply(points); });
+            ImGui::EndDisabled();
+            ImGui::PopID();
+            return;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Remove point");
+        ImGui::PopID();
+    }
+    if (ImGui::Button(ICON_MDI_PLUS " Add Point"))
+    {
+        const Math::Vec2 last = points.empty() ? Math::Vec2(0.0f, 0.0f) : points.back();
+        points.push_back(last + Math::Vec2(20.0f, 0.0f));
+        applyInstant(app, undoLabel, [&] { apply(points); });
+    }
+}
+
 void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
 {
     Texture *texture = sprite.texture();
@@ -381,8 +425,9 @@ void drawPolygonProperties(EditorApplication &app, Polygon2D &polygon)
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set Polygon Blend Mode", [&] { polygon.setBlendMode(blendMode); });
 
-    ImGui::Text("%d point(s)", static_cast<int>(polygon.polygon().size()));
-    ImGui::TextDisabled("Editing individual points is not available in the Inspector yet.");
+    ImGui::SeparatorText("Points");
+    pointListEditor(app, polygon.polygon(), 3, "Edit Polygon Points",
+                    [&](const ct::Vector<Math::Vec2> &pts) { polygon.setPolygon(pts.data(), (int)pts.size()); });
 }
 
 void drawLineProperties(EditorApplication &app, Line2D &line)
@@ -412,8 +457,9 @@ void drawLineProperties(EditorApplication &app, Line2D &line)
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set Line Blend Mode", [&] { line.setBlendMode(blendMode); });
 
-    ImGui::Text("%d point(s)", static_cast<int>(line.points().size()));
-    ImGui::TextDisabled("Editing individual points is not available in the Inspector yet.");
+    ImGui::SeparatorText("Points");
+    pointListEditor(app, line.points(), 2, "Edit Line Points",
+                    [&](const ct::Vector<Math::Vec2> &pts) { line.setPoints(pts.data(), (int)pts.size()); });
 }
 
 void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePatch)
@@ -450,10 +496,11 @@ void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePat
         applyInstant(app, "Set NinePatch Blend Mode", [&] { ninePatch.setBlendMode(blendMode); });
 }
 
-void drawOccluderProperties(EditorApplication &, LightOccluder2D &occluder)
+void drawOccluderProperties(EditorApplication &app, LightOccluder2D &occluder)
 {
-    ImGui::Text("%d point(s)", static_cast<int>(occluder.points().size()));
-    ImGui::TextDisabled("Editing individual points is not available in the Inspector yet.");
+    ImGui::SeparatorText("Points");
+    pointListEditor(app, occluder.points(), 2, "Edit Occluder Points",
+                    [&](const ct::Vector<Math::Vec2> &pts) { occluder.setPolygon(pts.data(), (int)pts.size()); });
 }
 
 void drawPointLightProperties(EditorApplication &app, Light2D &light)
@@ -635,7 +682,49 @@ void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
         applyInstant(app, "Set SpriteBatch Blend Mode", [&] { batch.setBlendMode(blendMode); });
 
     ImGui::Text("%d entries", batch.count());
-    ImGui::TextDisabled("Adding/editing individual entries is not available in the Inspector yet.");
+    int removeIndex = -1;
+    for (int i = 0; i < batch.count(); ++i)
+    {
+        SpriteBatch::Entry *entry = batch.entryAt(i);
+        if (!entry)
+            continue;
+        ImGui::PushID(i);
+        if (ImGui::TreeNodeEx("##entry", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
+                              "Entry %d", i))
+        {
+            ImGui::Indent();
+            Texture *newTexture = nullptr;
+            if (textureField(app, "Texture", entry->texture, newTexture))
+                applyInstant(app, "Set Batch Entry Texture", [&] { entry->texture = newTexture; });
+            if (dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry")) {}
+            if (dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry")) {}
+            if (dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source")) {}
+            if (colorEdit(app, "Color", entry->color, "Recolor Batch Entry")) {}
+
+            bool flipX = (entry->flags & 0x1u) != 0;
+            bool flipY = (entry->flags & 0x2u) != 0;
+            if (ImGui::Checkbox("Flip X", &flipX))
+                applyInstant(app, "Flip Batch Entry X", [&] { batch.setFlip(i, flipX, flipY); });
+            ImGui::SameLine();
+            if (ImGui::Checkbox("Flip Y", &flipY))
+                applyInstant(app, "Flip Batch Entry Y", [&] { batch.setFlip(i, flipX, flipY); });
+
+            if (ImGui::Button(ICON_MDI_DELETE " Remove"))
+                removeIndex = i;
+            ImGui::Unindent();
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    if (removeIndex >= 0)
+        applyInstant(app, "Remove Batch Entry", [&] { batch.remove(removeIndex); });
+    if (ImGui::Button(ICON_MDI_PLUS " Add Entry"))
+    {
+        applyInstant(app, "Add Batch Entry", [&]
+        {
+            batch.add(placeholderSpriteTexture(app), Math::Vec2(0.0f, 0.0f), Math::Vec2(32.0f, 32.0f));
+        });
+    }
 }
 
 void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
@@ -660,6 +749,7 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
 
     ImGui::Text("%d clip(s)%s%s", static_cast<int>(anim.clipCount()),
                anim.currentClip() ? ", current: " : "", anim.currentClip() ? anim.currentClip() : "");
+    ct::String clipToDelete;
     for (size_t i = 0; i < anim.clipCount(); ++i)
     {
         const AnimationClip *clip = anim.clipAt(i);
@@ -708,11 +798,15 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 updateClip();
             if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
                 applyInstant(app, "Set Animation Clip Mode", updateClip);
+            if (ImGui::Button(ICON_MDI_DELETE " Delete Clip"))
+                clipToDelete = clipName;
             ImGui::Unindent();
             ImGui::TreePop();
         }
         ImGui::PopID();
     }
+    if (!clipToDelete.empty())
+        applyInstant(app, "Delete Animation Clip", [&] { anim.removeClip(clipToDelete.c_str()); });
 
     static char clipName[64] = "default";
     static int frameWidth = 32;
@@ -997,9 +1091,13 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
     if (dragVec2(app, "Emitter Size", emitterSize, 0.5f, "Resize Particle Emitter"))
         system.SetEmitterSize(emitterSize);
 
+    ImGui::BeginDisabled(particleComponent.followOwner());
     Math::Vec2 emitterPosition = system.EmitterPosition();
     if (dragVec2(app, "Emitter Position", emitterPosition, 0.5f, "Move Particle Emitter"))
         system.SetEmitterPosition(emitterPosition);
+    ImGui::EndDisabled();
+    if (particleComponent.followOwner())
+        ImGui::TextDisabled("Emitter position follows the owner while Follow Owner is on.");
 
     float emissionRate = system.EmissionRate();
     if (dragFloatProperty(app, "Emission Rate", emissionRate, 0.25f, "Adjust Particle Emission Rate", 0.0f, 100000.0f))

@@ -46,6 +46,7 @@ namespace k2d
         void addClip(const char *name, Texture *texture, int frameWidth, int frameHeight,
                      int frameCount, float framesPerSecond,
                      AnimationMode mode = AnimationMode::Loop);
+        bool removeClip(const char *name);
         bool play(const char *name);
         const char *currentClip() const;
         size_t clipCount() const { return mClips.size(); }

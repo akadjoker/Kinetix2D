@@ -50,6 +50,19 @@ namespace k2d
         return &mEntries[index];
     }
 
+    SpriteBatch::Entry *SpriteBatch::entryAt(int index)
+    {
+        if (index < 0 || index >= (int)mEntries.size())
+            return nullptr;
+        return &mEntries[index];
+    }
+
+    void SpriteBatch::remove(int index)
+    {
+        if (index >= 0 && index < (int)mEntries.size())
+            mEntries.erase(mEntries.begin() + index);
+    }
+
     void SpriteBatch::onRender(RenderQueue &queue)
     {
         RenderItem &item = queue.AddItem(owner()->zIndex());

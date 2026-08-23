@@ -15,6 +15,19 @@ int main()
     bool ok = batch.count() == 2 && first && second &&
               first->source == Math::Vec4(2.0f, 3.0f, 4.0f, 5.0f) &&
               second->flags == 1 && second->color.Packed() == 0xAABBCCDDu;
+
+    k2d::SpriteBatch::Entry *mutableFirst = batch.entryAt(a);
+    ok = ok && mutableFirst;
+    if (mutableFirst)
+        mutableFirst->position = Math::Vec2(7.0f, 8.0f);
+    ok = ok && batch.entry(a)->position == Math::Vec2(7.0f, 8.0f);
+    ok = ok && batch.entryAt(-1) == nullptr && batch.entryAt(2) == nullptr;
+
+    batch.remove(a);
+    ok = ok && batch.count() == 1 && batch.entry(0)->flags == 1;
+    batch.remove(5);
+    ok = ok && batch.count() == 1;
+
     batch.clear();
     ok = ok && batch.count() == 0 && batch.entry(0) == nullptr;
     std::printf("spritebatch=%s\n", ok ? "pass" : "fail");
