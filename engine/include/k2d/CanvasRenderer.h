@@ -42,6 +42,19 @@ namespace k2d
         void SetProjection(const glm::mat4 &matrix);
         void SetOrtho(float width, float height);
 
+        // Godot's Light2D "texture" property (default: a soft radial-gradient
+        // cookie; renderer_canvas_render.h Light, sampled in canvas.glsl as
+        // atlas_texture): shared by every point light this frame, since a real
+        // per-light texture atlas is future work. Pass 0 to fall back to the
+        // procedural falloff (1 - dist/radius)^2 used before this existed.
+        void SetDefaultLightTexture(unsigned int textureId);
+
+        // Godot's CanvasModulate node (canvas.glsl:716, color *=
+        // canvas_modulation): darkens the UNLIT pass only -- the light loops
+        // multiply by the original base color, so lights reveal true surface
+        // colors inside their radius. Default white = no darkening.
+        void SetCanvasModulate(float r, float g, float b);
+
         // Draws a sorted canvas item list plus the canvas lights and occluders
         // (from RenderQueue). Godot's _record_item_commands: item world xform is
         // the base, kTransform commands replace the draw transform, kRect emits
@@ -104,14 +117,14 @@ namespace k2d
         unsigned int mCurrentTextureId;
         glm::mat4 mProjection;
 
-        // Uniform-array budget, not a per-light limit: shared by every occluder
-        // edge in the whole scene, every frame. GLES3 guarantees only 224 vec4
-        // fragment uniform vectors, and the canvas shader already spends ~90 of
-        // those on light arrays, so this can't grow arbitrarily without moving
-        // occluder data to a texture buffer instead of a plain uniform array.
-        static const int kMaxOccluderEdges = 64;
-        glm::vec4 mOccluderEdges[kMaxOccluderEdges];
-        int mOccluderEdgeCount;
+        // World-space occluder edges flattened once per frame (FlattenOccluderEdges),
+        // then rasterized into the shadow atlas per light/sector (RenderShadowAtlas).
+        // Unbounded, matching Godot: it draws every LightOccluderInstance's real
+        // geometry (rasterizer_canvas_gles3.cpp, light_update_shadow) rather than
+        // packing edges into a fixed-size shader uniform array -- this list is
+        // CPU-side only now (see u_occluderEdges removal below), so there is no
+        // GLES3 uniform budget tying its size to a small constant.
+        ct::Vector<glm::vec4> mOccluderEdges;
 
         unsigned int mVAO;
         unsigned int mVBO;
@@ -119,6 +132,11 @@ namespace k2d
         unsigned int mProgram;
         unsigned int mShadowProgram;
         unsigned int mWhiteTexture;
+        unsigned int mDefaultLightTexture;
+        int mLightTextureLoc;
+        int mHasLightTextureLoc;
+        glm::vec4 mCanvasModulate;
+        int mCanvasModulateLoc;
         unsigned int mShadowAtlas;
         unsigned int mShadowDepth;
         unsigned int mShadowFramebuffer;
@@ -144,8 +162,6 @@ namespace k2d
         int mShadowFlagsLoc;
         int mShadowColorLoc;
         int mShadowFilterLoc;
-        int mOccluderCountLoc;
-        int mOccluderEdgesLoc;
         int mShadowAtlasLoc;
         int mCanvasSizeLoc;
         const Occluder *mOccluders;
@@ -153,9 +169,12 @@ namespace k2d
         float mOrthoWidth;
         float mOrthoHeight;
 
+        // Raw, un-divided clip-space coordinates (x, y, z, w). w carries the
+        // true light-local "along" distance so the GPU's own perspective
+        // divide/clip does the lateral/along projection -- see RenderShadowAtlas.
         struct ShadowVertex
         {
-            float x, y, z;
+            float x, y, z, w;
         };
         ct::Vector<ShadowVertex> mShadowVertices;
     };

@@ -33,7 +33,13 @@ void main()
 )";
 
         static const char *FRAGMENT_SHADER_SOURCE = R"(#version 300 es
-precision mediump float;
+// highp, not mediump: light math runs on world-space distances. mediump is
+// fp16 on real mobile/AMD GLES drivers, and length() squares its input --
+// fp16 overflows to Inf at sqrt(65504) = 255.9, silently killing every light
+// beyond 256 world units (a perfect radius-256 cutoff circle). GLES3
+// guarantees highp support in fragment shaders; Godot's canvas.glsl uses
+// highp for the same reason.
+precision highp float;
 
 in vec2 v_texcoord;
 in vec4 v_color;
@@ -41,7 +47,10 @@ in vec2 v_world;
 
 uniform sampler2D u_texture;
 uniform sampler2D u_shadowAtlas;
+uniform sampler2D u_lightTexture;
+uniform int u_hasLightTexture;
 uniform vec2 u_canvasSize;
+uniform vec4 u_canvasModulate;
 
 uniform int u_lightCount;
 uniform vec2 u_lightPos[8];
@@ -56,8 +65,6 @@ uniform int u_lightShadowFlags[8];
 uniform int u_lightShadowFilter[8];
 uniform vec4 u_lightShadowColor[8];
 uniform int u_directionalShadowFilter[8];
-uniform int u_occluderCount;
-uniform vec4 u_occluderEdges[64];
 
 out vec4 FragColor;
 
@@ -82,7 +89,12 @@ float shadowDepth(sampler2D atlas, vec2 uv, int filterMode)
 void main()
 {
     vec4 base = texture(u_texture, v_texcoord) * v_color;
-    FragColor = base;
+    // Godot's CanvasModulate (canvas.glsl:716, color *= canvas_modulation):
+    // darkens the unlit pass only. The light loops below multiply by the
+    // UN-modulated base color (canvas.glsl:711 base_color / :814
+    // light_color.rgb *= base_color.rgb), so lights "reveal" the surface's
+    // true colors inside their radius instead of pasting a colored disc.
+    FragColor = vec4(base.rgb * u_canvasModulate.rgb, base.a);
     if (u_lightCount > 0)
     {
         for (int i = 0; i < 8; ++i)
@@ -91,11 +103,30 @@ void main()
                 break;
             vec2 toLight = u_lightPos[i] - v_world;
             float dist = length(toLight);
-            float falloff = 1.0 - dist / u_lightRadius[i];
-            if (falloff <= 0.0)
+            float radialCut = 1.0 - dist / u_lightRadius[i];
+            if (radialCut <= 0.0)
                 continue;
-            falloff *= falloff;
+            // Godot's Light2D "texture" (canvas.glsl:793 light_color =
+            // textureLod(atlas_texture, ...)): the cookie is a FULL RGBA
+            // sample -- the final ADD multiplies rgb AND alpha (:509
+            // color.rgb += light_color.rgb * light_color.a), so a gradient
+            // authored in RGB (neutral_point_light.png) or in ALPHA
+            // (fire.png) both fade the light out smoothly. Reading just one
+            // channel (an earlier version read .r) breaks alpha-gradient
+            // cookies into a hard-edged uniform disc. light_color is then
+            // cookie x light tint (rgb) / cookie alpha x energy (a), so the
+            // shadow mix below and the final ADD work unchanged.
             vec4 light_color = u_lightColor[i];
+            if (u_hasLightTexture != 0)
+            {
+                vec4 cookie = texture(u_lightTexture, -toLight / u_lightRadius[i] * 0.5 + 0.5);
+                light_color = vec4(cookie.rgb * u_lightColor[i].rgb,
+                                   cookie.a * u_lightColor[i].a);
+            }
+            else
+            {
+                light_color.a *= radialCut * radialCut;
+            }
             if ((u_lightShadowFlags[i] & 1) != 0)
             {
                 vec2 lightRay = v_world - u_lightPos[i];
@@ -109,21 +140,25 @@ void main()
                 vec2 perpendicular = vec2(-direction.y, direction.x);
                 float along = dot(lightRay, direction);
                 float lateral = dot(lightRay, perpendicular);
-                // Perspective (tangent-space) projection onto this 90 deg sector's
-                // face, matching the occluder encode pass below -- NOT a raw
-                // orthographic lateral/radius offset. Within a correctly picked
-                // sector |lateral| <= along (45 deg half-angle), so this stays in
-                // [-1, 1].
+                // tan(angle) within this 90 deg sector, matching the occluder
+                // encode pass (RenderShadowAtlas), which projects edges with
+                // true GPU perspective. Within a correctly picked sector
+                // |lateral| <= along (45 deg half-angle), so this stays in [-1,1].
                 float tangent = along > 0.0001 ? (lateral / along) : (lateral < 0.0 ? -1.0 : 1.0);
                 float atlasU = (sector + (tangent + 1.0) * 0.5) / 4.0;
-                float atlasV = (float(i * 2) + 0.5) / 32.0;
+                float atlasV = (float(i * 2) + 0.5) / 16.0;
                 float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_lightShadowFilter[i]);
                 float shadow = (along > 0.0 && along / u_lightRadius[i] > storedDepth + 0.002) ? 1.0 : 0.0;
                 vec4 shadow_color = u_lightShadowColor[i];
                 shadow_color.a *= light_color.a;
                 light_color = mix(light_color, shadow_color, shadow);
             }
-            FragColor.rgb += light_color.rgb * light_color.a * falloff;
+            // Godot canvas.glsl:814 light_color.rgb *= base_color.rgb, then
+            // blend ADD (:509). The light reflects the surface's own color.
+            // Godot canvas.glsl:814 light_color.rgb *= base_color.rgb, then
+            // blend ADD (:509). The falloff now lives inside light_color
+            // (cookie rgb and/or alpha) instead of a separate factor.
+            FragColor.rgb += light_color.rgb * light_color.a * base.rgb;
         }
     }
     for (int i = 0; i < 8; ++i)
@@ -142,9 +177,7 @@ void main()
             float lateral = dot(relative, perpendicular);
             float along = dot(relative, rayDir);
             float atlasU = (lateral / halfSize + 1.0) * 0.5;
-            // Directional rows start after the 8 point-light slots (2 rows each)
-            // so the two light kinds never share atlas rows (see SetupShadowAtlas).
-            float atlasV = (16.0 + float(i * 2) + 0.5) / 32.0;
+            float atlasV = (8.0 + float(i * 2) + 0.5) / 16.0;
             float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_directionalShadowFilter[i]);
             float fragmentDepth = (along + shadowDistance * 0.5) / shadowDistance;
             float shadow = (fragmentDepth > storedDepth + 0.002) ? 1.0 : 0.0;
@@ -152,28 +185,30 @@ void main()
             shadow_color.a *= light_color.a;
             light_color = mix(light_color, shadow_color, shadow);
         }
-        FragColor.rgb += light_color.rgb * light_color.a;
+        FragColor.rgb += light_color.rgb * light_color.a * base.rgb;
     }
 }
 )";
 
+        // Raw clip-space coordinates (see ShadowVertex / RenderShadowAtlas): x is
+        // the un-divided lateral offset, w is the true "along" light distance.
+        // The GPU's own perspective divide + clip-space clipping does the
+        // lateral/along projection, matching Godot's real occluder shadow pass
+        // (drivers/gles3/shaders/canvas_occlusion.glsl).
         static const char *SHADOW_VERTEX_SHADER_SOURCE = R"(#version 300 es
-layout(location = 0) in vec3 a_position;
-out float v_depth;
+layout(location = 0) in vec4 a_clipPosition;
 void main()
 {
-    gl_Position = vec4(a_position, 1.0);
-    v_depth = a_position.z * 0.5 + 0.5;
+    gl_Position = a_clipPosition;
 }
 )";
 
         static const char *SHADOW_FRAGMENT_SHADER_SOURCE = R"(#version 300 es
 precision highp float;
-in float v_depth;
 layout(location = 0) out float out_depth;
 void main()
 {
-    out_depth = v_depth;
+    out_depth = gl_FragCoord.z;
 }
 )";
 
@@ -265,9 +300,10 @@ void main()
 
     CanvasRenderer::CanvasRenderer()
         : mConfig(), mStats(), mVertices(), mIndices(), mDrawCalls(),
-          mCurrentTextureId(0), mProjection(1.0f),
-          mOccluderEdgeCount(0),
+          mCurrentTextureId(0), mProjection(1.0f), mOccluderEdges(),
           mVAO(0), mVBO(0), mIBO(0), mProgram(0), mShadowProgram(0), mWhiteTexture(0),
+          mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
+          mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1),
           mShadowAtlas(0), mShadowDepth(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
           mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1),
           mLightColorLoc(-1), mLightRadiusLoc(-1),
@@ -277,11 +313,10 @@ void main()
           mLights(nullptr), mLightCount(0),
           mDirectionalLights(nullptr), mDirectionalLightCount(0),
           mShadowFlagsLoc(-1), mShadowColorLoc(-1), mShadowFilterLoc(-1),
-          mOccluderCountLoc(-1), mOccluderEdgesLoc(-1), mShadowAtlasLoc(-1), mCanvasSizeLoc(-1),
+          mShadowAtlasLoc(-1), mCanvasSizeLoc(-1),
           mOccluders(nullptr), mOccluderCount(0), mOrthoWidth(1280.0f), mOrthoHeight(720.0f)
     {
         std::memset(&mStats, 0, sizeof(mStats));
-        std::memset(mOccluderEdges, 0, sizeof(mOccluderEdges));
     }
 
     CanvasRenderer::~CanvasRenderer()
@@ -363,20 +398,37 @@ void main()
         mOrthoHeight = height;
     }
 
+    void CanvasRenderer::SetCanvasModulate(float r, float g, float b)
+    {
+        mCanvasModulate = glm::vec4(r, g, b, 1.0f);
+    }
+
+    void CanvasRenderer::SetDefaultLightTexture(unsigned int textureId)
+    {
+        mDefaultLightTexture = textureId;
+        if (mDefaultLightTexture != 0)
+        {
+            // Smooth sampling regardless of how the caller loaded the texture
+            // (Texture::Load defaults to nearest, wrong for a gradient cookie),
+            // and clamp so a light near the canvas edge can't wrap the gradient.
+            glBindTexture(GL_TEXTURE_2D, mDefaultLightTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+    }
+
     void CanvasRenderer::DrawItems(const RenderItem *items, size_t count,
                                    const PointLight *lights, size_t lightCount,
                                    const DirectionalLight *directionalLights, size_t directionalLightCount,
                                    const Occluder *occluders, size_t occluderCount)
     {
-        // Defensive clamp: the fixed-size uniform arrays below only hold
-        // kMaxPointLights/kMaxDirectionalLights entries. RenderQueue already
-        // enforces this, but DrawItems can also be called directly.
         mLights = lights;
-        mLightCount = (int)(lightCount < (size_t)kMaxPointLights ? lightCount : (size_t)kMaxPointLights);
+        mLightCount = (int)lightCount;
         mDirectionalLights = directionalLights;
-        mDirectionalLightCount = (int)(directionalLightCount < (size_t)kMaxDirectionalLights
-                                            ? directionalLightCount
-                                            : (size_t)kMaxDirectionalLights);
+        mDirectionalLightCount = (int)directionalLightCount;
         mOccluders = occluders;
         mOccluderCount = occluderCount;
 
@@ -580,6 +632,8 @@ void main()
         glUseProgram(mProgram);
         glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
         glUniform1i(mShadowAtlasLoc, 1);
+        glUniform1i(mHasLightTextureLoc, mDefaultLightTexture != 0 ? 1 : 0);
+        glUniform4fv(mCanvasModulateLoc, 1, &mCanvasModulate[0]);
         glUniform2f(mCanvasSizeLoc, mOrthoWidth, mOrthoHeight);
         glUniform1i(mLightCountLoc, mLightCount);
         if (mLightCount > 0)
@@ -665,12 +719,14 @@ void main()
         glUniform1iv(mShadowFlagsLoc, 8, flags);
         glUniform1iv(mShadowFilterLoc, 8, filters);
         glUniform4fv(mShadowColorLoc, 8, scolor);
-        glUniform1i(mOccluderCountLoc, mOccluderEdgeCount);
-        if (mOccluderEdgeCount > 0)
-            glUniform4fv(mOccluderEdgesLoc, kMaxOccluderEdges, &mOccluderEdges[0][0]);
         glBindVertexArray(mVAO);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, mShadowAtlas);
+        if (mDefaultLightTexture != 0)
+        {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, mDefaultLightTexture);
+        }
         glActiveTexture(GL_TEXTURE0);
 
         size_t indexOffset = 0;
@@ -734,13 +790,15 @@ void main()
         mShadowFlagsLoc = glGetUniformLocation(mProgram, "u_lightShadowFlags");
         mShadowColorLoc = glGetUniformLocation(mProgram, "u_lightShadowColor");
         mShadowFilterLoc = glGetUniformLocation(mProgram, "u_lightShadowFilter");
-        mOccluderCountLoc = glGetUniformLocation(mProgram, "u_occluderCount");
-        mOccluderEdgesLoc = glGetUniformLocation(mProgram, "u_occluderEdges");
         mShadowAtlasLoc = glGetUniformLocation(mProgram, "u_shadowAtlas");
         mCanvasSizeLoc = glGetUniformLocation(mProgram, "u_canvasSize");
+        mLightTextureLoc = glGetUniformLocation(mProgram, "u_lightTexture");
+        mHasLightTextureLoc = glGetUniformLocation(mProgram, "u_hasLightTexture");
+        mCanvasModulateLoc = glGetUniformLocation(mProgram, "u_canvasModulate");
         glUseProgram(mProgram);
         glUniform1i(mTexLoc, 0);
         glUniform1i(mShadowAtlasLoc, 1);
+        glUniform1i(mLightTextureLoc, 2);
         glUseProgram(0);
         return true;
     }
@@ -785,10 +843,7 @@ void main()
     void CanvasRenderer::SetupShadowAtlas()
     {
         static const int textureSize = 2048;
-        // 2 rows per light: kMaxPointLights point-light slots followed by
-        // kMaxDirectionalLights directional slots, so the two kinds never
-        // collide on the same atlas row (see RenderShadowAtlas).
-        static const int rows = (kMaxPointLights + kMaxDirectionalLights) * 2;
+        static const int rows = 16;
 
         mShadowProgram = CreateProgram(SHADOW_VERTEX_SHADER_SOURCE, SHADOW_FRAGMENT_SHADER_SOURCE);
         if (!mShadowProgram)
@@ -826,7 +881,7 @@ void main()
         glBindVertexArray(mShadowVAO);
         glBindBuffer(GL_ARRAY_BUFFER, mShadowVBO);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ShadowVertex), nullptr);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(ShadowVertex), nullptr);
         glBindVertexArray(0);
     }
 
@@ -862,7 +917,7 @@ void main()
 
     void CanvasRenderer::RenderShadowAtlas()
     {
-        if (!mShadowFramebuffer || !mShadowProgram || mOccluderEdgeCount == 0)
+        if (!mShadowFramebuffer || !mShadowProgram || mOccluderEdges.empty())
             return;
 
         GLint previousViewport[4] = {0, 0, 0, 0};
@@ -902,30 +957,29 @@ void main()
                 glScissor(viewportX, lightIndex * 2, textureSize / 4, 2);
 
                 mShadowVertices.clear();
-                for (int edgeIndex = 0; edgeIndex < mOccluderEdgeCount; ++edgeIndex)
+                const float radius = mLights[lightIndex].radius;
+                for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
                 {
                     glm::vec2 a = glm::vec2(mOccluderEdges[edgeIndex].x,
                                             mOccluderEdges[edgeIndex].y) - mLights[lightIndex].position;
                     glm::vec2 b = glm::vec2(mOccluderEdges[edgeIndex].z,
                                             mOccluderEdges[edgeIndex].w) - mLights[lightIndex].position;
+                    // True point-light perspective: emit RAW, un-divided clip
+                    // coordinates with w = along and let the GPU's perspective
+                    // divide + clip-space clipping do the lateral/along
+                    // projection and the near-plane cull. `along` is left
+                    // un-clamped, including negative -- the hardware clips it
+                    // robustly at along == 0.
                     float aAlong = glm::dot(a, direction);
                     float bAlong = glm::dot(b, direction);
                     float aLateral = glm::dot(a, perpendicular);
                     float bLateral = glm::dot(b, perpendicular);
-                    // Perspective (tangent-space) projection onto this sector's
-                    // face -- matches the fragment shader's per-pixel tan(angle)
-                    // lookup. Using the raw lateral/radius offset here (as before)
-                    // put edges and receiving fragments at the same atlas U only
-                    // when they happened to sit at the same distance from the
-                    // light, which is wrong for a point light.
-                    float aTangent = aAlong > 0.0001f ? (aLateral / aAlong) : (aLateral < 0.0f ? -1.0f : 1.0f);
-                    float bTangent = bAlong > 0.0001f ? (bLateral / bAlong) : (bLateral < 0.0f ? -1.0f : 1.0f);
-                    float aDepth = aAlong / mLights[lightIndex].radius;
-                    float bDepth = bAlong / mLights[lightIndex].radius;
-                    mShadowVertices.push_back(ShadowVertex{aTangent, -1.0f, aDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{bTangent, -1.0f, bDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{bTangent, 1.0f, bDepth * 2.0f - 1.0f});
-                    mShadowVertices.push_back(ShadowVertex{aTangent, 1.0f, aDepth * 2.0f - 1.0f});
+                    float aDepthNdc = (aAlong / radius) * 2.0f - 1.0f;
+                    float bDepthNdc = (bAlong / radius) * 2.0f - 1.0f;
+                    mShadowVertices.push_back(ShadowVertex{aLateral, -aAlong, aDepthNdc * aAlong, aAlong});
+                    mShadowVertices.push_back(ShadowVertex{bLateral, -bAlong, bDepthNdc * bAlong, bAlong});
+                    mShadowVertices.push_back(ShadowVertex{bLateral, bAlong, bDepthNdc * bAlong, bAlong});
+                    mShadowVertices.push_back(ShadowVertex{aLateral, aAlong, aDepthNdc * aAlong, aAlong});
                 }
 
                 glBufferData(GL_ARRAY_BUFFER,
@@ -946,7 +1000,7 @@ void main()
             if (!mDirectionalLights[lightIndex].useShadow)
                 continue;
 
-            int row = kMaxPointLights * 2 + lightIndex * 2;
+            int row = 8 + lightIndex * 2;
             glViewport(0, row, textureSize, 2);
             glScissor(0, row, textureSize, 2);
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -955,7 +1009,7 @@ void main()
             glm::vec2 direction = mDirectionalLights[lightIndex].direction;
             glm::vec2 perpendicular(-direction.y, direction.x);
             mShadowVertices.clear();
-            for (int edgeIndex = 0; edgeIndex < mOccluderEdgeCount; ++edgeIndex)
+            for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
             {
                 glm::vec2 a = glm::vec2(mOccluderEdges[edgeIndex].x,
                                         mOccluderEdges[edgeIndex].y) - canvasCenter;
@@ -965,10 +1019,12 @@ void main()
                 float bLateral = glm::dot(b, perpendicular) / directionalHalfSize;
                 float aDepth = (glm::dot(a, direction) + directionalDistance * 0.5f) / directionalDistance;
                 float bDepth = (glm::dot(b, direction) + directionalDistance * 0.5f) / directionalDistance;
-                mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth * 2.0f - 1.0f});
-                mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth * 2.0f - 1.0f});
-                mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth * 2.0f - 1.0f});
-                mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth * 2.0f - 1.0f});
+                // Directional light: parallel rays, orthographic projection is
+                // exact (no perspective needed) -- w = 1, straight pass-through.
+                mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth * 2.0f - 1.0f, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth * 2.0f - 1.0f, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth * 2.0f - 1.0f, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth * 2.0f - 1.0f, 1.0f});
             }
             glBufferData(GL_ARRAY_BUFFER,
                          (GLsizeiptr)(mShadowVertices.size() * sizeof(ShadowVertex)),
@@ -989,17 +1045,19 @@ void main()
 
     void CanvasRenderer::FlattenOccluderEdges()
     {
-        mOccluderEdgeCount = 0;
-        for (size_t o = 0; o < mOccluderCount && mOccluderEdgeCount < kMaxOccluderEdges; ++o)
+        // Unbounded (see mOccluderEdges declaration): every occluder in the
+        // scene contributes its edges, matching Godot drawing every
+        // LightOccluderInstance rather than truncating to a fixed budget.
+        mOccluderEdges.clear();
+        for (size_t o = 0; o < mOccluderCount; ++o)
         {
             const ct::Vector<glm::vec2> &pts = *mOccluders[o].points;
             int n = (int)pts.size();
-            for (int e = 0; e < n && mOccluderEdgeCount < kMaxOccluderEdges; ++e)
+            for (int e = 0; e < n; ++e)
             {
                 glm::vec2 a = mOccluders[o].xform.Transform(pts[e]);
                 glm::vec2 b = mOccluders[o].xform.Transform(pts[(e + 1) % n]);
-                mOccluderEdges[mOccluderEdgeCount] = glm::vec4(a, b);
-                mOccluderEdgeCount++;
+                mOccluderEdges.push_back(glm::vec4(a, b));
             }
         }
     }

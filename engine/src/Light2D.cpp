@@ -52,6 +52,7 @@ namespace k2d
         light.radius = mRadius;
         light.useShadow = mCastShadow;
         light.shadowFilter = mShadowFilter;
+        light.shadowMatrix = owner()->globalTransform().AffineInverse();
         light.shadowColor = mShadowColor;
         queue.AddLight(light);
     }

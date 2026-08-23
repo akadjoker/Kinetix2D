@@ -40,8 +40,7 @@ namespace k2d
 
     void RenderQueue::AddLight(const PointLight &light)
     {
-        if (mLights.size() < kMaxPointLights)
-            mLights.push_back(light);
+        mLights.push_back(light);
     }
 
     void RenderQueue::AddDirectionalLight(const DirectionalLight &light)

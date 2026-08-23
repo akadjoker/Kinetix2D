@@ -21,6 +21,12 @@ target_link_libraries(render_demo PRIVATE k2d)
 add_executable(render_pass_demo render_pass_demo.cpp)
 target_link_libraries(render_pass_demo PRIVATE k2d)
 
+add_executable(lighting_nodes_demo lighting_nodes_demo.cpp)
+target_link_libraries(lighting_nodes_demo PRIVATE k2d)
+
+add_executable(light_falloff_diag light_falloff_diag.cpp)
+target_link_libraries(light_falloff_diag PRIVATE k2d)
+
 add_executable(particle_fx_demo particle_fx_demo.cpp)
 target_link_libraries(particle_fx_demo PRIVATE k2d imgui)
 
