@@ -60,6 +60,9 @@ target_link_libraries(customshader_diag PRIVATE k2d)
 add_executable(particle_fx_demo particle_fx_demo.cpp)
 target_link_libraries(particle_fx_demo PRIVATE k2d imgui)
 
+add_executable(prefab_bullet_demo prefab_bullet_demo.cpp)
+target_link_libraries(prefab_bullet_demo PRIVATE k2d imgui)
+
 add_executable(parallax_demo parallax_demo.cpp)
 target_link_libraries(parallax_demo PRIVATE k2d imgui)
 
