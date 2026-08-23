@@ -1,3 +1,6 @@
 [submodule "external/containers"]
 	path = external/containers
 	url = https://github.com/akadjoker/containers.git
+[submodule "external/math"]
+	path = external/math
+	url = https://github.com/akadjoker/math.git
