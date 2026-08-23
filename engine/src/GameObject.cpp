@@ -58,6 +58,12 @@ namespace k2d
         return mTag;
     }
 
+    Component *GameObject::rawComponent(ComponentType type) const
+    {
+        const uint8_t index = static_cast<uint8_t>(type);
+        return index < static_cast<uint8_t>(ComponentType::Count) ? mComponents[index] : nullptr;
+    }
+
     void GameObject::setTag(const ct::String &tag)
     {
         mTag = tag;

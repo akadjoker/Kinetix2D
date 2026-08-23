@@ -71,6 +71,7 @@ add_library(k2d STATIC
     src/CanvasLayer.cpp
     src/AStarGrid2D.cpp
     src/AStar2D.cpp
+    src/Serializer.cpp
     ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
     src/TileMapComponent.cpp
     src/ParallaxLayer2D.cpp

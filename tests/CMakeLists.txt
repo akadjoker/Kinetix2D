@@ -81,3 +81,6 @@ target_link_libraries(k2d_pixmap_tests PRIVATE k2d)
 
 add_executable(k2d_astar_tests k2d_astar_tests.cpp)
 target_link_libraries(k2d_astar_tests PRIVATE k2d)
+
+add_executable(k2d_serializer_tests k2d_serializer_tests.cpp)
+target_link_libraries(k2d_serializer_tests PRIVATE k2d)

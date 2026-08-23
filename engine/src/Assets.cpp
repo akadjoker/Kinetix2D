@@ -117,6 +117,20 @@ namespace k2d
         return found ? *found : nullptr;
     }
 
+    const char *Assets::FindTextureName(const Texture *texture) const
+    {
+        if (!texture)
+            return nullptr;
+        // ct::HashMap::begin/end aren't const-qualified; this is read-only.
+        auto &textures = const_cast<ct::HashMap<ct::String, Texture *> &>(mTextures);
+        for (auto &entry : textures)
+        {
+            if (entry.value == texture)
+                return entry.key.c_str();
+        }
+        return nullptr;
+    }
+
     void Assets::Clear()
     {
         for (auto &entry : mShaders)
