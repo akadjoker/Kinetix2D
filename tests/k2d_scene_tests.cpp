@@ -62,16 +62,47 @@ int main()
     bool destroyed = scene.objectCount() == 1 && scene.find("child") == nullptr &&
                      parent->childCount() == 0;
 
+    k2d::GameObject *first = scene.createObject("first", parent);
+    k2d::GameObject *second = scene.createObject("second", parent);
+    k2d::GameObject *third = scene.createObject("third", parent);
+    bool reorderInitial = parent->childIndex(first) == 0 && parent->childIndex(second) == 1 &&
+                          parent->childIndex(third) == 2;
+
+    bool moveUpFailFirst = !parent->moveChildUp(first);
+    bool moveUpOk = parent->moveChildUp(second);
+    bool reorderedAfterUp = parent->childIndex(second) == 0 && parent->childIndex(first) == 1 &&
+                            parent->childIndex(third) == 2;
+
+    bool moveDownFailLast = !parent->moveChildDown(third);
+    bool moveDownOk = parent->moveChildDown(second);
+    bool reorderedAfterDown = parent->childIndex(first) == 0 && parent->childIndex(second) == 1 &&
+                              parent->childIndex(third) == 2;
+    bool reorder = reorderInitial && moveUpFailFirst && moveUpOk && reorderedAfterUp &&
+                   moveDownFailLast && moveDownOk && reorderedAfterDown;
+
+    bool reparentOk = scene.reparent(third, first);
+    bool reparented = reparentOk && third->parent() == first && first->childCount() == 1 &&
+                      parent->childCount() == 2;
+
+    bool reparentCycleRejected = !scene.reparent(first, third) && first->parent() == parent;
+    bool reparentSelfRejected = !scene.reparent(first, first);
+    bool reparentToRoot = scene.reparent(third, nullptr);
+    bool reparentedToRoot = reparentToRoot && third->parent() == &scene.root() &&
+                            first->childCount() == 0;
+    bool reparent = reparented && reparentCycleRejected && reparentSelfRejected && reparentedToRoot;
+
     scene.clear();
     bool cleared = scene.objectCount() == 0 && scene.root().childCount() == 0;
 
-    std::printf("scene: hierarchy=%s transform=%s lifecycle=%s activation=%s deferred=%s destroyed=%s cleared=%s\n",
+    std::printf("scene: hierarchy=%s transform=%s lifecycle=%s activation=%s deferred=%s destroyed=%s "
+               "reorder=%s reparent=%s cleared=%s\n",
                 hierarchy ? "pass" : "fail", transform ? "pass" : "fail",
                 lifecycle ? "pass" : "fail", hierarchyActivation ? "pass" : "fail",
                 deferred ? "pass" : "fail", destroyed ? "pass" : "fail",
+                reorder ? "pass" : "fail", reparent ? "pass" : "fail",
                 cleared ? "pass" : "fail");
     return hierarchy && transform && lifecycle && hierarchyActivation &&
-                   deferred && destroyed && cleared
+                   deferred && destroyed && reorder && reparent && cleared
                ? 0
                : 1;
 }

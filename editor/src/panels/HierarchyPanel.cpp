@@ -4,10 +4,9 @@
 
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
-#include <k2d/SpriteComponent.h>
-#include <k2d/Texture.h>
 
 #include <ct/string.hpp>
+#include <ct/vector.hpp>
 
 #include <IconsMaterialDesignIcons.h>
 
@@ -16,104 +15,119 @@ namespace k2d::editor
 
 namespace
 {
-constexpr int kPlaceholderSize = 32;
+constexpr const char *kNodeDragDropPayload = "K2D_HIERARCHY_NODE";
 
-Texture *placeholderSpriteTexture(EditorApplication &application)
+GameObject *findById(GameObject &object, uint64_t id)
 {
-    constexpr const char *kName = "__editor_sprite_placeholder";
-    Texture *texture = application.assets().GetTexture(kName);
-    if (texture)
-        return texture;
-
-    unsigned char pixels[kPlaceholderSize * kPlaceholderSize * 4];
-    for (int i = 0; i < kPlaceholderSize * kPlaceholderSize; ++i)
-    {
-        pixels[i * 4 + 0] = 255;
-        pixels[i * 4 + 1] = 255;
-        pixels[i * 4 + 2] = 255;
-        pixels[i * 4 + 3] = 255;
-    }
-    return application.assets().CreateTexture(kName, kPlaceholderSize, kPlaceholderSize, pixels, true, false);
+    if (object.id() == id)
+        return &object;
+    for (size_t i = 0; i < object.childCount(); ++i)
+        if (GameObject *found = findById(*object.child(i), id))
+            return found;
+    return nullptr;
 }
 }
 
 void HierarchyPanel::drawContents()
 {
     if (ImGui::Button(ICON_MDI_PLUS))
-        ImGui::OpenPopup("##hierarchy_create");
+        createNode();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Create GameObject");
-    if (ImGui::BeginPopup("##hierarchy_create"))
-    {
-        if (ImGui::MenuItem("Empty"))
-            createEmpty();
-        if (ImGui::MenuItem("Sprite"))
-            createSprite();
-        ImGui::EndPopup();
-    }
-
+        ImGui::SetTooltip("New Node");
     ImGui::SameLine();
-    GameObject *selected = app().selection().resolve(app().scene());
-    ImGui::BeginDisabled(!selected || selected == &app().scene().root());
-    if (ImGui::Button(ICON_MDI_TRASH_CAN_OUTLINE))
-    {
-        const EditorApplication::SceneChange before = app().beginChange();
-        const ct::String name = selected->name();
-        app().selection().clear();
-        app().scene().destroy(selected);
-        app().scene().update(0.0f);
-        ct::String label("Delete ");
-        label += name;
-        app().commitChange(label.c_str(), before);
-        ct::String message("Deleted selection: ");
-        message += name;
-        app().log(message);
-    }
+
+    GameObject *primary = app().selection().resolve(app().scene());
+    const bool hasPrimary = primary && primary != &app().scene().root() && primary->parent();
+
+    ImGui::BeginDisabled(!hasPrimary);
+    if (ImGui::Button(ICON_MDI_ARROW_UP_BOLD))
+        moveSelected(-1);
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Delete selected GameObject");
+        ImGui::SetTooltip("Move Up");
+    ImGui::SameLine();
+
+    ImGui::BeginDisabled(!hasPrimary);
+    if (ImGui::Button(ICON_MDI_ARROW_DOWN_BOLD))
+        moveSelected(1);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Move Down");
+    ImGui::SameLine();
+
+    ImGui::BeginDisabled(app().selection().count() == 0);
+    if (ImGui::Button(ICON_MDI_TRASH_CAN_OUTLINE))
+        deleteSelected();
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Delete Selected (Ctrl+Click to multi-select)");
 
     ImGui::Separator();
     drawObject(app().scene().root());
 }
 
-void HierarchyPanel::createEmpty()
+void HierarchyPanel::createNode()
 {
     const EditorApplication::SceneChange before = app().beginChange();
     static unsigned int number = 1;
-    ct::String name("GameObject ");
+    ct::String name("Node ");
     name.append_number(number++);
     GameObject *parent = app().selection().resolve(app().scene());
     if (!parent)
         parent = &app().scene().root();
     GameObject *created = app().scene().createObject(name.c_str(), parent);
     app().selection().select(created);
-    app().commitChange("Create GameObject", before);
+    app().commitChange("Create Node", before);
 }
 
-void HierarchyPanel::createSprite()
+void HierarchyPanel::moveSelected(int direction)
 {
+    GameObject *object = app().selection().resolve(app().scene());
+    if (!object || !object->parent())
+        return;
+
     const EditorApplication::SceneChange before = app().beginChange();
-    static unsigned int number = 1;
-    ct::String name("Sprite ");
-    name.append_number(number++);
-    GameObject *parent = app().selection().resolve(app().scene());
-    if (!parent)
-        parent = &app().scene().root();
-    GameObject *created = app().scene().createObject(name.c_str(), parent);
-    if (created)
-        created->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
-    app().selection().select(created);
-    app().commitChange("Create Sprite", before);
+    const bool moved = direction < 0 ? object->parent()->moveChildUp(object)
+                                     : object->parent()->moveChildDown(object);
+    if (moved)
+        app().commitChange(direction < 0 ? "Move Node Up" : "Move Node Down", before);
+}
+
+void HierarchyPanel::deleteSelected()
+{
+    const ct::Vector<uint64_t> ids = app().selection().ids();
+    if (ids.empty())
+        return;
+
+    const EditorApplication::SceneChange before = app().beginChange();
+    app().selection().clear();
+    size_t deleted = 0;
+    for (size_t i = 0; i < ids.size(); ++i)
+    {
+        GameObject *object = findById(app().scene().root(), ids[i]);
+        if (!object || object == &app().scene().root())
+            continue;
+        if (app().scene().destroy(object))
+            ++deleted;
+    }
+    app().scene().update(0.0f);
+    if (deleted == 0)
+        return;
+
+    app().commitChange("Delete Selection", before);
+    ct::String message("Deleted selection");
+    app().log(message);
 }
 
 void HierarchyPanel::drawObject(GameObject &object)
 {
+    const bool isRoot = &object == &app().scene().root();
+
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
                                ImGuiTreeNodeFlags_SpanAvailWidth;
     if (object.childCount() == 0)
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-    if (app().selection().hasSelection() && app().selection().objectId() == object.id())
+    if (app().selection().isSelected(object.id()))
         flags |= ImGuiTreeNodeFlags_Selected;
 
     const bool open = ImGui::TreeNodeEx(
@@ -122,10 +136,41 @@ void HierarchyPanel::drawObject(GameObject &object)
 
     if (ImGui::IsItemClicked())
     {
-        app().selection().select(&object);
+        if (ImGui::GetIO().KeyCtrl)
+            app().selection().toggle(&object);
+        else
+            app().selection().select(&object);
         ct::String message("Selected: ");
         message += object.name();
         app().log(message);
+    }
+
+    if (!isRoot && ImGui::BeginDragDropSource())
+    {
+        const uint64_t id = object.id();
+        ImGui::SetDragDropPayload(kNodeDragDropPayload, &id, sizeof(id));
+        ImGui::TextUnformatted(object.name().empty() ? "GameObject" : object.name().c_str());
+        ImGui::EndDragDropSource();
+    }
+
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t *>(payload->Data);
+            GameObject *dragged = findById(app().scene().root(), draggedId);
+            if (dragged && dragged != &object)
+            {
+                const EditorApplication::SceneChange before = app().beginChange();
+                if (app().scene().reparent(dragged, isRoot ? nullptr : &object))
+                {
+                    ct::String label("Reparent ");
+                    label += dragged->name();
+                    app().commitChange(label.c_str(), before);
+                }
+            }
+        }
+        ImGui::EndDragDropTarget();
     }
 
     if (open && object.childCount() != 0)

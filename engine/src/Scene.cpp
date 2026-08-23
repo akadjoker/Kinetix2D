@@ -56,6 +56,25 @@ namespace k2d
         return true;
     }
 
+    bool Scene::reparent(GameObject *object, GameObject *newParent)
+    {
+        if (!object || object == &mRoot || object->scene() != this)
+            return false;
+        GameObject *destination = newParent ? newParent : &mRoot;
+        if (destination->scene() != this || destination == object || destination == object->parent())
+            return false;
+
+        GameObject *oldParent = object->parent();
+        if (!oldParent || !oldParent->removeChildRaw(object))
+            return false;
+        if (!destination->addChildRaw(object))
+        {
+            oldParent->addChildRaw(object);
+            return false;
+        }
+        return true;
+    }
+
     GameObject *Scene::find(const char *name) const
     {
         return findRecursive(&mRoot, name);

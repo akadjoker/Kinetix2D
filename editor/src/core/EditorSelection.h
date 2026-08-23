@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ct/vector.hpp>
+
 #include <cstdint>
 
 namespace k2d
@@ -16,14 +18,19 @@ class EditorSelection
 public:
     void select(const GameObject *object);
     void selectId(uint64_t objectId);
+    void toggle(const GameObject *object);
     void clear();
-    uint64_t objectId() const { return mObjectId; }
-    bool hasSelection() const { return mHasSelection; }
+
+    uint64_t objectId() const { return mIds.empty() ? 0 : mIds.back(); }
+    bool hasSelection() const { return !mIds.empty(); }
     GameObject *resolve(Scene &scene) const;
 
+    const ct::Vector<uint64_t> &ids() const { return mIds; }
+    bool isSelected(uint64_t id) const;
+    std::size_t count() const { return mIds.size(); }
+
 private:
-    uint64_t mObjectId = 0;
-    bool mHasSelection = false;
+    ct::Vector<uint64_t> mIds;
 };
 
 }

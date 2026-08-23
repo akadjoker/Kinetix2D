@@ -25,6 +25,7 @@ namespace k2d
         GameObject *createObject(const char *name = "", GameObject *parent = nullptr);
         bool add(GameObject *object, GameObject *parent = nullptr);
         bool destroy(GameObject *object);
+        bool reparent(GameObject *object, GameObject *newParent);
 
         GameObject *find(const char *name) const;
         std::size_t objectCount() const;

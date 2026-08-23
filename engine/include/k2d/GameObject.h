@@ -60,6 +60,8 @@ namespace k2d
         GameObject *removeChild(GameObject *child);
         bool deleteChild(GameObject *child);
         void deleteChildren();
+        bool moveChildUp(GameObject *child);
+        bool moveChildDown(GameObject *child);
 
         template <class T, class... Args> T *addComponent(Args &&...args)
         {

@@ -21,8 +21,9 @@ public:
 private:
     void drawContents() override;
     void drawObject(GameObject &object);
-    void createEmpty();
-    void createSprite();
+    void createNode();
+    void moveSelected(int direction);
+    void deleteSelected();
 };
 
 }

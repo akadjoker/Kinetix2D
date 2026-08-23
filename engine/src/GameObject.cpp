@@ -178,6 +178,28 @@ namespace k2d
         return mChildren.size();
     }
 
+    bool GameObject::moveChildUp(GameObject *child)
+    {
+        const std::size_t index = childIndex(child);
+        if (index == 0 || index >= mChildren.size())
+            return false;
+        GameObject *previous = mChildren[index - 1];
+        mChildren[index - 1] = mChildren[index];
+        mChildren[index] = previous;
+        return true;
+    }
+
+    bool GameObject::moveChildDown(GameObject *child)
+    {
+        const std::size_t index = childIndex(child);
+        if (index >= mChildren.size() || index + 1 >= mChildren.size())
+            return false;
+        GameObject *next = mChildren[index + 1];
+        mChildren[index + 1] = mChildren[index];
+        mChildren[index] = next;
+        return true;
+    }
+
     GameObject *GameObject::findChild(const char *name, bool recursive) const
     {
         for (GameObject *object : mChildren)

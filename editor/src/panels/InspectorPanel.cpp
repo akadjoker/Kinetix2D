@@ -4,6 +4,8 @@
 
 #include <k2d/Component.h>
 #include <k2d/GameObject.h>
+#include <k2d/SpriteComponent.h>
+#include <k2d/Texture.h>
 
 namespace k2d::editor
 {
@@ -19,6 +21,26 @@ const char *componentName(ComponentType type)
     };
     const unsigned int index = static_cast<unsigned int>(type);
     return index < static_cast<unsigned int>(ComponentType::Count) ? names[index] : "Unknown";
+}
+
+constexpr int kPlaceholderSize = 32;
+
+Texture *placeholderSpriteTexture(EditorApplication &application)
+{
+    constexpr const char *kName = "__editor_sprite_placeholder";
+    Texture *texture = application.assets().GetTexture(kName);
+    if (texture)
+        return texture;
+
+    unsigned char pixels[kPlaceholderSize * kPlaceholderSize * 4];
+    for (int i = 0; i < kPlaceholderSize * kPlaceholderSize; ++i)
+    {
+        pixels[i * 4 + 0] = 255;
+        pixels[i * 4 + 1] = 255;
+        pixels[i * 4 + 2] = 255;
+        pixels[i * 4 + 3] = 255;
+    }
+    return application.assets().CreateTexture(kName, kPlaceholderSize, kPlaceholderSize, pixels, true, false);
 }
 }
 
@@ -137,7 +159,14 @@ void InspectorPanel::drawContents()
         ImGui::OpenPopup("Add Component");
     if (ImGui::BeginPopup("Add Component"))
     {
-        ImGui::TextDisabled("ComponentRegistry will populate this menu in M0/M2.");
+        if (ImGui::MenuItem("Sprite"))
+        {
+            const EditorApplication::SceneChange before = app().beginChange();
+            object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
+            app().commitChange("Add Sprite Component", before);
+        }
+        ImGui::Separator();
+        ImGui::TextDisabled("More component types coming later.");
         ImGui::EndPopup();
     }
 }

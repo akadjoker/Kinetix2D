@@ -21,25 +21,51 @@ GameObject *findById(GameObject &object, uint64_t id)
 
 void EditorSelection::select(const GameObject *object)
 {
-    mObjectId = object ? object->id() : 0;
-    mHasSelection = object != nullptr;
-}
-
-void EditorSelection::clear()
-{
-    mObjectId = 0;
-    mHasSelection = false;
+    mIds.clear();
+    if (object)
+        mIds.push_back(object->id());
 }
 
 void EditorSelection::selectId(uint64_t objectId)
 {
-    mObjectId = objectId;
-    mHasSelection = true;
+    mIds.clear();
+    mIds.push_back(objectId);
+}
+
+void EditorSelection::toggle(const GameObject *object)
+{
+    if (!object)
+        return;
+    const uint64_t id = object->id();
+    for (size_t i = 0; i < mIds.size(); ++i)
+    {
+        if (mIds[i] == id)
+        {
+            for (size_t j = i; j + 1 < mIds.size(); ++j)
+                mIds[j] = mIds[j + 1];
+            mIds.pop_back();
+            return;
+        }
+    }
+    mIds.push_back(id);
+}
+
+void EditorSelection::clear()
+{
+    mIds.clear();
+}
+
+bool EditorSelection::isSelected(uint64_t id) const
+{
+    for (size_t i = 0; i < mIds.size(); ++i)
+        if (mIds[i] == id)
+            return true;
+    return false;
 }
 
 GameObject *EditorSelection::resolve(Scene &scene) const
 {
-    return mHasSelection ? findById(scene.root(), mObjectId) : nullptr;
+    return hasSelection() ? findById(scene.root(), objectId()) : nullptr;
 }
 
 }
