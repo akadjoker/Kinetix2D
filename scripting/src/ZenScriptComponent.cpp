@@ -1076,6 +1076,29 @@ namespace k2d
         pendingEvents().clear();
     }
 
+    std::size_t ZenBlackboard::keyCount()
+    {
+        return blackboardEntries().size();
+    }
+
+    ct::String ZenBlackboard::keyAt(std::size_t index)
+    {
+        const ct::Vector<BlackboardEntry> &entries = blackboardEntries();
+        return index < entries.size() ? entries[index].key : ct::String();
+    }
+
+    ZenBlackboard::Kind ZenBlackboard::kindOf(const char *key)
+    {
+        const BlackboardEntry *entry = findEntry(key);
+        if (!entry)
+            return Kind::Number;
+        if (entry->kind == 1)
+            return Kind::String;
+        if (entry->kind == 2)
+            return Kind::Bool;
+        return Kind::Number;
+    }
+
     void ZenBlackboard::emit(const char *event, double value)
     {
         if (!event || !event[0])

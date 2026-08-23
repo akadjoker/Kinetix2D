@@ -63,6 +63,17 @@ namespace k2d
         static void remove(const char *key);
         static void clear();
 
+        enum class Kind
+        {
+            Number,
+            String,
+            Bool
+        };
+
+        static std::size_t keyCount();
+        static ct::String keyAt(std::size_t index);
+        static Kind kindOf(const char *key);
+
         static void emit(const char *event, double value = 0.0);
         static std::size_t pendingEventCount();
         static void clearEvents();

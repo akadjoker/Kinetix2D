@@ -10,6 +10,7 @@
 #include "panels/InspectorPanel.h"
 #include "panels/ParticlePanel.h"
 #include "panels/PrefabsPanel.h"
+#include "panels/ScriptsPanel.h"
 #include "panels/SceneViewportPanel.h"
 #include "widgets/EditorToolbar.h"
 
@@ -194,6 +195,7 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<ParticlePanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
+    mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));
     mPanels.push_back(ct::make_unique<ConsolePanel>(*this));
 }
 
@@ -967,6 +969,7 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Game", game);
     ImGui::DockBuilderDockWindow("Particles", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
+    ImGui::DockBuilderDockWindow("Scripts", bottom);
     ImGui::DockBuilderFinish(dockspaceId);
     mDefaultFocusPending = true;
 }
