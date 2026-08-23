@@ -21,10 +21,13 @@ public:
 private:
     void drawContents() override;
     void drawObject(GameObject &object);
+    bool subtreeMatchesFilter(GameObject &object) const;
     void createNode();
     void duplicateSelected();
     void moveSelected(int direction);
     void deleteSelected();
+
+    char mSearchFilter[128] = "";
 };
 
 }

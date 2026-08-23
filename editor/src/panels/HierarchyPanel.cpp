@@ -27,6 +27,22 @@ GameObject *findById(GameObject &object, uint64_t id)
             return found;
     return nullptr;
 }
+
+ct::String toLower(const ct::String &value)
+{
+    ct::String result = value;
+    for (size_t i = 0; i < result.size(); ++i)
+        if (result[i] >= 'A' && result[i] <= 'Z')
+            result[i] = static_cast<char>(result[i] - 'A' + 'a');
+    return result;
+}
+
+bool containsCaseInsensitive(const ct::String &haystack, const char *needle)
+{
+    if (!needle || !needle[0])
+        return true;
+    return toLower(haystack).find(toLower(ct::String(needle))) != ct::String::npos;
+}
 }
 
 void HierarchyPanel::drawContents()
@@ -71,8 +87,24 @@ void HierarchyPanel::drawContents()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Delete Selected (Ctrl+Click to multi-select)");
 
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##hierarchy_search", ICON_MDI_MAGNIFY " Search...", mSearchFilter,
+                             sizeof(mSearchFilter));
+
     ImGui::Separator();
     drawObject(app().scene().root());
+}
+
+bool HierarchyPanel::subtreeMatchesFilter(GameObject &object) const
+{
+    if (mSearchFilter[0] == '\0')
+        return true;
+    if (containsCaseInsensitive(object.name(), mSearchFilter))
+        return true;
+    for (size_t i = 0; i < object.childCount(); ++i)
+        if (subtreeMatchesFilter(*object.child(i)))
+            return true;
+    return false;
 }
 
 void HierarchyPanel::createNode()
@@ -162,7 +194,12 @@ void HierarchyPanel::deleteSelected()
 
 void HierarchyPanel::drawObject(GameObject &object)
 {
+    if (!subtreeMatchesFilter(object))
+        return;
+
     const bool isRoot = &object == &app().scene().root();
+    const bool filtering = mSearchFilter[0] != '\0';
+    const bool selfMatches = !filtering || containsCaseInsensitive(object.name(), mSearchFilter);
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
                                ImGuiTreeNodeFlags_SpanAvailWidth;
@@ -170,10 +207,16 @@ void HierarchyPanel::drawObject(GameObject &object)
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     if (app().selection().isSelected(object.id()))
         flags |= ImGuiTreeNodeFlags_Selected;
+    if (filtering && object.childCount() != 0)
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
 
+    if (selfMatches && filtering)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.4f, 1.0f));
     const bool open = ImGui::TreeNodeEx(
         reinterpret_cast<void *>(static_cast<uintptr_t>(object.id())), flags,
         "%s", object.name().empty() ? "GameObject" : object.name().c_str());
+    if (selfMatches && filtering)
+        ImGui::PopStyleColor();
 
     if (ImGui::IsItemClicked())
     {
