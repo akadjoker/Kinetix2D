@@ -185,6 +185,43 @@ void applyInstant(EditorApplication &app, const char *undoLabel, Setter &&setter
     app.commitChange(undoLabel, before);
 }
 
+template <class Setter>
+void pivotPresetPicker(EditorApplication &app, const char *undoLabel, const Math::Vec2 &current, Setter &&setter)
+{
+    static const Math::Vec2 presets[9] = {
+        Math::Vec2(0.0f, 0.0f), Math::Vec2(0.5f, 0.0f), Math::Vec2(1.0f, 0.0f),
+        Math::Vec2(0.0f, 0.5f), Math::Vec2(0.5f, 0.5f), Math::Vec2(1.0f, 0.5f),
+        Math::Vec2(0.0f, 1.0f), Math::Vec2(0.5f, 1.0f), Math::Vec2(1.0f, 1.0f)
+    };
+    static const char *names[9] = {
+        "Top Left", "Top Center", "Top Right",
+        "Center Left", "Center", "Center Right",
+        "Bottom Left", "Bottom Center", "Bottom Right"
+    };
+
+    ImGui::TextUnformatted("Pivot Preset");
+    for (int i = 0; i < 9; ++i)
+    {
+        if (i % 3 != 0)
+            ImGui::SameLine();
+        ImGui::PushID(i);
+        const bool isCurrent =
+            fabsf(current.x - presets[i].x) < 0.001f && fabsf(current.y - presets[i].y) < 0.001f;
+        if (isCurrent)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.55f, 0.85f, 1.0f));
+        if (ImGui::Button("##preset", ImVec2(22.0f, 22.0f)))
+        {
+            const Math::Vec2 target = presets[i];
+            applyInstant(app, undoLabel, [&] { setter(target); });
+        }
+        if (isCurrent)
+            ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", names[i]);
+        ImGui::PopID();
+    }
+}
+
 void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
 {
     Texture *texture = sprite.texture();
@@ -204,6 +241,7 @@ void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
     Math::Vec2 pivot = sprite.pivot();
     if (dragVec2(app, "Pivot", pivot, 0.05f, "Adjust Sprite Pivot"))
         sprite.setPivot(pivot);
+    pivotPresetPicker(app, "Set Sprite Pivot", sprite.pivot(), [&](const Math::Vec2 &p) { sprite.setPivot(p); });
 
     Math::Vec2 tiling = sprite.tiling();
     if (dragVec2(app, "Tiling", tiling, 0.05f, "Adjust Sprite Tiling"))
@@ -384,6 +422,8 @@ void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePat
     Math::Vec2 pivot = ninePatch.pivot();
     if (dragVec2(app, "Pivot", pivot, 0.05f, "Adjust NinePatch Pivot"))
         ninePatch.setPivot(pivot);
+    pivotPresetPicker(app, "Set NinePatch Pivot", ninePatch.pivot(),
+                      [&](const Math::Vec2 &p) { ninePatch.setPivot(p); });
 
     Color color = ninePatch.color();
     if (colorEdit(app, "Color", color, "Recolor NinePatch"))
@@ -876,6 +916,11 @@ void InspectorPanel::drawContents()
         object->setPosition(Math::Vec2(positionValues[0], positionValues[1]));
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
+    ImGui::SameLine();
+    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetPosition"))
+        applyInstant(app(), "Reset Position", [&] { object->setPosition(Math::Vec2(0.0f, 0.0f)); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset Position");
 
     float rotation = object->rotationDegrees();
     before = app().beginChange();
@@ -886,6 +931,11 @@ void InspectorPanel::drawContents()
         object->setRotationDegrees(rotation);
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
+    ImGui::SameLine();
+    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetRotation"))
+        applyInstant(app(), "Reset Rotation", [&] { object->setRotationDegrees(0.0f); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset Rotation");
 
     Math::Vec2 scale = object->scale();
     float scaleValues[2] = {scale.x, scale.y};
@@ -897,6 +947,11 @@ void InspectorPanel::drawContents()
         object->setScale(Math::Vec2(scaleValues[0], scaleValues[1]));
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
+    ImGui::SameLine();
+    if (ImGui::SmallButton(ICON_MDI_RESTORE "##resetScale"))
+        applyInstant(app(), "Reset Scale", [&] { object->setScale(Math::Vec2(1.0f, 1.0f)); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset Scale");
 
     int zIndex = object->zIndex();
     before = app().beginChange();
@@ -907,15 +962,6 @@ void InspectorPanel::drawContents()
         object->setZIndex(zIndex);
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
-
-    if (ImGui::Button(ICON_MDI_RESTORE " Reset Transform"))
-    {
-        const EditorApplication::SceneChange resetBefore = app().beginChange();
-        object->setPosition(Math::Vec2(0.0f, 0.0f));
-        object->setRotationDegrees(0.0f);
-        object->setScale(Math::Vec2(1.0f, 1.0f));
-        app().commitChange("Reset Transform", resetBefore);
-    }
 
     ImGui::SeparatorText("Components");
     bool any = false;
