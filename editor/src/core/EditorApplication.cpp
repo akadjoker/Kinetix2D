@@ -22,6 +22,7 @@
 #include <k2d/FileSystem.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Serializer.h>
+#include <k2d/ZenScriptComponent.h>
 
 #include <cmath>
 #include <filesystem>
@@ -70,6 +71,9 @@ bool EditorApplication::initialize()
     if (!loadEditorIconFont(io))
         log("Material Design icon font failed to load");
     applyEditorTheme();
+
+    RegisterZenScriptSerializer();
+    SetZenScriptInput(&mDevice.GetInput());
 
     loadSettings();
     createPanels();

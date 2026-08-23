@@ -195,6 +195,25 @@ static bool testSerialization()
     return ok;
 }
 
+static bool testExampleScripts()
+{
+    k2d::Scene scene;
+    k2d::GameObject *player = scene.createObject("player");
+    player->setPosition(Math::Vec2(10.0f, 20.0f));
+    k2d::ZenScriptComponent *playerScript = player->addComponent<k2d::ZenScriptComponent>();
+    bool ok = playerScript->loadFile("../assets/scripts/player.py");
+
+    k2d::GameObject *satellite = scene.createObject("satellite");
+    k2d::ZenScriptComponent *orbitScript = satellite->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && orbitScript->loadFile("../assets/scripts/orbit.py");
+
+    scene.update(0.016f);
+    ok = ok && std::fabs(satellite->position().x - 10.0f) < 200.0f &&
+         std::fabs(satellite->position().y - 20.0f) < 200.0f &&
+         satellite->rotationDegrees() > 0.0f;
+    return ok;
+}
+
 int main()
 {
     const bool basics = testBasics();
@@ -203,10 +222,12 @@ int main()
     const bool inputOk = testInput();
     const bool destroy = testDestroy();
     const bool serialization = testSerialization();
+    const bool examples = testExampleScripts();
 
-    std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s\n",
+    std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s examples=%s\n",
                 basics ? "pass" : "fail", hierarchy ? "pass" : "fail",
                 components ? "pass" : "fail", inputOk ? "pass" : "fail",
-                destroy ? "pass" : "fail", serialization ? "pass" : "fail");
-    return basics && hierarchy && components && inputOk && destroy && serialization ? 0 : 1;
+                destroy ? "pass" : "fail", serialization ? "pass" : "fail",
+                examples ? "pass" : "fail");
+    return basics && hierarchy && components && inputOk && destroy && serialization && examples ? 0 : 1;
 }

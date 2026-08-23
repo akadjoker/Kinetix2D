@@ -40,7 +40,7 @@ target_include_directories(k2d_editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets
 )
 
-target_link_libraries(k2d_editor PRIVATE k2d k2d_editor_widgets imgui)
+target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_editor_widgets imgui)
 target_compile_features(k2d_editor PRIVATE cxx_std_17)
 
 set_target_properties(k2d_editor PROPERTIES

@@ -20,6 +20,7 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/Texture.h>
 #include <k2d/TileMapComponent.h>
+#include <k2d/ZenScriptComponent.h>
 #include <IconsMaterialDesignIcons.h>
 
 #include <cmath>
@@ -675,6 +676,45 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
     }
 }
 
+void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
+{
+    ImGui::TextUnformatted("Script");
+    ImGui::SameLine(130.0f);
+    const bool hasPath = !script.scriptPath().empty();
+    ImGui::Button(hasPath ? script.scriptPath().c_str() : "None", ImVec2(-70.0f, 0.0f));
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kScriptDragDropPayload))
+        {
+            const char *path = static_cast<const char *>(payload->Data);
+            applyInstant(app, "Set Zen Script", [&] { script.loadFile(path); });
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Drag a .py file here from Assets");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!hasPath);
+    if (ImGui::Button(ICON_MDI_RESTART " Reload"))
+    {
+        const ct::String path = script.scriptPath();
+        if (script.loadFile(path.c_str()))
+            app.toasts().info("Script reloaded");
+        else
+            app.toasts().error("Script reload failed");
+    }
+    ImGui::EndDisabled();
+
+    if (script.loaded())
+        ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), "Loaded");
+    else if (hasPath)
+        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.3f, 1.0f), "Failed to load - check the console output");
+    else
+        ImGui::TextDisabled("No script assigned.");
+    ImGui::TextDisabled("Contract: def ready(node) / def update(node, dt)");
+    ImGui::TextDisabled("Scripts run in Play mode only.");
+}
+
 void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
 {
     BlendMode blendMode = batch.blendMode();
@@ -1233,6 +1273,12 @@ void drawComponentProperties(EditorApplication &app, Component &component)
     case ComponentType::Particle:
         drawParticleProperties(app, static_cast<ParticleComponent &>(component));
         break;
+    case ComponentType::Script:
+        if (ZenScriptComponent *script = dynamic_cast<ZenScriptComponent *>(&component))
+            drawZenScriptProperties(app, *script);
+        else
+            ImGui::TextDisabled("Native script component (code-attached).");
+        break;
     default:
         break;
     }
@@ -1454,6 +1500,12 @@ void InspectorPanel::drawContents()
             anim->addClip("default", placeholderSpriteTexture(app()), 32, 32, 1, 10.0f, AnimationMode::Loop);
             anim->play("default");
             app().commitChange("Add Animation2D Component", addBefore);
+        }
+        if (ImGui::MenuItem("Zen Script"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<ZenScriptComponent>();
+            app().commitChange("Add Zen Script Component", addBefore);
         }
         if (ImGui::MenuItem("Particle"))
         {

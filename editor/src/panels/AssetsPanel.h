@@ -17,6 +17,7 @@ namespace k2d::editor
 
 constexpr const char *kPrefabDragDropPayload = "K2D_PREFAB_FILE";
 constexpr const char *kTextureDragDropPayload = "K2D_TEXTURE_FILE";
+constexpr const char *kScriptDragDropPayload = "K2D_SCRIPT_FILE";
 
 class AssetsPanel final : public EditorPanel
 {

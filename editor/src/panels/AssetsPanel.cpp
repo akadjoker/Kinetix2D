@@ -22,6 +22,16 @@ bool isImage(const ct::String &ext)
 
 bool isPrefab(const ct::String &ext) { return ext == "k2dprefab"; }
 bool isScene(const ct::String &ext) { return ext == "k2dscene"; }
+bool isScript(const ct::String &ext) { return ext == "py"; }
+
+const char *dragPayloadFor(const ct::String &ext)
+{
+    if (isPrefab(ext))
+        return kPrefabDragDropPayload;
+    if (isScript(ext))
+        return kScriptDragDropPayload;
+    return kTextureDragDropPayload;
+}
 
 bool isCode(const ct::String &ext)
 {
@@ -440,10 +450,9 @@ void AssetsPanel::drawGrid()
             drawList->AddText(iconPos, ImGui::ColorConvertFloat4ToU32(color), icon);
         }
 
-        if (!entry.directory && (isPrefab(ext) || isImage(ext)) && ImGui::BeginDragDropSource())
+        if (!entry.directory && (isPrefab(ext) || isImage(ext) || isScript(ext)) && ImGui::BeginDragDropSource())
         {
-            ImGui::SetDragDropPayload(isPrefab(ext) ? kPrefabDragDropPayload : kTextureDragDropPayload,
-                                      entry.path.c_str(), entry.path.size() + 1);
+            ImGui::SetDragDropPayload(dragPayloadFor(ext), entry.path.c_str(), entry.path.size() + 1);
             ImGui::TextUnformatted(entry.name.c_str());
             ImGui::EndDragDropSource();
         }
@@ -480,10 +489,9 @@ void AssetsPanel::drawList()
             ImGui::Selectable(entry.name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick);
         const bool doubleClicked = clicked && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
-        if (!entry.directory && (isPrefab(ext) || isImage(ext)) && ImGui::BeginDragDropSource())
+        if (!entry.directory && (isPrefab(ext) || isImage(ext) || isScript(ext)) && ImGui::BeginDragDropSource())
         {
-            ImGui::SetDragDropPayload(isPrefab(ext) ? kPrefabDragDropPayload : kTextureDragDropPayload,
-                                      entry.path.c_str(), entry.path.size() + 1);
+            ImGui::SetDragDropPayload(dragPayloadFor(ext), entry.path.c_str(), entry.path.size() + 1);
             ImGui::TextUnformatted(entry.name.c_str());
             ImGui::EndDragDropSource();
         }
