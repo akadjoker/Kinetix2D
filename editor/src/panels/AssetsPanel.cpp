@@ -3,6 +3,7 @@
 #include "core/EditorApplication.h"
 
 #include <k2d/FileSystem.h>
+#include <k2d/Pixmap.h>
 #include <k2d/Texture.h>
 #include <IconsMaterialDesignIcons.h>
 
@@ -335,6 +336,60 @@ void AssetsPanel::handleEntryInteraction(const EditorFileEntry &entry, bool clic
     }
 }
 
+void AssetsPanel::generateBumpMap(const EditorFileEntry &entry)
+{
+    Pixmap source;
+    if (!source.Load(entry.path.c_str()))
+    {
+        app().log("Generate Bump Map failed: could not read image");
+        app().toasts().error("Could not read image");
+        return;
+    }
+
+    Pixmap *normalMap = source.GenerateNormalMap();
+    if (!normalMap)
+    {
+        app().log("Generate Bump Map failed: could not generate");
+        app().toasts().error("Could not generate bump map");
+        return;
+    }
+
+    ct::String outputPath = EditorFileSystem::withoutExtension(entry.path);
+    outputPath += "_normal.png";
+    const bool ok = normalMap->Save(outputPath.c_str());
+    delete normalMap;
+
+    if (ok)
+    {
+        mEntriesDirty = true;
+        ct::String message("Generated bump map: ");
+        message += EditorFileSystem::fileName(outputPath);
+        app().log(message);
+        app().toasts().success(message);
+    }
+    else
+    {
+        app().log("Generate Bump Map failed: could not write file");
+        app().toasts().error("Could not write bump map");
+    }
+}
+
+void AssetsPanel::drawEntryContextMenu(const EditorFileEntry &entry)
+{
+    if (entry.directory)
+        return;
+    const ct::String ext = EditorFileSystem::extension(entry.path);
+    if (!isImage(ext))
+        return;
+
+    if (ImGui::BeginPopupContextItem())
+    {
+        if (ImGui::MenuItem(ICON_MDI_TEXTURE " Generate Bump Map"))
+            generateBumpMap(entry);
+        ImGui::EndPopup();
+    }
+}
+
 void AssetsPanel::drawGrid()
 {
     const float cell = mThumbnailSize;
@@ -393,6 +448,7 @@ void AssetsPanel::drawGrid()
             ImGui::EndDragDropSource();
         }
 
+        drawEntryContextMenu(entry);
         handleEntryInteraction(entry, clicked, doubleClicked);
 
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cell);
@@ -432,6 +488,7 @@ void AssetsPanel::drawList()
             ImGui::EndDragDropSource();
         }
 
+        drawEntryContextMenu(entry);
         handleEntryInteraction(entry, clicked, doubleClicked);
         ImGui::PopID();
     }

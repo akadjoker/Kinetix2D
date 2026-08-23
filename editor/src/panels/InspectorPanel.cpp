@@ -1018,6 +1018,12 @@ void InspectorPanel::drawContents()
             object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
             app().commitChange("Add Sprite Component", addBefore);
         }
+        if (ImGui::MenuItem("Camera"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<CameraComponent>();
+            app().commitChange("Add Camera Component", addBefore);
+        }
         ImGui::Separator();
         ImGui::TextDisabled("More component types coming later.");
         ImGui::EndPopup();

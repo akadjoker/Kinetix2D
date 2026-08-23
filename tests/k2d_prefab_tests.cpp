@@ -8,7 +8,7 @@
 
 namespace
 {
-    const char *kPrefabPath = "/tmp/claude-1000/-media-projectos-projects-cpp-Kinetix2D/b6ac282d-eb09-4dac-bdb4-a87a643d6e0a/scratchpad/k2d_prefab_test.json";
+    const char *kPrefabPath = "/tmp/k2d_prefab_test.json";
 
     // Serializer::WriteObject/ReadObject (what Prefab is built on) only knows
     // the engine's own registered component types -- there is no

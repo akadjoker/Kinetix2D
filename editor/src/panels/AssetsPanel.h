@@ -40,6 +40,8 @@ private:
     void drawGrid();
     void drawList();
     void handleEntryInteraction(const EditorFileEntry &entry, bool clicked, bool doubleClicked);
+    void drawEntryContextMenu(const EditorFileEntry &entry);
+    void generateBumpMap(const EditorFileEntry &entry);
 
     void navigateTo(const ct::String &directory);
     void refreshEntries();

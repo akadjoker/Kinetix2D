@@ -16,6 +16,9 @@ namespace k2d
         Pixmap &operator=(const Pixmap &) = delete;
 
         bool Create(int width, int height);
+        bool Load(const char *path);
+        bool Save(const char *path) const;
+        Pixmap *GenerateNormalMap(float strength = 2.0f) const;
         void Clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
         void SetPixel(int x, int y, unsigned char r, unsigned char g,
                       unsigned char b, unsigned char a = 255);
