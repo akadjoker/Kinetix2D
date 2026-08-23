@@ -8,11 +8,7 @@
 namespace k2d
 {
 
-    // Godot's core/math/a_star.h AStar2D: a general point graph (you place
-    // points by hand and connect them -- no grid, no navmesh), A* over
-    // whatever topology you build. Good fit for hand-placed waypoints/patrol
-    // routes on a Scene where a full polygon navmesh would be overkill. Pairs
-    // with AStarGrid2D (tile pathfinding) rather than replacing it.
+
     class AStar2D
     {
     public:

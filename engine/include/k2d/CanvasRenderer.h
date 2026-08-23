@@ -8,11 +8,7 @@
 namespace k2d
 {
 
-    // Low-level 2D canvas renderer. Godot's RasterizerCanvas (GLES3 backend,
-    // rasterizer_canvas_gles3.cpp): owns the canvas shader and buffers and
-    // draws the sorted item list the router (RenderQueue) hands it. The
-    // BatchRenderer is a separate debug/immediate tool and knows nothing about
-    // canvas items or lights.
+
     class CanvasRenderer
     {
     public:

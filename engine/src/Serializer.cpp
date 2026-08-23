@@ -24,8 +24,6 @@ namespace k2d
 
     namespace
     {
-        // ---- small json <-> glm/packed-color helpers, shared by every component ----
-
         ct::Json WriteVec2(const glm::vec2 &v)
         {
             ct::Json a = ct::Json::array();
@@ -59,11 +57,6 @@ namespace k2d
                               (float)j[2].as_double(def.z), (float)j[3].as_double(def.w));
         }
 
-        // Line2D/Polygon2D/NinePatchComponent all store color the same way:
-        // an opaque r|g<<8|b<<16|a<<24 uint with a setColor(r,g,b,a) byte
-        // setter and no float normalization involved (unlike Material2D) --
-        // unpack to [r,g,b,a] bytes for a human-readable file instead of a
-        // raw uint.
         ct::Json WritePackedColor(unsigned int packed)
         {
             ct::Json a = ct::Json::array();
@@ -83,22 +76,6 @@ namespace k2d
             a = (j.is_array() && j.size() > 3) ? (unsigned char)j[3].as_int(255) : 255;
         }
 
-        // ---- the factory/registry table --------------------------------------
-        //
-        // One row per serializable Component type. Serializer's public methods
-        // never mention a concrete component class or switch on ComponentType --
-        // they just look a type up here and call through the function pointers.
-        // This is the ONLY place that does; extending coverage to a new
-        // component means adding one row (and its two small Write*/Read*
-        // functions right above it), not touching Prefab/Scene/anywhere else.
-        //
-        // Two component classes (Light2D, DirectionalLight2D) share a single
-        // ComponentType::Light slot -- a GameObject can only carry one or the
-        // other. `matches` disambiguates on write via dynamic_cast; read never
-        // needs it, the JSON "type" name ("Light2D" vs "DirectionalLight2D")
-        // already says which. Every other row leaves `matches` null (its type
-        // has exactly one class, no disambiguation needed).
-
         using CreateFn = Component *(*)(GameObject &owner);
         using WriteFn = void (*)(const Component &component, ct::Json &data, Assets *assets);
         using ReadFn = void (*)(Component &component, const ct::Json &data, Assets *assets);
@@ -111,10 +88,8 @@ namespace k2d
             CreateFn create;
             WriteFn write;
             ReadFn read;
-            MatchFn matches; // nullptr = the only row for this ComponentType
+            MatchFn matches;
         };
-
-        // ---- SpriteComponent ---------------------------------------------
 
         Component *CreateSprite(GameObject &owner)
         {
@@ -145,9 +120,6 @@ namespace k2d
             data.set("flipY", ct::Json(sprite.flipY()));
             data.set("ySort", ct::Json(sprite.ySort()));
             data.set("blendMode", ct::Json((int)sprite.blendMode()));
-            // customShader is a raw GLuint from CanvasRenderer::CreateShader --
-            // there's no name registry for shaders (unlike Assets/Texture), so
-            // it can't be resolved back on load. Deliberately not serialized.
         }
 
         void ReadSprite(Component &component, const ct::Json &data, Assets *assets)
@@ -168,8 +140,6 @@ namespace k2d
             sprite.setTiling(tiling.x, tiling.y);
 
             const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-            // Material2D::color() is normalized (0..1) -- setColor() takes 0..255
-            // bytes and re-normalizes internally, so convert back on the way in.
             sprite.setColor((unsigned char)std::lround(color.r * 255.0f),
                              (unsigned char)std::lround(color.g * 255.0f),
                              (unsigned char)std::lround(color.b * 255.0f),
@@ -186,8 +156,6 @@ namespace k2d
             sprite.setYSort(data["ySort"].as_bool(false));
             sprite.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
-
-        // ---- TileMapComponent ----------------------------------------------
 
         Component *CreateTileMap(GameObject &owner)
         {
@@ -252,8 +220,6 @@ namespace k2d
             tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
-        // ---- Polygon2D -------------------------------------------------------
-
         Component *CreatePolygon(GameObject &owner)
         {
             return owner.addComponent<Polygon2D>();
@@ -297,8 +263,6 @@ namespace k2d
             polygon.setColor(r, g, b, a);
             polygon.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
-
-        // ---- Line2D ------------------------------------------------------
 
         Component *CreateLine(GameObject &owner)
         {
@@ -350,8 +314,6 @@ namespace k2d
             line.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
-        // ---- NinePatchComponent ------------------------------------------
-
         Component *CreateNinePatch(GameObject &owner)
         {
             return owner.addComponent<NinePatchComponent>();
@@ -391,8 +353,6 @@ namespace k2d
             ninePatch.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
-        // ---- SpriteBatch -------------------------------------------------
-
         Component *CreateSpriteBatch(GameObject &owner)
         {
             return owner.addComponent<SpriteBatch>();
@@ -415,8 +375,6 @@ namespace k2d
                 entryJson.set("position", WriteVec2(e->position));
                 entryJson.set("size", WriteVec2(e->size));
                 entryJson.set("source", WriteVec4(e->source));
-                // Opaque packed uint round-tripped bit-for-bit -- no formula to
-                // get wrong, unlike the byte-argument setColor() components.
                 entryJson.set("color", ct::Json(e->color));
                 entryJson.set("flipX", ct::Json((e->flags & 0x1u) != 0));
                 entryJson.set("flipY", ct::Json((e->flags & 0x2u) != 0));
@@ -452,8 +410,6 @@ namespace k2d
             batch.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
-        // ---- Animation2D ---------------------------------------------------
-
         Component *CreateAnimation(GameObject &owner)
         {
             return owner.addComponent<Animation2D>();
@@ -482,10 +438,6 @@ namespace k2d
                 clips.push_back(clipJson);
             }
             data.set("clips", clips);
-            // Live playback position (frame/accumulator/pingpong direction) is
-            // runtime state, not authored config -- deliberately not saved, same
-            // reasoning as GameObject's cached transform matrices. A loaded
-            // instance starts its active clip fresh from frame 0.
             data.set("activeClip", ct::Json(anim.currentClip()));
             data.set("playing", ct::Json(anim.playing()));
         }
@@ -520,8 +472,6 @@ namespace k2d
             else
                 anim.stop();
         }
-
-        // ---- Light2D / DirectionalLight2D (share ComponentType::Light) -----
 
         Component *CreatePointLight(GameObject &owner)
         {
@@ -597,8 +547,6 @@ namespace k2d
             light.setHeight((float)data["height"].as_double(0.0));
         }
 
-        // ---- LightOccluder2D -------------------------------------------------
-
         Component *CreateOccluder(GameObject &owner)
         {
             return owner.addComponent<LightOccluder2D>();
@@ -625,8 +573,6 @@ namespace k2d
             if (!points.empty())
                 occluder.setPolygon(points.data(), (int)points.size());
         }
-
-        // ---- CameraComponent -------------------------------------------------
 
         Component *CreateCamera(GameObject &owner)
         {
@@ -674,8 +620,6 @@ namespace k2d
             camera.targetEnabled = data["targetEnabled"].as_bool(false);
             camera.target = ReadVec2(data["target"]);
         }
-
-        // ---- ParticleComponent -----------------------------------------------
 
         ct::Json WriteParticlePrefab(const ParticlePrefab &prefab)
         {
@@ -789,13 +733,6 @@ namespace k2d
                 system.Stop();
         }
 
-        // ---- registry ------------------------------------------------------
-        //
-        // ComponentType::Script has no row and never will: ScriptComponent's
-        // constructor is protected specifically so only a user's own subclass
-        // (unknown to the engine) can exist -- there's no concrete type here to
-        // even instantiate generically, let alone know its fields.
-
         const TypeEntry *AllEntries(std::size_t &count)
         {
             static const TypeEntry kEntries[] = {
@@ -826,8 +763,6 @@ namespace k2d
             return false;
         }
 
-        // Picks the row for an actually-attached component, resolving the
-        // Light2D/DirectionalLight2D ambiguity via `matches`.
         const TypeEntry *FindEntryForComponent(const Component &component)
         {
             std::size_t count = 0;
@@ -867,7 +802,7 @@ namespace k2d
             const TypeEntry *entry = FindEntryForComponent(component);
             ct::Json result = ct::Json::object();
             if (!entry)
-                return result; // unregistered type: caller skips empty entries
+                return result;
             result.set("type", ct::Json(entry->name));
             ct::Json data = ct::Json::object();
             entry->write(component, data, assets);
@@ -879,10 +814,10 @@ namespace k2d
         {
             const TypeEntry *entry = FindByName(entryJson["type"].as_cstr(nullptr));
             if (!entry)
-                return; // unknown/older component type in the file -- skip it
+                return;
             Component *component = entry->create(owner);
             if (!component)
-                return; // owner already has one of this type
+                return;
             entry->read(*component, entryJson["data"], assets);
         }
     }
@@ -912,7 +847,7 @@ namespace k2d
                 continue;
             ct::Json entryJson = WriteComponent(*component, assets);
             if (!entryJson.contains("type"))
-                continue; // no registered writer for this component's actual type
+                continue;
             components.push_back(entryJson);
         }
         j.set("components", components);

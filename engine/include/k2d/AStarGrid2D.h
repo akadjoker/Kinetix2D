@@ -6,13 +6,7 @@
 namespace k2d
 {
 
-    // Godot's core/math/a_star_grid_2d.h: grid-based A*, standalone (no Node/
-    // Scene dependency) -- built for exactly this, tile pathfinding. Faithful
-    // port of the algorithm (solid/weighted cells, configurable heuristic and
-    // diagonal-movement rule, partial-path fallback). Jump Point Search
-    // (Godot's optional `jumping_enabled`) is NOT ported: it's a pure speed
-    // optimization for large uniform-cost grids, orthogonal to correctness --
-    // left for later if a grid is ever big enough to need it.
+
     class AStarGrid2D
     {
     public:

@@ -9,20 +9,7 @@ namespace k2d
 
     class CanvasRenderer;
 
-    // Godot's CanvasLayer: a group of canvas items drawn in a fixed
-    // screen-space transform, independent of whatever Camera2D projection the
-    // main scene uses -- a HUD, a menu, anything that shouldn't pan/zoom with
-    // the game world. Implemented as its own Scene (own GameObject tree, own
-    // RenderQueue) rendered through a second CanvasRenderer::DrawItems pass
-    // with a plain screen ortho projection; verified (canvaslayer_diag.cpp)
-    // that two DrawItems passes with different projections compose cleanly
-    // in one frame with no shared state leaking between them, so this needed
-    // no CanvasRenderer/shader changes at all.
-    //
-    // Usage, in draw order (later draws on top):
-    //   worldCanvasLayer... // not this class -- just canvas.SetProjection(camera...); scene.render(canvas);
-    //   hud.update(dt);
-    //   hud.render(canvas, (float)device.Width(), (float)device.Height());
+
     class CanvasLayer
     {
     public:
