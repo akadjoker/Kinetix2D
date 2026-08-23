@@ -1,0 +1,61 @@
+#pragma once
+
+#include "k2d/ZenRuntime.h"
+
+#include <zen/value.h>
+#include <zen/vm.h>
+
+#include <ct/string.hpp>
+#include <ct/vector.hpp>
+
+namespace k2d
+{
+
+    struct ZenScriptClass
+    {
+        ct::String path;
+        zen::Value klass = zen::val_nil();
+        zen::Value module = zen::val_nil();
+        int slotInit = -1;
+        int slotStart = -1;
+        int slotUpdate = -1;
+        int slotDestroy = -1;
+        int slotEvent = -1;
+        long long timestamp = 0;
+    };
+
+    struct ZenRuntime::Impl
+    {
+        struct CachedInstance
+        {
+            void *key = nullptr;
+            zen::Value value = zen::val_nil();
+        };
+
+        zen::VM vm;
+        zen::ObjClass *nodeClass = nullptr;
+        zen::ObjClass *spriteClass = nullptr;
+        zen::ObjClass *animationClass = nullptr;
+        zen::ObjClass *particleClass = nullptr;
+        zen::ObjClass *bodyClass = nullptr;
+
+        ct::Vector<ZenScriptClass *> classes;
+        ct::Vector<CachedInstance> instances;
+        ct::Vector<zen::Value *> liveInstances;
+
+        int selectorInit = -1;
+        int selectorStart = -1;
+        int selectorUpdate = -1;
+        int selectorDestroy = -1;
+        int selectorEvent = -1;
+
+        void initialize();
+        bool compileClass(const char *source, const char *path, ZenScriptClass &out);
+        ZenScriptClass *findClass(const char *path);
+        ZenScriptClass *addClass(const ZenScriptClass &entry);
+        void clearClasses();
+        zen::Value instanceFor(zen::ObjClass *klass, void *ptr);
+        void forgetInstance(void *ptr);
+    };
+
+}

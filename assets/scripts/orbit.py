@@ -1,19 +1,22 @@
 import math
 
-RADIUS = 120
-SPEED = 2.0
-t = 0.0
+class Orbit:
+    def __init__(self, node):
+        self.node = node
+        self.radius = 120
+        self.speed = 2.0
+        self.t = 0.0
 
-def ready(node):
-    target = node.find("player")
-    if target != None:
-        print("orbiting around:", target.get_name())
+    def on_start(self):
+        target = self.node.find("player")
+        if target != None:
+            print("orbiting around:", target.get_name())
 
-def update(node, dt):
-    global t
-    t = t + dt * SPEED
-    target = node.find("player")
-    if target != None:
-        cx, cy = target.get_position()
-        node.set_position(cx + math.cos(t) * RADIUS, cy + math.sin(t) * RADIUS)
-    node.rotate(180 * dt)
+    def on_update(self, dt):
+        self.t = self.t + dt * self.speed
+        target = self.node.find("player")
+        if target != None:
+            cx, cy = target.get_position()
+            self.node.set_position(cx + math.cos(self.t) * self.radius,
+                                   cy + math.sin(self.t) * self.radius)
+        self.node.rotate(180 * dt)

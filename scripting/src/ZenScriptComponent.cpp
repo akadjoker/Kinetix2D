@@ -1,4 +1,6 @@
 #include "k2d/ZenScriptComponent.h"
+#include "k2d/ZenRuntime.h"
+#include "ZenRuntimeInternal.h"
 
 #include "k2d/Animation2D.h"
 #include "k2d/Assets.h"
@@ -142,50 +144,19 @@ namespace k2d
 
     struct ZenScriptComponent::State
     {
-        struct CachedInstance
-        {
-            const void *key;
-            zen::Value value;
-        };
-
-        zen::VM vm;
-        zen::ObjClass *nodeClass = nullptr;
-        zen::ObjClass *spriteClass = nullptr;
-        zen::ObjClass *animationClass = nullptr;
-        zen::ObjClass *particleClass = nullptr;
-        ct::Vector<CachedInstance> cache;
+        ZenScriptClass *scriptClass = nullptr;
         zen::Value self = zen::val_nil();
-        int readyIdx = -1;
-        int updateIdx = -1;
-        int eventIdx = -1;
+        zen::Value instance = zen::val_nil();
+        unsigned int generation = 0;
         bool loaded = false;
         bool started = false;
-
-        State();
-
-        zen::Value instanceFor(zen::ObjClass *klass, void *ptr)
-        {
-            if (!ptr)
-                return zen::val_nil();
-            for (size_t i = 0; i < cache.size(); ++i)
-                if (cache[i].key == ptr)
-                    return cache[i].value;
-            zen::Value value = vm.make_instance(klass);
-            zen::as_instance(value)->native_data = ptr;
-            CachedInstance cached;
-            cached.key = ptr;
-            cached.value = value;
-            cache.push_back(cached);
-            return value;
-        }
     };
 
     namespace
     {
-        ZenScriptComponent::State *stateFromVM(zen::VM *vm)
+        ZenRuntime::Impl *stateFromVM(zen::VM *)
         {
-            const zen::Value v = vm->get_global("__k2d");
-            return zen::is_ptr(v) ? (ZenScriptComponent::State *)zen::as_ptr(v) : nullptr;
+            return &ZenRuntime::instance().impl();
         }
 
         GameObject *nodeFromSelf(zen::Value *args)
@@ -342,7 +313,7 @@ namespace k2d
         int natNodeGetParent(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             args[0] = (node && state) ? state->instanceFor(state->nodeClass, node->parent())
                                       : zen::val_nil();
             return 1;
@@ -358,7 +329,7 @@ namespace k2d
         int natNodeGetChild(zen::VM *vm, zen::Value *args, int nargs)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             GameObject *child = nullptr;
             if (node && nargs >= 1)
             {
@@ -373,7 +344,7 @@ namespace k2d
         int natNodeFind(zen::VM *vm, zen::Value *args, int nargs)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             GameObject *found = nullptr;
             if (node && node->scene() && nargs >= 1)
             {
@@ -387,7 +358,7 @@ namespace k2d
         int natNodeCreateChild(zen::VM *vm, zen::Value *args, int nargs)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             GameObject *child = nullptr;
             if (node && node->scene() && nargs >= 1)
             {
@@ -401,7 +372,7 @@ namespace k2d
         int natNodeSpawn(zen::VM *vm, zen::Value *args, int nargs)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             GameObject *spawned = nullptr;
             if (node && node->scene() && nargs >= 1)
             {
@@ -495,7 +466,7 @@ namespace k2d
         int natNodeGetSprite(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             SpriteComponent *sprite = node ? node->getComponent<SpriteComponent>() : nullptr;
             args[0] = (sprite && state) ? state->instanceFor(state->spriteClass, sprite) : zen::val_nil();
             return 1;
@@ -504,7 +475,7 @@ namespace k2d
         int natNodeGetAnimation(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             Animation2D *animation = node ? node->getComponent<Animation2D>() : nullptr;
             args[0] = (animation && state) ? state->instanceFor(state->animationClass, animation)
                                            : zen::val_nil();
@@ -514,7 +485,7 @@ namespace k2d
         int natNodeGetParticle(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
-            ZenScriptComponent::State *state = stateFromVM(vm);
+            ZenRuntime::Impl *state = stateFromVM(vm);
             ParticleComponent *particle = node ? node->getComponent<ParticleComponent>() : nullptr;
             args[0] = (particle && state) ? state->instanceFor(state->particleClass, particle)
                                           : zen::val_nil();
@@ -765,7 +736,7 @@ namespace k2d
         }
     }
 
-    ZenScriptComponent::State::State()
+    void ZenRuntime::Impl::initialize()
     {
         zen_host_set_writer(&zenHostWriter, nullptr);
 
@@ -857,11 +828,45 @@ namespace k2d
     ZenScriptComponent::ZenScriptComponent()
         : ScriptComponent(ComponentEventUpdate), mState(new State())
     {
+        ZenRuntime::instance().impl().liveInstances.push_back(&mState->instance);
     }
 
     ZenScriptComponent::~ZenScriptComponent()
     {
+        destroyInstance();
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        for (size_t i = 0; i < impl.liveInstances.size(); ++i)
+        {
+            if (impl.liveInstances[i] == &mState->instance)
+            {
+                impl.liveInstances.erase(impl.liveInstances.begin() + i);
+                break;
+            }
+        }
+        if (owner())
+            impl.forgetInstance(owner());
         delete mState;
+    }
+
+    void ZenScriptComponent::destroyInstance()
+    {
+        if (!mState->scriptClass || zen::is_nil(mState->instance))
+        {
+            mState->instance = zen::val_nil();
+            mState->started = false;
+            return;
+        }
+
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        if (mState->started && mState->scriptClass->slotDestroy >= 0)
+        {
+            zen::ObjInstance *inst = zen::as_instance(mState->instance);
+            if (inst && inst->klass && mState->scriptClass->slotDestroy < inst->klass->vtable_size &&
+                !zen::is_nil(inst->klass->vtable[mState->scriptClass->slotDestroy]))
+                impl.vm.invoke(mState->instance, mState->scriptClass->slotDestroy, nullptr, 0);
+        }
+        mState->instance = zen::val_nil();
+        mState->started = false;
     }
 
     bool ZenScriptComponent::loadSource(const char *source, const char *scriptName)
@@ -869,54 +874,7 @@ namespace k2d
         if (!source)
             return false;
 
-        zen::Compiler compiler;
-        zen::ObjFunc *script = compiler.compile(&mState->vm.get_gc(), &mState->vm, source,
-                                                scriptName ? scriptName : "script");
-        if (!script)
-            return false;
-
-        mState->vm.run(script);
-        if (mState->vm.had_error())
-            return false;
-
-        mState->readyIdx = mState->vm.find_global("ready");
-        mState->updateIdx = mState->vm.find_global("update");
-        mState->eventIdx = mState->vm.find_global("on_event");
-        mState->loaded = true;
-        mState->started = false;
-        return true;
-    }
-
-    bool ZenScriptComponent::callEvent(const char *event, double value)
-    {
-        if (!mState->loaded || mState->eventIdx < 0 || !owner() || !event)
-            return false;
-        if (zen::is_nil(mState->self))
-            mState->self = mState->instanceFor(mState->nodeClass, owner());
-        zen::Value args[3] = {mState->self,
-                              zen::val_obj((zen::Obj *)mState->vm.make_string(event)),
-                              zen::val_float(value)};
-        mState->vm.call_global(mState->eventIdx, args, 3);
-        return !mState->vm.had_error();
-    }
-
-    bool ZenScriptComponent::callFunction(const char *name, double value)
-    {
-        if (!mState->loaded || !owner() || !name)
-            return false;
-        const int index = mState->vm.find_global(name);
-        if (index < 0)
-            return false;
-        if (zen::is_nil(mState->self))
-            mState->self = mState->instanceFor(mState->nodeClass, owner());
-        zen::Value args[2] = {mState->self, zen::val_float(value)};
-        mState->vm.call_global(index, args, 2);
-        return !mState->vm.had_error();
-    }
-
-    bool ZenScriptComponent::hasFunction(const char *name) const
-    {
-        return mState->loaded && name && mState->vm.find_global(name) >= 0;
+        return loadFromSource(source, scriptName ? scriptName : "script");
     }
 
     bool ZenScriptComponent::loadFile(const char *path)
@@ -924,13 +882,137 @@ namespace k2d
         if (!path || !path[0])
             return false;
 
+        ZenRuntime &runtime = ZenRuntime::instance();
+        if (ZenScriptClass *cached = runtime.impl().findClass(path))
+        {
+            mScriptPath = path;
+            mSourceTimestamp = cached->timestamp;
+            destroyInstance();
+            mState->scriptClass = cached;
+            mState->generation = runtime.generation();
+            mState->loaded = true;
+            return true;
+        }
+
         FileBuffer buffer;
         if (!FileSystem::Instance().LoadFile(path, buffer, true))
             return false;
 
         mScriptPath = path;
         mSourceTimestamp = fileTimestamp(path);
-        return loadSource(buffer.Text(), path);
+        return loadFromSource(buffer.Text(), path);
+    }
+
+    bool ZenScriptComponent::loadFromSource(const char *source, const char *path)
+    {
+        ZenRuntime &runtime = ZenRuntime::instance();
+        ZenRuntime::Impl &impl = runtime.impl();
+
+        destroyInstance();
+        mState->scriptClass = nullptr;
+        mState->loaded = false;
+
+        ZenScriptClass compiled;
+        if (!impl.compileClass(source, path, compiled))
+            return false;
+
+        ++runtime.mCompileCount;
+        compiled.path = path;
+        compiled.timestamp = mSourceTimestamp;
+        mState->scriptClass = impl.addClass(compiled);
+        mState->generation = runtime.generation();
+        mState->loaded = true;
+        return true;
+    }
+
+    bool ZenScriptComponent::ensureInstance()
+    {
+        ZenRuntime &runtime = ZenRuntime::instance();
+
+        if (mState->generation != runtime.generation())
+        {
+            mState->scriptClass = nullptr;
+            mState->instance = zen::val_nil();
+            mState->self = zen::val_nil();
+            mState->started = false;
+            mState->loaded = false;
+            if (!mScriptPath.empty() && !loadFile(mScriptPath.c_str()))
+                return false;
+            if (!mState->scriptClass)
+                return false;
+        }
+
+        if (!mState->scriptClass || !owner())
+            return false;
+
+        ZenRuntime::Impl &impl = runtime.impl();
+        if (zen::is_nil(mState->self))
+            mState->self = impl.instanceFor(impl.nodeClass, owner());
+
+        if (zen::is_nil(mState->instance))
+        {
+            mState->instance = impl.vm.make_instance(zen::as_class(mState->scriptClass->klass));
+            if (!zen::is_instance(mState->instance))
+            {
+                mState->instance = zen::val_nil();
+                return false;
+            }
+            if (mState->scriptClass->slotInit >= 0)
+            {
+                zen::Value args[1] = {mState->self};
+                impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, args, 1);
+            }
+            mState->started = false;
+        }
+        return true;
+    }
+
+    bool ZenScriptComponent::callEvent(const char *event, double value)
+    {
+        if (!mState->loaded || !ensureInstance() || !event)
+            return false;
+
+        ZenScriptClass *scriptClass = mState->scriptClass;
+        if (scriptClass->slotEvent < 0)
+            return false;
+
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        zen::ObjInstance *inst = zen::as_instance(mState->instance);
+        if (!inst || !inst->klass || scriptClass->slotEvent >= inst->klass->vtable_size ||
+            zen::is_nil(inst->klass->vtable[scriptClass->slotEvent]))
+            return false;
+
+        zen::Value args[2] = {zen::val_obj((zen::Obj *)impl.vm.make_string(event)),
+                              zen::val_float(value)};
+        impl.vm.invoke(mState->instance, scriptClass->slotEvent, args, 2);
+        return !impl.vm.had_error();
+    }
+
+    bool ZenScriptComponent::callFunction(const char *name, double value)
+    {
+        if (!mState->loaded || !ensureInstance() || !name)
+            return false;
+
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        zen::Value args[1] = {zen::val_float(value)};
+        impl.vm.invoke(mState->instance, name, args, 1);
+        return !impl.vm.had_error();
+    }
+
+    bool ZenScriptComponent::hasFunction(const char *name) const
+    {
+        if (!mState->loaded || !mState->scriptClass || !name)
+            return false;
+
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        const int slot = impl.vm.find_selector(name, (int)std::strlen(name));
+        if (slot < 0)
+            return false;
+
+        zen::ObjClass *klass = zen::is_class(mState->scriptClass->klass)
+                                   ? zen::as_class(mState->scriptClass->klass)
+                                   : nullptr;
+        return klass && slot < klass->vtable_size && !zen::is_nil(klass->vtable[slot]);
     }
 
     bool ZenScriptComponent::reloadIfChanged()
@@ -943,7 +1025,16 @@ namespace k2d
             return false;
 
         const ct::String path = mScriptPath;
+        ZenRuntime &runtime = ZenRuntime::instance();
+        ZenScriptClass *cached = runtime.impl().findClass(path.c_str());
+        if (!cached || cached->timestamp != stamp)
+            runtime.invalidate(path.c_str());
         return loadFile(path.c_str());
+    }
+
+    bool ZenScriptComponent::loaded() const
+    {
+        return mState->loaded;
     }
 
     std::size_t ReloadChangedZenScripts(GameObject &root)
@@ -960,33 +1051,32 @@ namespace k2d
         return reloaded;
     }
 
-    bool ZenScriptComponent::loaded() const
-    {
-        return mState->loaded;
-    }
-
     void ZenScriptComponent::onUpdate(float deltaTime)
     {
         if (!gZenScriptsEnabled || !mState->loaded || !owner())
             return;
+        if (!ensureInstance())
+            return;
 
-        if (zen::is_nil(mState->self))
-            mState->self = mState->instanceFor(mState->nodeClass, owner());
+        ZenScriptClass *scriptClass = mState->scriptClass;
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        zen::ObjInstance *inst = zen::as_instance(mState->instance);
+        if (!inst || !inst->klass)
+            return;
 
         if (!mState->started)
         {
             mState->started = true;
-            if (mState->readyIdx >= 0)
-            {
-                zen::Value args[1] = {mState->self};
-                mState->vm.call_global(mState->readyIdx, args, 1);
-            }
+            if (scriptClass->slotStart >= 0 && scriptClass->slotStart < inst->klass->vtable_size &&
+                !zen::is_nil(inst->klass->vtable[scriptClass->slotStart]))
+                impl.vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
         }
 
-        if (mState->updateIdx >= 0)
+        if (scriptClass->slotUpdate >= 0 && scriptClass->slotUpdate < inst->klass->vtable_size &&
+            !zen::is_nil(inst->klass->vtable[scriptClass->slotUpdate]))
         {
-            zen::Value args[2] = {mState->self, zen::val_float(deltaTime)};
-            mState->vm.call_global(mState->updateIdx, args, 2);
+            zen::Value dt = zen::val_float(deltaTime);
+            impl.vm.invoke(mState->instance, scriptClass->slotUpdate, &dt, 1);
         }
     }
 

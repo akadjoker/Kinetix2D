@@ -7,18 +7,32 @@ panel, and hit Play. Scripts do not run in edit mode.
 
 ## Script contract
 
+A script file defines **one class**. It is compiled **once per file**, no matter how many
+objects use it; each object gets its own cheap instance with its own state.
+
 ```python
-def ready(node):          # called once, on the first frame
-    ...
+class Bullet:
+    def __init__(self, node):    # called when the instance is created
+        self.node = node
+        self.speed = 400
 
-def update(node, dt):     # called every frame, dt in seconds
-    ...
+    def on_start(self):          # called once, on the first frame
+        pass
 
-def on_event(node, name, value):   # called when any script or C++ emits an event
-    ...
+    def on_update(self, dt):     # called every frame, dt in seconds
+        self.node.translate(self.speed * dt, 0)
+
+    def on_destroy(self):        # called when the component goes away
+        pass
+
+    def on_event(self, name, value):   # called when a script or C++ emits an event
+        pass
 ```
 
-All three are optional. `node` is the GameObject the component is attached to.
+Only `__init__` is required. Instance fields (`self.speed`) are per object, so 500 bullets
+sharing one file each keep their own state. Module-level constants are shared.
+
+Cost: one compile per file (~0.2 ms), then ~0.0005 ms per spawned object.
 
 ## Node methods
 
@@ -89,7 +103,9 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
 
 ## Notes
 
-- Each component owns its own VM, so globals are private per script instance. Use the
-  blackboard to share state.
+- All scripts share one VM for the whole run. Module-level globals are therefore shared
+  across scripts; keep per-object state in `self`, and use the blackboard for shared state.
+- `ZenRuntime::instance().reset()` drops every cached class and instance (call it when
+  tearing a game down); components re-instantiate themselves on the next frame.
 - Only the script's file path is serialized, so the `.py` must be reachable at load time.
 - `import math` and `import time` are available; `print` goes to the editor Console.

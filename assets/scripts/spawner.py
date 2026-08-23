@@ -1,19 +1,22 @@
-COOLDOWN = 0.4
-timer = 0.0
+class Spawner:
+    def __init__(self, node):
+        self.node = node
+        self.cooldown = 0.4
+        self.timer = 0.0
 
-def ready(node):
-    set_number("spawned", 0)
+    def on_start(self):
+        set_number("spawned", 0)
 
-def update(node, dt):
-    global timer
-    timer = timer - dt
-    if timer <= 0 and key_down("space"):
-        timer = COOLDOWN
-        bullet = node.spawn("assets/prefabs/bullet.k2dprefab", node.get_x(), node.get_y())
-        if bullet != None:
-            set_number("spawned", get_number("spawned", 0) + 1)
-            emit("shot", get_number("spawned", 0))
+    def on_update(self, dt):
+        self.timer = self.timer - dt
+        if self.timer <= 0 and key_down("space"):
+            self.timer = self.cooldown
+            bullet = self.node.spawn("assets/prefabs/bullet.k2dprefab",
+                                     self.node.get_x(), self.node.get_y())
+            if bullet != None:
+                set_number("spawned", get_number("spawned", 0) + 1)
+                emit("shot", get_number("spawned", 0))
 
-def on_event(node, name, value):
-    if name == "player_died":
-        set_flag("can_shoot", False)
+    def on_event(self, name, value):
+        if name == "player_died":
+            set_flag("can_shoot", False)

@@ -21,6 +21,7 @@ add_subdirectory(external/zen)
 add_subdirectory(engine)
 add_subdirectory(scripting)
 add_subdirectory(physics)
+add_subdirectory(physics2d)
 add_subdirectory(demo)
 add_subdirectory(editor)
 

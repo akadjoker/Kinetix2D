@@ -1,4 +1,5 @@
 add_library(k2d_zen STATIC
+    src/ZenRuntime.cpp
     src/ZenScriptComponent.cpp
 )
 

@@ -29,12 +29,17 @@ namespace k2d
         bool reloadIfChanged();
         long long sourceTimestamp() const { return mSourceTimestamp; }
 
+        void destroyInstance();
+
         struct State;
 
     protected:
         void onUpdate(float deltaTime) override;
 
     private:
+        bool loadFromSource(const char *source, const char *path);
+        bool ensureInstance();
+
         State *mState;
         ct::String mScriptPath;
         long long mSourceTimestamp = 0;

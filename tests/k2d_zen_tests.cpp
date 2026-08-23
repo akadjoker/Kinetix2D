@@ -26,11 +26,14 @@ static bool testBasics()
 
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "def ready(node):\n"
-        "    node.set_z_index(7)\n"
-        "def update(node, dt):\n"
-        "    node.translate(10 * dt, 0)\n"
-        "    node.set_rotation(node.get_rotation() + 90 * dt)\n",
+        "class Basics:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_start(self):\n"
+        "        self.node.set_z_index(7)\n"
+        "    def on_update(self, dt):\n"
+        "        self.node.translate(10 * dt, 0)\n"
+        "        self.node.set_rotation(self.node.get_rotation() + 90 * dt)\n",
         "basics");
     ok = ok && script->loaded();
 
@@ -55,24 +58,17 @@ static bool testHierarchy()
 
     k2d::ZenScriptComponent *script = parent->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "child_name = \"\"\n"
-        "child_total = 0\n"
-        "target_x = -1.0\n"
-        "parent_of_child = \"\"\n"
-        "spawned = \"\"\n"
-        "def ready(node):\n"
-        "    global child_name, child_total, target_x, parent_of_child, spawned\n"
-        "    child_total = node.child_count()\n"
-        "    first = node.get_child(0)\n"
-        "    child_name = first.get_name()\n"
-        "    parent_of_child = first.get_parent().get_name()\n"
-        "    target = node.find(\"target\")\n"
-        "    target_x = target.get_x()\n"
-        "    made = node.create_child(\"spawned\")\n"
-        "    made.set_position(1, 2)\n"
-        "    spawned = made.get_name()\n"
-        "def update(node, dt):\n"
-        "    pass\n",
+        "class Hier:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_start(self):\n"
+        "        first = self.node.get_child(0)\n"
+        "        set_string(\"child_name\", first.get_name())\n"
+        "        set_string(\"parent_of_child\", first.get_parent().get_name())\n"
+        "        set_number(\"child_total\", self.node.child_count())\n"
+        "        set_number(\"target_x\", self.node.find(\"target\").get_x())\n"
+        "        made = self.node.create_child(\"spawned\")\n"
+        "        made.set_position(1, 2)\n",
         "hierarchy");
     scene.update(0.016f);
 
@@ -95,17 +91,16 @@ static bool testComponents()
 
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "def ready(node):\n"
-        "    s = node.get_sprite()\n"
-        "    s.set_color(255, 0, 0, 255)\n"
-        "    s.set_flip(True, False)\n"
-        "    s.set_size(32, 16)\n"
-        "    a = node.get_animation()\n"
-        "    a.play(\"idle\")\n"
-        "    p = node.get_particle()\n"
-        "    p.burst(5)\n"
-        "def update(node, dt):\n"
-        "    pass\n",
+        "class Comp:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_sprite()\n"
+        "        s.set_color(255, 0, 0, 255)\n"
+        "        s.set_flip(True, False)\n"
+        "        s.set_size(32, 16)\n"
+        "        self.node.get_animation().play(\"idle\")\n"
+        "        self.node.get_particle().burst(5)\n",
         "components");
     scene.update(0.016f);
 
@@ -129,11 +124,14 @@ static bool testInput()
     k2d::GameObject *object = scene.createObject("listener");
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "def update(node, dt):\n"
-        "    if key_down(\"space\") and mouse_down(0):\n"
-        "        node.set_position(mouse_x(), mouse_y())\n"
-        "    if key_down(\"escape\"):\n"
-        "        node.set_position(-1, -1)\n",
+        "class In:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_update(self, dt):\n"
+        "        if key_down(\"space\") and mouse_down(0):\n"
+        "            self.node.set_position(mouse_x(), mouse_y())\n"
+        "        if key_down(\"escape\"):\n"
+        "            self.node.set_position(-1, -1)\n",
         "input");
     scene.update(0.016f);
 
@@ -148,8 +146,11 @@ static bool testDestroy()
     k2d::GameObject *object = scene.createObject("mortal");
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "def update(node, dt):\n"
-        "    node.queue_destroy()\n",
+        "class Mortal:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_update(self, dt):\n"
+        "        self.node.queue_destroy()\n",
         "destroy");
     ok = ok && scene.find("mortal") != nullptr;
     scene.update(0.016f);
@@ -166,7 +167,7 @@ static bool testSerialization()
     FILE *file = std::fopen(scriptPath, "w");
     if (!file)
         return false;
-    std::fputs("def update(node, dt):\n    node.set_position(33, 44)\n", file);
+    std::fputs("class S:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(33, 44)\n", file);
     std::fclose(file);
 
     k2d::Scene scene;
@@ -214,12 +215,15 @@ static bool testSpawnAndMath()
     object->setPosition(Math::Vec2(0.0f, 0.0f));
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource(
-        "def ready(node):\n"
-        "    b = node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
-        "    print(\"spawned\", b.get_name(), node.distance_to(30, 40))\n"
-        "    node.look_at(0, 100)\n"
-        "def update(node, dt):\n"
-        "    node.move_toward(60, 0, 25)\n",
+        "class Shooter:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_start(self):\n"
+        "        b = self.node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
+        "        print(\"spawned\", b.get_name(), self.node.distance_to(30, 40))\n"
+        "        self.node.look_at(0, 100)\n"
+        "    def on_update(self, dt):\n"
+        "        self.node.move_toward(60, 0, 25)\n",
         "spawner");
 
     k2d::SetZenScriptOutput([](const char *text, bool isError, void *)
@@ -253,7 +257,8 @@ static bool testScriptsGate()
     k2d::Scene scene;
     k2d::GameObject *object = scene.createObject("gated");
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource("def update(node, dt):\n    node.set_position(9, 9)\n", "gate");
+    bool ok = script->loadSource("class G:\n    def __init__(self, node):\n        self.node = node\n"
+                                 "    def on_update(self, dt):\n        self.node.set_position(9, 9)\n", "gate");
 
     scene.update(0.016f);
     ok = ok && nearEqual(object->position().x, 0.0f);
@@ -272,26 +277,29 @@ static bool testBlackboardAndEvents()
     k2d::GameObject *sender = scene.createObject("sender");
     k2d::ZenScriptComponent *senderScript = sender->addComponent<k2d::ZenScriptComponent>();
     bool ok = senderScript->loadSource(
-        "fired = False\n"
-        "def update(node, dt):\n"
-        "    global fired\n"
-        "    if not fired:\n"
-        "        fired = True\n"
-        "        set_number(\"hp\", 75)\n"
-        "        set_string(\"stage\", \"boss\")\n"
-        "        set_flag(\"alive\", True)\n"
-        "        emit(\"hit\", 12)\n",
+        "class Sender:\n"
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "        self.fired = False\n"
+        "    def on_update(self, dt):\n"
+        "        if not self.fired:\n"
+        "            self.fired = True\n"
+        "            set_number(\"hp\", 75)\n"
+        "            set_string(\"stage\", \"boss\")\n"
+        "            set_flag(\"alive\", True)\n"
+        "            emit(\"hit\", 12)\n",
         "sender");
 
     k2d::GameObject *receiver = scene.createObject("receiver");
     k2d::ZenScriptComponent *receiverScript = receiver->addComponent<k2d::ZenScriptComponent>();
     ok = ok && receiverScript->loadSource(
-                   "def on_event(node, name, value):\n"
-                   "    if name == \"hit\":\n"
-                   "        set_number(\"damage\", value * 2)\n"
-                   "        node.set_position(get_number(\"hp\", 0), 1)\n"
-                   "def update(node, dt):\n"
-                   "    pass\n",
+                   "class Receiver:\n"
+                   "    def __init__(self, node):\n"
+                   "        self.node = node\n"
+                   "    def on_event(self, name, value):\n"
+                   "        if name == \"hit\":\n"
+                   "            set_number(\"damage\", value * 2)\n"
+                   "            self.node.set_position(get_number(\"hp\", 0), 1)\n",
                    "receiver");
 
     scene.update(0.016f);
@@ -311,8 +319,11 @@ static bool testBlackboardAndEvents()
     k2d::GameObject *reader = scene.createObject("reader");
     k2d::ZenScriptComponent *readerScript = reader->addComponent<k2d::ZenScriptComponent>();
     ok = ok && readerScript->loadSource(
-                   "def update(node, dt):\n"
-                   "    node.set_position(get_number(\"from_host\", -1), get_number(\"missing\", 8))\n",
+                   "class Reader:\n"
+                   "    def __init__(self, node):\n"
+                   "        self.node = node\n"
+                   "    def on_update(self, dt):\n"
+                   "        self.node.set_position(get_number(\"from_host\", -1), get_number(\"missing\", 8))\n",
                    "reader");
     scene.update(0.016f);
     ok = ok && nearEqual(reader->position().x, 3.5f) && nearEqual(reader->position().y, 8.0f);
@@ -334,7 +345,7 @@ static bool testBlackboardAndEvents()
     ok = ok && hostSeen == 1 && nearEqual((float)hostValue, 7.0f);
     k2d::ZenBlackboard::setHostHandler(nullptr, nullptr);
 
-    ok = ok && receiverScript->hasFunction("on_event") && !receiverScript->hasFunction("nope");
+    ok = ok && receiverScript->hasFunction("on_event") && !receiverScript->hasFunction("nope_method");
     ok = ok && receiverScript->callEvent("hit", 4.0);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("damage"), 8.0f);
 
@@ -349,7 +360,7 @@ static bool testHotReload()
     FILE *file = std::fopen(path, "w");
     if (!file)
         return false;
-    std::fputs("def update(node, dt):\n    node.set_position(1, 1)\n", file);
+    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(1, 1)\n", file);
     std::fclose(file);
 
     k2d::Scene scene;
@@ -365,7 +376,7 @@ static bool testHotReload()
     std::filesystem::last_write_time(
         path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
     file = std::fopen(path, "w");
-    std::fputs("def update(node, dt):\n    node.set_position(2, 2)\n", file);
+    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(2, 2)\n", file);
     std::fclose(file);
     std::filesystem::last_write_time(
         path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));

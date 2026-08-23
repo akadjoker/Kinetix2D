@@ -22,6 +22,8 @@ namespace k2d
         LinePath,
         NinePatch,
         Particle,
+        RigidBody,
+        Collider,
         Count
     };
 
