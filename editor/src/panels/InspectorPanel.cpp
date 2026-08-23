@@ -714,9 +714,117 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
     ImGui::TextDisabled("Editing an existing clip's frames is not available yet.");
 }
 
+enum class ParticlePreset
+{
+    Fire,
+    Smoke,
+    Explosion
+};
+
+void applyParticlePreset(ParticleComponent &particleComponent, ParticlePreset preset)
+{
+    ParticleSystem &system = particleComponent.system();
+    ParticlePrefab prefab;
+
+    switch (preset)
+    {
+    case ParticlePreset::Fire:
+        system.SetMode(ParticleMode::Persistent);
+        system.SetEmissionRate(30.0f);
+        system.SetGravity(Math::Vec2(0.0f, -20.0f));
+        particleComponent.setBlendMode(BLEND_ADD);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
+        prefab.spreadDegrees = 20.0f;
+        prefab.speedMin = 30.0f;
+        prefab.speedMax = 60.0f;
+        prefab.lifeMin = 0.6f;
+        prefab.lifeMax = 1.2f;
+        prefab.sizeMin = 10.0f;
+        prefab.sizeMax = 18.0f;
+        prefab.endSize = 2.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 360.0f;
+        prefab.angularVelocityMin = -60.0f;
+        prefab.angularVelocityMax = 60.0f;
+        prefab.drag = 0.5f;
+        prefab.fadeIn = 0.05f;
+        prefab.fadeOut = 0.4f;
+        prefab.colorStart = Color(1.0f, 0.9f, 0.3f, 1.0f);
+        prefab.colorEnd = Color(0.6f, 0.1f, 0.05f, 0.0f);
+        break;
+    case ParticlePreset::Smoke:
+        system.SetMode(ParticleMode::Persistent);
+        system.SetEmissionRate(10.0f);
+        system.SetGravity(Math::Vec2(0.0f, -8.0f));
+        particleComponent.setBlendMode(BLEND_MIX);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
+        prefab.spreadDegrees = 50.0f;
+        prefab.speedMin = 10.0f;
+        prefab.speedMax = 25.0f;
+        prefab.lifeMin = 2.0f;
+        prefab.lifeMax = 4.0f;
+        prefab.sizeMin = 6.0f;
+        prefab.sizeMax = 12.0f;
+        prefab.endSize = 40.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 360.0f;
+        prefab.angularVelocityMin = -20.0f;
+        prefab.angularVelocityMax = 20.0f;
+        prefab.drag = 0.3f;
+        prefab.fadeIn = 0.3f;
+        prefab.fadeOut = 1.5f;
+        prefab.colorStart = Color(0.7f, 0.7f, 0.7f, 0.5f);
+        prefab.colorEnd = Color(0.3f, 0.3f, 0.3f, 0.0f);
+        break;
+    case ParticlePreset::Explosion:
+        system.SetMode(ParticleMode::OneShot);
+        system.SetOneShotCount(40);
+        system.SetEmitterShape(ParticleEmitterShape::Point);
+        system.SetGravity(Math::Vec2(0.0f, 40.0f));
+        particleComponent.setBlendMode(BLEND_ADD);
+        prefab.direction = Math::Vec2(0.0f, -1.0f);
+        prefab.spreadDegrees = 360.0f;
+        prefab.speedMin = 100.0f;
+        prefab.speedMax = 260.0f;
+        prefab.lifeMin = 0.3f;
+        prefab.lifeMax = 0.7f;
+        prefab.sizeMin = 12.0f;
+        prefab.sizeMax = 24.0f;
+        prefab.endSize = 0.0f;
+        prefab.rotationMin = 0.0f;
+        prefab.rotationMax = 360.0f;
+        prefab.angularVelocityMin = -180.0f;
+        prefab.angularVelocityMax = 180.0f;
+        prefab.drag = 2.0f;
+        prefab.fadeIn = 0.0f;
+        prefab.fadeOut = 0.3f;
+        prefab.colorStart = Color(1.0f, 1.0f, 0.8f, 1.0f);
+        prefab.colorEnd = Color(1.0f, 0.3f, 0.05f, 0.0f);
+        break;
+    }
+
+    system.SetPrefab(prefab);
+}
+
 void drawParticleProperties(EditorApplication &app, ParticleComponent &particleComponent)
 {
     ParticleSystem &system = particleComponent.system();
+
+    ImGui::TextUnformatted("Presets");
+    if (ImGui::Button("Fire"))
+        applyInstant(app, "Apply Fire Preset", [&] { applyParticlePreset(particleComponent, ParticlePreset::Fire); });
+    ImGui::SameLine();
+    if (ImGui::Button("Smoke"))
+        applyInstant(app, "Apply Smoke Preset", [&] { applyParticlePreset(particleComponent, ParticlePreset::Smoke); });
+    ImGui::SameLine();
+    if (ImGui::Button("Explosion"))
+    {
+        applyInstant(app, "Apply Explosion Preset",
+                    [&] { applyParticlePreset(particleComponent, ParticlePreset::Explosion); });
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Presets set emission, blend mode, gravity and the whole emission prefab below.");
+    ImGui::Separator();
 
     Texture *texture = system.GetTexture();
     Texture *newTexture = nullptr;
