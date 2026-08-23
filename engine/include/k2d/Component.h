@@ -19,6 +19,8 @@ namespace k2d
     Animation,
     Light,
         Occluder,
+        LinePath,
+        NinePatch,
         Count
     };
 

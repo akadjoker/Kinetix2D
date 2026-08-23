@@ -16,12 +16,14 @@ namespace k2d
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec2 a_texcoord;
 layout(location = 2) in vec4 a_color;
+layout(location = 3) in uint a_lightMask;
 
 uniform mat4 u_mvp;
 
 out vec2 v_texcoord;
 out vec4 v_color;
 out vec2 v_world;
+flat out uint v_lightMask;
 
 void main()
 {
@@ -29,6 +31,7 @@ void main()
     v_texcoord = a_texcoord;
     v_color = a_color;
     v_world = a_position.xy;
+    v_lightMask = a_lightMask;
 }
 )";
 
@@ -44,11 +47,14 @@ precision highp float;
 in vec2 v_texcoord;
 in vec4 v_color;
 in vec2 v_world;
+flat in uint v_lightMask;
 
 uniform sampler2D u_texture;
 uniform sampler2D u_shadowAtlas;
 uniform sampler2D u_lightTexture;
 uniform int u_hasLightTexture;
+uniform sampler2D u_normalMap;
+uniform int u_hasNormalMap;
 uniform vec2 u_canvasSize;
 uniform vec4 u_canvasModulate;
 
@@ -56,11 +62,15 @@ uniform int u_lightCount;
 uniform vec2 u_lightPos[8];
 uniform vec4 u_lightColor[8];
 uniform float u_lightRadius[8];
+uniform uint u_lightCullMask[8];
+uniform float u_lightHeight[8];
 uniform int u_directionalLightCount;
 uniform vec2 u_directionalLightDirection[8];
 uniform vec4 u_directionalLightColor[8];
 uniform int u_directionalLightShadowFlags[8];
 uniform vec4 u_directionalLightShadowColor[8];
+uniform uint u_directionalCullMask[8];
+uniform float u_directionalHeight[8];
 uniform int u_lightShadowFlags[8];
 uniform int u_lightShadowFilter[8];
 uniform vec4 u_lightShadowColor[8];
@@ -95,12 +105,27 @@ void main()
     // light_color.rgb *= base_color.rgb), so lights "reveal" the surface's
     // true colors inside their radius instead of pasting a colored disc.
     FragColor = vec4(base.rgb * u_canvasModulate.rgb, base.a);
+    // Godot's normal map decode (canvas.glsl:646): RG channels are the xy
+    // tilt in 0..1, remapped to -1..1 (Y flipped, Godot's own normal map
+    // authoring convention); Z reconstructed so the result is a unit vector.
+    // A flat/neutral texel (128,128,255) decodes to (0,0,1) -- straight out
+    // of the screen, matching an un-normal-mapped sprite's implicit normal.
+    vec3 normal = vec3(0.0, 0.0, 1.0);
+    if (u_hasNormalMap != 0)
+    {
+        vec2 normalXY = texture(u_normalMap, v_texcoord).xy * vec2(2.0, -2.0) - vec2(1.0, -1.0);
+        normal = vec3(normalXY, sqrt(max(0.0, 1.0 - dot(normalXY, normalXY))));
+    }
     if (u_lightCount > 0)
     {
         for (int i = 0; i < 8; ++i)
         {
             if (i >= u_lightCount)
                 break;
+            // Godot's CanvasItem light_mask / Light2D range_item_cull_mask:
+            // this light only affects items sharing at least one bit.
+            if ((v_lightMask & u_lightCullMask[i]) == 0u)
+                continue;
             vec2 toLight = u_lightPos[i] - v_world;
             float dist = length(toLight);
             float radialCut = 1.0 - dist / u_lightRadius[i];
@@ -154,17 +179,26 @@ void main()
                 light_color = mix(light_color, shadow_color, shadow);
             }
             // Godot canvas.glsl:814 light_color.rgb *= base_color.rgb, then
-            // blend ADD (:509). The light reflects the surface's own color.
-            // Godot canvas.glsl:814 light_color.rgb *= base_color.rgb, then
-            // blend ADD (:509). The falloff now lives inside light_color
-            // (cookie rgb and/or alpha) instead of a separate factor.
-            FragColor.rgb += light_color.rgb * light_color.a * base.rgb;
+            // blend ADD (:509). The light reflects the surface's own color;
+            // the falloff lives inside light_color (cookie rgb and/or alpha).
+            float cNdotL = 1.0;
+            if (u_hasNormalMap != 0)
+            {
+                // canvas.glsl:799/809/420: light_vec points from the surface
+                // to the light, height is the light's Z offset above the
+                // plane -- toLight is already (light - surface) in-plane.
+                vec3 lightVec = normalize(vec3(toLight, u_lightHeight[i]));
+                cNdotL = max(0.0, dot(normal, lightVec));
+            }
+            FragColor.rgb += light_color.rgb * light_color.a * base.rgb * cNdotL;
         }
     }
     for (int i = 0; i < 8; ++i)
     {
         if (i >= u_directionalLightCount)
             break;
+        if ((v_lightMask & u_directionalCullMask[i]) == 0u)
+            continue;
         vec4 light_color = u_directionalLightColor[i];
         if ((u_directionalLightShadowFlags[i] & 1) != 0)
         {
@@ -185,7 +219,19 @@ void main()
             shadow_color.a *= light_color.a;
             light_color = mix(light_color, shadow_color, shadow);
         }
-        FragColor.rgb += light_color.rgb * light_color.a * base.rgb;
+        float cNdotL = 1.0;
+        if (u_hasNormalMap != 0)
+        {
+            // canvas.glsl:736: directional height is a 0..1 MIX factor
+            // between the in-plane direction and straight down (0,0,1), not
+            // a Z offset like point lights. rayDir/direction here already
+            // points FROM the light TOWARD the scene (see the shadow raycast
+            // above), so the vector TO the light is its negation.
+            vec2 rayDir = u_directionalLightDirection[i];
+            vec3 lightVec = normalize(mix(vec3(-rayDir, 0.0), vec3(0.0, 0.0, 1.0), u_directionalHeight[i]));
+            cNdotL = max(0.0, dot(normal, lightVec));
+        }
+        FragColor.rgb += light_color.rgb * light_color.a * base.rgb * cNdotL;
     }
 }
 )";
@@ -328,11 +374,12 @@ void main()
           mVAO(0), mVBO(0), mIBO(0), mProgram(0), mShadowProgram(0), mWhiteTexture(0),
           mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
           mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1),
+          mNormalMapLoc(-1), mHasNormalMapLoc(-1), mLightHeightLoc(-1), mDirectionalHeightLoc(-1),
           mShadowAtlas(0), mShadowDepth(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
           mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1),
-          mLightColorLoc(-1), mLightRadiusLoc(-1),
+          mLightColorLoc(-1), mLightRadiusLoc(-1), mLightCullMaskLoc(-1),
           mDirectionalLightCountLoc(-1), mDirectionalLightDirectionLoc(-1),
-          mDirectionalLightColorLoc(-1), mDirectionalLightShadowFlagsLoc(-1),
+          mDirectionalLightColorLoc(-1), mDirectionalCullMaskLoc(-1), mDirectionalLightShadowFlagsLoc(-1),
           mDirectionalLightShadowColorLoc(-1), mDirectionalShadowFilterLoc(-1),
           mLights(nullptr), mLightCount(0),
           mDirectionalLights(nullptr), mDirectionalLightCount(0),
@@ -427,6 +474,29 @@ void main()
         mCanvasModulate = glm::vec4(r, g, b, 1.0f);
     }
 
+    unsigned int CanvasRenderer::CreateShader(const char *fragmentSource)
+    {
+        // Reuses the built-in vertex stage (CreateProgram, the same helper
+        // the shadow program is compiled with) so a custom fragment shader
+        // gets v_texcoord/v_color/v_world/v_lightMask for free.
+        GLuint program = CreateProgram(VERTEX_SHADER_SOURCE, fragmentSource);
+        if (!program)
+            return 0;
+
+        glUseProgram(program);
+        GLint texLoc = glGetUniformLocation(program, "u_texture");
+        if (texLoc >= 0)
+            glUniform1i(texLoc, 0);
+        glUseProgram(0);
+        return program;
+    }
+
+    void CanvasRenderer::DestroyShader(unsigned int program)
+    {
+        if (program != 0)
+            glDeleteProgram(program);
+    }
+
     void CanvasRenderer::SetDefaultLightTexture(unsigned int textureId)
     {
         mDefaultLightTexture = textureId;
@@ -475,10 +545,11 @@ void main()
                 case RenderCommand::kRect:
                 {
                     Matrix2D m = item.xform * drawTransform * Matrix2D::Translation(c.x, c.y);
-                    EmitQuad(item.blendMode, c.textureId, m, c.width, c.height,
+                    EmitQuad(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, m,
+                             c.width, c.height,
                              c.texWidth, c.texHeight, c.pivotX, c.pivotY,
                              c.srcX, c.srcY, c.srcW, c.srcH,
-                             (c.flags & 1) != 0, (c.flags & 2) != 0, c.color);
+                             (c.flags & 1) != 0, (c.flags & 2) != 0, c.color, c.lightMask);
                     break;
                 }
                 case RenderCommand::kPolygon:
@@ -486,7 +557,8 @@ void main()
                     if (c.polygonPoints && c.polygonPointCount >= 3)
                     {
                         Matrix2D m = item.xform * drawTransform;
-                        EmitPolygon(item.blendMode, c.textureId, m, *c.polygonPoints, c.color);
+                        EmitPolygon(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, m,
+                                   *c.polygonPoints, c.color, c.lightMask);
                     }
                     break;
                 }
@@ -499,17 +571,20 @@ void main()
         Flush();
     }
 
-    void CanvasRenderer::EmitQuad(BlendMode blendMode, unsigned int textureId, const Matrix2D &matrix,
+    void CanvasRenderer::EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
+                                  unsigned int customProgram, const Matrix2D &matrix,
                                   float width, float height, int texWidth, int texHeight,
                                   float pivotX, float pivotY,
                                   float srcX, float srcY, float srcW, float srcH,
-                                  bool flipX, bool flipY, unsigned int color)
+                                  bool flipX, bool flipY, unsigned int color, unsigned int lightMask)
     {
         if (mVertices.size() + 4 > mConfig.maxVertices)
             Flush();
 
         if (mDrawCalls.empty() ||
             mDrawCalls.back().textureId != textureId ||
+            mDrawCalls.back().normalTextureId != normalTextureId ||
+            mDrawCalls.back().program != customProgram ||
             mDrawCalls.back().blendMode != blendMode)
         {
             if (mCurrentTextureId != textureId)
@@ -519,6 +594,8 @@ void main()
             call.indexCount = 0;
             call.vertexAlignment = mVertices.size();
             call.textureId = textureId;
+            call.normalTextureId = normalTextureId;
+            call.program = customProgram;
             call.blendMode = blendMode;
             mDrawCalls.push_back(call);
             mCurrentTextureId = textureId;
@@ -559,10 +636,10 @@ void main()
         UnpackColor(color, r, g, b, a);
 
         size_t base = mVertices.size();
-        mVertices.push_back(Vertex{p0.x, p0.y, 0.0f, u0, v0, r, g, b, a});
-        mVertices.push_back(Vertex{p1.x, p1.y, 0.0f, u1, v0, r, g, b, a});
-        mVertices.push_back(Vertex{p2.x, p2.y, 0.0f, u1, v1, r, g, b, a});
-        mVertices.push_back(Vertex{p3.x, p3.y, 0.0f, u0, v1, r, g, b, a});
+        mVertices.push_back(Vertex{p0.x, p0.y, 0.0f, u0, v0, r, g, b, a, lightMask});
+        mVertices.push_back(Vertex{p1.x, p1.y, 0.0f, u1, v0, r, g, b, a, lightMask});
+        mVertices.push_back(Vertex{p2.x, p2.y, 0.0f, u1, v1, r, g, b, a, lightMask});
+        mVertices.push_back(Vertex{p3.x, p3.y, 0.0f, u0, v1, r, g, b, a, lightMask});
 
         mIndices.push_back((unsigned short)(base + 0));
         mIndices.push_back((unsigned short)(base + 1));
@@ -575,10 +652,10 @@ void main()
         mDrawCalls.back().indexCount += 6;
     }
 
-    void CanvasRenderer::EmitPolygon(BlendMode blendMode, unsigned int textureId,
-                                     const Matrix2D &matrix,
+    void CanvasRenderer::EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
+                                     unsigned int customProgram, const Matrix2D &matrix,
                                      const ct::Vector<glm::vec2> &points,
-                                     unsigned int color)
+                                     unsigned int color, unsigned int lightMask)
     {
         if (points.size() < 3)
             return;
@@ -587,6 +664,8 @@ void main()
 
         if (mDrawCalls.empty() ||
             mDrawCalls.back().textureId != textureId ||
+            mDrawCalls.back().normalTextureId != normalTextureId ||
+            mDrawCalls.back().program != customProgram ||
             mDrawCalls.back().blendMode != blendMode)
         {
             if (mCurrentTextureId != textureId)
@@ -596,6 +675,8 @@ void main()
             call.indexCount = 0;
             call.vertexAlignment = mVertices.size();
             call.textureId = textureId;
+            call.normalTextureId = normalTextureId;
+            call.program = customProgram;
             call.blendMode = blendMode;
             mDrawCalls.push_back(call);
             mCurrentTextureId = textureId;
@@ -607,7 +688,7 @@ void main()
         for (size_t i = 0; i < points.size(); ++i)
         {
             glm::vec2 p = matrix.Transform(points[i]);
-            mVertices.push_back(Vertex{p.x, p.y, 0.0f, 0.0f, 0.0f, r, g, b, a});
+            mVertices.push_back(Vertex{p.x, p.y, 0.0f, 0.0f, 0.0f, r, g, b, a, lightMask});
         }
         for (size_t i = 0; i + 2 < points.size(); i += 3)
         {
@@ -665,6 +746,8 @@ void main()
             float pos[16];
             float col[32];
             float rad[8];
+            unsigned int cullMask[8];
+            float height[8];
             for (int i = 0; i < mLightCount; ++i)
             {
                 pos[i * 2 + 0] = mLights[i].position.x;
@@ -674,10 +757,14 @@ void main()
                 col[i * 4 + 2] = mLights[i].color.b;
                 col[i * 4 + 3] = mLights[i].color.a;
                 rad[i] = mLights[i].radius;
+                cullMask[i] = mLights[i].cullMask;
+                height[i] = mLights[i].height;
             }
             glUniform2fv(mLightPosLoc, mLightCount, pos);
             glUniform4fv(mLightColorLoc, mLightCount, col);
             glUniform1fv(mLightRadiusLoc, mLightCount, rad);
+            glUniform1uiv(mLightCullMaskLoc, mLightCount, cullMask);
+            glUniform1fv(mLightHeightLoc, mLightCount, height);
         }
 
         glUniform1i(mDirectionalLightCountLoc, mDirectionalLightCount);
@@ -685,6 +772,8 @@ void main()
         {
             float direction[16];
             float color[32];
+            unsigned int dirCullMask[8];
+            float dirHeight[8];
             for (int i = 0; i < mDirectionalLightCount; ++i)
             {
                 direction[i * 2 + 0] = mDirectionalLights[i].direction.x;
@@ -693,9 +782,13 @@ void main()
                 color[i * 4 + 1] = mDirectionalLights[i].color.g;
                 color[i * 4 + 2] = mDirectionalLights[i].color.b;
                 color[i * 4 + 3] = mDirectionalLights[i].color.a;
+                dirCullMask[i] = mDirectionalLights[i].cullMask;
+                dirHeight[i] = mDirectionalLights[i].height;
             }
             glUniform2fv(mDirectionalLightDirectionLoc, mDirectionalLightCount, direction);
             glUniform4fv(mDirectionalLightColorLoc, mDirectionalLightCount, color);
+            glUniform1uiv(mDirectionalCullMaskLoc, mDirectionalLightCount, dirCullMask);
+            glUniform1fv(mDirectionalHeightLoc, mDirectionalLightCount, dirHeight);
         }
         int directionalFlags[8];
         int directionalFilters[8];
@@ -755,6 +848,7 @@ void main()
 
         size_t indexOffset = 0;
 
+        GLuint activeProgram = mProgram;
         for (size_t i = 0; i < mDrawCalls.size(); ++i)
         {
             const DrawCall &call = mDrawCalls[i];
@@ -762,8 +856,41 @@ void main()
             glEnable(GL_BLEND);
             ApplyBlend(call.blendMode);
 
+            // Custom per-material shader (Material2D::setCustomShader): swap
+            // the whole program, since it may not declare the same lighting
+            // uniforms the built-in one does -- see CreateShader. u_mvp is
+            // looked up fresh each switch since custom programs aren't
+            // pre-cached like mMvpLoc; switching back to the built-in
+            // program needs no re-upload, GL keeps each program's uniform
+            // state independently.
+            GLuint wantProgram = (call.program != 0) ? call.program : mProgram;
+            if (wantProgram != activeProgram)
+            {
+                glUseProgram(wantProgram);
+                activeProgram = wantProgram;
+                GLint mvpLoc = glGetUniformLocation(wantProgram, "u_mvp");
+                if (mvpLoc >= 0)
+                    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
+            }
+
             GLuint tex = (call.textureId != 0) ? call.textureId : mWhiteTexture;
             glBindTexture(GL_TEXTURE_2D, tex);
+
+            // Normal map is per-draw-call (it comes from the sprite's own
+            // material, not from a light), unlike the light/shadow/cookie
+            // uniforms set once above for the whole frame. Only meaningful
+            // on the built-in program -- a custom shader that wants normal
+            // mapping declares u_normalMap/u_hasNormalMap itself.
+            if (wantProgram == mProgram)
+            {
+                glUniform1i(mHasNormalMapLoc, call.normalTextureId != 0 ? 1 : 0);
+                if (call.normalTextureId != 0)
+                {
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_2D, call.normalTextureId);
+                    glActiveTexture(GL_TEXTURE0);
+                }
+            }
 
             size_t indexCount = call.indexCount;
             glDrawElements(GL_TRIANGLES, (GLsizei)indexCount, GL_UNSIGNED_SHORT,
@@ -805,6 +932,10 @@ void main()
         mLightPosLoc = glGetUniformLocation(mProgram, "u_lightPos");
         mLightColorLoc = glGetUniformLocation(mProgram, "u_lightColor");
         mLightRadiusLoc = glGetUniformLocation(mProgram, "u_lightRadius");
+        mLightCullMaskLoc = glGetUniformLocation(mProgram, "u_lightCullMask");
+        mLightHeightLoc = glGetUniformLocation(mProgram, "u_lightHeight");
+        mDirectionalCullMaskLoc = glGetUniformLocation(mProgram, "u_directionalCullMask");
+        mDirectionalHeightLoc = glGetUniformLocation(mProgram, "u_directionalHeight");
         mDirectionalLightCountLoc = glGetUniformLocation(mProgram, "u_directionalLightCount");
         mDirectionalLightDirectionLoc = glGetUniformLocation(mProgram, "u_directionalLightDirection");
         mDirectionalLightColorLoc = glGetUniformLocation(mProgram, "u_directionalLightColor");
@@ -819,10 +950,13 @@ void main()
         mLightTextureLoc = glGetUniformLocation(mProgram, "u_lightTexture");
         mHasLightTextureLoc = glGetUniformLocation(mProgram, "u_hasLightTexture");
         mCanvasModulateLoc = glGetUniformLocation(mProgram, "u_canvasModulate");
+        mNormalMapLoc = glGetUniformLocation(mProgram, "u_normalMap");
+        mHasNormalMapLoc = glGetUniformLocation(mProgram, "u_hasNormalMap");
         glUseProgram(mProgram);
         glUniform1i(mTexLoc, 0);
         glUniform1i(mShadowAtlasLoc, 1);
         glUniform1i(mLightTextureLoc, 2);
+        glUniform1i(mNormalMapLoc, 3);
         glUseProgram(0);
         return true;
     }
@@ -846,6 +980,10 @@ void main()
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (void *)offsetof(Vertex, r));
         glEnableVertexAttribArray(2);
+        // Integer attribute (Godot's CanvasItem light_mask) needs
+        // glVertexAttribIPointer, not the float-normalizing glVertexAttribPointer.
+        glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, (void *)offsetof(Vertex, lightMask));
+        glEnableVertexAttribArray(3);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(mConfig.maxVertices * 3 * sizeof(unsigned short)),

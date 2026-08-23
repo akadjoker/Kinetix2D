@@ -64,6 +64,11 @@ add_library(k2d STATIC
     src/SpriteComponent.cpp
     src/SpriteBatch.cpp
     src/Polygon2D.cpp
+    src/Line2D.cpp
+    src/NinePatchComponent.cpp
+    src/ScreenFade.cpp
+    src/SceneDebug.cpp
+    src/CanvasLayer.cpp
     ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
     src/TileMapComponent.cpp
     src/ParallaxLayer2D.cpp

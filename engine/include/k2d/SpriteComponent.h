@@ -33,6 +33,14 @@ namespace k2d
 
         void setSourceRect(float x, float y, float width, float height);
         void clearSourceRect();
+        void setTiling(float tileX, float tileY);
+        const glm::vec2 &tiling() const { return mMaterial.tiling(); }
+        void setLightMask(unsigned int mask) { mMaterial.setLightMask(mask); }
+        unsigned int lightMask() const { return mMaterial.lightMask(); }
+        void setNormalMap(Texture *normalMap) { mMaterial.setNormalMap(normalMap); }
+        Texture *normalMap() const { return mMaterial.normalMap(); }
+        void setCustomShader(unsigned int program) { mMaterial.setCustomShader(program); }
+        unsigned int customShader() const { return mMaterial.customShader(); }
         void setFlip(bool flipX, bool flipY);
         bool flipX() const { return mMaterial.flipX(); }
         bool flipY() const { return mMaterial.flipY(); }

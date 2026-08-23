@@ -11,8 +11,13 @@ namespace k2d
     DirectionalLight2D::DirectionalLight2D()
         : Component(Type, ComponentEventRender), mColor(1.0f), mEnergy(1.0f),
           mCastShadow(false), mShadowColor(0.0f, 0.0f, 0.0f, 1.0f),
-          mShadowFilter(SHADOW_FILTER_NEAREST)
+          mShadowFilter(SHADOW_FILTER_NEAREST), mCullMask(1), mHeight(0.0f)
     {
+    }
+
+    void DirectionalLight2D::setCullMask(unsigned int mask)
+    {
+        mCullMask = mask;
     }
 
     void DirectionalLight2D::setColor(float r, float g, float b, float a)
@@ -55,6 +60,8 @@ namespace k2d
         light.useShadow = mCastShadow;
         light.shadowFilter = mShadowFilter;
         light.shadowColor = mShadowColor;
+        light.cullMask = mCullMask;
+        light.height = mHeight;
         queue.AddDirectionalLight(light);
     }
 

@@ -9,8 +9,14 @@ namespace k2d
     Light2D::Light2D()
         : Component(Type, ComponentEventRender), mColor(1.0f, 1.0f, 1.0f, 1.0f),
           mEnergy(1.0f), mRadius(300.0f), mCastShadow(false),
-          mShadowColor(0.0f, 0.0f, 0.0f, 1.0f), mShadowFilter(SHADOW_FILTER_NEAREST)
+          mShadowColor(0.0f, 0.0f, 0.0f, 1.0f), mShadowFilter(SHADOW_FILTER_NEAREST),
+          mCullMask(1), mHeight(0.0f)
     {
+    }
+
+    void Light2D::setCullMask(unsigned int mask)
+    {
+        mCullMask = mask;
     }
 
     void Light2D::setColor(float r, float g, float b, float a)
@@ -54,6 +60,8 @@ namespace k2d
         light.shadowFilter = mShadowFilter;
         light.shadowMatrix = owner()->globalTransform().AffineInverse();
         light.shadowColor = mShadowColor;
+        light.cullMask = mCullMask;
+        light.height = mHeight;
         queue.AddLight(light);
     }
 

@@ -4,8 +4,9 @@ namespace k2d
 {
 
     Material2D::Material2D()
-        : mTexture(nullptr), mColor(1.0f), mSourceRect(0.0f), mPivot(0.5f),
-          mBlendMode(BLEND_MIX), mHasSourceRect(false), mFlipX(false), mFlipY(false)
+        : mTexture(nullptr), mColor(1.0f), mSourceRect(0.0f), mTiling(1.0f, 1.0f), mPivot(0.5f),
+          mBlendMode(BLEND_MIX), mHasSourceRect(false), mFlipX(false), mFlipY(false), mLightMask(1),
+          mNormalMap(nullptr), mCustomShader(0)
     {
     }
 

@@ -55,6 +55,20 @@ namespace k2d
         // colors inside their radius. Default white = no darkening.
         void SetCanvasModulate(float r, float g, float b);
 
+        // Godot's per-material canvas_item shader: compiles `fragmentSource`
+        // against the engine's own built-in vertex stage, so the varyings a
+        // custom fragment shader can read are exactly the built-in ones --
+        // `in vec2 v_texcoord; in vec4 v_color; in vec2 v_world; flat in uint
+        // v_lightMask;` plus whatever uniforms it declares itself (u_texture,
+        // bound at unit 0, is set up automatically same as the default
+        // program; anything else -- including all lighting/shadow uniforms --
+        // is NOT forwarded, unlike Godot's canvas_item shaders which inherit
+        // the full light loop unless overridden. Assign the returned program
+        // via Material2D::setCustomShader/SpriteComponent::setCustomShader.
+        // Returns 0 on a compile/link error (logged to stdout).
+        unsigned int CreateShader(const char *fragmentSource);
+        void DestroyShader(unsigned int program);
+
         // Draws a sorted canvas item list plus the canvas lights and occluders
         // (from RenderQueue). Godot's _record_item_commands: item world xform is
         // the base, kTransform commands replace the draw transform, kRect emits
@@ -77,6 +91,7 @@ namespace k2d
             float x, y, z;
             float u, v;
             unsigned char r, g, b, a;
+            unsigned int lightMask; // Godot's CanvasItem light_mask -- see EmitQuad/EmitPolygon
         };
 #pragma pack(pop)
 
@@ -86,6 +101,8 @@ namespace k2d
             size_t indexCount;
             size_t vertexAlignment;
             unsigned int textureId;
+            unsigned int normalTextureId;
+            unsigned int program; // 0 = built-in mProgram
             BlendMode blendMode;
         };
 
@@ -97,13 +114,15 @@ namespace k2d
         void SetupShadowAtlas();
         void ShutdownShadowAtlas();
         void RenderShadowAtlas();
-        void EmitQuad(BlendMode blendMode, unsigned int textureId, const Matrix2D &matrix,
+        void EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
+                      unsigned int customProgram, const Matrix2D &matrix,
                       float width, float height, int texWidth, int texHeight,
                       float pivotX, float pivotY,
                       float srcX, float srcY, float srcW, float srcH,
-                      bool flipX, bool flipY, unsigned int color);
-        void EmitPolygon(BlendMode blendMode, unsigned int textureId, const Matrix2D &matrix,
-                         const ct::Vector<glm::vec2> &points, unsigned int color);
+                      bool flipX, bool flipY, unsigned int color, unsigned int lightMask);
+        void EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
+                         unsigned int customProgram, const Matrix2D &matrix,
+                         const ct::Vector<glm::vec2> &points, unsigned int color, unsigned int lightMask);
         void FlattenOccluderEdges();
 
 
@@ -137,6 +156,10 @@ namespace k2d
         int mHasLightTextureLoc;
         glm::vec4 mCanvasModulate;
         int mCanvasModulateLoc;
+        int mNormalMapLoc;
+        int mHasNormalMapLoc;
+        int mLightHeightLoc;
+        int mDirectionalHeightLoc;
         unsigned int mShadowAtlas;
         unsigned int mShadowDepth;
         unsigned int mShadowFramebuffer;
@@ -148,9 +171,11 @@ namespace k2d
         int mLightPosLoc;
         int mLightColorLoc;
         int mLightRadiusLoc;
+        int mLightCullMaskLoc;
         int mDirectionalLightCountLoc;
         int mDirectionalLightDirectionLoc;
         int mDirectionalLightColorLoc;
+        int mDirectionalCullMaskLoc;
         int mDirectionalLightShadowFlagsLoc;
         int mDirectionalLightShadowColorLoc;
         int mDirectionalShadowFilterLoc;

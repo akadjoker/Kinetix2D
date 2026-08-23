@@ -61,6 +61,11 @@ namespace k2d
         mMaterial.clearSourceRect();
     }
 
+    void SpriteComponent::setTiling(float tileX, float tileY)
+    {
+        mMaterial.setTiling(tileX, tileY);
+    }
+
     void SpriteComponent::setFlip(bool flipX, bool flipY)
     {
         mMaterial.setFlip(flipX, flipY);
@@ -84,6 +89,17 @@ namespace k2d
             rect.srcW = mMaterial.sourceRect().z;
             rect.srcH = mMaterial.sourceRect().w;
         }
+        else if (mMaterial.tiling().x != 1.0f || mMaterial.tiling().y != 1.0f)
+        {
+            // src{W,H} > tex{Width,Height} makes u/v run past 1.0 (EmitQuad,
+            // CanvasRenderer.cpp); GL_REPEAT wrap then tiles instead of
+            // clamping -- the texture must have been loaded/created with
+            // repeat=true or the edges smear instead.
+            rect.srcX = 0.0f;
+            rect.srcY = 0.0f;
+            rect.srcW = mMaterial.texture()->Width() * mMaterial.tiling().x;
+            rect.srcH = mMaterial.texture()->Height() * mMaterial.tiling().y;
+        }
         rect.texWidth = mMaterial.texture()->Width();
         rect.texHeight = mMaterial.texture()->Height();
         rect.pivotX = mMaterial.pivot().x;
@@ -95,6 +111,9 @@ namespace k2d
                                               (unsigned char)(color.a * 255.0f));
         rect.flags = (unsigned char)((mMaterial.flipX() ? 1 : 0) |
                                      (mMaterial.flipY() ? 2 : 0));
+        rect.lightMask = mMaterial.lightMask();
+        rect.normalTextureId = mMaterial.normalMap() ? mMaterial.normalMap()->Id() : 0;
+        rect.customProgram = mMaterial.customShader();
         item.blendMode = mMaterial.blendMode();
         item.commands.push_back(rect);
     }

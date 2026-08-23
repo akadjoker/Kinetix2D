@@ -27,6 +27,30 @@ target_link_libraries(lighting_nodes_demo PRIVATE k2d)
 add_executable(light_falloff_diag light_falloff_diag.cpp)
 target_link_libraries(light_falloff_diag PRIVATE k2d)
 
+add_executable(tiling_diag tiling_diag.cpp)
+target_link_libraries(tiling_diag PRIVATE k2d)
+
+add_executable(line_ninepatch_diag line_ninepatch_diag.cpp)
+target_link_libraries(line_ninepatch_diag PRIVATE k2d)
+
+add_executable(screenfade_diag screenfade_diag.cpp)
+target_link_libraries(screenfade_diag PRIVATE k2d)
+
+add_executable(scenedebug_diag scenedebug_diag.cpp)
+target_link_libraries(scenedebug_diag PRIVATE k2d)
+
+add_executable(cullmask_diag cullmask_diag.cpp)
+target_link_libraries(cullmask_diag PRIVATE k2d)
+
+add_executable(normalmap_diag normalmap_diag.cpp)
+target_link_libraries(normalmap_diag PRIVATE k2d)
+
+add_executable(canvaslayer_diag canvaslayer_diag.cpp)
+target_link_libraries(canvaslayer_diag PRIVATE k2d)
+
+add_executable(customshader_diag customshader_diag.cpp)
+target_link_libraries(customshader_diag PRIVATE k2d)
+
 add_executable(particle_fx_demo particle_fx_demo.cpp)
 target_link_libraries(particle_fx_demo PRIVATE k2d imgui)
 

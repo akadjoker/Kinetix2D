@@ -23,6 +23,14 @@ namespace k2d
         void setCastShadow(bool castShadow);
         void setShadowColor(float r, float g, float b, float a = 1.0f);
         void setShadowFilter(ShadowFilter filter);
+        // Godot's range_item_cull_mask: only illuminates items whose light
+        // mask shares a bit with this. Default 1 (bit 0).
+        void setCullMask(unsigned int mask);
+        unsigned int cullMask() const { return mCullMask; }
+        // Z offset above the 2D plane, for normal-mapped sprites only. See
+        // PointLight::height (CanvasTypes.h).
+        void setHeight(float height) { mHeight = height; }
+        float height() const { return mHeight; }
 
     protected:
         void onRender(RenderQueue &queue) override;
@@ -34,6 +42,8 @@ namespace k2d
         bool mCastShadow;
         glm::vec4 mShadowColor;
         ShadowFilter mShadowFilter;
+        unsigned int mCullMask;
+        float mHeight;
     };
 
 }

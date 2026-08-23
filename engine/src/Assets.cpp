@@ -80,14 +80,14 @@ namespace k2d
         return texture;
     }
 
-    Texture *Assets::LoadTexture(const char *name, const char *path)
+    Texture *Assets::LoadTexture(const char *name, const char *path, bool nearest, bool repeat)
     {
         ct::String resolved;
         if (!FileSystem::Instance().Resolve(path, resolved))
             resolved = path;
 
         Texture *texture = new Texture();
-        if (!texture->Load(resolved.c_str()))
+        if (!texture->Load(resolved.c_str(), nearest, repeat))
         {
             delete texture;
             return nullptr;

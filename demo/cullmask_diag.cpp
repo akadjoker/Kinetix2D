@@ -1,0 +1,104 @@
+// Diagnostic: light A (mask=1) only illuminates sprite A (mask=1); light B
+// (mask=2) only illuminates sprite B (mask=2). Sprite C (mask=1|2) is lit by
+// both. Confirms Light2D::setCullMask / SpriteComponent::setLightMask.
+#include <k2d/k2d.h>
+
+#include <glad/glad.h>
+
+int main()
+{
+    k2d::Device device;
+    if (!device.Init("K2D CullMask Diag", 900, 500, true))
+        return 1;
+    device.Focus();
+
+    k2d::CanvasRenderer canvas;
+    if (!canvas.Init())
+        return 1;
+
+    k2d::Assets assets;
+    unsigned char whitePx[4] = {255, 255, 255, 255};
+    k2d::Texture *white = assets.CreateTexture("white", 1, 1, whitePx);
+
+    k2d::Scene scene;
+
+    k2d::GameObject *backdropObject = scene.createObject("backdrop");
+    backdropObject->setPosition(glm::vec2(450.0f, 250.0f));
+    k2d::SpriteComponent *backdrop = backdropObject->addComponent<k2d::SpriteComponent>(white);
+    backdrop->setSize(glm::vec2(900.0f, 500.0f));
+    backdrop->setColor(30, 28, 34);
+    backdrop->setLightMask(3u); // layers 1|2 -- lit by either light, like the floor in lighting_nodes_demo
+
+    // Sprite A: layer 1 only.
+    k2d::GameObject *aObj = scene.createObject("spriteA");
+    aObj->setPosition(glm::vec2(250.0f, 250.0f));
+    k2d::SpriteComponent *spriteA = aObj->addComponent<k2d::SpriteComponent>(white);
+    spriteA->setSize(glm::vec2(80.0f, 80.0f));
+    spriteA->setColor(50, 45, 45);
+    spriteA->setLightMask(1u);
+
+    // Sprite B: layer 2 only.
+    k2d::GameObject *bObj = scene.createObject("spriteB");
+    bObj->setPosition(glm::vec2(450.0f, 250.0f));
+    k2d::SpriteComponent *spriteB = bObj->addComponent<k2d::SpriteComponent>(white);
+    spriteB->setSize(glm::vec2(80.0f, 80.0f));
+    spriteB->setColor(45, 45, 50);
+    spriteB->setLightMask(2u);
+
+    // Sprite C: both layers.
+    k2d::GameObject *cObj = scene.createObject("spriteC");
+    cObj->setPosition(glm::vec2(650.0f, 250.0f));
+    k2d::SpriteComponent *spriteC = cObj->addComponent<k2d::SpriteComponent>(white);
+    spriteC->setSize(glm::vec2(80.0f, 80.0f));
+    spriteC->setColor(45, 45, 45);
+    spriteC->setLightMask(3u);
+
+    // Light A: layer 1 only, red, centered on spriteA.
+    k2d::GameObject *lightAObj = scene.createObject("lightA");
+    lightAObj->setPosition(glm::vec2(250.0f, 250.0f));
+    k2d::Light2D *lightA = lightAObj->addComponent<k2d::Light2D>();
+    lightA->setColor(1.0f, 0.2f, 0.2f);
+    lightA->setEnergy(1.2f);
+    lightA->setRadius(500.0f); // deliberately huge -- reaches B and C too, ONLY the mask should stop it
+    lightA->setCastShadow(false);
+    lightA->setCullMask(1u);
+
+    // Light B: layer 2 only, blue-green, centered on spriteB.
+    k2d::GameObject *lightBObj = scene.createObject("lightB");
+    lightBObj->setPosition(glm::vec2(450.0f, 250.0f));
+    k2d::Light2D *lightB = lightBObj->addComponent<k2d::Light2D>();
+    lightB->setColor(0.2f, 0.6f, 1.0f);
+    lightB->setEnergy(1.2f);
+    lightB->setRadius(500.0f);
+    lightB->setCastShadow(false);
+    lightB->setCullMask(2u);
+
+    bool running = true;
+    int frame = 0;
+    while (running)
+    {
+        running = device.PollEvents();
+        if (device.GetInput().KeyDown(41))
+            running = false;
+
+        scene.update(device.DeltaTime());
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.SetOrtho((float)device.Width(), (float)device.Height());
+        scene.render(canvas);
+
+        ++frame;
+        if (frame == 5)
+        {
+            device.CaptureScreenshot();
+            running = false;
+        }
+        device.Swap();
+    }
+
+    assets.Clear();
+    canvas.Shutdown();
+    device.Shutdown();
+    return 0;
+}
