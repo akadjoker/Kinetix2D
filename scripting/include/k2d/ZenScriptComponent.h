@@ -7,6 +7,8 @@
 namespace k2d
 {
 
+    class Input;
+
     class ZenScriptComponent : public ScriptComponent
     {
     public:
@@ -18,13 +20,17 @@ namespace k2d
         bool loaded() const;
         const ct::String &scriptPath() const { return mScriptPath; }
 
+        struct State;
+
     protected:
         void onUpdate(float deltaTime) override;
 
     private:
-        struct State;
         State *mState;
         ct::String mScriptPath;
     };
+
+    void SetZenScriptInput(Input *input);
+    void RegisterZenScriptSerializer();
 
 }

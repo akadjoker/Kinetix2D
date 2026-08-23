@@ -773,6 +773,12 @@ namespace k2d
             return kEntries;
         }
 
+        ct::Vector<TypeEntry> &RuntimeEntries()
+        {
+            static ct::Vector<TypeEntry> entries;
+            return entries;
+        }
+
         bool AnyEntryForType(ComponentType type)
         {
             std::size_t count = 0;
@@ -780,14 +786,16 @@ namespace k2d
             for (std::size_t i = 0; i < count; ++i)
                 if (entries[i].type == type)
                     return true;
+            const ct::Vector<TypeEntry> &runtime = RuntimeEntries();
+            for (std::size_t i = 0; i < runtime.size(); ++i)
+                if (runtime[i].type == type)
+                    return true;
             return false;
         }
 
-        const TypeEntry *FindEntryForComponent(const Component &component)
+        const TypeEntry *MatchEntryIn(const TypeEntry *entries, std::size_t count,
+                                      const Component &component, const TypeEntry *&fallback)
         {
-            std::size_t count = 0;
-            const TypeEntry *entries = AllEntries(count);
-            const TypeEntry *fallback = nullptr;
             for (std::size_t i = 0; i < count; ++i)
             {
                 if (entries[i].type != component.type())
@@ -802,6 +810,19 @@ namespace k2d
                     fallback = &entries[i];
                 }
             }
+            return nullptr;
+        }
+
+        const TypeEntry *FindEntryForComponent(const Component &component)
+        {
+            std::size_t count = 0;
+            const TypeEntry *entries = AllEntries(count);
+            const TypeEntry *fallback = nullptr;
+            if (const TypeEntry *match = MatchEntryIn(entries, count, component, fallback))
+                return match;
+            const ct::Vector<TypeEntry> &runtime = RuntimeEntries();
+            if (const TypeEntry *match = MatchEntryIn(runtime.data(), runtime.size(), component, fallback))
+                return match;
             return fallback;
         }
 
@@ -814,6 +835,10 @@ namespace k2d
             for (std::size_t i = 0; i < count; ++i)
                 if (std::strcmp(entries[i].name, name) == 0)
                     return &entries[i];
+            const ct::Vector<TypeEntry> &runtime = RuntimeEntries();
+            for (std::size_t i = 0; i < runtime.size(); ++i)
+                if (std::strcmp(runtime[i].name, name) == 0)
+                    return &runtime[i];
             return nullptr;
         }
 
@@ -845,6 +870,22 @@ namespace k2d
     bool Serializer::IsRegistered(ComponentType type)
     {
         return AnyEntryForType(type);
+    }
+
+    bool Serializer::RegisterType(ComponentType type, const char *name, CreateFn create,
+                                  WriteFn write, ReadFn read, MatchFn matches)
+    {
+        if (!name || !create || !write || !read || FindByName(name))
+            return false;
+        TypeEntry entry;
+        entry.type = type;
+        entry.name = name;
+        entry.create = create;
+        entry.write = write;
+        entry.read = read;
+        entry.matches = matches;
+        RuntimeEntries().push_back(entry);
+        return true;
     }
 
     ct::Json Serializer::WriteObject(const GameObject &object, Assets *assets)
