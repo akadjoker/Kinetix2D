@@ -53,6 +53,7 @@ namespace k2d
 
         GameObject *owner() const;
         ComponentType type() const;
+        uint32_t id() const;
         bool active() const;
         void setActive(bool active);
 
@@ -76,7 +77,9 @@ namespace k2d
         void detached();
 
         GameObject *mOwner;
+        Component *mNextSibling;
         ComponentType mType;
+        uint32_t mLocalId;
         uint8_t mEvents;
         bool mActive;
         bool mStarted;

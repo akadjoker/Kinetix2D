@@ -860,13 +860,15 @@ namespace k2d
         ct::Json components = ct::Json::array();
         for (uint8_t t = 0; t < (uint8_t)ComponentType::Count; ++t)
         {
-            const Component *component = object.rawComponent((ComponentType)t);
-            if (!component)
-                continue;
-            ct::Json entryJson = WriteComponent(*component, assets);
-            if (!entryJson.contains("type"))
-                continue;
-            components.push_back(entryJson);
+            const std::size_t count = object.rawComponentCount((ComponentType)t);
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                const Component *component = object.rawComponent((ComponentType)t, i);
+                ct::Json entryJson = WriteComponent(*component, assets);
+                if (!entryJson.contains("type"))
+                    continue;
+                components.push_back(entryJson);
+            }
         }
         j.set("components", components);
 

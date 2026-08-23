@@ -45,4 +45,12 @@ namespace k2d
         float mHeight;
     };
 
+    template <> struct ComponentMatch<DirectionalLight2D>
+    {
+        static bool test(const Component *component)
+        {
+            return dynamic_cast<const DirectionalLight2D *>(component) != nullptr;
+        }
+    };
+
 }

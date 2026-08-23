@@ -9,8 +9,8 @@ namespace k2d
 
     GameObject::GameObject(const char *name)
         : mName(name), mId(0), mFlags(GameObjectActive | GameObjectVisible), mScene(nullptr),
-          mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mPosition(0.0f),
-          mRotationDegrees(0.0f), mScale(1.0f, 1.0f), mZIndex(0),
+          mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mNextComponentId(0),
+          mPosition(0.0f), mRotationDegrees(0.0f), mScale(1.0f, 1.0f), mZIndex(0),
           mLocalDirty(true), mGlobalDirty(true)
     {
     }
@@ -58,10 +58,27 @@ namespace k2d
         return mTag;
     }
 
-    Component *GameObject::rawComponent(ComponentType type) const
+    Component *GameObject::rawComponent(ComponentType type, std::size_t index) const
     {
-        const uint8_t index = static_cast<uint8_t>(type);
-        return index < static_cast<uint8_t>(ComponentType::Count) ? mComponents[index] : nullptr;
+        const uint8_t typeIndex = static_cast<uint8_t>(type);
+        if (typeIndex >= static_cast<uint8_t>(ComponentType::Count))
+            return nullptr;
+        std::size_t seen = 0;
+        for (Component *c = mComponents[typeIndex]; c; c = c->mNextSibling, ++seen)
+            if (seen == index)
+                return c;
+        return nullptr;
+    }
+
+    std::size_t GameObject::rawComponentCount(ComponentType type) const
+    {
+        const uint8_t typeIndex = static_cast<uint8_t>(type);
+        if (typeIndex >= static_cast<uint8_t>(ComponentType::Count))
+            return 0;
+        std::size_t count = 0;
+        for (Component *c = mComponents[typeIndex]; c; c = c->mNextSibling)
+            ++count;
+        return count;
     }
 
     void GameObject::setTag(const ct::String &tag)
@@ -243,32 +260,69 @@ namespace k2d
         if (!component || component->mOwner)
             return false;
         const uint8_t index = static_cast<uint8_t>(component->type());
-        if (index >= static_cast<uint8_t>(ComponentType::Count) || mComponents[index])
+        if (index >= static_cast<uint8_t>(ComponentType::Count))
             return false;
         component->mOwner = this;
-        mComponents[index] = component;
+        component->mLocalId = mNextComponentId++;
+        component->mNextSibling = nullptr;
+        if (!mComponents[index])
+            mComponents[index] = component;
+        else
+        {
+            Component *tail = mComponents[index];
+            while (tail->mNextSibling)
+                tail = tail->mNextSibling;
+            tail->mNextSibling = component;
+        }
         if (mScene && (component->mEvents & ComponentEventLateUpdate) != 0)
             ++mScene->mLateUpdateCount;
         component->attached();
         return true;
     }
 
-    bool GameObject::removeComponent(ComponentType type)
+    bool GameObject::removeComponent(Component *component)
     {
-        const uint8_t index = static_cast<uint8_t>(type);
-        if (index >= static_cast<uint8_t>(ComponentType::Count) || !mComponents[index])
+        if (!component || component->mOwner != this)
             return false;
-        Component *component = mComponents[index];
         if (mScene && (component->mEvents & ComponentEventLateUpdate) != 0)
             --mScene->mLateUpdateCount;
         component->detached();
         component->mOwner = nullptr;
-        mComponents[index] = nullptr;
+        // Splicing out of the chain is safe to do immediately: it only ever
+        // rewrites the predecessor's mNextSibling (or the type's head), never
+        // the removed component's own mNextSibling, so a still-running
+        // updateComponents/lateUpdateComponents/renderComponents pass sitting
+        // on a Component* it read before this call can still read that same
+        // pointer's mNextSibling afterwards and continue correctly -- the
+        // memory just isn't freed yet. Only the delete waits for
+        // flushPendingComponentDeletes, so a component removing itself from
+        // inside its own callback doesn't free the object that callback is
+        // still running on.
+        unlinkComponent(component);
         if (mComponentCallbackDepth > 0)
             mPendingComponentDeletes.push_back(component);
         else
             delete component;
         return true;
+    }
+
+    void GameObject::unlinkComponent(Component *component)
+    {
+        const uint8_t index = static_cast<uint8_t>(component->type());
+        Component *&head = mComponents[index];
+        if (head == component)
+        {
+            head = component->mNextSibling;
+            return;
+        }
+        for (Component *c = head; c; c = c->mNextSibling)
+        {
+            if (c->mNextSibling == component)
+            {
+                c->mNextSibling = component->mNextSibling;
+                return;
+            }
+        }
     }
 
     void GameObject::flushPendingComponentDeletes()
@@ -281,24 +335,27 @@ namespace k2d
     void GameObject::deleteComponents()
     {
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
-            if (mComponents[i])
-                removeComponent(static_cast<ComponentType>(i));
+            while (mComponents[i])
+                removeComponent(mComponents[i]);
     }
 
     void GameObject::updateComponents(float deltaTime)
     {
         ++mComponentCallbackDepth;
-        for (Component *component : mComponents)
+        for (Component *head : mComponents)
         {
-            if (!component || !component->active())
-                continue;
-            if (!component->mStarted)
+            for (Component *component = head; component; component = component->mNextSibling)
             {
-                component->mStarted = true;
-                component->onStart();
+                if (!component->active())
+                    continue;
+                if (!component->mStarted)
+                {
+                    component->mStarted = true;
+                    component->onStart();
+                }
+                if ((component->mEvents & ComponentEventUpdate) != 0)
+                    component->onUpdate(deltaTime);
             }
-            if ((component->mEvents & ComponentEventUpdate) != 0)
-                component->onUpdate(deltaTime);
         }
         if (--mComponentCallbackDepth == 0)
             flushPendingComponentDeletes();
@@ -307,10 +364,10 @@ namespace k2d
     void GameObject::lateUpdateComponents(float deltaTime)
     {
         ++mComponentCallbackDepth;
-        for (Component *component : mComponents)
-            if (component && component->active() &&
-                (component->mEvents & ComponentEventLateUpdate) != 0)
-                component->onLateUpdate(deltaTime);
+        for (Component *head : mComponents)
+            for (Component *component = head; component; component = component->mNextSibling)
+                if (component->active() && (component->mEvents & ComponentEventLateUpdate) != 0)
+                    component->onLateUpdate(deltaTime);
         if (--mComponentCallbackDepth == 0)
             flushPendingComponentDeletes();
     }
@@ -318,10 +375,10 @@ namespace k2d
     void GameObject::renderComponents(RenderQueue &queue)
     {
         ++mComponentCallbackDepth;
-        for (Component *component : mComponents)
-            if (component && component->active() &&
-                (component->mEvents & ComponentEventRender) != 0)
-                component->onRender(queue);
+        for (Component *head : mComponents)
+            for (Component *component = head; component; component = component->mNextSibling)
+                if (component->active() && (component->mEvents & ComponentEventRender) != 0)
+                    component->onRender(queue);
         if (--mComponentCallbackDepth == 0)
             flushPendingComponentDeletes();
     }

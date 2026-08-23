@@ -63,8 +63,6 @@ namespace k2d
 
         template <class T, class... Args> T *addComponent(Args &&...args)
         {
-            if (getComponent<T>())
-                return nullptr;
             T *component = new T(ct::detail::forward<Args>(args)...);
             if (!attachComponent(component))
             {
@@ -76,28 +74,62 @@ namespace k2d
 
         template <class T> T *getComponent() const
         {
-            return static_cast<T *>(mComponents[static_cast<uint8_t>(T::Type)]);
+            for (Component *c = mComponents[static_cast<uint8_t>(T::Type)]; c; c = c->mNextSibling)
+                if (ComponentMatch<T>::test(c))
+                    return static_cast<T *>(c);
+            return nullptr;
+        }
+
+        template <class T> T *getComponent(uint32_t id) const
+        {
+            for (Component *c = mComponents[static_cast<uint8_t>(T::Type)]; c; c = c->mNextSibling)
+                if (c->id() == id && ComponentMatch<T>::test(c))
+                    return static_cast<T *>(c);
+            return nullptr;
+        }
+
+        template <class T> T *getComponentAt(std::size_t index) const
+        {
+            std::size_t seen = 0;
+            for (Component *c = mComponents[static_cast<uint8_t>(T::Type)]; c; c = c->mNextSibling)
+            {
+                if (!ComponentMatch<T>::test(c))
+                    continue;
+                if (seen == index)
+                    return static_cast<T *>(c);
+                ++seen;
+            }
+            return nullptr;
+        }
+
+        template <class T> std::size_t componentCount() const
+        {
+            std::size_t count = 0;
+            for (Component *c = mComponents[static_cast<uint8_t>(T::Type)]; c; c = c->mNextSibling)
+                if (ComponentMatch<T>::test(c))
+                    ++count;
+            return count;
         }
 
         template <class T> bool contains() const
         {
-            const Component *component = mComponents[static_cast<uint8_t>(T::Type)];
-            return component != nullptr && ComponentMatch<T>::test(component);
+            return getComponent<T>() != nullptr;
         }
 
         template <class T> T *findComponent() const
         {
-            Component *component = mComponents[static_cast<uint8_t>(T::Type)];
-            return (component && ComponentMatch<T>::test(component)) ? static_cast<T *>(component)
-                                                                       : nullptr;
+            return getComponent<T>();
         }
 
         template <class T> bool removeComponent()
         {
-            return removeComponent(T::Type);
+            return removeComponent(getComponent<T>());
         }
 
-        Component *rawComponent(ComponentType type) const;
+        bool removeComponent(Component *component);
+
+        Component *rawComponent(ComponentType type, std::size_t index = 0) const;
+        std::size_t rawComponentCount(ComponentType type) const;
 
         int zIndex() const;
         void setZIndex(int zIndex);
@@ -126,7 +158,7 @@ namespace k2d
         void deleteChildrenRaw();
 
         bool attachComponent(Component *component);
-        bool removeComponent(ComponentType type);
+        void unlinkComponent(Component *component);
         void deleteComponents();
         void updateComponents(float deltaTime);
         void lateUpdateComponents(float deltaTime);
@@ -148,6 +180,7 @@ namespace k2d
         Component *mComponents[static_cast<uint8_t>(ComponentType::Count)];
         ct::Vector<Component *> mPendingComponentDeletes;
         uint32_t mComponentCallbackDepth;
+        uint32_t mNextComponentId;
 
         Math::Vec2 mPosition;
         float mRotationDegrees;

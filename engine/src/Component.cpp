@@ -4,7 +4,8 @@ namespace k2d
 {
 
     Component::Component(ComponentType type, uint8_t events)
-        : mOwner(nullptr), mType(type), mEvents(events), mActive(true), mStarted(false)
+        : mOwner(nullptr), mNextSibling(nullptr), mType(type), mLocalId(0), mEvents(events),
+          mActive(true), mStarted(false)
     {
     }
 
@@ -16,6 +17,11 @@ namespace k2d
     ComponentType Component::type() const
     {
         return mType;
+    }
+
+    uint32_t Component::id() const
+    {
+        return mLocalId;
     }
 
     bool Component::active() const

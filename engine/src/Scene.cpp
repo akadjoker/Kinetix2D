@@ -118,11 +118,9 @@ namespace k2d
         ++mObjectCount;
         mObjects.push_back(object);
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
-        {
-            Component *component = object->mComponents[i];
-            if (component && (component->mEvents & ComponentEventLateUpdate) != 0)
-                ++mLateUpdateCount;
-        }
+            for (Component *component = object->mComponents[i]; component; component = component->mNextSibling)
+                if ((component->mEvents & ComponentEventLateUpdate) != 0)
+                    ++mLateUpdateCount;
         for (std::size_t i = 0; i < object->childCount(); ++i)
             registerBranch(object->child(i));
     }
@@ -132,11 +130,9 @@ namespace k2d
         for (std::size_t i = 0; i < object->childCount(); ++i)
             unregisterBranch(object->child(i));
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
-        {
-            Component *component = object->mComponents[i];
-            if (component && (component->mEvents & ComponentEventLateUpdate) != 0)
-                --mLateUpdateCount;
-        }
+            for (Component *component = object->mComponents[i]; component; component = component->mNextSibling)
+                if ((component->mEvents & ComponentEventLateUpdate) != 0)
+                    --mLateUpdateCount;
         object->mScene = nullptr;
         --mObjectCount;
         for (std::size_t i = 0; i < mObjects.size(); ++i)

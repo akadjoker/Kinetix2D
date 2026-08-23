@@ -87,3 +87,6 @@ target_link_libraries(k2d_serializer_tests PRIVATE k2d)
 
 add_executable(physics_reference_test physics_reference_test.cpp)
 target_link_libraries(physics_reference_test PRIVATE kx)
+
+add_executable(k2d_multicomponent_tests k2d_multicomponent_tests.cpp)
+target_link_libraries(k2d_multicomponent_tests PRIVATE k2d)
