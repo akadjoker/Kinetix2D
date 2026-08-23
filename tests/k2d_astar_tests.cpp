@@ -1,5 +1,6 @@
 #include <k2d/AStar2D.h>
 #include <k2d/AStarGrid2D.h>
+#include <k2d/TileMapComponent.h>
 
 #include <cstdio>
 #include <cmath>
@@ -90,6 +91,66 @@ namespace
         // With one flanking cell solid, OnlyIfNoObstacles must refuse the
         // direct diagonal cut -- path has to detour via (0,1), so > 2 points.
         return ok && path.size() > 2;
+    }
+
+    // --- TileMapComponent -> AStarGrid2D ----------------------------------
+
+    bool TestTileMapBlankCellsAreWalkable()
+    {
+        k2d::TileMapComponent map;
+        map.setCellSize(16.0f, 16.0f);
+        map.setMapSize(5, 5);
+        // No tiles painted at all -- an all-blank map must be fully open.
+        k2d::AStarGrid2D grid;
+        map.buildPathfindingGrid(grid);
+        ct::Vector<glm::ivec2> path;
+        bool ok = grid.GetIdPath({0, 0}, {4, 4}, path);
+        return ok && !grid.IsSolid(2, 2);
+    }
+
+    bool TestTileMapWallTileForcesDetour()
+    {
+        k2d::TileMapComponent map;
+        map.setCellSize(16.0f, 16.0f);
+        map.setMapSize(5, 5);
+        map.setAtlasTilesX(4);
+        // Atlas tile id 2 is our "wall" tile. Paint a wall column at x=2,
+        // rows 0..3, leaving only row 4 open (mirrors TestGridWallDetour).
+        for (int y = 0; y <= 3; ++y)
+            map.setTile(2, y, 2);
+        // A different, non-wall tile elsewhere must stay walkable.
+        map.setTile(0, 0, 5);
+
+        k2d::AStarGrid2D grid;
+        const int solidIds[] = {2};
+        map.buildPathfindingGrid(grid, solidIds, 1);
+        // buildPathfindingGrid only sets size/cell size/solids -- diagonal
+        // mode is the caller's call, same as any other AStarGrid2D.
+        grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
+
+        if (grid.IsSolid(0, 0) || !grid.IsSolid(2, 0) || !grid.IsSolid(2, 3) || grid.IsSolid(2, 4))
+            return false;
+
+        ct::Vector<glm::ivec2> path;
+        bool ok = grid.GetIdPath({0, 2}, {4, 2}, path);
+        if (!ok)
+            return false;
+        for (size_t i = 0; i < path.size(); ++i)
+            if (grid.IsSolid(path[i].x, path[i].y))
+                return false;
+        return path.size() > 5; // must detour, same as the wall-column test above
+    }
+
+    bool TestTileMapGridPositionsMatchCellSize()
+    {
+        k2d::TileMapComponent map;
+        map.setCellSize(20.0f, 10.0f);
+        map.setMapSize(3, 3);
+        k2d::AStarGrid2D grid;
+        map.buildPathfindingGrid(grid);
+        // Cell (1,1) center in the tilemap's local space: ((1+0.5)*20, (1+0.5)*10).
+        glm::vec2 p = grid.GetPointPosition(1, 1);
+        return Near(p.x, 30.0f) && Near(p.y, 15.0f);
     }
 
     // --- AStar2D ---------------------------------------------------------
@@ -186,6 +247,10 @@ int main()
     bool unreachablePartial = TestGridUnreachablePartial();
     bool onlyIfNoObstacles = TestGridOnlyIfNoObstacles();
 
+    bool tileMapBlankWalkable = TestTileMapBlankCellsAreWalkable();
+    bool tileMapWallDetour = TestTileMapWallTileForcesDetour();
+    bool tileMapPositions = TestTileMapGridPositionsMatchCellSize();
+
     bool directDiagonal = TestPointGraphDirectDiagonal();
     bool detourNoShortcut = TestPointGraphDetourWithoutShortcut();
     bool disabledDetour = TestPointGraphDisabledPointForcesDetour();
@@ -197,6 +262,10 @@ int main()
                 diagAlways ? "pass" : "fail", diagNever ? "pass" : "fail",
                 wallDetour ? "pass" : "fail", unreachablePartial ? "pass" : "fail",
                 onlyIfNoObstacles ? "pass" : "fail");
+    std::printf("TileMapComponent->AStarGrid2D: blank_walkable=%s wall_tile_detour=%s "
+                "grid_positions=%s\n",
+                tileMapBlankWalkable ? "pass" : "fail", tileMapWallDetour ? "pass" : "fail",
+                tileMapPositions ? "pass" : "fail");
     std::printf("AStar2D: direct_diagonal=%s detour_no_shortcut=%s disabled_detour=%s "
                 "closest_point=%s partial_isolated=%s\n",
                 directDiagonal ? "pass" : "fail", detourNoShortcut ? "pass" : "fail",
@@ -204,7 +273,8 @@ int main()
                 partialIsolated ? "pass" : "fail");
 
     bool allPass = diagAlways && diagNever && wallDetour && unreachablePartial &&
-                   onlyIfNoObstacles && directDiagonal && detourNoShortcut &&
+                   onlyIfNoObstacles && tileMapBlankWalkable && tileMapWallDetour &&
+                   tileMapPositions && directDiagonal && detourNoShortcut &&
                    disabledDetour && closestPoint && partialIsolated;
     return allPass ? 0 : 1;
 }

@@ -5,6 +5,7 @@
 #include "k2d/Texture.h"
 #include "k2d/Assets.h"
 #include "k2d/FileSystem.h"
+#include "k2d/AStarGrid2D.h"
 
 #include <ct/string.hpp>
 
@@ -186,6 +187,32 @@ namespace k2d
     void TileMapComponent::clearCullRect()
     {
         mCullEnabled = false;
+    }
+
+    void TileMapComponent::buildPathfindingGrid(AStarGrid2D &grid, const int *solidTileIds,
+                                                 int solidTileIdCount) const
+    {
+        grid.SetSize(mColumns, mRows);
+        grid.SetCellSize(mCellW, mCellH);
+
+        if (!solidTileIds || solidTileIdCount <= 0)
+            return;
+
+        for (int y = 0; y < mRows; ++y)
+        {
+            for (int x = 0; x < mColumns; ++x)
+            {
+                int cell = mCells[y * mColumns + x];
+                for (int i = 0; i < solidTileIdCount; ++i)
+                {
+                    if (solidTileIds[i] == cell)
+                    {
+                        grid.SetSolid(x, y, true);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     void TileMapComponent::onRender(RenderQueue &queue)
