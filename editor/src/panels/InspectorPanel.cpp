@@ -729,7 +729,7 @@ void applyParticlePreset(ParticleComponent &particleComponent, ParticlePreset pr
     switch (preset)
     {
     case ParticlePreset::Fire:
-        system.SetMode(ParticleMode::Persistent);
+        system.SetMode(ParticleMode::Loop);
         system.SetEmissionRate(30.0f);
         system.SetGravity(Math::Vec2(0.0f, -20.0f));
         particleComponent.setBlendMode(BLEND_ADD);
@@ -753,7 +753,7 @@ void applyParticlePreset(ParticleComponent &particleComponent, ParticlePreset pr
         prefab.colorEnd = Color(0.6f, 0.1f, 0.05f, 0.0f);
         break;
     case ParticlePreset::Smoke:
-        system.SetMode(ParticleMode::Persistent);
+        system.SetMode(ParticleMode::Loop);
         system.SetEmissionRate(10.0f);
         system.SetGravity(Math::Vec2(0.0f, -8.0f));
         particleComponent.setBlendMode(BLEND_MIX);
@@ -804,6 +804,7 @@ void applyParticlePreset(ParticleComponent &particleComponent, ParticlePreset pr
     }
 
     system.SetPrefab(prefab);
+    system.Reset();
 }
 
 void drawParticleProperties(EditorApplication &app, ParticleComponent &particleComponent)

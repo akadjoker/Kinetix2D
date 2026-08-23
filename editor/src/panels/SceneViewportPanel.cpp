@@ -7,6 +7,7 @@
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/ParticleComponent.h>
 #include <k2d/Prefab.h>
 #include <k2d/Scene.h>
 #include <IconsMaterialDesignIcons.h>
@@ -131,10 +132,29 @@ void SceneViewportPanel::renderScene(int width, int height)
     camera.zoom = Math::Vec2(mZoom, mZoom);
     camera.offset = Math::Vec2(-mPan.x / mZoom, -mPan.y / mZoom);
     mCanvas.SetProjection(camera.Projection(static_cast<float>(width), static_cast<float>(height)));
+    tickParticlePreview(app().scene().root(), ImGui::GetIO().DeltaTime);
     app().scene().render(mCanvas);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+}
+
+void SceneViewportPanel::tickParticlePreview(GameObject &object, float deltaTime)
+{
+    if (!object.isActiveInHierarchy())
+        return;
+    const size_t count = object.componentCount<ParticleComponent>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i);
+        if (!particle || !particle->active())
+            continue;
+        if (particle->followOwner())
+            particle->system().SetEmitterPosition(object.globalPosition());
+        particle->system().Update(deltaTime);
+    }
+    for (size_t i = 0; i < object.childCount(); ++i)
+        tickParticlePreview(*object.child(i), deltaTime);
 }
 
 ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2 &origin) const

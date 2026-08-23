@@ -36,6 +36,7 @@ private:
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
     void renderScene(int width, int height);
+    void tickParticlePreview(GameObject &object, float deltaTime);
 
     ImVec2 mPan = ImVec2(0.0f, 0.0f);
     float mZoom = 1.0f;
