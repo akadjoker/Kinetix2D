@@ -29,6 +29,9 @@ namespace k2d
 
         unsigned char *LoadFileData(const char *rel, size_t *outSize, bool nullTerminate = false) const;
 
+        bool SaveFile(const char *path, const void *data, size_t size) const;
+        bool SaveTextFile(const char *path, const ct::String &text) const;
+
         const ct::Vector<ct::String> &SearchPaths() const { return mSearchPaths; }
         const char *BasePath() const { return mBasePath.c_str(); }
 

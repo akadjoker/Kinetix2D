@@ -176,4 +176,23 @@ namespace k2d
         return data;
     }
 
+    bool FileSystem::SaveFile(const char *path, const void *data, size_t size) const
+    {
+        if (!path || !path[0])
+            return false;
+
+        SDL_RWops *rw = SDL_RWFromFile(path, "wb");
+        if (!rw)
+            return false;
+
+        size_t written = size > 0 ? SDL_RWwrite(rw, data, 1, size) : 0;
+        SDL_RWclose(rw);
+        return written == size;
+    }
+
+    bool FileSystem::SaveTextFile(const char *path, const ct::String &text) const
+    {
+        return SaveFile(path, text.c_str(), text.size());
+    }
+
 }

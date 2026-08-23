@@ -90,3 +90,6 @@ target_link_libraries(physics_reference_test PRIVATE kx)
 
 add_executable(k2d_multicomponent_tests k2d_multicomponent_tests.cpp)
 target_link_libraries(k2d_multicomponent_tests PRIVATE k2d)
+
+add_executable(k2d_prefab_tests k2d_prefab_tests.cpp)
+target_link_libraries(k2d_prefab_tests PRIVATE k2d)

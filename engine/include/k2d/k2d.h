@@ -30,6 +30,7 @@
 #include "k2d/AStarGrid2D.h"
 #include "k2d/AStar2D.h"
 #include "k2d/Serializer.h"
+#include "k2d/Prefab.h"
 #include "k2d/ScriptComponent.h"
 #include "k2d/TileMapComponent.h"
 #include "k2d/ParticleSystem.h"
