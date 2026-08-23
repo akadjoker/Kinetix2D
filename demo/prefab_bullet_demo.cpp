@@ -51,11 +51,16 @@ int main()
     gunPixmap.Clear(255, 255, 255, 255);
     k2d::Texture *gunTexture = gunPixmap.CreateTexture(assets, "gun");
 
+    // The prefab only carries what k2d::Serializer knows how to write/read
+    // (there's no ComponentType::Script entry in its type table -- a
+    // user-defined ScriptComponent subclass like BulletScript has no
+    // registered name/factory for it to serialize by, so it would be
+    // silently dropped if added here). BulletScript is attached fresh after
+    // each Instantiate() instead; the prefab itself is just the visual.
     k2d::Scene templateScene;
     k2d::GameObject *bulletTemplate = templateScene.createObject("Bullet");
     k2d::SpriteComponent *templateSprite = bulletTemplate->addComponent<k2d::SpriteComponent>(bulletTexture);
     templateSprite->setColor(255, 200, 40, 255);
-    bulletTemplate->addComponent<BulletScript>();
 
     k2d::Prefab bulletPrefab;
     bulletPrefab.SaveFromObject(*bulletTemplate, &assets);
@@ -91,8 +96,8 @@ int main()
             if (bullet)
             {
                 bullet->setPosition(gunPos);
-                if (BulletScript *script = bullet->getComponent<BulletScript>())
-                    script->Fire(direction * kBulletSpeed, kBulletLifetime);
+                BulletScript *script = bullet->addComponent<BulletScript>();
+                script->Fire(direction * kBulletSpeed, kBulletLifetime);
                 ++shotsFired;
             }
         }
