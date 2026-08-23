@@ -72,6 +72,8 @@ namespace k2d
         bool playing() const;
         bool loop() const { return mode() == AnimationMode::Loop; }
 
+        void Advance(float deltaTime);
+
     protected:
         void onUpdate(float deltaTime) override;
 

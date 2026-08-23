@@ -4,6 +4,7 @@
 #include "panels/AssetsPanel.h"
 #include "widgets/EditorToolbar.h"
 
+#include <k2d/Animation2D.h>
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/GameObject.h>
@@ -55,6 +56,7 @@ SceneViewportPanel::SceneViewportPanel(EditorApplication &application)
     mTool = settings.viewportTool;
     mSnap = settings.viewportSnap;
     mShowGrid = settings.viewportShowGrid;
+    mLivePreview = settings.viewportLivePreview;
 
     mCanvasInitialized = mCanvas.Init();
 }
@@ -132,19 +134,21 @@ void SceneViewportPanel::renderScene(int width, int height)
     camera.zoom = Math::Vec2(mZoom, mZoom);
     camera.offset = Math::Vec2(-mPan.x / mZoom, -mPan.y / mZoom);
     mCanvas.SetProjection(camera.Projection(static_cast<float>(width), static_cast<float>(height)));
-    tickParticlePreview(app().scene().root(), ImGui::GetIO().DeltaTime);
+    if (mLivePreview)
+        tickPreview(app().scene().root(), ImGui::GetIO().DeltaTime);
     app().scene().render(mCanvas);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
 }
 
-void SceneViewportPanel::tickParticlePreview(GameObject &object, float deltaTime)
+void SceneViewportPanel::tickPreview(GameObject &object, float deltaTime)
 {
     if (!object.isActiveInHierarchy())
         return;
-    const size_t count = object.componentCount<ParticleComponent>();
-    for (size_t i = 0; i < count; ++i)
+
+    const size_t particleCount = object.componentCount<ParticleComponent>();
+    for (size_t i = 0; i < particleCount; ++i)
     {
         ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i);
         if (!particle || !particle->active())
@@ -153,8 +157,33 @@ void SceneViewportPanel::tickParticlePreview(GameObject &object, float deltaTime
             particle->system().SetEmitterPosition(object.globalPosition());
         particle->system().Update(deltaTime);
     }
+
+    const size_t animCount = object.componentCount<Animation2D>();
+    for (size_t i = 0; i < animCount; ++i)
+    {
+        Animation2D *anim = object.getComponentAt<Animation2D>(i);
+        if (anim && anim->active())
+            anim->Advance(deltaTime);
+    }
+
     for (size_t i = 0; i < object.childCount(); ++i)
-        tickParticlePreview(*object.child(i), deltaTime);
+        tickPreview(*object.child(i), deltaTime);
+}
+
+void SceneViewportPanel::restartPreview(GameObject &object)
+{
+    const size_t particleCount = object.componentCount<ParticleComponent>();
+    for (size_t i = 0; i < particleCount; ++i)
+        if (ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i))
+            particle->system().Reset();
+
+    const size_t animCount = object.componentCount<Animation2D>();
+    for (size_t i = 0; i < animCount; ++i)
+        if (Animation2D *anim = object.getComponentAt<Animation2D>(i))
+            anim->reset();
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        restartPreview(*object.child(i));
 }
 
 ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2 &origin) const
@@ -347,6 +376,7 @@ void SceneViewportPanel::drawContents()
     app().settings().viewportTool = mTool;
     app().settings().viewportSnap = mSnap;
     app().settings().viewportShowGrid = mShowGrid;
+    app().settings().viewportLivePreview = mLivePreview;
 
     const char *toolIcons[] = {
         ICON_MDI_CURSOR_DEFAULT, ICON_MDI_ARROW_ALL, ICON_MDI_ROTATE_ORBIT,
@@ -378,6 +408,19 @@ void SceneViewportPanel::drawContents()
     {
         mShowGrid = !mShowGrid;
         app().log(mShowGrid ? "Grid shown" : "Grid hidden");
+    }
+    toolbarSameLine();
+    if (toolbarIcon("livepreview", ICON_MDI_ANIMATION_PLAY_OUTLINE,
+                    "Live preview (animates particles/animations while editing)", mLivePreview))
+    {
+        mLivePreview = !mLivePreview;
+        app().log(mLivePreview ? "Live preview enabled" : "Live preview paused");
+    }
+    toolbarSameLine();
+    if (toolbarIcon("restartpreview", ICON_MDI_RESTART, "Restart particle/animation preview"))
+    {
+        restartPreview(app().scene().root());
+        app().log("Preview restarted");
     }
     ImGui::SameLine();
     ImGui::TextDisabled("%.0f%%", mZoom * 100.0f);

@@ -36,13 +36,15 @@ private:
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
     void renderScene(int width, int height);
-    void tickParticlePreview(GameObject &object, float deltaTime);
+    void tickPreview(GameObject &object, float deltaTime);
+    void restartPreview(GameObject &object);
 
     ImVec2 mPan = ImVec2(0.0f, 0.0f);
     float mZoom = 1.0f;
     int mTool = 0;
     bool mSnap = false;
     bool mShowGrid = true;
+    bool mLivePreview = true;
     int mGizmoAxis = -1;
 
     CanvasRenderer mCanvas;

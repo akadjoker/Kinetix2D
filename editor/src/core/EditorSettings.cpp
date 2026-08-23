@@ -54,6 +54,7 @@ bool EditorSettings::load(const char *path)
     viewportTool = static_cast<int>(root["viewportTool"].as_int(0));
     viewportSnap = root["viewportSnap"].as_bool(false);
     viewportShowGrid = root["viewportShowGrid"].as_bool(true);
+    viewportLivePreview = root["viewportLivePreview"].as_bool(true);
     return true;
 }
 
@@ -73,6 +74,7 @@ bool EditorSettings::save(const char *path) const
     root.set("viewportTool", viewportTool);
     root.set("viewportSnap", viewportSnap);
     root.set("viewportShowGrid", viewportShowGrid);
+    root.set("viewportLivePreview", viewportLivePreview);
 
     return FileSystem::Instance().SaveTextFile(path, root.dump(2));
 }

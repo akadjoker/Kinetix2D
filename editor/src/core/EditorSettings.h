@@ -29,6 +29,7 @@ public:
     int viewportTool = 0;
     bool viewportSnap = false;
     bool viewportShowGrid = true;
+    bool viewportLivePreview = true;
 };
 
 }

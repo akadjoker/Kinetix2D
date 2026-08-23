@@ -129,6 +129,11 @@ namespace k2d
 
     void Animation2D::onUpdate(float deltaTime)
     {
+        Advance(deltaTime);
+    }
+
+    void Animation2D::Advance(float deltaTime)
+    {
         AnimationClip *clip = activeClip();
         if (!clip || !clip->playing || clip->frameCount <= 0 || clip->framesPerSecond <= 0.0f || deltaTime <= 0.0f)
             return;
