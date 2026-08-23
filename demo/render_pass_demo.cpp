@@ -68,7 +68,7 @@ int main()
     litPrefab.speedMin = litPrefab.speedMax = 55.0f;
     litPrefab.lifeMin = litPrefab.lifeMax = 1.8f;
     litPrefab.sizeMin = litPrefab.sizeMax = 18.0f;
-    litPrefab.colorStart = litPrefab.colorEnd = glm::vec4(1.0f, 0.55f, 0.15f, 1.0f);
+    litPrefab.colorStart = litPrefab.colorEnd = k2d::Color(1.0f, 0.55f, 0.15f, 1.0f);
     litPrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 16.0f, 16.0f);
 
     k2d::ParticleSystem litParticles(256);
@@ -80,7 +80,7 @@ int main()
     litParticles.Start();
 
     k2d::ParticlePrefab unlitPrefab = litPrefab;
-    unlitPrefab.colorStart = unlitPrefab.colorEnd = glm::vec4(0.25f, 0.8f, 1.0f, 1.0f);
+    unlitPrefab.colorStart = unlitPrefab.colorEnd = k2d::Color(0.25f, 0.8f, 1.0f, 1.0f);
     unlitPrefab.atlasBounds = glm::vec4(32.0f, 0.0f, 16.0f, 16.0f);
     k2d::ParticleSystem unlitParticles(256);
     unlitParticles.SetTexture(particleTexture);
@@ -98,19 +98,19 @@ int main()
 
     k2d::PointLight point;
     point.position = glm::vec2(640.0f, 330.0f);
-    point.color = glm::vec4(1.0f, 0.72f, 0.35f, 2.2f);
+    point.color = k2d::Color(1.0f, 0.72f, 0.35f, 2.2f);
     point.radius = 420.0f;
     point.useShadow = true;
     point.shadowFilter = k2d::SHADOW_FILTER_PCF5;
     point.shadowMatrix = k2d::Matrix2D::Identity();
-    point.shadowColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.85f);
+    point.shadowColor = k2d::Color(0.0f, 0.0f, 0.0f, 0.85f);
 
     k2d::DirectionalLight directional;
     directional.direction = glm::normalize(glm::vec2(-0.6f, 0.8f));
-    directional.color = glm::vec4(0.25f, 0.3f, 0.42f, 0.55f);
+    directional.color = k2d::Color(0.25f, 0.3f, 0.42f, 0.55f);
     directional.useShadow = true;
     directional.shadowFilter = k2d::SHADOW_FILTER_PCF13;
-    directional.shadowColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.45f);
+    directional.shadowColor = k2d::Color(0.0f, 0.0f, 0.0f, 0.45f);
 
     bool running = true;
     while (running)

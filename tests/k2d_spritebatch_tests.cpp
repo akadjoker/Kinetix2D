@@ -14,7 +14,7 @@ int main()
     const k2d::SpriteBatch::Entry *second = batch.entry(b);
     bool ok = batch.count() == 2 && first && second &&
               first->source == glm::vec4(2.0f, 3.0f, 4.0f, 5.0f) &&
-              second->flags == 1 && second->color == 0xAABBCCDDu;
+              second->flags == 1 && second->color.Packed() == 0xAABBCCDDu;
     batch.clear();
     ok = ok && batch.count() == 0 && batch.entry(0) == nullptr;
     std::printf("spritebatch=%s\n", ok ? "pass" : "fail");

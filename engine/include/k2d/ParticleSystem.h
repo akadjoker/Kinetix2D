@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -50,8 +51,8 @@ namespace k2d
         float fadeIn = 0.0f;  
         float fadeOut = 0.0f; 
 
-        glm::vec4 colorStart = glm::vec4(1.0f);
-        glm::vec4 colorEnd = glm::vec4(1.0f);
+        Color colorStart = Color(1.0f);
+        Color colorEnd = Color(1.0f);
 
         glm::vec4 atlasBounds = glm::vec4(0.0f);
     };
@@ -64,9 +65,9 @@ namespace k2d
     {
         glm::vec2 position;
         glm::vec2 velocity;
-        glm::vec4 colorStart;
-        glm::vec4 colorEnd;
-        glm::vec4 color; 
+        Color colorStart;
+        Color colorEnd;
+        Color color;
         float age;
         float lifetime;
         float size;
@@ -116,10 +117,10 @@ namespace k2d
         bool IsFinished() const { return mFinished; }
 
         bool Emit(const glm::vec2 &position, const glm::vec2 &velocity,
-                  float lifetime, float size, const glm::vec4 &color = glm::vec4(1.0f),
+                  float lifetime, float size, const Color &color = Color(1.0f),
                   float rotation = 0.0f, float angularVelocity = 0.0f);
         bool Emit(const glm::vec2 &position, const glm::vec2 &velocity,
-                  float lifetime, float size, const glm::vec4 &color,
+                  float lifetime, float size, const Color &color,
                   float rotation, float angularVelocity,
                   const glm::vec4 &atlasBounds);
 

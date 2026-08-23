@@ -2,6 +2,7 @@
 
 #include "k2d/Camera2D.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <glm/glm.hpp>
 #include <ct/vector.hpp>
@@ -19,7 +20,7 @@ namespace k2d
         void setTexture(Texture *texture);
         void setMotionScale(const glm::vec2 &scale);
         void setTileSize(const glm::vec2 &size);
-        void setColor(unsigned int color);
+        void setColor(const Color &color);
         void setZIndex(int zIndex);
 
         Texture *texture() const { return mTexture; }
@@ -34,7 +35,7 @@ namespace k2d
         Texture *mTexture;
         glm::vec2 mMotionScale;
         glm::vec2 mTileSize;
-        unsigned int mColor;
+        Color mColor;
         int mZIndex;
     };
 

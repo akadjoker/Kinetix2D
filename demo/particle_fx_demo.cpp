@@ -68,8 +68,8 @@ int main()
     firePrefab.angularVelocityMin = -60.0f;
     firePrefab.angularVelocityMax = 60.0f;
 
-    firePrefab.colorStart = glm::vec4(1.0f, 0.95f, 0.55f, 0.9f);
-    firePrefab.colorEnd = glm::vec4(0.9f, 0.25f, 0.05f, 0.0f);
+    firePrefab.colorStart = k2d::Color(1.0f, 0.95f, 0.55f, 0.9f);
+    firePrefab.colorEnd = k2d::Color(0.9f, 0.25f, 0.05f, 0.0f);
     firePrefab.fadeIn = 0.05f;
     firePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem fire(220);
@@ -88,8 +88,8 @@ int main()
     smokePrefab.endSize = 60.0f; 
     smokePrefab.angularVelocityMin = -20.0f;
     smokePrefab.angularVelocityMax = 20.0f;
-    smokePrefab.colorStart = glm::vec4(0.7f, 0.72f, 0.78f, 0.42f);
-    smokePrefab.colorEnd = glm::vec4(0.5f, 0.5f, 0.55f, 0.0f);
+    smokePrefab.colorStart = k2d::Color(0.7f, 0.72f, 0.78f, 0.42f);
+    smokePrefab.colorEnd = k2d::Color(0.5f, 0.5f, 0.55f, 0.0f);
     smokePrefab.fadeIn = 0.15f;
     smokePrefab.atlasBounds = glm::vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem smoke(100);
@@ -122,7 +122,7 @@ int main()
                 float angle = (float)i / 48.0f * 6.2831853f;
                 float speed = 75.0f + (float)((i * 17) % 45);
                 fireworks.Emit(center, glm::vec2(std::cos(angle), std::sin(angle)) * speed,
-                                1.5f, 14.0f, glm::vec4(1.0f, 0.65f + (i % 3) * 0.1f, 0.2f, 1.0f),
+                                1.5f, 14.0f, k2d::Color(1.0f, 0.65f + (i % 3) * 0.1f, 0.2f, 1.0f),
                                 0.0f, 0.0f, glm::vec4(0.0f, 0.0f, 32.0f, 32.0f));
             }
         }
@@ -135,7 +135,7 @@ int main()
         AddRect(queue, white, width * 0.5f, height * 0.5f, width, height, Color(10, 14, 28), -10);
         AddRect(queue, white, firePosition.x, firePosition.y + 22.0f, 100.0f, 18.0f, Color(75, 45, 35), -1);
         k2d::PointLight light;
-        light.position = firePosition; light.color = glm::vec4(1.0f, 0.35f, 0.08f, 2.0f);
+        light.position = firePosition; light.color = k2d::Color(1.0f, 0.35f, 0.08f, 2.0f);
         light.radius = 240.0f; light.useShadow = false;
         queue.AddLight(light);
         smoke.Submit(queue, 1);

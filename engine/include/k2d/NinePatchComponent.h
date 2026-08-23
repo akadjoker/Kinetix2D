@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <glm/glm.hpp>
 
@@ -28,7 +29,7 @@ namespace k2d
         void setPivot(const glm::vec2 &pivot) { mPivot = pivot; }
         const glm::vec2 &pivot() const { return mPivot; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        unsigned int color() const { return mColor; } 
+        const Color &color() const { return mColor; }
         void setBlendMode(BlendMode mode) { mBlendMode = mode; }
         BlendMode blendMode() const { return mBlendMode; }
 
@@ -40,7 +41,7 @@ namespace k2d
         glm::vec2 mSize;
         float mMarginLeft, mMarginTop, mMarginRight, mMarginBottom;
         glm::vec2 mPivot;
-        unsigned int mColor;
+        Color mColor;
         BlendMode mBlendMode;
     };
 

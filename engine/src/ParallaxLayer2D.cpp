@@ -30,7 +30,7 @@ namespace k2d
         mTileSize = size;
     }
 
-    void ParallaxLayer2D::setColor(unsigned int color)
+    void ParallaxLayer2D::setColor(const Color &color)
     {
         mColor = color;
     }

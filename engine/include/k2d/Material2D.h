@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <glm/glm.hpp>
 
@@ -16,7 +17,7 @@ namespace k2d
 
         Texture *texture() const { return mTexture; }
         void setTexture(Texture *texture) { mTexture = texture; }
-        const glm::vec4 &color() const { return mColor; }
+        const Color &color() const { return mColor; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
         const glm::vec4 &sourceRect() const { return mSourceRect; }
         bool hasSourceRect() const { return mHasSourceRect; }
@@ -44,7 +45,7 @@ namespace k2d
 
     private:
         Texture *mTexture;
-        glm::vec4 mColor;
+        Color mColor;
         glm::vec4 mSourceRect;
         glm::vec2 mTiling;
         glm::vec2 mPivot;

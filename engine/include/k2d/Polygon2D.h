@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -22,7 +23,7 @@ namespace k2d
         const ct::Vector<glm::vec2> &polygon() const { return mPolygon; }
         const ct::Vector<glm::vec2> &triangles() const { return mTriangles; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        unsigned int color() const { return mColor; } 
+        const Color &color() const { return mColor; }
         void setTexture(Texture *texture);
         Texture *texture() const { return mTexture; }
         void setBlendMode(BlendMode mode) { mBlendMode = mode; }
@@ -36,7 +37,7 @@ namespace k2d
         ct::Vector<glm::vec2> mPolygon;
         ct::Vector<glm::vec2> mTriangles;
         Texture *mTexture;
-        unsigned int mColor;
+        Color mColor;
         BlendMode mBlendMode;
     };
 

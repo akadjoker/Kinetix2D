@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -23,7 +24,7 @@ namespace k2d
         void setWidth(float width);
         float width() const { return mWidth; }
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
-        unsigned int color() const { return mColor; } 
+        const Color &color() const { return mColor; }
         void setTexture(Texture *texture) { mTexture = texture; }
         Texture *texture() const { return mTexture; }
         void setClosed(bool closed);
@@ -40,7 +41,7 @@ namespace k2d
         ct::Vector<glm::vec2> mPoints;
         ct::Vector<glm::vec2> mTriangles;
         float mWidth;
-        unsigned int mColor;
+        Color mColor;
         Texture *mTexture;
         bool mClosed;
         BlendMode mBlendMode;

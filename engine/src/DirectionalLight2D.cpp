@@ -22,7 +22,7 @@ namespace k2d
 
     void DirectionalLight2D::setColor(float r, float g, float b, float a)
     {
-        mColor = glm::vec4(r, g, b, a);
+        mColor = Color(r, g, b, a);
     }
 
     void DirectionalLight2D::setEnergy(float energy)
@@ -37,7 +37,7 @@ namespace k2d
 
     void DirectionalLight2D::setShadowColor(float r, float g, float b, float a)
     {
-        mShadowColor = glm::vec4(r, g, b, a);
+        mShadowColor = Color(r, g, b, a);
     }
 
     void DirectionalLight2D::setShadowFilter(ShadowFilter filter)

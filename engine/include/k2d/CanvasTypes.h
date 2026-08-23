@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Matrix2D.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -25,13 +26,13 @@ namespace k2d
 
     struct PointLight
     {
-        glm::vec2 position;   
-        glm::vec4 color;      
+        glm::vec2 position;
+        Color color;
         float radius;
         bool useShadow;
         ShadowFilter shadowFilter;
-        Matrix2D shadowMatrix; 
-        glm::vec4 shadowColor; 
+        Matrix2D shadowMatrix;
+        Color shadowColor;
 
         unsigned int cullMask = 1;
 
@@ -41,10 +42,10 @@ namespace k2d
     struct DirectionalLight
     {
         glm::vec2 direction;
-        glm::vec4 color;
+        Color color;
         bool useShadow;
         ShadowFilter shadowFilter;
-        glm::vec4 shadowColor;
+        Color shadowColor;
 
         float height = 0.0f;
         unsigned int cullMask = 1;
@@ -77,9 +78,9 @@ namespace k2d
         float x, y, width, height;      
         float srcX, srcY, srcW, srcH;   
         int texWidth, texHeight;        
-        float pivotX, pivotY;           
-        unsigned int color;             
-        unsigned char flags;            
+        float pivotX, pivotY;
+        Color color;
+        unsigned char flags;
         const ct::Vector<glm::vec2> *polygonPoints;
         unsigned int polygonPointCount;
 

@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <glm/glm.hpp>
 
@@ -16,13 +17,13 @@ namespace k2d
         DirectionalLight2D();
 
         void setColor(float r, float g, float b, float a = 1.0f);
-        const glm::vec4 &color() const { return mColor; }
+        const Color &color() const { return mColor; }
         void setEnergy(float energy);
         float energy() const { return mEnergy; }
         void setCastShadow(bool castShadow);
         bool castShadow() const { return mCastShadow; }
         void setShadowColor(float r, float g, float b, float a = 1.0f);
-        const glm::vec4 &shadowColor() const { return mShadowColor; }
+        const Color &shadowColor() const { return mShadowColor; }
         void setShadowFilter(ShadowFilter filter);
         ShadowFilter shadowFilter() const { return mShadowFilter; }
         void setCullMask(unsigned int mask);
@@ -35,10 +36,10 @@ namespace k2d
         void onRender(RenderQueue &queue) override;
 
     private:
-        glm::vec4 mColor;
+        Color mColor;
         float mEnergy;
         bool mCastShadow;
-        glm::vec4 mShadowColor;
+        Color mShadowColor;
         ShadowFilter mShadowFilter;
         unsigned int mCullMask;
         float mHeight;

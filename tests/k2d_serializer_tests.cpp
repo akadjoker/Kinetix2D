@@ -12,6 +12,10 @@ namespace
     {
         return Near(a.x, b.x) && Near(a.y, b.y) && Near(a.z, b.z) && Near(a.w, b.w);
     }
+    bool NearColor(const k2d::Color &a, const k2d::Color &b)
+    {
+        return Near(a.r, b.r) && Near(a.g, b.g) && Near(a.b, b.b) && Near(a.a, b.a);
+    }
 
     bool TestRoundTripThroughText()
     {
@@ -75,7 +79,7 @@ namespace
             ok = ok && NearVec2(copySprite->pivot(), {0.25f, 0.75f});
             ok = ok && NearVec2(copySprite->tiling(), {3.0f, 2.0f});
 
-            ok = ok && NearVec4(copySprite->material().color(), rootSprite->material().color());
+            ok = ok && NearColor(copySprite->material().color(), rootSprite->material().color());
             ok = ok && copySprite->material().hasSourceRect();
             ok = ok && NearVec4(copySprite->material().sourceRect(), {4.0f, 8.0f, 16.0f, 16.0f});
             ok = ok && copySprite->lightMask() == 0b0110u;
@@ -264,7 +268,7 @@ namespace
             return false;
         const k2d::SpriteBatch::Entry *e0 = copyBatch->entry(0);
         return e0 && NearVec2(e0->position, {1.0f, 2.0f}) && NearVec2(e0->size, {30.0f, 40.0f}) &&
-               NearVec4(e0->source, {0.0f, 0.0f, 16.0f, 16.0f}) && e0->color == 0xAABBCCDDu &&
+               NearVec4(e0->source, {0.0f, 0.0f, 16.0f, 16.0f}) && e0->color.Packed() == 0xAABBCCDDu &&
                (e0->flags & 0x1u) != 0 && (e0->flags & 0x2u) == 0 &&
                copyBatch->blendMode() == k2d::BLEND_ADD;
     }
@@ -323,11 +327,11 @@ namespace
         if (!copyPoint || !copyDir)
             return false;
 
-        bool ok = NearVec4(copyPoint->color(), {1.0f, 0.5f, 0.25f, 1.0f});
+        bool ok = NearColor(copyPoint->color(), {1.0f, 0.5f, 0.25f, 1.0f});
         ok = ok && Near(copyPoint->energy(), 1.8f) && Near(copyPoint->radius(), 222.0f);
         ok = ok && copyPoint->castShadow() == true && copyPoint->cullMask() == 3u &&
              Near(copyPoint->height(), 12.0f);
-        ok = ok && NearVec4(copyDir->color(), {0.2f, 0.3f, 0.9f, 1.0f});
+        ok = ok && NearColor(copyDir->color(), {0.2f, 0.3f, 0.9f, 1.0f});
         ok = ok && Near(copyDir->energy(), 0.6f) && copyDir->castShadow() == false;
 
         ok = ok && dynamic_cast<k2d::DirectionalLight2D *>(copyPoint) == nullptr;
@@ -418,8 +422,8 @@ namespace
         prefab.faceDirectionOffsetDegrees = 90.0f;
         prefab.fadeIn = 0.1f;
         prefab.fadeOut = 0.2f;
-        prefab.colorStart = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
-        prefab.colorEnd = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        prefab.colorStart = k2d::Color(1.0f, 1.0f, 0.0f, 1.0f);
+        prefab.colorEnd = k2d::Color(1.0f, 0.0f, 0.0f, 0.0f);
         prefab.atlasBounds = glm::vec4(0.0f, 0.0f, 8.0f, 8.0f);
         sys.SetPrefab(prefab);
         sys.Start();
@@ -452,8 +456,8 @@ namespace
         ok = ok && Near(p.angularVelocityMin, 5.0f) && Near(p.angularVelocityMax, 15.0f);
         ok = ok && Near(p.drag, 0.5f) && p.faceDirection == true && Near(p.faceDirectionOffsetDegrees, 90.0f);
         ok = ok && Near(p.fadeIn, 0.1f) && Near(p.fadeOut, 0.2f);
-        ok = ok && NearVec4(p.colorStart, {1.0f, 1.0f, 0.0f, 1.0f});
-        ok = ok && NearVec4(p.colorEnd, {1.0f, 0.0f, 0.0f, 0.0f});
+        ok = ok && NearColor(p.colorStart, {1.0f, 1.0f, 0.0f, 1.0f});
+        ok = ok && NearColor(p.colorEnd, {1.0f, 0.0f, 0.0f, 0.0f});
         ok = ok && NearVec4(p.atlasBounds, {0.0f, 0.0f, 8.0f, 8.0f});
         return ok;
     }

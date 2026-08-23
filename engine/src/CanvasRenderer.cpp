@@ -446,7 +446,7 @@ void main()
 
     void CanvasRenderer::SetCanvasModulate(float r, float g, float b)
     {
-        mCanvasModulate = glm::vec4(r, g, b, 1.0f);
+        mCanvasModulate = Color(r, g, b, 1.0f);
     }
 
     unsigned int CanvasRenderer::CreateShader(const char *fragmentSource)
@@ -547,7 +547,7 @@ void main()
                                   float width, float height, int texWidth, int texHeight,
                                   float pivotX, float pivotY,
                                   float srcX, float srcY, float srcW, float srcH,
-                                  bool flipX, bool flipY, unsigned int color, unsigned int lightMask)
+                                  bool flipX, bool flipY, const Color &color, unsigned int lightMask)
     {
         if (mVertices.size() + 4 > mConfig.maxVertices)
             Flush();
@@ -604,7 +604,7 @@ void main()
         glm::vec2 p3 = matrix.Transform(x0, y1);
 
         unsigned char r, g, b, a;
-        UnpackColor(color, r, g, b, a);
+        UnpackColor(color.Packed(), r, g, b, a);
 
         size_t base = mVertices.size();
         mVertices.push_back(Vertex{p0.x, p0.y, 0.0f, u0, v0, r, g, b, a, lightMask});
@@ -626,7 +626,7 @@ void main()
     void CanvasRenderer::EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                                      unsigned int customProgram, const Matrix2D &matrix,
                                      const ct::Vector<glm::vec2> &points,
-                                     unsigned int color, unsigned int lightMask,
+                                     const Color &color, unsigned int lightMask,
                                      int texWidth, int texHeight)
     {
         if (points.size() < 3)
@@ -655,7 +655,7 @@ void main()
         }
 
         unsigned char r, g, b, a;
-        UnpackColor(color, r, g, b, a);
+        UnpackColor(color.Packed(), r, g, b, a);
         size_t base = mVertices.size();
         for (size_t i = 0; i < points.size(); ++i)
         {
@@ -714,7 +714,7 @@ void main()
         glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, glm::value_ptr(mProjection));
         glUniform1i(mShadowAtlasLoc, 1);
         glUniform1i(mHasLightTextureLoc, mDefaultLightTexture != 0 ? 1 : 0);
-        glUniform4fv(mCanvasModulateLoc, 1, &mCanvasModulate[0]);
+        glUniform4fv(mCanvasModulateLoc, 1, &mCanvasModulate.r);
         glUniform2f(mCanvasSizeLoc, mOrthoWidth, mOrthoHeight);
         glUniform1i(mLightCountLoc, mLightCount);
         if (mLightCount > 0)

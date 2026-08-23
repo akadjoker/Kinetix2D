@@ -12,19 +12,6 @@ namespace k2d
 
     namespace
     {
-        unsigned int PackColor(const glm::vec4 &color)
-        {
-            auto channel = [](float value) -> unsigned int {
-                if (value <= 0.0f)
-                    return 0u;
-                if (value >= 1.0f)
-                    return 255u;
-                return (unsigned int)std::lround(value * 255.0f);
-            };
-            return channel(color.r) | (channel(color.g) << 8) |
-                   (channel(color.b) << 16) | (channel(color.a) << 24);
-        }
-
         float Clamp01(float value)
         {
             if (value < 0.0f)
@@ -63,7 +50,7 @@ namespace k2d
     }
 
     bool ParticleSystem::Emit(const glm::vec2 &position, const glm::vec2 &velocity,
-                              float lifetime, float size, const glm::vec4 &color,
+                              float lifetime, float size, const Color &color,
                               float rotation, float angularVelocity)
     {
         return Emit(position, velocity, lifetime, size, color, rotation,
@@ -71,7 +58,7 @@ namespace k2d
     }
 
     bool ParticleSystem::Emit(const glm::vec2 &position, const glm::vec2 &velocity,
-                              float lifetime, float size, const glm::vec4 &color,
+                              float lifetime, float size, const Color &color,
                               float rotation, float angularVelocity,
                               const glm::vec4 &atlasBounds)
     {
@@ -298,7 +285,7 @@ namespace k2d
             command.texHeight = mTexture->Height();
             command.pivotX = 0.5f;
             command.pivotY = 0.5f;
-            command.color = PackColor(particle.color);
+            command.color = particle.color;
             item.commands.push_back(command);
         }
     }

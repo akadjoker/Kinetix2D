@@ -159,14 +159,14 @@ namespace
         prefab.speedMin = prefab.speedMax = 0.0f;
         prefab.lifeMin = prefab.lifeMax = 1.0f;
         prefab.sizeMin = prefab.sizeMax = 1.0f;
-        prefab.colorStart = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-        prefab.colorEnd = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        prefab.colorStart = k2d::Color(1.0f, 0.0f, 0.0f, 1.0f);
+        prefab.colorEnd = k2d::Color(0.0f, 0.0f, 1.0f, 0.0f);
 
         k2d::ParticleSystem particles(4);
         particles.Emit(glm::vec2(0.0f), prefab);
         particles.Update(0.5f);
 
-        const glm::vec4 &c = particles.Get(0).color;
+        const k2d::Color &c = particles.Get(0).color;
         return Near(c.r, 0.5f) && Near(c.g, 0.0f) && Near(c.b, 0.5f) && Near(c.a, 0.5f);
     }
 }

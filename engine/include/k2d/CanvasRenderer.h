@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -88,10 +89,10 @@ namespace k2d
                       float width, float height, int texWidth, int texHeight,
                       float pivotX, float pivotY,
                       float srcX, float srcY, float srcW, float srcH,
-                      bool flipX, bool flipY, unsigned int color, unsigned int lightMask);
+                      bool flipX, bool flipY, const Color &color, unsigned int lightMask);
         void EmitPolygon(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
                          unsigned int customProgram, const Matrix2D &matrix,
-                         const ct::Vector<glm::vec2> &points, unsigned int color, unsigned int lightMask,
+                         const ct::Vector<glm::vec2> &points, const Color &color, unsigned int lightMask,
                          int texWidth = 0, int texHeight = 0);
         void FlattenOccluderEdges();
 
@@ -116,7 +117,7 @@ namespace k2d
         unsigned int mDefaultLightTexture;
         int mLightTextureLoc;
         int mHasLightTextureLoc;
-        glm::vec4 mCanvasModulate;
+        Color mCanvasModulate;
         int mCanvasModulateLoc;
         int mNormalMapLoc;
         int mHasNormalMapLoc;

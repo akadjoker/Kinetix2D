@@ -57,6 +57,24 @@ namespace k2d
                               (float)j[2].as_double(def.z), (float)j[3].as_double(def.w));
         }
 
+        ct::Json WriteColor(const Color &c)
+        {
+            ct::Json a = ct::Json::array();
+            a.push_back(ct::Json(c.r));
+            a.push_back(ct::Json(c.g));
+            a.push_back(ct::Json(c.b));
+            a.push_back(ct::Json(c.a));
+            return a;
+        }
+
+        Color ReadColor(const ct::Json &j, Color def = Color(1.0f))
+        {
+            if (!j.is_array() || j.size() < 4)
+                return def;
+            return Color((float)j[0].as_double(def.r), (float)j[1].as_double(def.g),
+                        (float)j[2].as_double(def.b), (float)j[3].as_double(def.a));
+        }
+
         ct::Json WritePackedColor(unsigned int packed)
         {
             ct::Json a = ct::Json::array();
@@ -112,7 +130,7 @@ namespace k2d
             data.set("size", WriteVec2(sprite.size()));
             data.set("pivot", WriteVec2(sprite.pivot()));
             data.set("tiling", WriteVec2(sprite.tiling()));
-            data.set("color", WriteVec4(material.color()));
+            data.set("color", WriteColor(material.color()));
             if (material.hasSourceRect())
                 data.set("sourceRect", WriteVec4(material.sourceRect()));
             data.set("lightMask", ct::Json(sprite.lightMask()));
@@ -237,7 +255,7 @@ namespace k2d
             for (size_t i = 0; i < polygon.polygon().size(); ++i)
                 points.push_back(WriteVec2(polygon.polygon()[i]));
             data.set("points", points);
-            data.set("color", WritePackedColor(polygon.color()));
+            data.set("color", WritePackedColor(polygon.color().Packed()));
             data.set("blendMode", ct::Json((int)polygon.blendMode()));
         }
 
@@ -283,7 +301,7 @@ namespace k2d
             data.set("points", points);
             data.set("width", ct::Json((double)line.width()));
             data.set("closed", ct::Json(line.closed()));
-            data.set("color", WritePackedColor(line.color()));
+            data.set("color", WritePackedColor(line.color().Packed()));
             data.set("blendMode", ct::Json((int)line.blendMode()));
         }
 
@@ -330,7 +348,7 @@ namespace k2d
             data.set("size", WriteVec2(ninePatch.size()));
             data.set("margins", WriteVec4(ninePatch.margins()));
             data.set("pivot", WriteVec2(ninePatch.pivot()));
-            data.set("color", WritePackedColor(ninePatch.color()));
+            data.set("color", WritePackedColor(ninePatch.color().Packed()));
             data.set("blendMode", ct::Json((int)ninePatch.blendMode()));
         }
 
@@ -375,7 +393,7 @@ namespace k2d
                 entryJson.set("position", WriteVec2(e->position));
                 entryJson.set("size", WriteVec2(e->size));
                 entryJson.set("source", WriteVec4(e->source));
-                entryJson.set("color", ct::Json(e->color));
+                entryJson.set("color", ct::Json(e->color.Packed()));
                 entryJson.set("flipX", ct::Json((e->flags & 0x1u) != 0));
                 entryJson.set("flipY", ct::Json((e->flags & 0x2u) != 0));
                 entries.push_back(entryJson);
@@ -496,11 +514,11 @@ namespace k2d
         void WritePointLight(const Component &component, ct::Json &data, Assets *)
         {
             const Light2D &light = static_cast<const Light2D &>(component);
-            data.set("color", WriteVec4(light.color()));
+            data.set("color", WriteColor(light.color()));
             data.set("energy", ct::Json((double)light.energy()));
             data.set("radius", ct::Json((double)light.radius()));
             data.set("castShadow", ct::Json(light.castShadow()));
-            data.set("shadowColor", WriteVec4(light.shadowColor()));
+            data.set("shadowColor", WriteColor(light.shadowColor()));
             data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
             data.set("cullMask", ct::Json(light.cullMask()));
             data.set("height", ct::Json((double)light.height()));
@@ -509,12 +527,12 @@ namespace k2d
         void ReadPointLight(Component &component, const ct::Json &data, Assets *)
         {
             Light2D &light = static_cast<Light2D &>(component);
-            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f));
+            const Color color = ReadColor(data["color"], Color(1.0f));
             light.setColor(color.r, color.g, color.b, color.a);
             light.setEnergy((float)data["energy"].as_double(1.0));
             light.setRadius((float)data["radius"].as_double(300.0));
             light.setCastShadow(data["castShadow"].as_bool(false));
-            const glm::vec4 shadowColor = ReadVec4(data["shadowColor"], glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            const Color shadowColor = ReadColor(data["shadowColor"], Color(0.0f, 0.0f, 0.0f, 1.0f));
             light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
             light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
             light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
@@ -524,10 +542,10 @@ namespace k2d
         void WriteDirectionalLight(const Component &component, ct::Json &data, Assets *)
         {
             const DirectionalLight2D &light = static_cast<const DirectionalLight2D &>(component);
-            data.set("color", WriteVec4(light.color()));
+            data.set("color", WriteColor(light.color()));
             data.set("energy", ct::Json((double)light.energy()));
             data.set("castShadow", ct::Json(light.castShadow()));
-            data.set("shadowColor", WriteVec4(light.shadowColor()));
+            data.set("shadowColor", WriteColor(light.shadowColor()));
             data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
             data.set("cullMask", ct::Json(light.cullMask()));
             data.set("height", ct::Json((double)light.height()));
@@ -536,11 +554,11 @@ namespace k2d
         void ReadDirectionalLight(Component &component, const ct::Json &data, Assets *)
         {
             DirectionalLight2D &light = static_cast<DirectionalLight2D &>(component);
-            const glm::vec4 color = ReadVec4(data["color"], glm::vec4(1.0f));
+            const Color color = ReadColor(data["color"], Color(1.0f));
             light.setColor(color.r, color.g, color.b, color.a);
             light.setEnergy((float)data["energy"].as_double(1.0));
             light.setCastShadow(data["castShadow"].as_bool(false));
-            const glm::vec4 shadowColor = ReadVec4(data["shadowColor"], glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            const Color shadowColor = ReadColor(data["shadowColor"], Color(0.0f, 0.0f, 0.0f, 1.0f));
             light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
             light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
             light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
@@ -642,8 +660,8 @@ namespace k2d
             j.set("faceDirectionOffsetDegrees", ct::Json((double)prefab.faceDirectionOffsetDegrees));
             j.set("fadeIn", ct::Json((double)prefab.fadeIn));
             j.set("fadeOut", ct::Json((double)prefab.fadeOut));
-            j.set("colorStart", WriteVec4(prefab.colorStart));
-            j.set("colorEnd", WriteVec4(prefab.colorEnd));
+            j.set("colorStart", WriteColor(prefab.colorStart));
+            j.set("colorEnd", WriteColor(prefab.colorEnd));
             j.set("atlasBounds", WriteVec4(prefab.atlasBounds));
             return j;
         }
@@ -669,8 +687,8 @@ namespace k2d
             prefab.faceDirectionOffsetDegrees = (float)j["faceDirectionOffsetDegrees"].as_double(0.0);
             prefab.fadeIn = (float)j["fadeIn"].as_double(0.0);
             prefab.fadeOut = (float)j["fadeOut"].as_double(0.0);
-            prefab.colorStart = ReadVec4(j["colorStart"], glm::vec4(1.0f));
-            prefab.colorEnd = ReadVec4(j["colorEnd"], glm::vec4(1.0f));
+            prefab.colorStart = ReadColor(j["colorStart"], Color(1.0f));
+            prefab.colorEnd = ReadColor(j["colorEnd"], Color(1.0f));
             prefab.atlasBounds = ReadVec4(j["atlasBounds"], glm::vec4(0.0f));
             return prefab;
         }

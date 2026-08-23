@@ -101,11 +101,7 @@ namespace k2d
         rect.texHeight = mMaterial.texture()->Height();
         rect.pivotX = mMaterial.pivot().x;
         rect.pivotY = mMaterial.pivot().y;
-        const glm::vec4 &color = mMaterial.color();
-        rect.color = BatchRenderer::PackColor((unsigned char)(color.r * 255.0f),
-                                              (unsigned char)(color.g * 255.0f),
-                                              (unsigned char)(color.b * 255.0f),
-                                              (unsigned char)(color.a * 255.0f));
+        rect.color = mMaterial.color();
         rect.flags = (unsigned char)((mMaterial.flipX() ? 1 : 0) |
                                      (mMaterial.flipY() ? 2 : 0));
         rect.lightMask = mMaterial.lightMask();

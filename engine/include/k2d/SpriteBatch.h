@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/Color.h"
 
 #include <ct/vector.hpp>
 #include <glm/glm.hpp>
@@ -22,7 +23,7 @@ namespace k2d
             glm::vec2 position;
             glm::vec2 size;
             glm::vec4 source;
-            unsigned int color;
+            Color color;
             unsigned char flags;
         };
 
@@ -30,7 +31,7 @@ namespace k2d
 
         void clear();
         int add(Texture *texture, const glm::vec2 &position, const glm::vec2 &size,
-                unsigned int color = 0xFFFFFFFFu);
+                const Color &color = Color(0xFFFFFFFFu));
         void setSource(int index, const glm::vec4 &source);
         void setFlip(int index, bool flipX, bool flipY);
         int count() const { return (int)mEntries.size(); }

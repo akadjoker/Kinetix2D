@@ -18,7 +18,7 @@ namespace k2d
     }
 
     int SpriteBatch::add(Texture *texture, const glm::vec2 &position, const glm::vec2 &size,
-                         unsigned int color)
+                         const Color &color)
     {
         Entry entry;
         entry.texture = texture;
