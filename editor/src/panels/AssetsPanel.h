@@ -43,6 +43,7 @@ private:
     void handleEntryInteraction(const EditorFileEntry &entry, bool clicked, bool doubleClicked);
     void drawEntryContextMenu(const EditorFileEntry &entry);
     void generateBumpMap(const EditorFileEntry &entry);
+    void drawNewScriptPopup();
 
     void navigateTo(const ct::String &directory);
     void refreshEntries();
@@ -62,6 +63,7 @@ private:
     float mSidebarWidth = 180.0f;
 
     ct::HashMap<ct::String, Texture *> mThumbnailCache;
+    char mNewScriptName[64] = "new_script";
 };
 
 }

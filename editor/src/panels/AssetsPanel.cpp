@@ -176,6 +176,12 @@ void AssetsPanel::drawToolbar()
     if (ImGui::Button(ICON_MDI_REFRESH))
         mEntriesDirty = true;
     ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_FILE_PLUS))
+        ImGui::OpenPopup("New Script");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("New Zen script (.py) in this folder");
+    drawNewScriptPopup();
+    ImGui::SameLine();
     if (ImGui::Button(ICON_MDI_VIEW_GRID))
         mViewMode = ViewMode::Grid;
     ImGui::SameLine();
@@ -398,6 +404,53 @@ void AssetsPanel::drawEntryContextMenu(const EditorFileEntry &entry)
             generateBumpMap(entry);
         ImGui::EndPopup();
     }
+}
+
+void AssetsPanel::drawNewScriptPopup()
+{
+    if (!ImGui::BeginPopup("New Script"))
+        return;
+
+    ImGui::TextDisabled("Creating in %s", mRoot.c_str());
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::InputText("Name", mNewScriptName, sizeof(mNewScriptName));
+
+    ct::String fileName(mNewScriptName);
+    fileName += ".py";
+    const ct::String target = EditorFileSystem::join(mRoot, fileName.c_str());
+    const bool exists = EditorFileSystem::exists(target);
+    if (exists)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s already exists", fileName.c_str());
+
+    ImGui::BeginDisabled(mNewScriptName[0] == '\0' || exists);
+    if (ImGui::Button("Create"))
+    {
+        const ct::String templateSource(
+            "def ready(node):\n"
+            "    pass\n"
+            "\n"
+            "def update(node, dt):\n"
+            "    pass\n"
+            "\n"
+            "def on_event(node, name, value):\n"
+            "    pass\n");
+        if (FileSystem::Instance().SaveTextFile(target.c_str(), templateSource))
+        {
+            mEntriesDirty = true;
+            app().toasts().info("Script created");
+            app().log(ct::String("Created script: ") + target);
+        }
+        else
+        {
+            app().toasts().error("Could not create script");
+        }
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+        ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }
 
 void AssetsPanel::drawGrid()
