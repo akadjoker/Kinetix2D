@@ -312,6 +312,34 @@ void EditorApplication::newScene()
     log("New scene");
 }
 
+void EditorApplication::preloadTextures(const ct::Json &node)
+{
+    if (node.is_object())
+    {
+        const ct::Json::Object &members = node.members();
+        for (size_t i = 0; i < members.size(); ++i)
+        {
+            const ct::String &key = members[i].key;
+            const ct::Json &value = members[i].value;
+            if ((key == "texture" || key == "normalMap") && value.is_string())
+            {
+                const char *path = value.as_cstr("");
+                if (path[0] && !mAssets.GetTexture(path))
+                    mAssets.LoadTexture(path, path, true, false);
+            }
+            else
+            {
+                preloadTextures(value);
+            }
+        }
+    }
+    else if (node.is_array())
+    {
+        for (size_t i = 0; i < node.size(); ++i)
+            preloadTextures(node[i]);
+    }
+}
+
 bool EditorApplication::openScene(const char *path)
 {
     if (!path || !path[0])
@@ -336,6 +364,7 @@ bool EditorApplication::openScene(const char *path)
         return false;
     }
 
+    preloadTextures(document);
     restoreScene(document, 0, false);
     mCommands.clear();
     mTransactionActive = false;

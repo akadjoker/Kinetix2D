@@ -70,6 +70,8 @@ public:
     const ct::String &previewPrefabPath() const { return mPreviewPrefabPath; }
     void previewPrefab(const char *path) { mPreviewPrefabPath = path ? path : ""; }
 
+    void preloadTextures(const ct::Json &node);
+
     const ct::String &currentScenePath() const { return mCurrentScenePath; }
     bool openScene(const char *path);
     bool saveScene(const char *path);

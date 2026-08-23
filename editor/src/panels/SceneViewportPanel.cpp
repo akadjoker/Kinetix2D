@@ -147,6 +147,7 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
         }
         else
         {
+            app().preloadTextures(prefab.data());
             const EditorApplication::SceneChange before = app().beginChange();
             GameObject *created =
                 prefab.Instantiate(app().scene(), &app().scene().root(), &app().assets());

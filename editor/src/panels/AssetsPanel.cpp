@@ -385,9 +385,10 @@ void AssetsPanel::drawGrid()
             drawList->AddText(iconPos, ImGui::ColorConvertFloat4ToU32(color), icon);
         }
 
-        if (!entry.directory && isPrefab(ext) && ImGui::BeginDragDropSource())
+        if (!entry.directory && (isPrefab(ext) || isImage(ext)) && ImGui::BeginDragDropSource())
         {
-            ImGui::SetDragDropPayload(kPrefabDragDropPayload, entry.path.c_str(), entry.path.size() + 1);
+            ImGui::SetDragDropPayload(isPrefab(ext) ? kPrefabDragDropPayload : kTextureDragDropPayload,
+                                      entry.path.c_str(), entry.path.size() + 1);
             ImGui::TextUnformatted(entry.name.c_str());
             ImGui::EndDragDropSource();
         }
@@ -423,9 +424,10 @@ void AssetsPanel::drawList()
             ImGui::Selectable(entry.name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick);
         const bool doubleClicked = clicked && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
-        if (!entry.directory && isPrefab(ext) && ImGui::BeginDragDropSource())
+        if (!entry.directory && (isPrefab(ext) || isImage(ext)) && ImGui::BeginDragDropSource())
         {
-            ImGui::SetDragDropPayload(kPrefabDragDropPayload, entry.path.c_str(), entry.path.size() + 1);
+            ImGui::SetDragDropPayload(isPrefab(ext) ? kPrefabDragDropPayload : kTextureDragDropPayload,
+                                      entry.path.c_str(), entry.path.size() + 1);
             ImGui::TextUnformatted(entry.name.c_str());
             ImGui::EndDragDropSource();
         }
