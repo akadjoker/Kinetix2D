@@ -195,20 +195,44 @@ void main()
         // The GPU's own perspective divide + clip-space clipping does the
         // lateral/along projection, matching Godot's real occluder shadow pass
         // (drivers/gles3/shaders/canvas_occlusion.glsl).
+        // a_v = (x_clip, y_clip, dist, w_clip), all four LINEAR functions of
+        // the world-space edge parameter -- a hard requirement: the GPU clipper
+        // lerps clip coordinates along the edge, so any nonlinear component
+        // (an earlier version used z = depthNdc * w, quadratic in `along`)
+        // decodes to garbage depths on edges it has to clip. This mirrors
+        // Godot's occluder pass exactly (light_update_shadow's
+        // Projection::set_frustum, 90 deg, near = radius/1000, far =
+        // radius*1.1, canvas_occlusion.glsl): point lights put lateral/R in x,
+        // along/R in dist and w (perspective divide -> tangent projection,
+        // near/far clipping on the frustum below); directional lights are
+        // orthographic: w = 1, x = lateral, dist = depth in [0,1].
+        //
+        // gl_Position.z applies that same frustum's hyperbolic mapping of
+        // dist for GL_LESS nearest-edge selection; the value STORED in the
+        // atlas is the varying v_dist -- perspective-correct interpolation
+        // reconstructs the true world distance at every fragment, which
+        // gl_FragCoord.z (screen-linear) cannot (Godot stores its depth
+        // varying for the same reason).
         static const char *SHADOW_VERTEX_SHADER_SOURCE = R"(#version 300 es
-layout(location = 0) in vec4 a_clipPosition;
+layout(location = 0) in vec4 a_v;
+out float v_dist;
 void main()
 {
-    gl_Position = a_clipPosition;
+    // Godot's shadow frustum in radius-normalized units:
+    // near n = 0.001, far f = 1.1 -> z_clip = ((f+n)*d - 2*f*n) / (f - n).
+    float d = a_v.z;
+    gl_Position = vec4(a_v.x, a_v.y, (1.101 * d - 0.0022) / 1.099, a_v.w);
+    v_dist = d;
 }
 )";
 
         static const char *SHADOW_FRAGMENT_SHADER_SOURCE = R"(#version 300 es
 precision highp float;
+in float v_dist;
 layout(location = 0) out float out_depth;
 void main()
 {
-    out_depth = gl_FragCoord.z;
+    out_depth = v_dist;
 }
 )";
 
@@ -974,12 +998,24 @@ void main()
                     float bAlong = glm::dot(b, direction);
                     float aLateral = glm::dot(a, perpendicular);
                     float bLateral = glm::dot(b, perpendicular);
-                    float aDepthNdc = (aAlong / radius) * 2.0f - 1.0f;
-                    float bDepthNdc = (bAlong / radius) * 2.0f - 1.0f;
-                    mShadowVertices.push_back(ShadowVertex{aLateral, -aAlong, aDepthNdc * aAlong, aAlong});
-                    mShadowVertices.push_back(ShadowVertex{bLateral, -bAlong, bDepthNdc * bAlong, bAlong});
-                    mShadowVertices.push_back(ShadowVertex{bLateral, bAlong, bDepthNdc * bAlong, bAlong});
-                    mShadowVertices.push_back(ShadowVertex{aLateral, aAlong, aDepthNdc * aAlong, aAlong});
+                    // Radius-normalized, ALL components linear in the edge
+                    // parameter (see SHADOW_VERTEX_SHADER_SOURCE): x = lateral/R
+                    // (x_ndc = lateral/along = tangent after the divide),
+                    // dist = w = along/R (the frustum's near/far clip at
+                    // 0.001R / 1.1R culls the behind-the-light part cleanly).
+                    // y = +-kPolyHeight: Godot's POLY_HEIGHT extrusion -- a
+                    // large CONSTANT so y_ndc = +-height/along always overfills
+                    // the 2px-tall viewport and the quad is a planar ribbon.
+                    // (+-along here previously made a self-intersecting bowtie
+                    // on edges crossing the light plane; measured in the atlas
+                    // as flat endpoint depths where hyperbolic values belong.)
+                    const float kPolyHeight = 100.0f;
+                    float aDist = aAlong / radius;
+                    float bDist = bAlong / radius;
+                    mShadowVertices.push_back(ShadowVertex{aLateral / radius, -kPolyHeight, aDist, aDist});
+                    mShadowVertices.push_back(ShadowVertex{bLateral / radius, -kPolyHeight, bDist, bDist});
+                    mShadowVertices.push_back(ShadowVertex{bLateral / radius, kPolyHeight, bDist, bDist});
+                    mShadowVertices.push_back(ShadowVertex{aLateral / radius, kPolyHeight, aDist, aDist});
                 }
 
                 glBufferData(GL_ARRAY_BUFFER,
@@ -1019,12 +1055,14 @@ void main()
                 float bLateral = glm::dot(b, perpendicular) / directionalHalfSize;
                 float aDepth = (glm::dot(a, direction) + directionalDistance * 0.5f) / directionalDistance;
                 float bDepth = (glm::dot(b, direction) + directionalDistance * 0.5f) / directionalDistance;
-                // Directional light: parallel rays, orthographic projection is
-                // exact (no perspective needed) -- w = 1, straight pass-through.
-                mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth * 2.0f - 1.0f, 1.0f});
-                mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth * 2.0f - 1.0f, 1.0f});
-                mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth * 2.0f - 1.0f, 1.0f});
-                mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth * 2.0f - 1.0f, 1.0f});
+                // Directional light: parallel rays, orthographic -- w = 1 (no
+                // perspective divide), dist carries the [0,1] depth directly
+                // (v_dist stores it; gl_Position.z's frustum remap is merely
+                // monotonic, which is all GL_LESS ordering needs).
+                mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth, 1.0f});
+                mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth, 1.0f});
             }
             glBufferData(GL_ARRAY_BUFFER,
                          (GLsizeiptr)(mShadowVertices.size() * sizeof(ShadowVertex)),
