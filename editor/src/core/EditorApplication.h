@@ -119,6 +119,7 @@ private:
     bool mPaused = false;
     int mThemeKind = 0;
     bool mDefaultLayoutPending = true;
+    bool mLayoutResetRequested = false;
     bool mDefaultFocusPending = false;
     bool mTransactionActive = false;
     ct::String mTransactionLabel;

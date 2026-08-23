@@ -537,13 +537,14 @@ void EditorApplication::drawWorkspace()
     drawFileDialog();
 
     const ImGuiID dockspaceId = ImGui::GetID("Kinetix2D Dockspace");
-    ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
-    if (mDefaultLayoutPending)
+    if (mDefaultLayoutPending || mLayoutResetRequested)
     {
-        if (ImGui::DockBuilderGetNode(dockspaceId) == nullptr)
+        if (mLayoutResetRequested || ImGui::DockBuilderGetNode(dockspaceId) == nullptr)
             createDefaultDockLayout(dockspaceId);
         mDefaultLayoutPending = false;
+        mLayoutResetRequested = false;
     }
+    ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
     ImGui::End();
 }
 
@@ -651,6 +652,14 @@ void EditorApplication::drawMenuBar()
                 message += panel->title();
                 log(message);
             }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Reset Layout"))
+        {
+            for (const ct::Unique<EditorPanel> &panel : mPanels)
+                panel->open() = true;
+            mLayoutResetRequested = true;
+            log("Layout reset");
         }
         ImGui::EndMenu();
     }
@@ -824,16 +833,18 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGuiID left = 0;
     ImGuiID right = 0;
     ImGuiID bottom = 0;
+    ImGuiID game = 0;
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.20f, &left, &center);
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.25f, &right, &center);
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.25f, &bottom, &center);
+    ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.35f, &game, &center);
 
     ImGui::DockBuilderDockWindow("Assets", left);
     ImGui::DockBuilderDockWindow("Hierarchy", left);
     ImGui::DockBuilderDockWindow("Inspector", right);
     ImGui::DockBuilderDockWindow("Prefabs", right);
-    ImGui::DockBuilderDockWindow("Game", center);
     ImGui::DockBuilderDockWindow("Scene", center);
+    ImGui::DockBuilderDockWindow("Game", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderFinish(dockspaceId);
     mDefaultFocusPending = true;
