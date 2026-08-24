@@ -13,6 +13,8 @@
 #include <k2d/Serializer.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
+#include <k2d/UiControls.h>
+#include <k2d/UiTheme.h>
 
 #include <glad/glad.h>
 #include <SDL.h>
@@ -245,6 +247,7 @@ int main(int argc, char **argv)
         k2d::PhysicsWorld2D physics;
 
         k2d::SetZenScriptInput(&device.GetInput());
+        k2d::SetUiInput(&device.GetInput());
         k2d::SetZenScriptAssets(&assets);
         k2d::SetZenScriptOutput(&scriptOutput, nullptr);
         k2d::SetZenScriptsEnabled(true);
@@ -278,6 +281,7 @@ int main(int argc, char **argv)
             }
             else
             {
+                k2d::SetUiThemeTexture(k2d::UiTheme::DefaultTexture(assets));
                 bool profilerVisible = false;
                 while (device.PollEvents())
                 {
@@ -289,6 +293,8 @@ int main(int argc, char **argv)
                         k2d::ZenRuntime::instance().setVmProfiling(profilerVisible);
                     }
                     const float deltaTime = device.DeltaTime();
+                    k2d::SetUiViewport(0.0f, 0.0f, static_cast<float>(device.Width()),
+                                        static_cast<float>(device.Height()));
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
                     physics.step(deltaTime);
@@ -299,6 +305,7 @@ int main(int argc, char **argv)
                     const float width = static_cast<float>(device.Width());
                     const float height = static_cast<float>(device.Height());
                     k2d::SetZenScriptGameViewport(0.0f, 0.0f, width, height);
+                    k2d::SetUiViewport(0.0f, 0.0f, width, height);
                     if (k2d::CameraComponent *camera = scene.activeCamera())
                     {
                         camera->setViewport(width, height);
@@ -325,11 +332,13 @@ int main(int argc, char **argv)
         k2d::SetZenScriptsEnabled(false);
         k2d::SetZenScriptGameCamera(nullptr);
         k2d::SetZenScriptGameViewport(0.0f, 0.0f, 0.0f, 0.0f);
+        k2d::SetUiViewport(0.0f, 0.0f, 0.0f, 0.0f);
         k2d::SetZenScriptProfilerVisible(false);
         k2d::ZenRuntime::instance().setVmProfiling(false);
         k2d::SetZenScriptOutput(nullptr, nullptr);
         k2d::SetZenScriptAssets(nullptr);
         k2d::SetZenScriptInput(nullptr);
+        k2d::SetUiInput(nullptr);
     }
     device.Shutdown();
     return result;

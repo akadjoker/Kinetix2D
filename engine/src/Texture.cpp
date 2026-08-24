@@ -3,6 +3,8 @@
 
 #include <glad/glad.h>
 
+#include <limits>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -74,6 +76,22 @@ namespace k2d
 
         bool ok = Create(w, h, pixels, nearest, repeat);
 
+        stbi_image_free(pixels);
+        return ok;
+    }
+
+    bool Texture::LoadMemory(const unsigned char *data, std::size_t size, bool nearest, bool repeat)
+    {
+        if (!data || size == 0 || size > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
+            return false;
+
+        int w = 0;
+        int h = 0;
+        int channels = 0;
+        unsigned char *pixels = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &channels, 4);
+        if (!pixels)
+            return false;
+        const bool ok = Create(w, h, pixels, nearest, repeat);
         stbi_image_free(pixels);
         return ok;
     }

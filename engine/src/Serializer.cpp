@@ -17,6 +17,7 @@
 #include "k2d/LightOccluder2D.h"
 #include "k2d/CameraComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/UiControls.h"
 
 #include <cmath>
 #include <cstring>
@@ -429,6 +430,99 @@ namespace k2d
             ninePatch.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
+        void WriteUiControl(const UiControl &control, ct::Json &data)
+        {
+            data.set("anchors", WriteVec4(control.anchors()));
+            data.set("offsets", WriteVec4(control.offsets()));
+            data.set("interactive", ct::Json(control.interactive()));
+        }
+
+        void ReadUiControl(UiControl &control, const ct::Json &data)
+        {
+            control.setAnchors(ReadVec4(data["anchors"], Math::Vec4(0.0f)));
+            control.setOffsets(ReadVec4(data["offsets"], Math::Vec4(0.0f, 0.0f, 120.0f, 32.0f)));
+            control.setInteractive(data["interactive"].as_bool(control.interactive()));
+        }
+
+        Component *CreateUiCanvas(GameObject &owner) { return owner.addComponent<UiCanvas>(); }
+        Component *CreateUiPanel(GameObject &owner) { return owner.addComponent<UiPanel>(); }
+        Component *CreateUiLabel(GameObject &owner) { return owner.addComponent<UiLabel>(); }
+        Component *CreateUiButton(GameObject &owner) { return owner.addComponent<UiButton>(); }
+        Component *CreateUiCheckBox(GameObject &owner) { return owner.addComponent<UiCheckBox>(); }
+        Component *CreateUiSlider(GameObject &owner) { return owner.addComponent<UiSlider>(); }
+
+        void WriteUiCanvas(const Component &, ct::Json &, Assets *) {}
+        void ReadUiCanvas(Component &, const ct::Json &, Assets *) {}
+        void WriteUiPanel(const Component &component, ct::Json &data, Assets *)
+        {
+            const UiPanel &panel = static_cast<const UiPanel &>(component);
+            WriteUiControl(panel, data);
+            data.set("color", WriteColor(panel.color()));
+        }
+        void ReadUiPanel(Component &component, const ct::Json &data, Assets *)
+        {
+            UiPanel &panel = static_cast<UiPanel &>(component);
+            ReadUiControl(panel, data);
+            panel.setColor(ReadColor(data["color"], panel.color()));
+        }
+        void WriteUiLabel(const Component &component, ct::Json &data, Assets *)
+        {
+            const UiLabel &label = static_cast<const UiLabel &>(component);
+            WriteUiControl(label, data);
+            data.set("text", ct::Json(label.text()));
+            data.set("fontSize", ct::Json((double)label.fontSize()));
+            data.set("color", WriteColor(label.color()));
+        }
+        void ReadUiLabel(Component &component, const ct::Json &data, Assets *)
+        {
+            UiLabel &label = static_cast<UiLabel &>(component);
+            ReadUiControl(label, data);
+            label.setText(data["text"].as_cstr());
+            label.setFontSize((float)data["fontSize"].as_double(16.0));
+            label.setColor(ReadColor(data["color"], label.color()));
+        }
+        void WriteUiButton(const Component &component, ct::Json &data, Assets *)
+        {
+            const UiButton &button = static_cast<const UiButton &>(component);
+            WriteUiControl(button, data);
+            data.set("text", ct::Json(button.text()));
+        }
+        void ReadUiButton(Component &component, const ct::Json &data, Assets *)
+        {
+            UiButton &button = static_cast<UiButton &>(component);
+            ReadUiControl(button, data);
+            button.setText(data["text"].as_cstr());
+        }
+        void WriteUiCheckBox(const Component &component, ct::Json &data, Assets *)
+        {
+            const UiCheckBox &check = static_cast<const UiCheckBox &>(component);
+            WriteUiControl(check, data);
+            data.set("text", ct::Json(check.text()));
+            data.set("checked", ct::Json(check.checked()));
+        }
+        void ReadUiCheckBox(Component &component, const ct::Json &data, Assets *)
+        {
+            UiCheckBox &check = static_cast<UiCheckBox &>(component);
+            ReadUiControl(check, data);
+            check.setText(data["text"].as_cstr());
+            check.setChecked(data["checked"].as_bool(false));
+        }
+        void WriteUiSlider(const Component &component, ct::Json &data, Assets *)
+        {
+            const UiSlider &slider = static_cast<const UiSlider &>(component);
+            WriteUiControl(slider, data);
+            data.set("minimum", ct::Json((double)slider.minimum()));
+            data.set("maximum", ct::Json((double)slider.maximum()));
+            data.set("value", ct::Json((double)slider.value()));
+        }
+        void ReadUiSlider(Component &component, const ct::Json &data, Assets *)
+        {
+            UiSlider &slider = static_cast<UiSlider &>(component);
+            ReadUiControl(slider, data);
+            slider.setRange((float)data["minimum"].as_double(0.0), (float)data["maximum"].as_double(1.0));
+            slider.setValue((float)data["value"].as_double(0.5));
+        }
+
         Component *CreateSpriteBatch(GameObject &owner)
         {
             return owner.addComponent<SpriteBatch>();
@@ -830,6 +924,12 @@ namespace k2d
                 {ComponentType::Occluder, "LightOccluder2D", &CreateOccluder, &WriteOccluder, &ReadOccluder, nullptr},
                 {ComponentType::Camera, "Camera", &CreateCamera, &WriteCamera, &ReadCamera, nullptr},
                 {ComponentType::Particle, "Particle", &CreateParticle, &WriteParticle, &ReadParticle, nullptr},
+                {ComponentType::UiCanvas, "UiCanvas", &CreateUiCanvas, &WriteUiCanvas, &ReadUiCanvas, nullptr},
+                {ComponentType::UiPanel, "UiPanel", &CreateUiPanel, &WriteUiPanel, &ReadUiPanel, nullptr},
+                {ComponentType::UiLabel, "UiLabel", &CreateUiLabel, &WriteUiLabel, &ReadUiLabel, nullptr},
+                {ComponentType::UiButton, "UiButton", &CreateUiButton, &WriteUiButton, &ReadUiButton, nullptr},
+                {ComponentType::UiCheckBox, "UiCheckBox", &CreateUiCheckBox, &WriteUiCheckBox, &ReadUiCheckBox, nullptr},
+                {ComponentType::UiSlider, "UiSlider", &CreateUiSlider, &WriteUiSlider, &ReadUiSlider, nullptr},
             };
             count = sizeof(kEntries) / sizeof(kEntries[0]);
             return kEntries;

@@ -10,6 +10,7 @@ namespace k2d
 
     class CanvasRenderer;
     class CameraComponent;
+    class UiControl;
 
     class Scene
     {
@@ -54,6 +55,7 @@ namespace k2d
         void registerComponent(Component *component);
         void unregisterComponent(Component *component);
         void compactComponentLists();
+        void updateUi();
         void flushDisposed();
         GameObject *findRecursive(const GameObject *from, const char *name) const;
         void collectDisposed(GameObject *object, ct::Vector<GameObject *> &out);
@@ -68,6 +70,7 @@ namespace k2d
         ct::Vector<Component *> mLateUpdateComponents;
         ct::Vector<Component *> mRenderComponents;
         ct::Vector<CameraComponent *> mCameras;
+        ct::Vector<UiControl *> mUiControls;
     };
 
 }

@@ -1,0 +1,102 @@
+{
+  "root": {
+    "name": "UI Controls Example",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [0, 0],
+    "rotation": 0,
+    "scale": [1, 1],
+    "components": [
+      { "type": "UiCanvas", "data": {} }
+    ],
+    "children": [
+      {
+        "name": "Settings Panel",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [0, 0],
+        "rotation": 0,
+        "scale": [1, 1],
+        "components": [
+          {
+            "type": "UiPanel",
+            "data": {
+              "anchors": [0.5, 0.5, 0.5, 0.5],
+              "offsets": [-180, -120, 180, 120],
+              "interactive": false,
+              "color": [0.1, 0.12, 0.16, 0.94]
+            }
+          }
+        ],
+        "children": [
+          {
+            "name": "Title",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 1,
+            "position": [0, 0],
+            "rotation": 0,
+            "scale": [1, 1],
+            "components": [
+              { "type": "UiLabel", "data": { "anchors": [0, 0, 0, 0], "offsets": [20, 18, 320, 46], "interactive": false, "text": "Kinetix2D UI", "fontSize": 22, "color": [1, 1, 1, 1] } }
+            ],
+            "children": []
+          },
+          {
+            "name": "Play Button",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 2,
+            "position": [0, 0],
+            "rotation": 0,
+            "scale": [1, 1],
+            "components": [
+              { "type": "UiButton", "data": { "anchors": [0, 0, 0, 0], "offsets": [20, 62, 340, 102], "interactive": true, "text": "Play" } }
+            ],
+            "children": []
+          },
+          {
+            "name": "Fullscreen CheckBox",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 2,
+            "position": [0, 0],
+            "rotation": 0,
+            "scale": [1, 1],
+            "components": [
+              { "type": "UiCheckBox", "data": { "anchors": [0, 0, 0, 0], "offsets": [20, 122, 340, 150], "interactive": true, "text": "Fullscreen", "checked": false } }
+            ],
+            "children": []
+          },
+          {
+            "name": "Volume Slider",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 2,
+            "position": [0, 0],
+            "rotation": 0,
+            "scale": [1, 1],
+            "components": [
+              { "type": "UiSlider", "data": { "anchors": [0, 0, 0, 0], "offsets": [20, 175, 340, 205], "interactive": true, "minimum": 0, "maximum": 100, "value": 65 } }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

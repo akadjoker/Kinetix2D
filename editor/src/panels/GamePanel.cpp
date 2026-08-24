@@ -7,6 +7,7 @@
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/Scene.h>
 #include <k2d/ZenScriptComponent.h>
+#include <k2d/UiControls.h>
 
 #include <glad/glad.h>
 
@@ -164,6 +165,7 @@ void GamePanel::drawContents()
                                IM_COL32(12, 14, 18, 255));
     }
     SetZenScriptGameViewport(position.x, position.y, width, height);
+    SetUiViewport(position.x, position.y, width, height);
     if (app().paused())
     {
         ImGui::SetCursorScreenPos(ImVec2(position.x + 8.0f, position.y + 8.0f));

@@ -1,7 +1,9 @@
 #include "k2d/Scene.h"
 
 #include "k2d/CameraComponent.h"
+#include "k2d/Input.h"
 #include "k2d/Profiler.h"
+#include "k2d/UiControls.h"
 
 namespace k2d
 {
@@ -135,6 +137,7 @@ namespace k2d
         }
         flushDisposed();
         compactComponentLists();
+        updateUi();
     }
 
     void Scene::render(CanvasRenderer &canvas)
@@ -165,6 +168,7 @@ namespace k2d
         mLateUpdateComponents.clear();
         mRenderComponents.clear();
         mCameras.clear();
+        mUiControls.clear();
         mObjectCount = 0;
         mNextId = 1;
     }
@@ -210,6 +214,8 @@ namespace k2d
         }
         if (component->mType == ComponentType::Camera)
             mCameras.push_back(static_cast<CameraComponent *>(component));
+        if (UiControl *control = component->uiControl())
+            mUiControls.push_back(control);
     }
 
     void Scene::unregisterComponent(Component *component)
@@ -228,6 +234,13 @@ namespace k2d
                 if (mCameras[i] == component)
                 {
                     mCameras[i] = nullptr;
+                    break;
+                }
+        if (component->uiControl())
+            for (std::size_t i = 0; i < mUiControls.size(); ++i)
+                if (mUiControls[i] == component->uiControl())
+                {
+                    mUiControls[i] = nullptr;
                     break;
                 }
     }
@@ -260,6 +273,60 @@ namespace k2d
             if (mCameras[cameraRead])
                 mCameras[cameraWrite++] = mCameras[cameraRead];
         mCameras.resize(cameraWrite);
+        std::size_t uiWrite = 0;
+        for (std::size_t uiRead = 0; uiRead < mUiControls.size(); ++uiRead)
+            if (mUiControls[uiRead])
+                mUiControls[uiWrite++] = mUiControls[uiRead];
+        mUiControls.resize(uiWrite);
+    }
+
+    void Scene::updateUi()
+    {
+        const UiViewport &viewport = GetUiViewport();
+        if (!viewport.valid)
+            return;
+
+        UiControl *top = nullptr;
+        for (std::size_t i = 0; i < mUiControls.size(); ++i)
+        {
+            UiControl *control = mUiControls[i];
+            GameObject *object = control ? control->owner() : nullptr;
+            if (!object || object->disposed() || !object->isActiveAndVisibleInHierarchy() || !control->active())
+                continue;
+            control->updateLayout();
+            control->resetInput();
+            if (!control->interactive())
+                continue;
+            if (!top || object->zIndex() >= top->owner()->zIndex())
+                top = control;
+        }
+
+        Input *input = nullptr;
+        // UiControls owns the input pointer; this call has no global input
+        // access by design, so controls cannot each independently consume it.
+        // The viewport gate also keeps editor chrome out of game controls.
+        extern Input *GetUiInputInternal();
+        input = GetUiInputInternal();
+        if (!top || !input)
+            return;
+        const float x = input->MouseX() - viewport.x;
+        const float y = input->MouseY() - viewport.y;
+        if (x < 0.0f || y < 0.0f || x >= viewport.width || y >= viewport.height)
+            return;
+
+        UiControl *hit = nullptr;
+        for (std::size_t i = 0; i < mUiControls.size(); ++i)
+        {
+            UiControl *control = mUiControls[i];
+            GameObject *object = control ? control->owner() : nullptr;
+            if (!control || !object || !object->isActiveAndVisibleInHierarchy() || !control->active() ||
+                !control->interactive() || !control->contains(x, y))
+                continue;
+            if (!hit || object->zIndex() >= hit->owner()->zIndex())
+                hit = control;
+        }
+        if (hit)
+            hit->handleInput(x, y, input->MouseDown(0), input->MousePressed(0), input->MouseReleased(0));
     }
 
     void Scene::flushDisposed()

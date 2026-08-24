@@ -10,6 +10,7 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
+#include <k2d/UiControls.h>
 
 #include <chrono>
 #include <cmath>
@@ -628,6 +629,47 @@ static bool testExampleScripts()
     return ok;
 }
 
+static bool testUiSerializationAndInput()
+{
+    k2d::Scene scene;
+    k2d::GameObject *canvas = scene.createObject("ui");
+    canvas->addComponent<k2d::UiCanvas>();
+    k2d::GameObject *buttonObject = scene.createObject("play", canvas);
+    k2d::UiButton *button = buttonObject->addComponent<k2d::UiButton>();
+    button->setText("Play");
+    button->setAnchors(Math::Vec4(0.5f, 0.5f, 0.5f, 0.5f));
+    button->setOffsets(Math::Vec4(-60.0f, -18.0f, 60.0f, 18.0f));
+
+    k2d::GameObject *sliderObject = scene.createObject("volume", canvas);
+    k2d::UiSlider *slider = sliderObject->addComponent<k2d::UiSlider>();
+    slider->setRect(10.0f, 20.0f, 200.0f, 24.0f);
+    slider->setRange(0.0f, 100.0f);
+    slider->setValue(25.0f);
+
+    const ct::Json json = k2d::Serializer::WriteObject(*canvas);
+    k2d::Scene loadedScene;
+    k2d::GameObject *loaded = k2d::Serializer::ReadObject(loadedScene, json);
+    bool ok = loaded && loaded->getComponent<k2d::UiCanvas>() && loaded->childCount() == 2;
+    k2d::GameObject *loadedButtonNode = loaded ? loaded->findChild("play") : nullptr;
+    k2d::UiButton *loadedButton = loadedButtonNode ? loadedButtonNode->getComponent<k2d::UiButton>() : nullptr;
+    ok = ok && loadedButton && loadedButton->text() == ct::String("Play") &&
+         nearEqual(loadedButton->anchors().x, 0.5f) && nearEqual(loadedButton->offsets().x, -60.0f);
+
+    k2d::Input input;
+    k2d::SetUiInput(&input);
+    k2d::SetUiViewport(0.0f, 0.0f, 320.0f, 180.0f);
+    input.OnMouseMove(160.0f, 90.0f);
+    input.OnMouseButton(0, true);
+    scene.update(0.016f);
+    input.NewFrame();
+    input.OnMouseButton(0, false);
+    scene.update(0.016f);
+    ok = ok && button->consumeClick();
+    k2d::SetUiInput(nullptr);
+    k2d::SetUiViewport(0.0f, 0.0f, 0.0f, 0.0f);
+    return ok;
+}
+
 int main()
 {
     k2d::FileSystem::Instance().Init();
@@ -650,17 +692,18 @@ int main()
     const bool hotReload = testHotReload();
     const bool modules = testNetAndHttpModulesImport();
     const bool examples = testExampleScripts();
+    const bool ui = testUiSerializationAndInput();
 
     std::printf("zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s game_viewport_input=%s destroy=%s serialization=%s "
-                "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s\n",
+                "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
                 basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail", objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
                 components ? "pass" : "fail", inputOk ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
                 destroy ? "pass" : "fail", serialization ? "pass" : "fail",
                 spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
                 channel ? "pass" : "fail", hotReload ? "pass" : "fail",
-                modules ? "pass" : "fail", examples ? "pass" : "fail");
+                modules ? "pass" : "fail", examples ? "pass" : "fail", ui ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && inputOk && gameViewportInput && destroy && serialization &&
-                        spawnMath && gate && channel && hotReload && modules && examples;
+                        spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();
     return passed ? 0 : 1;
 }

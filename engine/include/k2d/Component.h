@@ -9,6 +9,7 @@ namespace k2d
 
     class GameObject;
     class RenderQueue;
+    class UiControl;
 
     enum class ComponentType : uint8_t
     {
@@ -16,10 +17,10 @@ namespace k2d
         Script,
         Camera,
         TileMap,
-    SpriteBatch,
-    Polygon2D,
-    Animation,
-    Light,
+        SpriteBatch,
+        Polygon2D,
+        Animation,
+        Light,
         Occluder,
         LinePath,
         NinePatch,
@@ -28,6 +29,12 @@ namespace k2d
         Collider,
         CircleShape,
         RectShape,
+        UiCanvas,
+        UiPanel,
+        UiLabel,
+        UiButton,
+        UiCheckBox,
+        UiSlider,
         Count
     };
 
@@ -41,7 +48,8 @@ namespace k2d
 
     class Component;
 
-    template <class T> struct ComponentMatch
+    template <class T>
+    struct ComponentMatch
     {
         static bool test(const Component *)
         {
@@ -62,6 +70,7 @@ namespace k2d
         uint32_t id() const;
         bool active() const;
         void setActive(bool active);
+        virtual UiControl *uiControl() { return nullptr; }
 
     protected:
         explicit Component(ComponentType type, uint8_t events = ComponentEventNone);

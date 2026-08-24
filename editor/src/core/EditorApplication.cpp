@@ -36,6 +36,8 @@
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
+#include <k2d/UiControls.h>
+#include <k2d/UiTheme.h>
 
 #include <cmath>
 #include <cstdio>
@@ -93,6 +95,8 @@ bool EditorApplication::initialize()
     RegisterZenScriptSerializer();
     RegisterPhysics2DSerializers();
     SetZenScriptInput(&mDevice.GetInput());
+    SetUiInput(&mDevice.GetInput());
+    SetUiThemeTexture(UiTheme::DefaultTexture(mAssets));
     SetZenScriptAssets(&mAssets);
     SetZenScriptOutput([](const char *text, bool isError, void *user)
     {

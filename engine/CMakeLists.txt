@@ -29,6 +29,22 @@ set_source_files_properties(
     COMPILE_OPTIONS "-include${CMAKE_SOURCE_DIR}/external/glad/include/glad/glad.h"
 )
 
+# The default UI skin is owned by the engine, not by a game project. Embed it
+# so a missing external theme never leaves the game with invisible controls.
+set(K2D_DEFAULT_UI_THEME_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/k2d_default_ui_theme_png.h")
+add_custom_command(
+    OUTPUT "${K2D_DEFAULT_UI_THEME_HEADER}"
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT="${CMAKE_SOURCE_DIR}/assets/menu.png"
+        -DOUTPUT="${K2D_DEFAULT_UI_THEME_HEADER}"
+        -P "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    DEPENDS
+        "${CMAKE_SOURCE_DIR}/assets/menu.png"
+        "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    COMMENT "Embedding Kinetix2D default UI theme"
+)
+add_custom_target(k2d_default_ui_theme_asset DEPENDS "${K2D_DEFAULT_UI_THEME_HEADER}")
+
 if(TARGET SDL2::SDL2)
     target_link_libraries(imgui PUBLIC SDL2::SDL2)
 else()
@@ -47,6 +63,8 @@ add_library(k2d STATIC
     src/Device.cpp
     src/Shader.cpp
     src/Texture.cpp
+    src/UiTheme.cpp
+    src/UiControls.cpp
     src/Pixmap.cpp
     src/Assets.cpp
     src/Batch.cpp
@@ -92,7 +110,8 @@ target_include_directories(k2d PUBLIC
     ${CMAKE_SOURCE_DIR}/external/containers/include
 )
 
-target_include_directories(k2d PRIVATE src)
+target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
+add_dependencies(k2d k2d_default_ui_theme_asset)
 
 target_link_libraries(k2d PUBLIC glad mathc)
 target_link_libraries(k2d PRIVATE imgui)

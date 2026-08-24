@@ -103,6 +103,26 @@ namespace k2d
         return texture;
     }
 
+    Texture *Assets::LoadTextureMemory(const char *name, const unsigned char *data, std::size_t size,
+                                       bool nearest, bool repeat)
+    {
+        if (!name || !data || size == 0)
+            return nullptr;
+        Texture *texture = new Texture();
+        if (!texture->LoadMemory(data, size, nearest, repeat))
+        {
+            delete texture;
+            return nullptr;
+        }
+
+        ct::String key(name);
+        Texture **existing = mTextures.find(key);
+        if (existing)
+            delete *existing;
+        mTextures.put(key, texture);
+        return texture;
+    }
+
     Shader *Assets::GetShader(const char *name)
     {
         ct::String key(name);

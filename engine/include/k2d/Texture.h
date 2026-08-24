@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace k2d
 {
 
@@ -14,6 +16,10 @@ namespace k2d
 
         bool Create(int width, int height, const unsigned char *rgba, bool nearest = true, bool repeat = false);
         bool Load(const char *path, bool nearest = true, bool repeat = false);
+        // Decodes an image already resident in memory. Used by engine-owned
+        // embedded assets such as the fallback UI theme.
+        bool LoadMemory(const unsigned char *data, std::size_t size,
+                        bool nearest = true, bool repeat = false);
 
         void Bind(int unit = 0) const;
         void Release();

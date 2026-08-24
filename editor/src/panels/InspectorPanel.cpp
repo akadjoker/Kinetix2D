@@ -22,6 +22,7 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/Texture.h>
 #include <k2d/TileMapComponent.h>
+#include <k2d/UiControls.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CircleCollider2D.h>
@@ -35,6 +36,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 
 namespace k2d::editor
 {
@@ -56,7 +58,8 @@ const char *componentName(ComponentType type)
     static const char *names[] = {
         "Sprite", "Script", "Camera", "TileMap", "SpriteBatch", "Polygon2D",
         "Animation2D", "Light2D", "LightOccluder2D", "Line2D", "NinePatch",
-        "Particle", "RigidBody2D", "Collider2D", "CircleShape", "RectShape"
+        "Particle", "RigidBody2D", "Collider2D", "CircleShape", "RectShape", "UiCanvas",
+        "UiPanel", "UiLabel", "UiButton", "UiCheckBox", "UiSlider"
     };
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
@@ -108,6 +111,12 @@ const char *componentDescription(const Component &component)
     case ComponentType::Light: return "Adds point or directional lighting to the scene.";
     case ComponentType::Occluder: return "Blocks shadows cast by 2D lights.";
     case ComponentType::Camera: return "Controls the Game view projection and can follow another object.";
+    case ComponentType::UiCanvas: return "Marks a screen-space UI hierarchy. UI children ignore the world camera.";
+    case ComponentType::UiPanel: return "Screen-space panel with anchor and offset layout.";
+    case ComponentType::UiLabel: return "Screen-space text label with anchor and offset layout.";
+    case ComponentType::UiButton: return "Clickable screen-space button.";
+    case ComponentType::UiCheckBox: return "Clickable boolean screen-space control.";
+    case ComponentType::UiSlider: return "Clickable numeric screen-space control.";
     default: return "";
     }
 }
@@ -631,6 +640,76 @@ void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePat
     BlendMode blendMode = ninePatch.blendMode();
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set NinePatch Blend Mode", [&] { ninePatch.setBlendMode(blendMode); });
+}
+
+void drawUiLayoutProperties(EditorApplication &app, UiControl &control)
+{
+    ImGui::SeparatorText("Layout (screen space)");
+    Math::Vec4 anchors = control.anchors();
+    if (dragVec4(app, "Anchors (L,T,R,B)", anchors, 0.01f, "Adjust UI Anchors"))
+        control.setAnchors(anchors);
+    Math::Vec4 offsets = control.offsets();
+    if (dragVec4(app, "Offsets (L,T,R,B)", offsets, 0.5f, "Adjust UI Offsets"))
+        control.setOffsets(offsets);
+    ImGui::TextDisabled("Anchors are normalized (0..1); offsets are pixels.");
+}
+
+void drawUiTextProperty(EditorApplication &app, const char *label, const ct::String &value,
+                        const std::function<void(const char *)> &set)
+{
+    char text[256];
+    std::snprintf(text, sizeof(text), "%s", value.c_str());
+    if (ImGui::InputText(label, text, sizeof(text)))
+        applyInstant(app, "Edit UI Text", [&] { set(text); });
+}
+
+void drawUiPanelProperties(EditorApplication &app, UiPanel &panel)
+{
+    drawUiLayoutProperties(app, panel);
+    Color color = panel.color();
+    if (colorEdit(app, "Color", color, "Recolor UI Panel"))
+        panel.setColor(color);
+}
+
+void drawUiLabelProperties(EditorApplication &app, UiLabel &label)
+{
+    drawUiLayoutProperties(app, label);
+    drawUiTextProperty(app, "Text", label.text(), [&](const char *value) { label.setText(value); });
+    float size = label.fontSize();
+    if (dragFloatProperty(app, "Font Size", size, 0.5f, "Set UI Label Font Size", 1.0f, 256.0f))
+        label.setFontSize(size);
+    Color color = label.color();
+    if (colorEdit(app, "Color", color, "Recolor UI Label"))
+        label.setColor(color);
+}
+
+void drawUiButtonProperties(EditorApplication &app, UiButton &button)
+{
+    drawUiLayoutProperties(app, button);
+    drawUiTextProperty(app, "Text", button.text(), [&](const char *value) { button.setText(value); });
+}
+
+void drawUiCheckBoxProperties(EditorApplication &app, UiCheckBox &check)
+{
+    drawUiLayoutProperties(app, check);
+    drawUiTextProperty(app, "Text", check.text(), [&](const char *value) { check.setText(value); });
+    bool checked = check.checked();
+    if (ImGui::Checkbox("Checked", &checked))
+        applyInstant(app, "Toggle UI CheckBox", [&] { check.setChecked(checked); });
+}
+
+void drawUiSliderProperties(EditorApplication &app, UiSlider &slider)
+{
+    drawUiLayoutProperties(app, slider);
+    float minimum = slider.minimum();
+    float maximum = slider.maximum();
+    if (dragFloatProperty(app, "Minimum", minimum, 0.05f, "Set UI Slider Minimum"))
+        slider.setRange(minimum, slider.maximum());
+    if (dragFloatProperty(app, "Maximum", maximum, 0.05f, "Set UI Slider Maximum"))
+        slider.setRange(slider.minimum(), maximum);
+    float value = slider.value();
+    if (dragFloatProperty(app, "Value", value, 0.01f, "Set UI Slider Value", slider.minimum(), slider.maximum()))
+        slider.setValue(value);
 }
 
 void drawOccluderProperties(EditorApplication &app, LightOccluder2D &occluder)
@@ -1658,6 +1737,24 @@ void drawComponentProperties(EditorApplication &app, Component &component)
     case ComponentType::NinePatch:
         drawNinePatchProperties(app, static_cast<NinePatchComponent &>(component));
         break;
+    case ComponentType::UiCanvas:
+        ImGui::TextDisabled("Create UI controls as children of this GameObject.");
+        break;
+    case ComponentType::UiPanel:
+        drawUiPanelProperties(app, static_cast<UiPanel &>(component));
+        break;
+    case ComponentType::UiLabel:
+        drawUiLabelProperties(app, static_cast<UiLabel &>(component));
+        break;
+    case ComponentType::UiButton:
+        drawUiButtonProperties(app, static_cast<UiButton &>(component));
+        break;
+    case ComponentType::UiCheckBox:
+        drawUiCheckBoxProperties(app, static_cast<UiCheckBox &>(component));
+        break;
+    case ComponentType::UiSlider:
+        drawUiSliderProperties(app, static_cast<UiSlider &>(component));
+        break;
     case ComponentType::SpriteBatch:
         drawSpriteBatchProperties(app, static_cast<SpriteBatch &>(component));
         break;
@@ -1905,6 +2002,46 @@ void InspectorPanel::drawContents()
             NinePatchComponent *ninePatch = object->addComponent<NinePatchComponent>();
             ninePatch->setTexture(placeholderSpriteTexture(app()));
             app().commitChange("Add NinePatch Component", addBefore);
+        }
+        if (ImGui::BeginMenu("UI"))
+        {
+            if (componentMenuItem("UI Canvas", "Root marker for screen-space UI controls."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiCanvas>();
+                app().commitChange("Add UI Canvas", addBefore);
+            }
+            if (componentMenuItem("Panel", "Screen-space coloured panel; can contain other UI nodes."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiPanel>();
+                app().commitChange("Add UI Panel", addBefore);
+            }
+            if (componentMenuItem("Label", "Screen-space bitmap-font text."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiLabel>();
+                app().commitChange("Add UI Label", addBefore);
+            }
+            if (componentMenuItem("Button", "Screen-space clickable button."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiButton>();
+                app().commitChange("Add UI Button", addBefore);
+            }
+            if (componentMenuItem("CheckBox", "Screen-space boolean control."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiCheckBox>();
+                app().commitChange("Add UI CheckBox", addBefore);
+            }
+            if (componentMenuItem("Slider", "Screen-space numeric control."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiSlider>();
+                app().commitChange("Add UI Slider", addBefore);
+            }
+            ImGui::EndMenu();
         }
         if (componentMenuItem("TileMap", "Draw a grid of tiles from a texture atlas."))
         {

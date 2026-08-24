@@ -27,6 +27,8 @@
 #include "k2d/CircleShape.h"
 #include "k2d/RectShape.h"
 #include "k2d/NinePatchComponent.h"
+#include "k2d/UiControls.h"
+#include "k2d/UiTheme.h"
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneDebug.h"
 #include "k2d/CanvasLayer.h"
