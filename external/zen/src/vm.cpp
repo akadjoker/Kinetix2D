@@ -86,7 +86,7 @@ namespace zen
     ** Construtor / Destrutor
     ** ========================================================= */
 
-    VM::VM() : globals_(nullptr), global_names_(nullptr), num_globals_(0), globals_capacity_(0), main_fiber_(nullptr), current_fiber_(nullptr), fiber_depth_(0), external_call_stop_depth_(-1), had_error_(false), num_search_paths_(0), num_libs_(0), num_plugins_(0), selectors_(nullptr), num_selectors_(0), selectors_capacity_(0)
+    VM::VM() : globals_(nullptr), global_names_(nullptr), num_globals_(0), globals_capacity_(0), main_fiber_(nullptr), current_fiber_(nullptr), fiber_depth_(0), run_depth_(0), external_call_stop_depth_(-1), had_error_(false), num_search_paths_(0), num_libs_(0), num_plugins_(0), selectors_(nullptr), num_selectors_(0), selectors_capacity_(0)
     {
         gc_init(&gc_);
         gc_.vm = this;
@@ -248,8 +248,42 @@ namespace zen
         run(cl);
     }
 
+    /* Um script compilado e corrido de dentro de outro (um native que chama
+    ** run(), como um instantiate(prefab) faria) não pode ir para o main_fiber_:
+    ** o caminho normal abaixo rebobina-o, o que apagaria as frames de quem
+    ** chamou. Mesmo padrão do import_script_module. */
+    void VM::run_nested(ObjClosure *closure)
+    {
+        had_error_ = false;
+
+        ObjFiber *fiber = new_fiber(closure, 256);
+        fiber->frame_count = 1;
+        CallFrame *frame = &fiber->frames[0];
+        frame->closure = closure;
+        frame->func = closure->func;
+        frame->ip = closure->func->code;
+        frame->base = fiber->stack;
+        frame->ret_reg = 0;
+        frame->ret_count = 0;
+        fiber->stack_top = fiber->stack + closure->func->num_regs;
+        fiber->state = FIBER_RUNNING;
+
+        ObjFiber *saved_fiber = current_fiber_;
+        current_fiber_ = fiber;
+        run_depth_++;
+        execute(fiber);
+        run_depth_--;
+        current_fiber_ = saved_fiber;
+    }
+
     void VM::run(ObjClosure *closure)
     {
+        if (run_depth_ > 0)
+        {
+            run_nested(closure);
+            return;
+        }
+
         had_error_ = false;
         /* Setup main fiber com o closure */
         main_fiber_->frame_count = 1;
@@ -264,7 +298,9 @@ namespace zen
         main_fiber_->state = FIBER_RUNNING;
         current_fiber_ = main_fiber_;
 
+        run_depth_++;
         execute(main_fiber_);
+        run_depth_--;
 
         /* Reset fiber state for subsequent C++ API calls */
         main_fiber_->stack_top = main_fiber_->stack;

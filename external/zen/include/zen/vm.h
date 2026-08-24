@@ -276,6 +276,7 @@ namespace zen
         void close_upvalues(ObjFiber *fiber, Value *last);
         bool call_value(ObjFiber *fiber, Value callee, int nargs, int nresults);
         bool call_closure(ObjFiber *fiber, ObjClosure *closure, int nargs, int nresults);
+        void run_nested(ObjClosure *closure);
         char *try_read_cb(const char *path, long *out_size); /* read file via callbacks */
 
         /* find_global moved to public */
@@ -297,6 +298,7 @@ namespace zen
         ObjFiber *main_fiber_;
         ObjFiber *current_fiber_; /* fiber actualmente a executar */
         int fiber_depth_;         /* current nested execute() depth */
+        int run_depth_;           /* nested VM::run() depth — see run_nested */
         int external_call_stop_depth_; /* return to C++ when nested script call unwinds here */
         bool had_error_;          /* runtime error occurred */
 
