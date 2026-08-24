@@ -23,6 +23,8 @@
 #include <k2d/FileSystem.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Serializer.h>
+#include <k2d/Physics2DSerializer.h>
+#include <k2d/PhysicsWorld2D.h>
 #include <k2d/ZenScriptComponent.h>
 
 #include <cmath>
@@ -75,6 +77,7 @@ bool EditorApplication::initialize()
     applyEditorTheme();
 
     RegisterZenScriptSerializer();
+    RegisterPhysics2DSerializers();
     SetZenScriptInput(&mDevice.GetInput());
     SetZenScriptAssets(&mAssets);
     SetZenScriptOutput([](const char *text, bool isError, void *user)
@@ -152,6 +155,8 @@ int EditorApplication::run()
                 }
             }
             mRuntimeScene.update(mDevice.DeltaTime());
+            if (mPhysicsWorld)
+                mPhysicsWorld->step(mDevice.DeltaTime());
             DispatchZenScriptEvents(mRuntimeScene.root());
         }
         if (!mPlaying && mSettings.viewportLivePreview)
@@ -329,6 +334,10 @@ void EditorApplication::startPlay()
         for (size_t i = 0; i < children.size(); ++i)
             Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
 
+    delete mPhysicsWorld;
+    mPhysicsWorld = new PhysicsWorld2D();
+    mPhysicsWorld->build(mRuntimeScene.root());
+
     SetZenScriptsEnabled(true);
     mPlaying = true;
     mPaused = false;
@@ -339,6 +348,9 @@ void EditorApplication::startPlay()
 void EditorApplication::stopPlay()
 {
     SetZenScriptsEnabled(false);
+    delete mPhysicsWorld;
+    mPhysicsWorld = nullptr;
+    PhysicsWorld2D::SetActive(nullptr);
     mRuntimeScene.clear();
     ZenBlackboard::clear();
     mPlaying = false;
@@ -351,6 +363,8 @@ void EditorApplication::stepPlay()
     if (mPlaying && mPaused)
     {
         mRuntimeScene.update(1.0f / 60.0f);
+        if (mPhysicsWorld)
+            mPhysicsWorld->step(1.0f / 60.0f);
         DispatchZenScriptEvents(mRuntimeScene.root());
     }
 }

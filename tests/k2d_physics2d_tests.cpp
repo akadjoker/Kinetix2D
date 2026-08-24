@@ -5,9 +5,11 @@
 #include <k2d/EdgeCollider2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/Physics2DSerializer.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
+#include <k2d/Serializer.h>
 
 #include <cmath>
 #include <cstdio>
@@ -533,6 +535,99 @@ static bool testCompoundBodyKeepsShapesApart()
     return ok;
 }
 
+static bool testSerializerRoundTrip()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject *object = source.createObject("crate");
+    object->setPosition(Math::Vec2(30.0f, -40.0f));
+
+    k2d::RigidBody2D *body = object->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(kx::BodyType::Kinematic);
+    body->setDensity(2.5f);
+    body->setFriction(0.8f);
+    body->setRestitution(0.4f);
+    body->setLinearDamping(0.2f);
+    body->setAngularDamping(0.3f);
+    body->setGravityScale(0.5f);
+    body->setFixedRotation(true);
+    body->setBullet(true);
+
+    k2d::BoxCollider2D *box = object->addComponent<k2d::BoxCollider2D>();
+    box->setSize(Math::Vec2(64.0f, 24.0f));
+    box->setOffset(Math::Vec2(5.0f, -3.0f));
+    box->setFilter(0x0004, 0x0008);
+
+    k2d::CircleCollider2D *circle = object->addComponent<k2d::CircleCollider2D>();
+    circle->setRadius(12.5f);
+    circle->setSensor(true);
+
+    k2d::EdgeCollider2D *edge = object->addComponent<k2d::EdgeCollider2D>();
+    edge->setPoints(Math::Vec2(-10.0f, 1.0f), Math::Vec2(10.0f, 2.0f));
+
+    k2d::PolygonCollider2D *polygon = object->addComponent<k2d::PolygonCollider2D>();
+    polygon->setRegular(5, 20.0f);
+
+    const Math::Vec2 chainPoints[3] = {Math::Vec2(-40.0f, 0.0f), Math::Vec2(0.0f, 10.0f),
+                                       Math::Vec2(40.0f, 0.0f)};
+    k2d::ChainCollider2D *chain = object->addComponent<k2d::ChainCollider2D>();
+    chain->setPoints(chainPoints, 3);
+    chain->setLoop(true);
+
+    const ct::Json json = k2d::Serializer::WriteObject(*object);
+
+    k2d::Scene target;
+    k2d::GameObject *loaded = k2d::Serializer::ReadObject(target, json);
+    bool ok = loaded != nullptr;
+    if (!loaded)
+        return false;
+
+    k2d::RigidBody2D *outBody = loaded->getComponent<k2d::RigidBody2D>();
+    ok = ok && outBody && outBody->bodyType() == kx::BodyType::Kinematic;
+    ok = ok && outBody && nearEqual(outBody->density(), 2.5f, 0.001f);
+    ok = ok && outBody && nearEqual(outBody->friction(), 0.8f, 0.001f);
+    ok = ok && outBody && nearEqual(outBody->restitution(), 0.4f, 0.001f);
+    ok = ok && outBody && nearEqual(outBody->linearDamping(), 0.2f, 0.001f);
+    ok = ok && outBody && nearEqual(outBody->angularDamping(), 0.3f, 0.001f);
+    ok = ok && outBody && nearEqual(outBody->gravityScale(), 0.5f, 0.001f);
+    ok = ok && outBody && outBody->fixedRotation() && outBody->bullet();
+
+    ok = ok && loaded->componentCount<k2d::Collider2D>() == 5;
+
+    k2d::BoxCollider2D *outBox = loaded->getComponent<k2d::BoxCollider2D>();
+    ok = ok && outBox && nearEqual(outBox->size().x, 64.0f, 0.001f) &&
+         nearEqual(outBox->size().y, 24.0f, 0.001f);
+    ok = ok && outBox && nearEqual(outBox->offset().x, 5.0f, 0.001f);
+    ok = ok && outBox && outBox->category() == 0x0004 && outBox->mask() == 0x0008;
+
+    k2d::CircleCollider2D *outCircle = loaded->getComponent<k2d::CircleCollider2D>();
+    ok = ok && outCircle && nearEqual(outCircle->radius(), 12.5f, 0.001f) && outCircle->isSensor();
+
+    k2d::EdgeCollider2D *outEdge = loaded->getComponent<k2d::EdgeCollider2D>();
+    ok = ok && outEdge && nearEqual(outEdge->start().x, -10.0f, 0.001f) &&
+         nearEqual(outEdge->end().y, 2.0f, 0.001f);
+
+    k2d::PolygonCollider2D *outPolygon = loaded->getComponent<k2d::PolygonCollider2D>();
+    ok = ok && outPolygon && outPolygon->points().size() == 5;
+
+    k2d::ChainCollider2D *outChain = loaded->getComponent<k2d::ChainCollider2D>();
+    ok = ok && outChain && outChain->points().size() == 3 && outChain->loop();
+
+    k2d::PhysicsWorld2D world;
+    world.build(target.root());
+    ok = ok && world.bodyCount() == 1;
+    ok = ok && outBody && outBody->body() && outBody->body()->ShapeCount() == 7;
+    ok = ok && outChain && outChain->shapeCount() == 3;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  serializer: colliders=%d shapes=%d (chain owns %d)\n",
+                (int)loaded->componentCount<k2d::Collider2D>(),
+                outBody && outBody->body() ? outBody->body()->ShapeCount() : -1,
+                outChain ? outChain->shapeCount() : -1);
+    return ok;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -553,11 +648,12 @@ int main()
     const bool polygon = testPolygonCollider();
     const bool chain = testChainCollider();
     const bool compound = testCompoundBodyKeepsShapesApart();
+    const bool serialized = testSerializerRoundTrip();
 
     std::printf("physics2d: falls=%s contacts=%s sensor=%s queries=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
-                "chain=%s compound=%s\n",
+                "chain=%s compound=%s serializer=%s\n",
                 falls ? "pass" : "fail", contacts ? "pass" : "fail", sensor ? "pass" : "fail",
                 queries ? "pass" : "fail", staticFollow ? "pass" : "fail",
                 velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -565,10 +661,11 @@ int main()
                 colliderChange ? "pass" : "fail", liveType ? "pass" : "fail",
                 filters ? "pass" : "fail", pointQuery ? "pass" : "fail",
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail",
-                chain ? "pass" : "fail", compound ? "pass" : "fail");
+                chain ? "pass" : "fail", compound ? "pass" : "fail",
+                serialized ? "pass" : "fail");
     return falls && contacts && sensor && queries && staticFollow && velocity && deterministic &&
                    destroy && lateSpawn && colliderChange && liveType && filters && pointQuery &&
-                   circle && edge && polygon && chain && compound
+                   circle && edge && polygon && chain && compound && serialized
                ? 0
                : 1;
 }

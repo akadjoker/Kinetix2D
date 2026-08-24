@@ -17,6 +17,11 @@
 
 #include <ImGuiFileDialog.h>
 
+namespace k2d
+{
+class PhysicsWorld2D;
+}
+
 namespace k2d::editor
 {
 
@@ -58,6 +63,7 @@ public:
     void log(const char *message);
     void log(const ct::String &message);
     bool playing() const { return mPlaying; }
+    PhysicsWorld2D *physicsWorld() const { return mPhysicsWorld; }
     bool paused() const { return mPaused; }
     SceneChange beginChange();
     void commitChange(const char *label, const SceneChange &before);
@@ -121,6 +127,7 @@ private:
     ct::String mPreviewPrefabPath;
     bool mInitialized = false;
     bool mPlaying = false;
+    PhysicsWorld2D *mPhysicsWorld = nullptr;
     bool mPaused = false;
     int mThemeKind = 0;
     bool mDefaultLayoutPending = true;

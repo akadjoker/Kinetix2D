@@ -268,15 +268,16 @@ namespace k2d
 
             const int shapesBefore = body->ShapeCount();
             collider->addTo(*body, rigidBody.density(), scaleX, scaleY);
+            const int shapesAfter = body->ShapeCount();
 
-            const int index = body->ShapeCount() > shapesBefore ? body->ShapeCount() - 1 : -1;
-            collider->mShapeIndex = index;
+            collider->mShapeIndex = shapesAfter > shapesBefore ? shapesBefore : -1;
+            collider->mShapeCount = shapesAfter - shapesBefore;
             collider->mDirty = false;
-            if (index >= 0)
+            for (int shape = shapesBefore; shape < shapesAfter; ++shape)
             {
-                body->SetSensor(index, collider->isSensor());
-                body->SetShapeUserData(index, collider);
-                body->SetShapeFilter(index, collider->category(), collider->mask());
+                body->SetSensor(shape, collider->isSensor());
+                body->SetShapeUserData(shape, collider);
+                body->SetShapeFilter(shape, collider->category(), collider->mask());
             }
         }
 

@@ -31,6 +31,7 @@ namespace k2d
         void setFilter(uint16_t category, uint16_t mask);
 
         int shapeIndex() const { return mShapeIndex; }
+        int shapeCount() const { return mShapeCount; }
         bool attached() const { return mShapeIndex >= 0; }
 
     protected:
@@ -45,6 +46,7 @@ namespace k2d
         uint16_t mCategory;
         uint16_t mMask;
         int mShapeIndex;
+        int mShapeCount;
         bool mDirty;
     };
 

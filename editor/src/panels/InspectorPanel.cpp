@@ -20,6 +20,12 @@
 #include <k2d/SpriteComponent.h>
 #include <k2d/Texture.h>
 #include <k2d/TileMapComponent.h>
+#include <k2d/BoxCollider2D.h>
+#include <k2d/ChainCollider2D.h>
+#include <k2d/CircleCollider2D.h>
+#include <k2d/EdgeCollider2D.h>
+#include <k2d/PolygonCollider2D.h>
+#include <k2d/RigidBody2D.h>
 #include <k2d/ZenScriptComponent.h>
 #include <IconsMaterialDesignIcons.h>
 
@@ -51,6 +57,23 @@ const char *componentName(ComponentType type)
     };
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
+}
+
+const char *componentName(const Component &component)
+{
+    if (dynamic_cast<const BoxCollider2D *>(&component))
+        return "BoxCollider2D";
+    if (dynamic_cast<const CircleCollider2D *>(&component))
+        return "CircleCollider2D";
+    if (dynamic_cast<const EdgeCollider2D *>(&component))
+        return "EdgeCollider2D";
+    if (dynamic_cast<const PolygonCollider2D *>(&component))
+        return "PolygonCollider2D";
+    if (dynamic_cast<const ChainCollider2D *>(&component))
+        return "ChainCollider2D";
+    if (dynamic_cast<const DirectionalLight2D *>(&component))
+        return "DirectionalLight2D";
+    return componentName(component.type());
 }
 
 constexpr int kPlaceholderSize = 32;
@@ -674,6 +697,151 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
         if (ImGui::Button(ICON_MDI_CLOSE "##clearFollow"))
             applyInstant(app, "Clear Camera Follow Target", [&] { cameraComponent.setFollowTarget(nullptr); });
     }
+}
+
+void drawRigidBodyProperties(EditorApplication &app, RigidBody2D &body)
+{
+    static const char *kTypes[] = {"Static", "Kinematic", "Dynamic"};
+    int typeIndex = body.bodyType() == kx::BodyType::Static      ? 0
+                    : body.bodyType() == kx::BodyType::Kinematic ? 1
+                                                                 : 2;
+    if (ImGui::Combo("Body Type", &typeIndex, kTypes, 3))
+    {
+        const kx::BodyType picked = typeIndex == 0   ? kx::BodyType::Static
+                                    : typeIndex == 1 ? kx::BodyType::Kinematic
+                                                     : kx::BodyType::Dynamic;
+        applyInstant(app, "Set Body Type", [&] { body.setBodyType(picked); });
+    }
+
+    float density = body.density();
+    if (dragFloatProperty(app, "Density", density, 0.05f, "Set Density", 0.0f, 100.0f))
+        body.setDensity(density);
+
+    float friction = body.friction();
+    if (dragFloatProperty(app, "Friction", friction, 0.01f, "Set Friction", 0.0f, 2.0f))
+        body.setFriction(friction);
+
+    float restitution = body.restitution();
+    if (dragFloatProperty(app, "Restitution", restitution, 0.01f, "Set Restitution", 0.0f, 1.0f))
+        body.setRestitution(restitution);
+
+    float linearDamping = body.linearDamping();
+    if (dragFloatProperty(app, "Linear Damping", linearDamping, 0.01f, "Set Linear Damping", 0.0f, 10.0f))
+        body.setLinearDamping(linearDamping);
+
+    float angularDamping = body.angularDamping();
+    if (dragFloatProperty(app, "Angular Damping", angularDamping, 0.01f, "Set Angular Damping", 0.0f, 10.0f))
+        body.setAngularDamping(angularDamping);
+
+    float gravityScale = body.gravityScale();
+    if (dragFloatProperty(app, "Gravity Scale", gravityScale, 0.05f, "Set Gravity Scale", -10.0f, 10.0f))
+        body.setGravityScale(gravityScale);
+
+    bool fixedRotation = body.fixedRotation();
+    if (ImGui::Checkbox("Fixed Rotation", &fixedRotation))
+        applyInstant(app, "Set Fixed Rotation", [&] { body.setFixedRotation(fixedRotation); });
+
+    bool bullet = body.bullet();
+    if (ImGui::Checkbox("Bullet", &bullet))
+        applyInstant(app, "Set Bullet", [&] { body.setBullet(bullet); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Continuous collision for fast movers");
+
+    if (body.inWorld())
+    {
+        const Math::Vec2 velocity = body.velocity();
+        ImGui::TextDisabled("Live: v=(%.1f, %.1f)  w=%.1f deg/s", velocity.x, velocity.y,
+                            body.angularVelocity());
+    }
+    else
+        ImGui::TextDisabled("Simulated on Play only.");
+}
+
+void drawColliderShared(EditorApplication &app, Collider2D &collider)
+{
+    Math::Vec2 offset = collider.offset();
+    if (dragVec2(app, "Offset", offset, 0.5f, "Set Collider Offset"))
+        collider.setOffset(offset);
+
+    bool sensor = collider.isSensor();
+    if (ImGui::Checkbox("Sensor", &sensor))
+        applyInstant(app, "Set Collider Sensor", [&] { collider.setSensor(sensor); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reports contacts without blocking");
+
+    int category = collider.category();
+    int mask = collider.mask();
+    bool filterChanged = false;
+    if (ImGui::InputInt("Category", &category, 1, 16, ImGuiInputTextFlags_CharsHexadecimal))
+        filterChanged = true;
+    if (ImGui::InputInt("Mask", &mask, 1, 16, ImGuiInputTextFlags_CharsHexadecimal))
+        filterChanged = true;
+    if (filterChanged)
+    {
+        const uint16_t newCategory = static_cast<uint16_t>(category);
+        const uint16_t newMask = static_cast<uint16_t>(mask);
+        applyInstant(app, "Set Collider Filter", [&] { collider.setFilter(newCategory, newMask); });
+    }
+}
+
+void drawBoxColliderProperties(EditorApplication &app, BoxCollider2D &collider)
+{
+    Math::Vec2 size = collider.size();
+    if (dragVec2(app, "Size", size, 0.5f, "Resize Box Collider"))
+        collider.setSize(size);
+    drawColliderShared(app, collider);
+}
+
+void drawCircleColliderProperties(EditorApplication &app, CircleCollider2D &collider)
+{
+    float radius = collider.radius();
+    if (dragFloatProperty(app, "Radius", radius, 0.5f, "Resize Circle Collider", 0.0f, 10000.0f))
+        collider.setRadius(radius);
+    drawColliderShared(app, collider);
+}
+
+void drawEdgeColliderProperties(EditorApplication &app, EdgeCollider2D &collider)
+{
+    Math::Vec2 start = collider.start();
+    Math::Vec2 end = collider.end();
+    if (dragVec2(app, "Start", start, 0.5f, "Move Edge Start"))
+        collider.setPoints(start, end);
+    if (dragVec2(app, "End", end, 0.5f, "Move Edge End"))
+        collider.setPoints(start, end);
+    drawColliderShared(app, collider);
+}
+
+void drawPolygonColliderProperties(EditorApplication &app, PolygonCollider2D &collider)
+{
+    ImGui::Text("%d points", static_cast<int>(collider.points().size()));
+    static int sides = 6;
+    static float regularRadius = 32.0f;
+    ImGui::SetNextItemWidth(90.0f);
+    ImGui::DragInt("Sides", &sides, 1.0f, 3, 16);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    ImGui::DragFloat("Radius##regular", &regularRadius, 0.5f, 1.0f, 1000.0f);
+    ImGui::SameLine();
+    if (ImGui::Button("Regular"))
+        applyInstant(app, "Set Polygon Collider", [&] { collider.setRegular(sides, regularRadius); });
+
+    pointListEditor(app, collider.points(), 3, "Move Collider Point",
+                    [&](const ct::Vector<Math::Vec2> &points)
+                    { collider.setPoints(points.data(), static_cast<int>(points.size())); });
+    drawColliderShared(app, collider);
+}
+
+void drawChainColliderProperties(EditorApplication &app, ChainCollider2D &collider)
+{
+    ImGui::Text("%d points", static_cast<int>(collider.points().size()));
+    bool loop = collider.loop();
+    if (ImGui::Checkbox("Loop", &loop))
+        applyInstant(app, "Set Chain Loop", [&] { collider.setLoop(loop); });
+
+    pointListEditor(app, collider.points(), 2, "Move Collider Point",
+                    [&](const ct::Vector<Math::Vec2> &points)
+                    { collider.setPoints(points.data(), static_cast<int>(points.size())); });
+    drawColliderShared(app, collider);
 }
 
 void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
@@ -1383,6 +1551,22 @@ void drawComponentProperties(EditorApplication &app, Component &component)
     case ComponentType::Particle:
         drawParticleProperties(app, static_cast<ParticleComponent &>(component));
         break;
+    case ComponentType::RigidBody:
+        if (RigidBody2D *body = dynamic_cast<RigidBody2D *>(&component))
+            drawRigidBodyProperties(app, *body);
+        break;
+    case ComponentType::Collider:
+        if (BoxCollider2D *box = dynamic_cast<BoxCollider2D *>(&component))
+            drawBoxColliderProperties(app, *box);
+        else if (CircleCollider2D *circle = dynamic_cast<CircleCollider2D *>(&component))
+            drawCircleColliderProperties(app, *circle);
+        else if (EdgeCollider2D *edge = dynamic_cast<EdgeCollider2D *>(&component))
+            drawEdgeColliderProperties(app, *edge);
+        else if (PolygonCollider2D *polygon = dynamic_cast<PolygonCollider2D *>(&component))
+            drawPolygonColliderProperties(app, *polygon);
+        else if (ChainCollider2D *chain = dynamic_cast<ChainCollider2D *>(&component))
+            drawChainColliderProperties(app, *chain);
+        break;
     case ComponentType::Script:
         if (ZenScriptComponent *script = dynamic_cast<ZenScriptComponent *>(&component))
             drawZenScriptProperties(app, *script);
@@ -1542,7 +1726,7 @@ void InspectorPanel::drawContents()
             ImGui::SameLine();
             const bool open = ImGui::TreeNodeEx("##header", ImGuiTreeNodeFlags_DefaultOpen |
                                                 ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
-                                                "%s  #%u", componentName(type), component->id());
+                                                "%s  #%u", componentName(*component), component->id());
             if (open)
             {
                 ImGui::Indent();
@@ -1616,6 +1800,50 @@ void InspectorPanel::drawContents()
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<ZenScriptComponent>();
             app().commitChange("Add Zen Script Component", addBefore);
+        }
+        if (ImGui::BeginMenu("Physics 2D"))
+        {
+            if (ImGui::MenuItem("Rigid Body"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<RigidBody2D>();
+                app().commitChange("Add Rigid Body Component", addBefore);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Box Collider"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<BoxCollider2D>();
+                app().commitChange("Add Box Collider Component", addBefore);
+            }
+            if (ImGui::MenuItem("Circle Collider"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<CircleCollider2D>();
+                app().commitChange("Add Circle Collider Component", addBefore);
+            }
+            if (ImGui::MenuItem("Edge Collider"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<EdgeCollider2D>();
+                app().commitChange("Add Edge Collider Component", addBefore);
+            }
+            if (ImGui::MenuItem("Polygon Collider"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<PolygonCollider2D>();
+                app().commitChange("Add Polygon Collider Component", addBefore);
+            }
+            if (ImGui::MenuItem("Chain Collider"))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                ChainCollider2D *chain = object->addComponent<ChainCollider2D>();
+                const Math::Vec2 defaults[3] = {Math::Vec2(-60.0f, 0.0f), Math::Vec2(0.0f, 30.0f),
+                                                Math::Vec2(60.0f, 0.0f)};
+                chain->setPoints(defaults, 3);
+                app().commitChange("Add Chain Collider Component", addBefore);
+            }
+            ImGui::EndMenu();
         }
         if (ImGui::MenuItem("Particle"))
         {
