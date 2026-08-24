@@ -31,6 +31,7 @@ public:
     bool viewportShowGrid = true;
     bool viewportLivePreview = true;
     bool scriptHotReload = true;
+    bool showColliders = true;
 };
 
 }

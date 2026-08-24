@@ -65,6 +65,19 @@ bool Project::load(const char *projectFile)
         for (size_t i = 0; i < scenes.size(); ++i)
             mScenes.push_back(ct::String(scenes[i].as_cstr("")));
 
+    mPhysics = PhysicsSettings();
+    const ct::Json &physics = document["physics"];
+    if (physics.is_object())
+    {
+        const ct::Json &gravity = physics["gravity"];
+        if (gravity.is_array() && gravity.size() >= 2)
+            mPhysics.gravity = Math::Vec2((float)gravity[0].as_double(0.0),
+                                          (float)gravity[1].as_double(980.0));
+        mPhysics.fixedTimeStep = (float)physics["fixedTimeStep"].as_double(1.0 / 60.0);
+        mPhysics.velocityIterations = (int)physics["velocityIterations"].as_int(8);
+        mPhysics.treeBroadphase = physics["treeBroadphase"].as_bool(true);
+    }
+
     mValid = true;
     return true;
 }
@@ -81,6 +94,17 @@ bool Project::save() const
     for (size_t i = 0; i < mScenes.size(); ++i)
         scenes.push_back(mScenes[i]);
     document.set("scenes", scenes);
+
+    ct::Json gravity = ct::Json::array();
+    gravity.push_back(ct::Json(mPhysics.gravity.x));
+    gravity.push_back(ct::Json(mPhysics.gravity.y));
+
+    ct::Json physics = ct::Json::object();
+    physics.set("gravity", gravity);
+    physics.set("fixedTimeStep", ct::Json((double)mPhysics.fixedTimeStep));
+    physics.set("velocityIterations", ct::Json((int64_t)mPhysics.velocityIterations));
+    physics.set("treeBroadphase", ct::Json(mPhysics.treeBroadphase));
+    document.set("physics", physics);
 
     return FileSystem::Instance().SaveTextFile(mProjectFile.c_str(), document.dump(2));
 }

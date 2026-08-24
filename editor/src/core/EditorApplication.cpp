@@ -11,6 +11,7 @@
 #include "panels/ParticlePanel.h"
 #include "panels/PrefabsPanel.h"
 #include "panels/ScriptsPanel.h"
+#include "panels/SettingsPanel.h"
 #include "panels/SceneViewportPanel.h"
 #include "widgets/EditorToolbar.h"
 
@@ -211,6 +212,7 @@ void EditorApplication::saveSettings()
 void EditorApplication::createPanels()
 {
     mPanels.push_back(ct::make_unique<HierarchyPanel>(*this));
+    mPanels.push_back(ct::make_unique<SettingsPanel>(*this));
     mPanels.push_back(ct::make_unique<InspectorPanel>(*this));
     mPanels.push_back(ct::make_unique<SceneViewportPanel>(*this));
     mPanels.push_back(ct::make_unique<GamePanel>(*this));
@@ -336,6 +338,7 @@ void EditorApplication::startPlay()
 
     delete mPhysicsWorld;
     mPhysicsWorld = new PhysicsWorld2D();
+    applyPhysicsSettings();
     mPhysicsWorld->build(mRuntimeScene.root());
 
     SetZenScriptsEnabled(true);
@@ -343,6 +346,17 @@ void EditorApplication::startPlay()
     mPaused = false;
     log("Play: runtime scene cloned from the edited scene");
     mToasts.info("Play");
+}
+
+void EditorApplication::applyPhysicsSettings()
+{
+    if (!mPhysicsWorld)
+        return;
+    const PhysicsSettings &physics = mProject.physics();
+    mPhysicsWorld->setGravity(physics.gravity);
+    mPhysicsWorld->setFixedTimeStep(physics.fixedTimeStep);
+    mPhysicsWorld->world().SetVelocityIterations(physics.velocityIterations);
+    mPhysicsWorld->world().SetTreeBroadphase(physics.treeBroadphase);
 }
 
 void EditorApplication::stopPlay()

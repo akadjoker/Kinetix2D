@@ -64,6 +64,7 @@ public:
     void log(const ct::String &message);
     bool playing() const { return mPlaying; }
     PhysicsWorld2D *physicsWorld() const { return mPhysicsWorld; }
+    void applyPhysicsSettings();
     bool paused() const { return mPaused; }
     SceneChange beginChange();
     void commitChange(const char *label, const SceneChange &before);

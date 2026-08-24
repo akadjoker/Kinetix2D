@@ -30,6 +30,7 @@ add_executable(k2d_editor
     src/panels/ParticlePanel.cpp
     src/panels/PrefabsPanel.cpp
     src/panels/ScriptsPanel.cpp
+    src/panels/SettingsPanel.cpp
     src/panels/SceneViewportPanel.cpp
 )
 

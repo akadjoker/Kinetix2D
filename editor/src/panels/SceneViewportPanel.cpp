@@ -5,6 +5,12 @@
 #include "widgets/EditorToolbar.h"
 
 #include <k2d/Animation2D.h>
+#include <k2d/BoxCollider2D.h>
+#include <k2d/ChainCollider2D.h>
+#include <k2d/CircleCollider2D.h>
+#include <k2d/EdgeCollider2D.h>
+#include <k2d/PolygonCollider2D.h>
+#include <k2d/RigidBody2D.h>
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/GameObject.h>
@@ -239,6 +245,97 @@ void SceneViewportPanel::drawObject(ImDrawList &drawList, GameObject &object, co
         drawObject(drawList, *object.child(i), origin);
 }
 
+void SceneViewportPanel::drawColliders(ImDrawList &drawList, GameObject &object,
+                                       const ImVec2 &origin) const
+{
+    const size_t count = object.componentCount<Collider2D>();
+    if (count > 0)
+    {
+        const RigidBody2D *body = object.getComponent<RigidBody2D>();
+        const Math::Vec2 world = object.globalPosition();
+        const Math::Vec2 scale = object.scale();
+        const float scaleX = fabsf(scale.x) > 0.0001f ? fabsf(scale.x) : 1.0f;
+        const float scaleY = fabsf(scale.y) > 0.0001f ? fabsf(scale.y) : 1.0f;
+        const float angle = object.rotationDegrees() * 0.01745329251f;
+        const float cosA = cosf(angle);
+        const float sinA = sinf(angle);
+
+        const auto place = [&](float lx, float ly) -> ImVec2
+        {
+            const float sx = lx * scaleX;
+            const float sy = ly * scaleY;
+            return worldToScreen(world.x + sx * cosA - sy * sinA,
+                                 world.y + sx * sinA + sy * cosA, origin);
+        };
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            const Collider2D *collider = object.getComponentAt<Collider2D>(i);
+            if (!collider || !collider->active())
+                continue;
+
+            const bool orphan = body == nullptr;
+            ImU32 color = collider->isSensor() ? IM_COL32(90, 180, 255, 220)
+                                               : IM_COL32(110, 225, 140, 220);
+            if (orphan)
+                color = IM_COL32(240, 150, 60, 200);
+
+            const Math::Vec2 offset = collider->offset();
+
+            if (const BoxCollider2D *box = dynamic_cast<const BoxCollider2D *>(collider))
+            {
+                const float hw = box->size().x * 0.5f;
+                const float hh = box->size().y * 0.5f;
+                const ImVec2 corners[4] = {place(offset.x - hw, offset.y - hh),
+                                           place(offset.x + hw, offset.y - hh),
+                                           place(offset.x + hw, offset.y + hh),
+                                           place(offset.x - hw, offset.y + hh)};
+                drawList.AddPolyline(corners, 4, color, ImDrawFlags_Closed, 1.6f);
+            }
+            else if (const CircleCollider2D *circle = dynamic_cast<const CircleCollider2D *>(collider))
+            {
+                const ImVec2 center = place(offset.x, offset.y);
+                const float radius = circle->radius() * (scaleX > scaleY ? scaleX : scaleY) * mZoom;
+                drawList.AddCircle(center, radius, color, 32, 1.6f);
+                drawList.AddLine(center, place(offset.x + circle->radius(), offset.y), color, 1.0f);
+            }
+            else if (const EdgeCollider2D *edge = dynamic_cast<const EdgeCollider2D *>(collider))
+            {
+                drawList.AddLine(place(edge->start().x + offset.x, edge->start().y + offset.y),
+                                 place(edge->end().x + offset.x, edge->end().y + offset.y), color,
+                                 1.6f);
+            }
+            else if (const PolygonCollider2D *polygon = dynamic_cast<const PolygonCollider2D *>(collider))
+            {
+                const ct::Vector<Math::Vec2> &points = polygon->points();
+                for (size_t p = 0; p + 1 <= points.size() && points.size() >= 2; ++p)
+                {
+                    const Math::Vec2 &a = points[p];
+                    const Math::Vec2 &b = points[(p + 1) % points.size()];
+                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y),
+                                     place(b.x + offset.x, b.y + offset.y), color, 1.6f);
+                }
+            }
+            else if (const ChainCollider2D *chain = dynamic_cast<const ChainCollider2D *>(collider))
+            {
+                const ct::Vector<Math::Vec2> &points = chain->points();
+                const size_t segments = chain->loop() ? points.size()
+                                                      : (points.size() > 0 ? points.size() - 1 : 0);
+                for (size_t p = 0; p < segments; ++p)
+                {
+                    const Math::Vec2 &a = points[p];
+                    const Math::Vec2 &b = points[(p + 1) % points.size()];
+                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y),
+                                     place(b.x + offset.x, b.y + offset.y), color, 1.6f);
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        drawColliders(drawList, *object.child(i), origin);
+}
+
 void SceneViewportPanel::pickObject(GameObject &object, const ImVec2 &mouse, const ImVec2 &origin,
                                     GameObject *&best, float &bestDistance)
 {
@@ -403,6 +500,8 @@ void SceneViewportPanel::drawContents()
     drawList.AddLine(ImVec2(min.x, axis.y), ImVec2(max.x, axis.y), IM_COL32(150, 60, 60, 180));
     drawList.AddLine(ImVec2(axis.x, min.y), ImVec2(axis.x, max.y), IM_COL32(60, 150, 80, 180));
     drawObject(drawList, app().scene().root(), origin);
+    if (app().settings().showColliders)
+        drawColliders(drawList, app().scene().root(), origin);
 
     GameObject *selected = app().selection().resolve(app().scene());
     const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() &&
