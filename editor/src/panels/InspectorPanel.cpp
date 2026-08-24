@@ -6,6 +6,7 @@
 
 #include <k2d/Animation2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/CircleShape.h>
 #include <k2d/Component.h>
 #include <k2d/DirectionalLight2D.h>
 #include <k2d/GameObject.h>
@@ -15,6 +16,7 @@
 #include <k2d/NinePatchComponent.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Polygon2D.h>
+#include <k2d/RectShape.h>
 #include <k2d/Scene.h>
 #include <k2d/SpriteBatch.h>
 #include <k2d/SpriteComponent.h>
@@ -54,7 +56,7 @@ const char *componentName(ComponentType type)
     static const char *names[] = {
         "Sprite", "Script", "Camera", "TileMap", "SpriteBatch", "Polygon2D",
         "Animation2D", "Light2D", "LightOccluder2D", "Line2D", "NinePatch",
-        "Particle", "RigidBody2D", "Collider2D"
+        "Particle", "RigidBody2D", "Collider2D", "CircleShape", "RectShape"
     };
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
@@ -485,6 +487,75 @@ void drawLineProperties(EditorApplication &app, Line2D &line)
     ImGui::SeparatorText("Points");
     pointListEditor(app, line.points(), 2, "Edit Line Points",
                     [&](const ct::Vector<Math::Vec2> &pts) { line.setPoints(pts.data(), (int)pts.size()); });
+}
+
+bool shapeModeCombo(ShapeRenderMode &mode)
+{
+    int value = mode == ShapeRenderMode::Line ? 1 : 0;
+    if (!ImGui::Combo("Mode", &value, "Fill\0Line\0"))
+        return false;
+    mode = value == 1 ? ShapeRenderMode::Line : ShapeRenderMode::Fill;
+    return true;
+}
+
+void drawCircleShapeProperties(EditorApplication &app, CircleShape &shape)
+{
+    float radius = shape.radius();
+    if (dragFloatProperty(app, "Radius", radius, 0.5f, "Resize Circle Shape", 0.0f, 100000.0f))
+        shape.setRadius(radius);
+
+    int segments = shape.segments();
+    if (dragIntProperty(app, "Segments", segments, 1.0f, "Set Circle Shape Segments", 3, 512))
+        shape.setSegments(segments);
+
+    ShapeRenderMode mode = shape.mode();
+    if (shapeModeCombo(mode))
+        applyInstant(app, "Set Circle Shape Mode", [&] { shape.setMode(mode); });
+    if (mode == ShapeRenderMode::Line)
+    {
+        float width = shape.lineWidth();
+        if (dragFloatProperty(app, "Line Width", width, 0.25f, "Set Circle Shape Line Width", 0.01f, 4096.0f))
+            shape.setLineWidth(width);
+    }
+
+    Color color = shape.color();
+    if (colorEdit(app, "Color", color, "Recolor Circle Shape"))
+    {
+        unsigned char r, g, b, a;
+        colorToBytes(color, r, g, b, a);
+        shape.setColor(r, g, b, a);
+    }
+    BlendMode blendMode = shape.blendMode();
+    if (blendModeCombo(blendMode))
+        applyInstant(app, "Set Circle Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
+}
+
+void drawRectShapeProperties(EditorApplication &app, RectShape &shape)
+{
+    Math::Vec2 size = shape.size();
+    if (dragVec2(app, "Size", size, 0.5f, "Resize Rect Shape"))
+        shape.setSize(size);
+
+    ShapeRenderMode mode = shape.mode();
+    if (shapeModeCombo(mode))
+        applyInstant(app, "Set Rect Shape Mode", [&] { shape.setMode(mode); });
+    if (mode == ShapeRenderMode::Line)
+    {
+        float width = shape.lineWidth();
+        if (dragFloatProperty(app, "Line Width", width, 0.25f, "Set Rect Shape Line Width", 0.01f, 4096.0f))
+            shape.setLineWidth(width);
+    }
+
+    Color color = shape.color();
+    if (colorEdit(app, "Color", color, "Recolor Rect Shape"))
+    {
+        unsigned char r, g, b, a;
+        colorToBytes(color, r, g, b, a);
+        shape.setColor(r, g, b, a);
+    }
+    BlendMode blendMode = shape.blendMode();
+    if (blendModeCombo(blendMode))
+        applyInstant(app, "Set Rect Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
 }
 
 void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePatch)
@@ -1532,6 +1603,12 @@ void drawComponentProperties(EditorApplication &app, Component &component)
     case ComponentType::LinePath:
         drawLineProperties(app, static_cast<Line2D &>(component));
         break;
+    case ComponentType::CircleShape:
+        drawCircleShapeProperties(app, static_cast<CircleShape &>(component));
+        break;
+    case ComponentType::RectShape:
+        drawRectShapeProperties(app, static_cast<RectShape &>(component));
+        break;
     case ComponentType::NinePatch:
         drawNinePatchProperties(app, static_cast<NinePatchComponent &>(component));
         break;
@@ -1785,6 +1862,18 @@ void InspectorPanel::drawContents()
             const Math::Vec2 defaultPoints[2] = {Math::Vec2(-30.0f, 0.0f), Math::Vec2(30.0f, 0.0f)};
             line->setPoints(defaultPoints, 2);
             app().commitChange("Add Line2D Component", addBefore);
+        }
+        if (ImGui::MenuItem("Circle Shape"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<CircleShape>();
+            app().commitChange("Add Circle Shape Component", addBefore);
+        }
+        if (ImGui::MenuItem("Rect Shape"))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<RectShape>();
+            app().commitChange("Add Rect Shape Component", addBefore);
         }
         if (ImGui::MenuItem("SpriteBatch"))
         {

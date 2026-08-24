@@ -7,6 +7,8 @@
 #include "k2d/TileMapComponent.h"
 #include "k2d/Polygon2D.h"
 #include "k2d/Line2D.h"
+#include "k2d/CircleShape.h"
+#include "k2d/RectShape.h"
 #include "k2d/NinePatchComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/Animation2D.h"
@@ -330,6 +332,62 @@ namespace k2d
             ReadPackedColorBytes(data["color"], r, g, b, a);
             line.setColor(r, g, b, a);
             line.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        Component *CreateCircleShape(GameObject &owner)
+        {
+            return owner.addComponent<CircleShape>();
+        }
+
+        void WriteCircleShape(const Component &component, ct::Json &data, Assets *)
+        {
+            const CircleShape &shape = static_cast<const CircleShape &>(component);
+            data.set("radius", ct::Json((double)shape.radius()));
+            data.set("segments", ct::Json(shape.segments()));
+            data.set("mode", ct::Json((int)shape.mode()));
+            data.set("lineWidth", ct::Json((double)shape.lineWidth()));
+            data.set("color", WritePackedColor(shape.color().Packed()));
+            data.set("blendMode", ct::Json((int)shape.blendMode()));
+        }
+
+        void ReadCircleShape(Component &component, const ct::Json &data, Assets *)
+        {
+            CircleShape &shape = static_cast<CircleShape &>(component);
+            shape.setRadius((float)data["radius"].as_double(32.0));
+            shape.setSegments((int)data["segments"].as_int(32));
+            shape.setMode((ShapeRenderMode)data["mode"].as_int((int)ShapeRenderMode::Fill));
+            shape.setLineWidth((float)data["lineWidth"].as_double(2.0));
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            shape.setColor(r, g, b, a);
+            shape.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        Component *CreateRectShape(GameObject &owner)
+        {
+            return owner.addComponent<RectShape>();
+        }
+
+        void WriteRectShape(const Component &component, ct::Json &data, Assets *)
+        {
+            const RectShape &shape = static_cast<const RectShape &>(component);
+            data.set("size", WriteVec2(shape.size()));
+            data.set("mode", ct::Json((int)shape.mode()));
+            data.set("lineWidth", ct::Json((double)shape.lineWidth()));
+            data.set("color", WritePackedColor(shape.color().Packed()));
+            data.set("blendMode", ct::Json((int)shape.blendMode()));
+        }
+
+        void ReadRectShape(Component &component, const ct::Json &data, Assets *)
+        {
+            RectShape &shape = static_cast<RectShape &>(component);
+            shape.setSize(ReadVec2(data["size"], Math::Vec2(64.0f, 64.0f)));
+            shape.setMode((ShapeRenderMode)data["mode"].as_int((int)ShapeRenderMode::Fill));
+            shape.setLineWidth((float)data["lineWidth"].as_double(2.0));
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            shape.setColor(r, g, b, a);
+            shape.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
         }
 
         Component *CreateNinePatch(GameObject &owner)
@@ -760,6 +818,8 @@ namespace k2d
                 {ComponentType::TileMap, "TileMap", &CreateTileMap, &WriteTileMap, &ReadTileMap, nullptr},
                 {ComponentType::Polygon2D, "Polygon2D", &CreatePolygon, &WritePolygon, &ReadPolygon, nullptr},
                 {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
+                {ComponentType::CircleShape, "CircleShape", &CreateCircleShape, &WriteCircleShape, &ReadCircleShape, nullptr},
+                {ComponentType::RectShape, "RectShape", &CreateRectShape, &WriteRectShape, &ReadRectShape, nullptr},
                 {ComponentType::NinePatch, "NinePatch", &CreateNinePatch, &WriteNinePatch, &ReadNinePatch, nullptr},
                 {ComponentType::SpriteBatch, "SpriteBatch", &CreateSpriteBatch, &WriteSpriteBatch, &ReadSpriteBatch, nullptr},
                 {ComponentType::Animation, "Animation2D", &CreateAnimation, &WriteAnimation, &ReadAnimation, nullptr},

@@ -222,6 +222,41 @@ namespace
         return ok;
     }
 
+    bool TestPrimitiveShapeRoundTrip()
+    {
+        k2d::Scene srcScene;
+        k2d::GameObject *root = srcScene.createObject("PrimitiveShapes");
+        k2d::CircleShape *circle = root->addComponent<k2d::CircleShape>();
+        circle->setRadius(26.0f);
+        circle->setSegments(18);
+        circle->setMode(k2d::ShapeRenderMode::Line);
+        circle->setLineWidth(3.5f);
+        circle->setColor(10, 20, 30, 40);
+        circle->setBlendMode(k2d::BLEND_ADD);
+
+        k2d::RectShape *rect = root->addComponent<k2d::RectShape>();
+        rect->setSize({90.0f, 40.0f});
+        rect->setMode(k2d::ShapeRenderMode::Line);
+        rect->setLineWidth(5.0f);
+        rect->setColor(90, 80, 70, 60);
+        rect->setBlendMode(k2d::BLEND_MUL);
+
+        ct::Json written = k2d::Serializer::WriteObject(*root);
+        k2d::Scene dstScene;
+        k2d::GameObject *copy = k2d::Serializer::ReadObject(dstScene, written);
+        k2d::CircleShape *copyCircle = copy ? copy->getComponent<k2d::CircleShape>() : nullptr;
+        k2d::RectShape *copyRect = copy ? copy->getComponent<k2d::RectShape>() : nullptr;
+        if (!copyCircle || !copyRect)
+            return false;
+
+        return Near(copyCircle->radius(), 26.0f) && copyCircle->segments() == 18 &&
+               copyCircle->mode() == k2d::ShapeRenderMode::Line &&
+               Near(copyCircle->lineWidth(), 3.5f) && copyCircle->color() == circle->color() &&
+               copyCircle->blendMode() == k2d::BLEND_ADD && NearVec2(copyRect->size(), {90.0f, 40.0f}) &&
+               copyRect->mode() == k2d::ShapeRenderMode::Line && Near(copyRect->lineWidth(), 5.0f) &&
+               copyRect->color() == rect->color() && copyRect->blendMode() == k2d::BLEND_MUL;
+    }
+
     bool TestNinePatchRoundTrip()
     {
         k2d::Scene srcScene;
@@ -470,6 +505,7 @@ int main()
     bool unregistered = TestUnregisteredTypeIsSkipped();
     bool tileMap = TestTileMapRoundTrip();
     bool polygonLine = TestPolygonAndLineRoundTrip();
+    bool primitiveShapes = TestPrimitiveShapeRoundTrip();
     bool ninePatch = TestNinePatchRoundTrip();
     bool spriteBatch = TestSpriteBatchRoundTrip();
     bool animation = TestAnimationRoundTrip();
@@ -481,14 +517,14 @@ int main()
     std::printf("Serializer: round_trip=%s defaults=%s unregistered_skipped=%s\n",
                 roundTrip ? "pass" : "fail", defaults ? "pass" : "fail",
                 unregistered ? "pass" : "fail");
-    std::printf("Serializer components: tilemap=%s polygon_line=%s ninepatch=%s spritebatch=%s "
+    std::printf("Serializer components: tilemap=%s polygon_line=%s primitive_shapes=%s ninepatch=%s spritebatch=%s "
                 "animation=%s light_disambiguation=%s occluder=%s camera=%s particle=%s\n",
-                tileMap ? "pass" : "fail", polygonLine ? "pass" : "fail", ninePatch ? "pass" : "fail",
+                tileMap ? "pass" : "fail", polygonLine ? "pass" : "fail", primitiveShapes ? "pass" : "fail", ninePatch ? "pass" : "fail",
                 spriteBatch ? "pass" : "fail", animation ? "pass" : "fail",
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail",
                 camera ? "pass" : "fail", particle ? "pass" : "fail");
 
-    return (roundTrip && defaults && unregistered && tileMap && polygonLine && ninePatch &&
+    return (roundTrip && defaults && unregistered && tileMap && polygonLine && primitiveShapes && ninePatch &&
             spriteBatch && animation && lightDisambiguation && occluder && camera && particle)
                ? 0
                : 1;

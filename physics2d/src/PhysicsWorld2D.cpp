@@ -1,10 +1,13 @@
 #include "k2d/PhysicsWorld2D.h"
 
 #include "k2d/Collider2D.h"
+#include "k2d/CanvasRenderer.h"
 #include "k2d/GameObject.h"
+#include "k2d/RenderQueue.h"
 #include "k2d/RigidBody2D.h"
 
 #include <cmath>
+#include <limits>
 
 namespace k2d
 {
@@ -16,6 +19,130 @@ namespace k2d
         constexpr float kMinShapeExtent = 0.01f;
 
         PhysicsWorld2D *gActiveWorld = nullptr;
+
+        class PhysicsRenderDebugDraw final : public kx::DebugDraw
+        {
+        public:
+            struct Primitive
+            {
+                ct::Vector<Math::Vec2> points;
+                Color color;
+            };
+
+            void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
+            {
+                if (radius <= 0.0f)
+                    return;
+                constexpr int segments = 32;
+                Math::Vec2 points[segments];
+                for (int i = 0; i < segments; ++i)
+                {
+                    const float angle = (float)i * 6.28318530717958647692f / (float)segments;
+                    points[i] = xf.Transform(Math::Vec2(std::cos(angle) * radius,
+                                                        std::sin(angle) * radius));
+                }
+                addLoop(points, segments, toColor(color), 1.5f);
+                addSegment(xf.Transform(Math::Vec2(0.0f, 0.0f)),
+                           xf.Transform(Math::Vec2(radius, 0.0f)), toColor(color), 1.0f);
+            }
+
+            void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count,
+                                  kx::Color color) override
+            {
+                if (!verts || count < 2)
+                    return;
+                ct::Vector<Math::Vec2> points;
+                points.resize((size_t)count);
+                for (int i = 0; i < count; ++i)
+                    points[(size_t)i] = xf.Transform(verts[i]);
+                addLoop(points.data(), count, toColor(color), 1.5f);
+            }
+
+            void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
+            {
+                addSegment(a, b, toColor(color), 1.5f);
+            }
+
+            void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
+            {
+                const float half = size > 0.0f ? size * 0.5f : 0.5f;
+                Primitive &primitive = makePrimitive(toColor(color));
+                primitive.points.push_back(Math::Vec2(p.x - half, p.y - half));
+                primitive.points.push_back(Math::Vec2(p.x + half, p.y - half));
+                primitive.points.push_back(Math::Vec2(p.x + half, p.y + half));
+                primitive.points.push_back(Math::Vec2(p.x - half, p.y - half));
+                primitive.points.push_back(Math::Vec2(p.x + half, p.y + half));
+                primitive.points.push_back(Math::Vec2(p.x - half, p.y + half));
+            }
+
+            void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
+            {
+                const Math::Vec2 points[4] = {
+                    Math::Vec2(lower.x, lower.y), Math::Vec2(upper.x, lower.y),
+                    Math::Vec2(upper.x, upper.y), Math::Vec2(lower.x, upper.y)};
+                addLoop(points, 4, toColor(color), 1.0f);
+            }
+
+            void flush(RenderQueue &queue)
+            {
+                if (mPrimitives.empty())
+                    return;
+
+                RenderItem &item = queue.AddItem(std::numeric_limits<int>::max());
+                item.blendMode = BLEND_MIX;
+                for (size_t i = 0; i < mPrimitives.size(); ++i)
+                {
+                    Primitive &primitive = mPrimitives[i];
+                    if (primitive.points.empty())
+                        continue;
+                    RenderCommand command;
+                    command.type = RenderCommand::kPolygon;
+                    command.color = primitive.color;
+                    command.polygonPoints = &primitive.points;
+                    command.polygonPointCount = (unsigned int)primitive.points.size();
+                    item.commands.push_back(command);
+                }
+            }
+
+        private:
+            static Color toColor(kx::Color color)
+            {
+                return Color::FromBytes(color.r, color.g, color.b, color.a);
+            }
+
+            Primitive &makePrimitive(const Color &color)
+            {
+                mPrimitives.resize(mPrimitives.size() + 1);
+                Primitive &primitive = mPrimitives.back();
+                primitive.color = color;
+                return primitive;
+            }
+
+            void addLoop(const Math::Vec2 *points, int count, const Color &color, float width)
+            {
+                for (int i = 0; i < count; ++i)
+                    addSegment(points[i], points[(i + 1) % count], color, width);
+            }
+
+            void addSegment(const Math::Vec2 &a, const Math::Vec2 &b, const Color &color, float width)
+            {
+                Math::Vec2 direction = b - a;
+                const float length = direction.Length();
+                if (length < 0.0001f)
+                    return;
+                direction /= length;
+                const Math::Vec2 normal(-direction.y * width * 0.5f, direction.x * width * 0.5f);
+                Primitive &primitive = makePrimitive(color);
+                primitive.points.push_back(a - normal);
+                primitive.points.push_back(a + normal);
+                primitive.points.push_back(b + normal);
+                primitive.points.push_back(a - normal);
+                primitive.points.push_back(b + normal);
+                primitive.points.push_back(b - normal);
+            }
+
+            ct::Vector<Primitive> mPrimitives;
+        };
     }
 
     PhysicsWorld2D::PhysicsWorld2D(const Math::Vec2 &gravity)
@@ -50,6 +177,19 @@ namespace k2d
     {
         mCallback = callback;
         mCallbackUser = user;
+    }
+
+    void PhysicsWorld2D::debugDraw(CanvasRenderer &canvas, unsigned flags)
+    {
+        if (flags == 0)
+            return;
+
+        PhysicsRenderDebugDraw draw;
+        kx::Draw(mWorld, draw, flags);
+
+        RenderQueue queue;
+        draw.flush(queue);
+        queue.Flush(canvas);
     }
 
     void PhysicsWorld2D::clear()

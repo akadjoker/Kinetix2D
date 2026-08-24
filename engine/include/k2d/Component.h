@@ -24,6 +24,8 @@ namespace k2d
         Particle,
         RigidBody,
         Collider,
+        CircleShape,
+        RectShape,
         Count
     };
 

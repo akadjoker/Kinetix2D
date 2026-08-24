@@ -67,6 +67,8 @@ add_library(k2d STATIC
     src/SpriteBatch.cpp
     src/Polygon2D.cpp
     src/Line2D.cpp
+    src/CircleShape.cpp
+    src/RectShape.cpp
     src/NinePatchComponent.cpp
     src/ScreenFade.cpp
     src/SceneDebug.cpp

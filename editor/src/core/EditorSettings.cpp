@@ -57,6 +57,7 @@ bool EditorSettings::load(const char *path)
     viewportLivePreview = root["viewportLivePreview"].as_bool(true);
     scriptHotReload = root["scriptHotReload"].as_bool(true);
     showColliders = root["showColliders"].as_bool(true);
+    showPhysicsDebug = root["showPhysicsDebug"].as_bool(false);
     return true;
 }
 
@@ -79,6 +80,7 @@ bool EditorSettings::save(const char *path) const
     root.set("viewportLivePreview", viewportLivePreview);
     root.set("scriptHotReload", scriptHotReload);
     root.set("showColliders", showColliders);
+    root.set("showPhysicsDebug", showPhysicsDebug);
 
     return FileSystem::Instance().SaveTextFile(path, root.dump(2));
 }

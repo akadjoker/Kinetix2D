@@ -4,6 +4,7 @@
 
 #include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
+#include <k2d/PhysicsWorld2D.h>
 #include <k2d/Scene.h>
 
 #include <glad/glad.h>
@@ -113,6 +114,10 @@ void GamePanel::renderScene(int width, int height)
         mCanvas.SetProjection(defaultCamera.Projection(static_cast<float>(width), static_cast<float>(height)));
     }
     scene.render(mCanvas);
+    if (app().settings().showPhysicsDebug)
+        if (PhysicsWorld2D *world = app().physicsWorld())
+            world->debugDraw(mCanvas, kx::DebugDrawShapes | kx::DebugDrawAABBs |
+                                          kx::DebugDrawContacts | kx::DebugDrawJoints);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -120,13 +125,12 @@ void GamePanel::renderScene(int width, int height)
 
 void GamePanel::drawContents()
 {
-    const ImVec2 available = ImGui::GetContentRegionAvail();
-    const ImVec2 position = ImGui::GetCursorScreenPos();
-    const float width = available.x < 1.0f ? 1.0f : available.x;
-    const float height = available.y < 1.0f ? 1.0f : available.y;
-
     if (!app().playing())
     {
+        const ImVec2 available = ImGui::GetContentRegionAvail();
+        const ImVec2 position = ImGui::GetCursorScreenPos();
+        const float width = available.x < 1.0f ? 1.0f : available.x;
+        const float height = available.y < 1.0f ? 1.0f : available.y;
         ImGui::GetWindowDrawList()->AddRectFilled(
             position, ImVec2(position.x + width, position.y + height), IM_COL32(12, 14, 18, 255));
         const char *message = "Press Play to run the edited scene";
@@ -137,6 +141,15 @@ void GamePanel::drawContents()
         return;
     }
 
+    if (ImGui::Checkbox("Physics Debug", &app().settings().showPhysicsDebug))
+        app().log(app().settings().showPhysicsDebug ? "Physics debug in Game on" : "Physics debug in Game off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Overlay the live physics simulation in this Game view");
+
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const ImVec2 position = ImGui::GetCursorScreenPos();
+    const float width = available.x < 1.0f ? 1.0f : available.x;
+    const float height = available.y < 1.0f ? 1.0f : available.y;
     const int fboWidth = static_cast<int>(width);
     const int fboHeight = static_cast<int>(height);
     ensureFramebuffer(fboWidth, fboHeight);

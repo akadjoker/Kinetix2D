@@ -155,6 +155,11 @@ void SettingsPanel::drawViewport()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Draw physics shapes over the Scene view");
 
+    if (ImGui::Checkbox("Show Physics Debug in Game", &app().settings().showPhysicsDebug))
+        app().log(app().settings().showPhysicsDebug ? "Physics debug in Game on" : "Physics debug in Game off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Draw the running physics shapes, contacts, AABBs and joints over the Game view");
+
     ImGui::Checkbox("Live Preview", &app().settings().viewportLivePreview);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Tick particles and animations while editing");

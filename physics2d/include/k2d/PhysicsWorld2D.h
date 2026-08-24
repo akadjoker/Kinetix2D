@@ -1,5 +1,6 @@
 #pragma once
 
+#include <kx/debugdraw.h>
 #include <kx/world.h>
 
 #include <ct/string.hpp>
@@ -11,6 +12,7 @@ namespace k2d
     class GameObject;
     class RigidBody2D;
     class Collider2D;
+    class CanvasRenderer;
 
     struct CollisionInfo
     {
@@ -53,6 +55,9 @@ namespace k2d
         float fixedTimeStep() const { return mFixedStep; }
 
         void setCollisionCallback(CollisionCallback callback, void *user);
+
+        // Renders the current simulation as an overlay. Call after Scene::render so it stays on top.
+        void debugDraw(CanvasRenderer &canvas, unsigned flags = kx::DebugDrawShapes);
 
         GameObject *raycast(const Math::Vec2 &origin, const Math::Vec2 &direction, float distance,
                             Math::Vec2 *outPoint = nullptr, Math::Vec2 *outNormal = nullptr,

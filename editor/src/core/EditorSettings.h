@@ -32,6 +32,7 @@ public:
     bool viewportLivePreview = true;
     bool scriptHotReload = true;
     bool showColliders = true;
+    bool showPhysicsDebug = false;
 };
 
 }
