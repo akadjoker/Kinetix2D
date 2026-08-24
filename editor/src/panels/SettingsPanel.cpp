@@ -22,40 +22,73 @@ void SettingsPanel::drawPhysics()
         return;
 
     PhysicsSettings &physics = app().project().physics();
+    EditorApplication::ScenePhysics &scene = app().scenePhysics();
 
-    float gravity[2] = {physics.gravity.x, physics.gravity.y};
-    if (ImGui::DragFloat2("Gravity", gravity, 5.0f))
-        physics.gravity = Math::Vec2(gravity[0], gravity[1]);
+    ImGui::TextDisabled("Gravity");
+    bool overridden = scene.overrideGravity;
+    if (ImGui::Checkbox("Override for this scene", &overridden))
+    {
+        const EditorApplication::SceneChange before = app().beginChange();
+        scene.overrideGravity = overridden;
+        if (overridden)
+            scene.gravity = physics.gravity;
+        app().applyPhysicsSettings();
+        app().commitChange(overridden ? "Override Scene Gravity" : "Follow Project Gravity", before);
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Off means the scene follows the project default below");
+
+    Math::Vec2 &edited = overridden ? scene.gravity : physics.gravity;
+    float gravity[2] = {edited.x, edited.y};
+    const char *label = overridden ? "Scene Gravity" : "Project Gravity";
+    const bool dragged = ImGui::DragFloat2(label, gravity, 5.0f);
+    if (overridden && ImGui::IsItemActivated())
+        app().beginTransaction("Set Scene Gravity", app().beginChange());
+    if (dragged)
+    {
+        edited = Math::Vec2(gravity[0], gravity[1]);
+        app().applyPhysicsSettings();
+    }
     if (ImGui::IsItemDeactivatedAfterEdit())
-        persist();
+    {
+        if (overridden)
+            app().commitTransaction();
+        else
+            persist();
+    }
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Positive Y pulls down, the same way screen coordinates run");
 
-    if (ImGui::Button("Earth"))
+    const auto preset = [&](const char *name, const Math::Vec2 &value)
     {
-        physics.gravity = Math::Vec2(0.0f, 980.0f);
+        if (!ImGui::Button(name))
+            return;
+        if (overridden)
+        {
+            const EditorApplication::SceneChange before = app().beginChange();
+            edited = value;
+            app().applyPhysicsSettings();
+            app().commitChange("Set Scene Gravity", before);
+            return;
+        }
+        edited = value;
+        app().applyPhysicsSettings();
         persist();
-    }
+    };
+
+    preset("Earth", Math::Vec2(0.0f, 980.0f));
     ImGui::SameLine();
-    if (ImGui::Button("Zero G"))
-    {
-        physics.gravity = Math::Vec2(0.0f, 0.0f);
-        persist();
-    }
+    preset("Zero G", Math::Vec2(0.0f, 0.0f));
     ImGui::SameLine();
-    if (ImGui::Button("Moon"))
-    {
-        physics.gravity = Math::Vec2(0.0f, 162.0f);
-        persist();
-    }
+    preset("Moon", Math::Vec2(0.0f, 162.0f));
     ImGui::SameLine();
-    if (ImGui::Button("Flip"))
-    {
-        physics.gravity = Math::Vec2(-physics.gravity.x, -physics.gravity.y);
-        persist();
-    }
+    preset("Flip", Math::Vec2(-edited.x, -edited.y));
+
+    if (overridden)
+        ImGui::TextDisabled("Project default: (%.0f, %.0f)", physics.gravity.x, physics.gravity.y);
 
     ImGui::Separator();
+    ImGui::TextDisabled("Solver, shared by every scene in the project");
 
     bool fixedStep = physics.fixedTimeStep > 0.0f;
     if (ImGui::Checkbox("Fixed Time Step", &fixedStep))

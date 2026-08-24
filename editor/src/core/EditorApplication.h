@@ -65,6 +65,15 @@ public:
     bool playing() const { return mPlaying; }
     PhysicsWorld2D *physicsWorld() const { return mPhysicsWorld; }
     void applyPhysicsSettings();
+
+    struct ScenePhysics
+    {
+        bool overrideGravity = false;
+        Math::Vec2 gravity = Math::Vec2(0.0f, 980.0f);
+    };
+
+    ScenePhysics &scenePhysics() { return mScenePhysics; }
+    Math::Vec2 effectiveGravity() const;
     bool paused() const { return mPaused; }
     SceneChange beginChange();
     void commitChange(const char *label, const SceneChange &before);
@@ -129,6 +138,7 @@ private:
     bool mInitialized = false;
     bool mPlaying = false;
     PhysicsWorld2D *mPhysicsWorld = nullptr;
+    ScenePhysics mScenePhysics;
     bool mPaused = false;
     int mThemeKind = 0;
     bool mDefaultLayoutPending = true;

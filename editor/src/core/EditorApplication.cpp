@@ -282,6 +282,16 @@ ct::Json EditorApplication::snapshotScene()
 {
     ct::Json document = ct::Json::object();
     document.set("root", Serializer::WriteObject(mScene.root(), &mAssets));
+
+    if (mScenePhysics.overrideGravity)
+    {
+        ct::Json gravity = ct::Json::array();
+        gravity.push_back(ct::Json(mScenePhysics.gravity.x));
+        gravity.push_back(ct::Json(mScenePhysics.gravity.y));
+        ct::Json physics = ct::Json::object();
+        physics.set("gravity", gravity);
+        document.set("physics", physics);
+    }
     return document;
 }
 
@@ -290,6 +300,20 @@ void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selected
     const ct::Json &rootJson = snapshot["root"];
     mSelection.clear();
     mScene.clear();
+
+    mScenePhysics = ScenePhysics();
+    const ct::Json &physics = snapshot["physics"];
+    if (physics.is_object())
+    {
+        const ct::Json &gravity = physics["gravity"];
+        if (gravity.is_array() && gravity.size() >= 2)
+        {
+            mScenePhysics.overrideGravity = true;
+            mScenePhysics.gravity = Math::Vec2((float)gravity[0].as_double(0.0),
+                                               (float)gravity[1].as_double(980.0));
+        }
+    }
+    applyPhysicsSettings();
 
     GameObject &root = mScene.root();
     root.setName(rootJson["name"].as_cstr("Scene"));
@@ -348,12 +372,17 @@ void EditorApplication::startPlay()
     mToasts.info("Play");
 }
 
+Math::Vec2 EditorApplication::effectiveGravity() const
+{
+    return mScenePhysics.overrideGravity ? mScenePhysics.gravity : mProject.physics().gravity;
+}
+
 void EditorApplication::applyPhysicsSettings()
 {
     if (!mPhysicsWorld)
         return;
     const PhysicsSettings &physics = mProject.physics();
-    mPhysicsWorld->setGravity(physics.gravity);
+    mPhysicsWorld->setGravity(effectiveGravity());
     mPhysicsWorld->setFixedTimeStep(physics.fixedTimeStep);
     mPhysicsWorld->world().SetVelocityIterations(physics.velocityIterations);
     mPhysicsWorld->world().SetTreeBroadphase(physics.treeBroadphase);
@@ -494,6 +523,8 @@ void EditorApplication::newScene()
     mTransactionActive = false;
     mCurrentScenePath.clear();
     mSettings.lastScenePath.clear();
+    mScenePhysics = ScenePhysics();
+    applyPhysicsSettings();
     log("New scene");
 }
 
