@@ -36,9 +36,30 @@ Cost: one compile per file (~0.2 ms), then ~0.0005 ms per spawned object.
 
 ## Properties in the Inspector
 
-Every `self.<name> = <literal>` in `__init__` becomes a property the Inspector can tune per
-object. Literals are numbers, strings, `True`/`False`, or a module-level constant holding one
-of those.
+A field the class body gives a value to becomes a property the Inspector can tune per object.
+This is the way to write one:
+
+```python
+class Player:
+    speed = 200         # exported, default 200 (whole number)
+    jump = 380.5        # exported, default 380.5
+    tag = "hero"        # exported, default "hero"
+    armed = True        # exported, default True
+    _phase = 0.0        # leading underscore, not exported
+
+    def __init__(self, node):
+        self.node = node
+
+    def on_update(self, dt):
+        self.node.translate(self.speed * dt, 0)
+```
+
+Nothing is parsed here: the compiler records those defaults on the class and the editor reads
+the name, the value and the type straight off it.
+
+A constructor writes its fields on the instance instead, so there is nothing on the class to
+read and the source has to be scanned. That path still works, for scripts written before the
+class body accepted fields:
 
 ```python
 SPEED = 200
@@ -46,12 +67,13 @@ SPEED = 200
 class Player:
     def __init__(self, node):
         self.node = node        # not a literal, not exported
-        self.speed = SPEED      # exported, default 200
-        self.jump = 380.5       # exported, default 380.5
-        self.tag = "hero"       # exported, default "hero"
-        self.armed = True       # exported, default True
+        self.speed = SPEED      # exported through the source scan
         self._timer = 0.0       # leading underscore, not exported
 ```
+
+Only literals are read there — numbers, strings, `True`/`False`, or a module-level constant
+holding one of those. Anything else is skipped rather than guessed at. When a name appears in
+both places the class body wins, since that is the declaration and `__init__` is just code.
 
 Two objects can share `player.py` and still run at different speeds. What the Inspector stores
 is only the fields you actually change: the override travels with the scene, everything else

@@ -9,8 +9,12 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
+#include <cstddef>
+
 namespace k2d
 {
+
+    std::size_t CollectZenClassProperties(zen::ObjClass *klass, ct::Vector<ZenScriptProperty> &out);
 
     struct ZenScriptClass
     {

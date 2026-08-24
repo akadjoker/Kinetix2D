@@ -1158,7 +1158,25 @@ namespace k2d
         ++runtime.mCompileCount;
         compiled.path = path;
         compiled.timestamp = mSourceTimestamp;
-        ScanZenScriptProperties(source, compiled.properties);
+        compiled.properties.clear();
+        CollectZenClassProperties(zen::is_class(compiled.klass) ? zen::as_class(compiled.klass)
+                                                                : nullptr,
+                                  compiled.properties);
+
+        ct::Vector<ZenScriptProperty> fromInit;
+        ScanZenScriptProperties(source, fromInit);
+        for (size_t i = 0; i < fromInit.size(); ++i)
+        {
+            bool declared = false;
+            for (size_t j = 0; j < compiled.properties.size(); ++j)
+                if (compiled.properties[j].name == fromInit[i].name)
+                {
+                    declared = true;
+                    break;
+                }
+            if (!declared)
+                compiled.properties.push_back(fromInit[i]);
+        }
         mState->scriptClass = impl.addClass(compiled);
         mState->generation = runtime.generation();
         mState->loaded = true;

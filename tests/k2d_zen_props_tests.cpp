@@ -239,11 +239,89 @@ static bool testOverridesSurviveReload()
     return ok;
 }
 
+static bool testClassBodyFieldsBecomeProperties()
+{
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("spinner");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadSource("class Spinner:\n"
+                                 "    speed = 90.0\n"
+                                 "    lives = 3\n"
+                                 "    label = \"spin\"\n"
+                                 "    armed = True\n"
+                                 "    _phase = 0.0\n"
+                                 "\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        self.node.rotate(self.speed * dt)\n"
+                                 "\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n",
+                                 "spinner");
+
+    ok = ok && script->declaredPropertyCount() == 4;
+    ok = ok && script->declaredProperty("_phase") == nullptr;
+    ok = ok && script->declaredProperty("node") == nullptr;
+
+    const k2d::ZenScriptProperty *speed = script->declaredProperty("speed");
+    const k2d::ZenScriptProperty *lives = script->declaredProperty("lives");
+    const k2d::ZenScriptProperty *label = script->declaredProperty("label");
+    const k2d::ZenScriptProperty *armed = script->declaredProperty("armed");
+    ok = ok && speed && nearEqual(speed->number, 90.0) && !speed->integer;
+    ok = ok && lives && nearEqual(lives->number, 3.0) && lives->integer;
+    ok = ok && label && label->text == "spin";
+    ok = ok && armed && armed->flag;
+
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->rotationDegrees(), 90.0, 0.1);
+
+    script->setNumberOverride("speed", 10.0);
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->rotationDegrees(), 100.0, 0.1);
+
+    std::printf("  class_body: %d properties, rot=%.1f after override\n",
+                (int)script->declaredPropertyCount(), object->rotationDegrees());
+    return ok;
+}
+
+static bool testClassBodyWinsOverInit()
+{
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("mixed");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadSource("class Mixed:\n"
+                                 "    speed = 50.0\n"
+                                 "\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "        self.speed = 999.0\n"
+                                 "        self.extra = 7\n",
+                                 "mixed");
+
+    ok = ok && script->declaredPropertyCount() == 2;
+
+    const k2d::ZenScriptProperty *speed = script->declaredProperty("speed");
+    const k2d::ZenScriptProperty *extra = script->declaredProperty("extra");
+    ok = ok && speed && nearEqual(speed->number, 50.0);
+    ok = ok && extra && nearEqual(extra->number, 7.0) && extra->integer;
+
+    std::printf("  precedence: speed=%.0f (class body, not the 999 in __init__), extra=%.0f\n",
+                speed ? speed->number : -1.0, extra ? extra->number : -1.0);
+    return ok;
+}
+
 int main()
 {
     k2d::SetZenScriptsEnabled(true);
 
     const bool scan = testScanFindsLiterals();
+    const bool classBody = testClassBodyFieldsBecomeProperties();
+    const bool precedence = testClassBodyWinsOverInit();
     const bool declared = testDeclaredPropertiesComeFromTheClass();
     const bool overrides = testOverridesReachTheInstance();
     const bool live = testLiveOverrideRetunesRunningInstance();
@@ -252,9 +330,10 @@ int main()
     const bool reload = testOverridesSurviveReload();
 
     std::remove(kShipPath);
-    std::printf("zen props: scan=%s declared=%s overrides=%s live=%s keep_alive=%s serializer=%s reload=%s\n",
-                scan ? "pass" : "fail", declared ? "pass" : "fail", overrides ? "pass" : "fail",
+    std::printf("zen props: scan=%s class_body=%s precedence=%s declared=%s overrides=%s live=%s keep_alive=%s serializer=%s reload=%s\n",
+                scan ? "pass" : "fail", classBody ? "pass" : "fail",
+                precedence ? "pass" : "fail", declared ? "pass" : "fail", overrides ? "pass" : "fail",
                 live ? "pass" : "fail", alive ? "pass" : "fail", serialized ? "pass" : "fail",
                 reload ? "pass" : "fail");
-    return scan && declared && overrides && live && alive && serialized && reload ? 0 : 1;
+    return scan && classBody && precedence && declared && overrides && live && alive && serialized && reload ? 0 : 1;
 }

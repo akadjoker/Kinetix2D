@@ -1,4 +1,8 @@
 #include "k2d/ZenScriptComponent.h"
+#include "ZenRuntimeInternal.h"
+
+#include <zen/object.h>
+#include <zen/value.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -133,6 +137,53 @@ namespace k2d
         {
             return p < end && *p == '=' && (p + 1 >= end || p[1] != '=');
         }
+    }
+
+    std::size_t CollectZenClassProperties(zen::ObjClass *klass, ct::Vector<ZenScriptProperty> &out)
+    {
+        if (!klass || !klass->field_names || !klass->field_defaults)
+            return out.size();
+
+        const int count = klass->num_field_defaults < klass->num_fields ? klass->num_field_defaults
+                                                                        : klass->num_fields;
+        for (int i = 0; i < count; ++i)
+        {
+            zen::ObjString *name = klass->field_names[i];
+            if (!name || name->chars[0] == '\0' || name->chars[0] == '_')
+                continue;
+
+            const zen::Value value = klass->field_defaults[i];
+            ZenScriptProperty property;
+            property.name = name->chars;
+            if (zen::is_int(value))
+            {
+                property.kind = ZenScriptProperty::Kind::Number;
+                property.number = (double)value.as.integer;
+                property.integer = true;
+            }
+            else if (zen::is_float(value))
+            {
+                property.kind = ZenScriptProperty::Kind::Number;
+                property.number = value.as.number;
+            }
+            else if (zen::is_bool(value))
+            {
+                property.kind = ZenScriptProperty::Kind::Bool;
+                property.flag = value.as.boolean;
+            }
+            else if (zen::is_string(value))
+            {
+                property.kind = ZenScriptProperty::Kind::String;
+                property.text = ct::String(zen::safe_string_chars(value),
+                                           (size_t)zen::safe_string_len(value));
+            }
+            else
+            {
+                continue;
+            }
+            out.push_back(property);
+        }
+        return out.size();
     }
 
     std::size_t ScanZenScriptProperties(const char *source, ct::Vector<ZenScriptProperty> &out)
