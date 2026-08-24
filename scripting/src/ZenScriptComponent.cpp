@@ -17,6 +17,7 @@
 #include "k2d/Scene.h"
 #include "k2d/Serializer.h"
 #include "k2d/SpriteComponent.h"
+#include "k2d/UiControls.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -985,6 +986,95 @@ namespace k2d
             return 1;
         }
 
+        int natNodeGetButton(zen::VM *vm, zen::Value *args, int)
+        {
+            GameObject *node = nodeFromSelf(args);
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            UiButton *button = node ? node->getComponent<UiButton>() : nullptr;
+            args[0] = (button && state) ? state->instanceFor(state->buttonClass, button) : zen::val_nil();
+            return 1;
+        }
+
+        int natNodeGetCheckBox(zen::VM *vm, zen::Value *args, int)
+        {
+            GameObject *node = nodeFromSelf(args);
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            UiCheckBox *check = node ? node->getComponent<UiCheckBox>() : nullptr;
+            args[0] = (check && state) ? state->instanceFor(state->checkBoxClass, check) : zen::val_nil();
+            return 1;
+        }
+
+        int natNodeGetSlider(zen::VM *vm, zen::Value *args, int)
+        {
+            GameObject *node = nodeFromSelf(args);
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            UiSlider *slider = node ? node->getComponent<UiSlider>() : nullptr;
+            args[0] = (slider && state) ? state->instanceFor(state->sliderClass, slider) : zen::val_nil();
+            return 1;
+        }
+
+        int natButtonClicked(zen::VM *, zen::Value *args, int)
+        {
+            UiButton *button = zen::zen_instance_data<UiButton>(args[-1]);
+            args[0] = zen::val_bool(button && button->consumeClick());
+            return 1;
+        }
+
+        int natButtonSetText(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            UiButton *button = zen::zen_instance_data<UiButton>(args[-1]);
+            if (button && nargs >= 1)
+            {
+                char small[16];
+                button->setText(valueToCString(vm, args[0], small, sizeof(small)));
+            }
+            return 0;
+        }
+
+        int natCheckBoxGetChecked(zen::VM *, zen::Value *args, int)
+        {
+            UiCheckBox *check = zen::zen_instance_data<UiCheckBox>(args[-1]);
+            args[0] = zen::val_bool(check && check->checked());
+            return 1;
+        }
+
+        int natCheckBoxSetChecked(zen::VM *, zen::Value *args, int nargs)
+        {
+            if (UiCheckBox *check = zen::zen_instance_data<UiCheckBox>(args[-1]))
+                if (nargs >= 1)
+                    check->setChecked(zen::is_truthy(args[0]));
+            return 0;
+        }
+
+        int natCheckBoxChanged(zen::VM *, zen::Value *args, int)
+        {
+            UiCheckBox *check = zen::zen_instance_data<UiCheckBox>(args[-1]);
+            args[0] = zen::val_bool(check && check->consumeChanged());
+            return 1;
+        }
+
+        int natSliderGetValue(zen::VM *, zen::Value *args, int)
+        {
+            UiSlider *slider = zen::zen_instance_data<UiSlider>(args[-1]);
+            args[0] = zen::val_float(slider ? slider->value() : 0.0f);
+            return 1;
+        }
+
+        int natSliderSetValue(zen::VM *, zen::Value *args, int nargs)
+        {
+            if (UiSlider *slider = zen::zen_instance_data<UiSlider>(args[-1]))
+                if (nargs >= 1)
+                    slider->setValue((float)zen::to_number(args[0]));
+            return 0;
+        }
+
+        int natSliderChanged(zen::VM *, zen::Value *args, int)
+        {
+            UiSlider *slider = zen::zen_instance_data<UiSlider>(args[-1]);
+            args[0] = zen::val_bool(slider && slider->consumeChanged());
+            return 1;
+        }
+
         int natSpriteSetColor(zen::VM *, zen::Value *args, int nargs)
         {
             SpriteComponent *sprite = zen::zen_instance_data<SpriteComponent>(args[-1]);
@@ -1376,6 +1466,9 @@ namespace k2d
         node.method("get_sprite", &natNodeGetSprite, 0);
         node.method("get_animation", &natNodeGetAnimation, 0);
         node.method("get_particle", &natNodeGetParticle, 0);
+        node.method("get_button", &natNodeGetButton, 0);
+        node.method("get_checkbox", &natNodeGetCheckBox, 0);
+        node.method("get_slider", &natNodeGetSlider, 0);
         node.persistent(true).constructable(false);
         nodeClass = node.end();
 
@@ -1418,6 +1511,26 @@ namespace k2d
         particle.method("is_playing", &natParticleIsPlaying, 0);
         particle.persistent(true).constructable(false);
         particleClass = particle.end();
+
+        auto button = vm.def_class("Button");
+        button.method("clicked", &natButtonClicked, 0);
+        button.method("set_text", &natButtonSetText, 1);
+        button.persistent(true).constructable(false);
+        buttonClass = button.end();
+
+        auto checkBox = vm.def_class("CheckBox");
+        checkBox.method("is_checked", &natCheckBoxGetChecked, 0);
+        checkBox.method("set_checked", &natCheckBoxSetChecked, 1);
+        checkBox.method("changed", &natCheckBoxChanged, 0);
+        checkBox.persistent(true).constructable(false);
+        checkBoxClass = checkBox.end();
+
+        auto slider = vm.def_class("Slider");
+        slider.method("get_value", &natSliderGetValue, 0);
+        slider.method("set_value", &natSliderSetValue, 1);
+        slider.method("changed", &natSliderChanged, 0);
+        slider.persistent(true).constructable(false);
+        sliderClass = slider.end();
 
         vm.def_native("get_number", &natGetNumber, -1);
         vm.def_native("set_number", &natSetNumber, 2);

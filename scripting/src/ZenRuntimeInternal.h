@@ -63,6 +63,9 @@ namespace k2d
         zen::ObjClass *animationClass = nullptr;
         zen::ObjClass *particleClass = nullptr;
         zen::ObjClass *bodyClass = nullptr;
+        zen::ObjClass *buttonClass = nullptr;
+        zen::ObjClass *checkBoxClass = nullptr;
+        zen::ObjClass *sliderClass = nullptr;
 
         ct::Vector<ZenScriptClass *> classes;
         ct::HashMap<void *, CachedInstance> instances;

@@ -145,7 +145,7 @@ script->declaredPropertyCount();                   // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_sprite()`, `get_animation()`, `get_particle()`, `get_body()` |
+| Components | `get_sprite()`, `get_animation()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
 
 Component handles return `None` when the component is missing.
 
@@ -156,6 +156,29 @@ Component handles return `None` when the component is missing.
   `set_angular_velocity(deg)`, `apply_force(x, y)`, `apply_impulse(x, y)`, `apply_torque(t)`,
   `get_gravity_scale()`, `set_gravity_scale(s)`, `set_type("static"/"kinematic"/"dynamic")`,
   `is_awake()`, `wake()`
+- **Button**: `clicked()` (returns `True` once per click), `set_text(text)`
+- **CheckBox**: `is_checked()`, `set_checked(value)`, `changed()` (returns `True` once per toggle)
+- **Slider**: `get_value()`, `set_value(value)`, `changed()` (returns `True` once per drag change)
+
+## Retained UI
+
+Create a `UiCanvas` in the editor and add child nodes with `Panel`, `Label`, `Button`,
+`CheckBox`, or `Slider`. Layout uses normalized anchors plus pixel offsets, so the UI is
+screen-space and ignores the world camera. The default button skin comes from the engine-owned
+embedded `menu.png`; a project cannot accidentally lose it by omitting an asset.
+
+```python
+class Menu(ScriptComponent):
+    def on_start(self):
+        self.play = self.node.find("Play Button").get_button()
+
+    def on_update(self, dt):
+        if self.play.clicked():
+            emit("start_game")
+```
+
+`on_draw_ui()` remains the right tool for one-off HUD/debug drawing. Use retained UI controls
+when the editor needs to save layout and interaction state in the scene.
 
 ## Physics
 

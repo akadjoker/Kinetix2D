@@ -639,6 +639,15 @@ static bool testUiSerializationAndInput()
     button->setText("Play");
     button->setAnchors(Math::Vec4(0.5f, 0.5f, 0.5f, 0.5f));
     button->setOffsets(Math::Vec4(-60.0f, -18.0f, 60.0f, 18.0f));
+    k2d::ZenScriptComponent *script = buttonObject->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource(
+        "class UiScript(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        self.button = self.node.get_button()\n"
+        "    def on_update(self, dt):\n"
+        "        if self.button.clicked():\n"
+        "            set_flag('ui_clicked', True)\n",
+        "ui_script");
 
     k2d::GameObject *sliderObject = scene.createObject("volume", canvas);
     k2d::UiSlider *slider = sliderObject->addComponent<k2d::UiSlider>();
@@ -649,7 +658,7 @@ static bool testUiSerializationAndInput()
     const ct::Json json = k2d::Serializer::WriteObject(*canvas);
     k2d::Scene loadedScene;
     k2d::GameObject *loaded = k2d::Serializer::ReadObject(loadedScene, json);
-    bool ok = loaded && loaded->getComponent<k2d::UiCanvas>() && loaded->childCount() == 2;
+    ok = ok && loaded && loaded->getComponent<k2d::UiCanvas>() && loaded->childCount() == 2;
     k2d::GameObject *loadedButtonNode = loaded ? loaded->findChild("play") : nullptr;
     k2d::UiButton *loadedButton = loadedButtonNode ? loadedButtonNode->getComponent<k2d::UiButton>() : nullptr;
     ok = ok && loadedButton && loadedButton->text() == ct::String("Play") &&
@@ -664,7 +673,9 @@ static bool testUiSerializationAndInput()
     input.NewFrame();
     input.OnMouseButton(0, false);
     scene.update(0.016f);
-    ok = ok && button->consumeClick();
+    scene.update(0.016f);
+    ok = ok && k2d::ZenBlackboard::getBool("ui_clicked", false);
+    k2d::ZenBlackboard::clear();
     k2d::SetUiInput(nullptr);
     k2d::SetUiViewport(0.0f, 0.0f, 0.0f, 0.0f);
     return ok;
