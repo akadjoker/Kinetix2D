@@ -47,10 +47,10 @@ const char *componentName(ComponentType type)
     static const char *names[] = {
         "Sprite", "Script", "Camera", "TileMap", "SpriteBatch", "Polygon2D",
         "Animation2D", "Light2D", "LightOccluder2D", "Line2D", "NinePatch",
-        "Particle"
+        "Particle", "RigidBody2D", "Collider2D"
     };
     const unsigned int index = static_cast<unsigned int>(type);
-    return index < static_cast<unsigned int>(ComponentType::Count) ? names[index] : "Unknown";
+    return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
 }
 
 constexpr int kPlaceholderSize = 32;

@@ -128,15 +128,15 @@ namespace k2d
             if (!collider)
                 continue;
 
-            int index = -1;
+            const int shapesBefore = body->ShapeCount();
             switch (collider->shape())
             {
             case ColliderShape::Circle:
             {
                 const float radius = collider->radius() * (scaleX > scaleY ? scaleX : scaleY);
-                index = body->AddCircle(collider->offset(),
-                                        radius > kMinShapeExtent ? radius : kMinShapeExtent,
-                                        rigidBody.density());
+                body->AddCircle(collider->offset(),
+                                radius > kMinShapeExtent ? radius : kMinShapeExtent,
+                                rigidBody.density());
                 break;
             }
             case ColliderShape::Polygon:
@@ -148,7 +148,7 @@ namespace k2d
                     for (size_t p = 0; p < points.size(); ++p)
                         scaled.push_back(Math::Vec2(points[p].x * scaleX + collider->offset().x,
                                                     points[p].y * scaleY + collider->offset().y));
-                    index = body->AddPolygon(scaled.data(), (int)scaled.size(), rigidBody.density());
+                    body->AddPolygon(scaled.data(), (int)scaled.size(), rigidBody.density());
                 }
                 break;
             }
@@ -160,11 +160,12 @@ namespace k2d
                     halfWidth = kMinShapeExtent;
                 if (halfHeight < kMinShapeExtent)
                     halfHeight = kMinShapeExtent;
-                index = body->AddBox(halfWidth, halfHeight, collider->offset(), rigidBody.density());
+                body->AddBox(halfWidth, halfHeight, collider->offset(), rigidBody.density());
                 break;
             }
             }
 
+            const int index = body->ShapeCount() > shapesBefore ? body->ShapeCount() - 1 : -1;
             collider->mShapeIndex = index;
             collider->mDirty = false;
             if (index >= 0)
