@@ -267,41 +267,7 @@ namespace k2d
                 continue;
 
             const int shapesBefore = body->ShapeCount();
-            switch (collider->shape())
-            {
-            case ColliderShape::Circle:
-            {
-                const float radius = collider->radius() * (scaleX > scaleY ? scaleX : scaleY);
-                body->AddCircle(collider->offset(),
-                                radius > kMinShapeExtent ? radius : kMinShapeExtent,
-                                rigidBody.density());
-                break;
-            }
-            case ColliderShape::Polygon:
-            {
-                const ct::Vector<Math::Vec2> &points = collider->points();
-                if (points.size() >= 3)
-                {
-                    ct::Vector<Math::Vec2> scaled;
-                    for (size_t p = 0; p < points.size(); ++p)
-                        scaled.push_back(Math::Vec2(points[p].x * scaleX + collider->offset().x,
-                                                    points[p].y * scaleY + collider->offset().y));
-                    body->AddPolygon(scaled.data(), (int)scaled.size(), rigidBody.density());
-                }
-                break;
-            }
-            default:
-            {
-                float halfWidth = collider->size().x * 0.5f * scaleX;
-                float halfHeight = collider->size().y * 0.5f * scaleY;
-                if (halfWidth < kMinShapeExtent)
-                    halfWidth = kMinShapeExtent;
-                if (halfHeight < kMinShapeExtent)
-                    halfHeight = kMinShapeExtent;
-                body->AddBox(halfWidth, halfHeight, collider->offset(), rigidBody.density());
-                break;
-            }
-            }
+            collider->addTo(*body, rigidBody.density(), scaleX, scaleY);
 
             const int index = body->ShapeCount() > shapesBefore ? body->ShapeCount() - 1 : -1;
             collider->mShapeIndex = index;

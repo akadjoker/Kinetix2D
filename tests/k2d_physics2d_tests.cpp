@@ -1,4 +1,9 @@
+#include <k2d/BoxCollider2D.h>
+#include <k2d/ChainCollider2D.h>
+#include <k2d/CircleCollider2D.h>
 #include <k2d/Collider2D.h>
+#include <k2d/EdgeCollider2D.h>
+#include <k2d/PolygonCollider2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/RigidBody2D.h>
@@ -21,8 +26,7 @@ static k2d::GameObject *makeBox(k2d::Scene &scene, const char *name, const Math:
     k2d::RigidBody2D *body = object->addComponent<k2d::RigidBody2D>();
     body->setBodyType(type);
 
-    k2d::Collider2D *collider = object->addComponent<k2d::Collider2D>();
-    collider->setShape(k2d::ColliderShape::Box);
+    k2d::BoxCollider2D *collider = object->addComponent<k2d::BoxCollider2D>();
     collider->setSize(size);
     return object;
 }
@@ -102,8 +106,7 @@ static bool testSensorReportsWithoutBlocking()
     trigger->setPosition(Math::Vec2(0.0f, 150.0f));
     k2d::RigidBody2D *triggerBody = trigger->addComponent<k2d::RigidBody2D>();
     triggerBody->setBodyType(kx::BodyType::Static);
-    k2d::Collider2D *triggerShape = trigger->addComponent<k2d::Collider2D>();
-    triggerShape->setShape(k2d::ColliderShape::Box);
+    k2d::BoxCollider2D *triggerShape = trigger->addComponent<k2d::BoxCollider2D>();
     triggerShape->setSize(Math::Vec2(400.0f, 20.0f));
     triggerShape->setSensor(true);
 
@@ -315,7 +318,7 @@ static bool testColliderChangeRebuildsTheBody()
 
     bool ok = nearEqual(box->position().y, 260.0f, 2.0f);
 
-    box->getComponent<k2d::Collider2D>()->setSize(Math::Vec2(40.0f, 120.0f));
+    box->getComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(40.0f, 120.0f));
     for (int i = 0; i < 120; ++i)
         world.step(1.0f / 60.0f);
 
@@ -361,11 +364,11 @@ static bool testFiltersKeepShapesApart()
     k2d::Scene scene;
     k2d::GameObject *floor = makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f),
                                      Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
-    floor->getComponent<k2d::Collider2D>()->setFilter(0x0001, 0xFFFF);
+    floor->getComponent<k2d::BoxCollider2D>()->setFilter(0x0001, 0xFFFF);
 
     k2d::GameObject *ghost = makeBox(scene, "ghost", Math::Vec2(0.0f, 0.0f),
                                      Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
-    ghost->getComponent<k2d::Collider2D>()->setFilter(0x0002, 0x0004);
+    ghost->getComponent<k2d::BoxCollider2D>()->setFilter(0x0002, 0x0004);
 
     k2d::PhysicsWorld2D world;
     world.build(scene.root());
@@ -398,6 +401,138 @@ static bool testObjectAtPointFindsStatics()
     return ok;
 }
 
+static bool testCircleCollider()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+
+    k2d::GameObject *ball = scene.createObject("ball");
+    ball->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Dynamic);
+    ball->addComponent<k2d::CircleCollider2D>()->setRadius(20.0f);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    for (int i = 0; i < 240; ++i)
+        world.step(1.0f / 60.0f);
+
+    const bool ok = nearEqual(ball->position().y, 260.0f, 2.0f);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  circle: ball rests at y=%.1f (expected ~260)\n", ball->position().y);
+    return ok;
+}
+
+static bool testEdgeCollider()
+{
+    k2d::Scene scene;
+    k2d::GameObject *ground = scene.createObject("ground");
+    ground->setPosition(Math::Vec2(0.0f, 300.0f));
+    ground->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    ground->addComponent<k2d::EdgeCollider2D>()->setPoints(Math::Vec2(-300.0f, 0.0f),
+                                                           Math::Vec2(300.0f, 0.0f));
+
+    k2d::GameObject *box = makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f),
+                                   kx::BodyType::Dynamic);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    for (int i = 0; i < 240; ++i)
+        world.step(1.0f / 60.0f);
+
+    const bool ok = nearEqual(box->position().y, 280.0f, 2.0f);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  edge: box rests on the edge at y=%.1f (expected ~280)\n", box->position().y);
+    return ok;
+}
+
+static bool testPolygonCollider()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+
+    k2d::GameObject *hex = scene.createObject("hex");
+    hex->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Dynamic);
+    k2d::PolygonCollider2D *shape = hex->addComponent<k2d::PolygonCollider2D>();
+    shape->setRegular(6, 25.0f);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    for (int i = 0; i < 300; ++i)
+        world.step(1.0f / 60.0f);
+
+    bool ok = shape->points().size() == 6;
+    ok = ok && hex->position().y > 230.0f && hex->position().y < 280.0f;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  polygon: hexagon (%d points) rests at y=%.1f\n", (int)shape->points().size(),
+                hex->position().y);
+    return ok;
+}
+
+static bool testChainCollider()
+{
+    k2d::Scene scene;
+    k2d::GameObject *ground = scene.createObject("ground");
+    ground->setPosition(Math::Vec2(0.0f, 300.0f));
+    ground->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+
+    const Math::Vec2 points[4] = {Math::Vec2(-300.0f, 40.0f), Math::Vec2(-100.0f, 0.0f),
+                                  Math::Vec2(100.0f, 0.0f), Math::Vec2(300.0f, 40.0f)};
+    k2d::ChainCollider2D *chain = ground->addComponent<k2d::ChainCollider2D>();
+    chain->setPoints(points, 4);
+
+    k2d::GameObject *box = makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f),
+                                   kx::BodyType::Dynamic);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    for (int i = 0; i < 240; ++i)
+        world.step(1.0f / 60.0f);
+
+    bool ok = chain->points().size() == 4 && !chain->loop();
+    ok = ok && nearEqual(box->position().y, 280.0f, 3.0f);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  chain: box rests on the chain at y=%.1f (expected ~280)\n", box->position().y);
+    return ok;
+}
+
+static bool testCompoundBodyKeepsShapesApart()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 400.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+
+    k2d::GameObject *dumbbell = scene.createObject("dumbbell");
+    k2d::RigidBody2D *body = dumbbell->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(kx::BodyType::Dynamic);
+
+    k2d::BoxCollider2D *bar = dumbbell->addComponent<k2d::BoxCollider2D>();
+    bar->setSize(Math::Vec2(80.0f, 20.0f));
+
+    k2d::CircleCollider2D *weight = dumbbell->addComponent<k2d::CircleCollider2D>();
+    weight->setRadius(20.0f);
+    weight->setOffset(Math::Vec2(60.0f, 0.0f));
+    weight->setSensor(true);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+
+    bool ok = body->body() && body->body()->ShapeCount() == 2;
+    ok = ok && bar->shapeIndex() == 0 && weight->shapeIndex() == 1;
+    ok = ok && body->body() && !body->body()->IsSensor(bar->shapeIndex());
+    ok = ok && body->body() && body->body()->IsSensor(weight->shapeIndex());
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  compound: shapes=%d bar=%d(solid) weight=%d(sensor)\n",
+                body->body() ? body->body()->ShapeCount() : -1, bar->shapeIndex(),
+                weight->shapeIndex());
+    return ok;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -413,18 +548,27 @@ int main()
     const bool liveType = testBodyTypeAndDensityApplyLive();
     const bool filters = testFiltersKeepShapesApart();
     const bool pointQuery = testObjectAtPointFindsStatics();
+    const bool circle = testCircleCollider();
+    const bool edge = testEdgeCollider();
+    const bool polygon = testPolygonCollider();
+    const bool chain = testChainCollider();
+    const bool compound = testCompoundBodyKeepsShapesApart();
 
     std::printf("physics2d: falls=%s contacts=%s sensor=%s queries=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
-                "live_type=%s filters=%s point_query=%s\n",
+                "live_type=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
+                "chain=%s compound=%s\n",
                 falls ? "pass" : "fail", contacts ? "pass" : "fail", sensor ? "pass" : "fail",
                 queries ? "pass" : "fail", staticFollow ? "pass" : "fail",
                 velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail",
                 colliderChange ? "pass" : "fail", liveType ? "pass" : "fail",
-                filters ? "pass" : "fail", pointQuery ? "pass" : "fail");
+                filters ? "pass" : "fail", pointQuery ? "pass" : "fail",
+                circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail",
+                chain ? "pass" : "fail", compound ? "pass" : "fail");
     return falls && contacts && sensor && queries && staticFollow && velocity && deterministic &&
-                   destroy && lateSpawn && colliderChange && liveType && filters && pointQuery
+                   destroy && lateSpawn && colliderChange && liveType && filters && pointQuery &&
+                   circle && edge && polygon && chain && compound
                ? 0
                : 1;
 }
