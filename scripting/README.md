@@ -247,6 +247,11 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
   rename does not silently drop tuning.
 - `import math`, `import time`, `import json`, `import net` and `import http` are available;
   `print` goes to the editor Console.
+- `import json` currently runs libzen's own parser (`builtin_json.cpp`), which is a second JSON
+  implementation next to `ct::Json` — the one the serializer, the scenes and the project file
+  already use. Two parsers in one binary means two behaviours on the edges: number formatting,
+  escapes, duplicate keys. The plan is to back the module with `ct::Json` so there is one. The
+  `import json` surface does not change when that happens.
 - `io`, `os`, `path` and `struct` ship compiled in libzen but are **deliberately not
   registered**, so `import os` fails. Registering one is a single `vm.register_lib` call in
   `ZenScriptComponent.cpp`, but it is a decision, not an oversight: `io`, `os` and `path` hand
