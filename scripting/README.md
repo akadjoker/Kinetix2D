@@ -34,6 +34,47 @@ sharing one file each keep their own state. Module-level constants are shared.
 
 Cost: one compile per file (~0.2 ms), then ~0.0005 ms per spawned object.
 
+## Properties in the Inspector
+
+Every `self.<name> = <literal>` in `__init__` becomes a property the Inspector can tune per
+object. Literals are numbers, strings, `True`/`False`, or a module-level constant holding one
+of those.
+
+```python
+SPEED = 200
+
+class Player:
+    def __init__(self, node):
+        self.node = node        # not a literal, not exported
+        self.speed = SPEED      # exported, default 200
+        self.jump = 380.5       # exported, default 380.5
+        self.tag = "hero"       # exported, default "hero"
+        self.armed = True       # exported, default True
+        self._timer = 0.0       # leading underscore, not exported
+```
+
+Two objects can share `player.py` and still run at different speeds. What the Inspector stores
+is only the fields you actually change: the override travels with the scene, everything else
+keeps following the `.py`. Editing the file changes the defaults for every object that has not
+overridden them.
+
+The value is written into the instance right after `__init__`, so `on_start` and `on_update`
+already see it. Changing a property while playing retunes the live instance without restarting
+it, and so does reverting one — the object keeps the rest of its state.
+
+Integers stay integers and floats stay floats, which is why `self.lives = 3` gets a whole-number
+widget and `self.jump = 380.5` gets a decimal one.
+
+From C++:
+
+```cpp
+script->setNumberOverride("speed", 500.0, true);   // true = keep it an integer
+script->setStringOverride("tag", "boss");
+script->setBoolOverride("armed", false);
+script->clearOverride("speed");                    // back to the script default
+script->declaredPropertyCount();                   // what the .py declares
+```
+
 ## Node methods
 
 | Group | Methods |
@@ -107,5 +148,8 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
   across scripts; keep per-object state in `self`, and use the blackboard for shared state.
 - `ZenRuntime::instance().reset()` drops every cached class and instance (call it when
   tearing a game down); components re-instantiate themselves on the next frame.
-- Only the script's file path is serialized, so the `.py` must be reachable at load time.
+- The script's file path and the property overrides are serialized, so the `.py` must be
+  reachable at load time.
+- An override whose field disappears from the `.py` is kept but flagged in the Inspector, so a
+  rename does not silently drop tuning.
 - `import math` and `import time` are available; `print` goes to the editor Console.

@@ -3,6 +3,7 @@
 #include "k2d/ScriptComponent.h"
 
 #include <ct/string.hpp>
+#include <ct/vector.hpp>
 
 #include <cstddef>
 
@@ -10,6 +11,25 @@ namespace k2d
 {
 
     class Input;
+
+    struct ZenScriptProperty
+    {
+        enum class Kind : unsigned char
+        {
+            Number,
+            String,
+            Bool
+        };
+
+        ct::String name;
+        Kind kind = Kind::Number;
+        double number = 0.0;
+        ct::String text;
+        bool flag = false;
+        bool integer = false;
+    };
+
+    std::size_t ScanZenScriptProperties(const char *source, ct::Vector<ZenScriptProperty> &out);
 
     class ZenScriptComponent : public ScriptComponent
     {
@@ -29,6 +49,20 @@ namespace k2d
         bool reloadIfChanged();
         long long sourceTimestamp() const { return mSourceTimestamp; }
 
+        std::size_t declaredPropertyCount() const;
+        const ZenScriptProperty *declaredPropertyAt(std::size_t index) const;
+        const ZenScriptProperty *declaredProperty(const char *name) const;
+
+        std::size_t overrideCount() const;
+        const ZenScriptProperty *overrideAt(std::size_t index) const;
+        const ZenScriptProperty *findOverride(const char *name) const;
+        void setNumberOverride(const char *name, double value, bool integer = false);
+        void setStringOverride(const char *name, const char *value);
+        void setBoolOverride(const char *name, bool value);
+        void clearOverride(const char *name);
+        void clearOverrides();
+        std::size_t applyOverrides();
+
         void destroyInstance();
 
         struct State;
@@ -40,8 +74,12 @@ namespace k2d
         bool loadFromSource(const char *source, const char *path);
         bool ensureInstance();
 
+        ZenScriptProperty &overrideSlot(const char *name);
+        bool writeProperty(const ZenScriptProperty &prop);
+
         State *mState;
         ct::String mScriptPath;
+        ct::Vector<ZenScriptProperty> mOverrides;
         long long mSourceTimestamp = 0;
     };
 

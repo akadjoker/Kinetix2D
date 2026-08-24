@@ -676,6 +676,111 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
     }
 }
 
+void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
+{
+    const size_t declaredCount = script.declaredPropertyCount();
+    if (declaredCount == 0 && script.overrideCount() == 0)
+        return;
+
+    if (!ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
+        return;
+
+    for (size_t i = 0; i < declaredCount; ++i)
+    {
+        const ZenScriptProperty *declared = script.declaredPropertyAt(i);
+        const ZenScriptProperty *current = script.findOverride(declared->name.c_str());
+        const ZenScriptProperty &value = current ? *current : *declared;
+        const char *name = declared->name.c_str();
+
+        ImGui::PushID(static_cast<int>(i));
+        ImGui::SetNextItemWidth(-60.0f);
+
+        if (declared->kind == ZenScriptProperty::Kind::Bool)
+        {
+            bool flag = value.flag;
+            if (ImGui::Checkbox(name, &flag))
+                applyInstant(app, "Set Script Property", [&] { script.setBoolOverride(name, flag); });
+        }
+        else if (declared->kind == ZenScriptProperty::Kind::String)
+        {
+            char text[256];
+            size_t length = value.text.size();
+            if (length >= sizeof(text))
+                length = sizeof(text) - 1;
+            for (size_t c = 0; c < length; ++c)
+                text[c] = value.text[c];
+            text[length] = '\0';
+
+            const EditorApplication::SceneChange before = app.beginChange();
+            const bool changed = ImGui::InputText(name, text, sizeof(text));
+            if (ImGui::IsItemActivated())
+                app.beginTransaction("Set Script Property", before);
+            if (changed)
+                script.setStringOverride(name, text);
+            if (ImGui::IsItemDeactivatedAfterEdit())
+                app.commitTransaction();
+        }
+        else if (declared->integer)
+        {
+            int number = static_cast<int>(value.number);
+            const EditorApplication::SceneChange before = app.beginChange();
+            const bool changed = ImGui::DragInt(name, &number, 1.0f);
+            if (ImGui::IsItemActivated())
+                app.beginTransaction("Set Script Property", before);
+            if (changed)
+                script.setNumberOverride(name, static_cast<double>(number), true);
+            if (ImGui::IsItemDeactivatedAfterEdit())
+                app.commitTransaction();
+        }
+        else
+        {
+            float number = static_cast<float>(value.number);
+            const EditorApplication::SceneChange before = app.beginChange();
+            const bool changed = ImGui::DragFloat(name, &number, 0.1f);
+            if (ImGui::IsItemActivated())
+                app.beginTransaction("Set Script Property", before);
+            if (changed)
+                script.setNumberOverride(name, static_cast<double>(number));
+            if (ImGui::IsItemDeactivatedAfterEdit())
+                app.commitTransaction();
+        }
+
+        if (current)
+        {
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_MDI_RESTORE "##revert", ImVec2(26.0f, 0.0f)))
+                applyInstant(app, "Revert Script Property", [&] { script.clearOverride(name); });
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Back to the script default");
+        }
+        ImGui::PopID();
+    }
+
+    ct::String orphan;
+    for (size_t i = 0; i < script.overrideCount(); ++i)
+    {
+        const ZenScriptProperty *stored = script.overrideAt(i);
+        if (script.declaredProperty(stored->name.c_str()))
+            continue;
+        ImGui::PushID(static_cast<int>(declaredCount + i));
+        ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.35f, 1.0f), ICON_MDI_ALERT " %s", stored->name.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Drop"))
+            orphan = stored->name;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The script no longer declares this field");
+        ImGui::PopID();
+    }
+    if (!orphan.empty())
+        applyInstant(app, "Drop Script Property", [&] { script.clearOverride(orphan.c_str()); });
+
+    if (script.overrideCount() > 0)
+    {
+        if (ImGui::Button(ICON_MDI_RESTORE " Reset All"))
+            applyInstant(app, "Reset Script Properties", [&] { script.clearOverrides(); });
+    }
+}
+
 void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
 {
     ImGui::TextUnformatted("Script");
@@ -711,7 +816,10 @@ void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
         ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.3f, 1.0f), "Failed to load - check the console output");
     else
         ImGui::TextDisabled("No script assigned.");
-    ImGui::TextDisabled("Contract: def ready(node) / def update(node, dt)");
+
+    drawZenScriptOverrides(app, script);
+
+    ImGui::TextDisabled("Contract: class with __init__(self, node) and on_update(self, dt)");
     ImGui::TextDisabled("Scripts run in Play mode only.");
 }
 

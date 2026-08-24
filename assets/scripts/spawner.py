@@ -2,15 +2,15 @@ class Spawner:
     def __init__(self, node):
         self.node = node
         self.cooldown = 0.4
-        self.timer = 0.0
+        self._timer = 0.0
 
     def on_start(self):
         set_number("spawned", 0)
 
     def on_update(self, dt):
-        self.timer = self.timer - dt
-        if self.timer <= 0 and key_down("space"):
-            self.timer = self.cooldown
+        self._timer = self._timer - dt
+        if self._timer <= 0 and key_down("space"):
+            self._timer = self.cooldown
             bullet = self.node.spawn("assets/prefabs/bullet.k2dprefab",
                                      self.node.get_x(), self.node.get_y())
             if bullet != None:

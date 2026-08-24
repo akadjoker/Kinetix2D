@@ -1,0 +1,260 @@
+#include <k2d/GameObject.h>
+#include <k2d/Scene.h>
+#include <k2d/Serializer.h>
+#include <k2d/ZenRuntime.h>
+#include <k2d/ZenScriptComponent.h>
+
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+
+static bool nearEqual(double a, double b, double tolerance = 0.001)
+{
+    return std::fabs(a - b) < tolerance;
+}
+
+static const char *kShipPath = "/tmp/k2d_zen_ship.py";
+
+static const char *kShipSource =
+    "SPEED = 200\n"
+    "\n"
+    "class Ship:\n"
+    "    def __init__(self, node):\n"
+    "        self.node = node\n"
+    "        self.speed = SPEED\n"
+    "        self.turn = 1.5\n"
+    "        self.label = \"alpha\"\n"
+    "        self.armed = True\n"
+    "        self._timer = 0.0\n"
+    "        self.lives = 3  # trailing comment\n"
+    "        self.computed = self.turn * 2\n"
+    "\n"
+    "    def on_start(self):\n"
+    "        set_number(\"starts\", get_number(\"starts\", 0) + 1)\n"
+    "\n"
+    "    def on_update(self, dt):\n"
+    "        self.node.translate(self.speed * dt, 0)\n"
+    "        self.node.rotate(self.turn * dt)\n";
+
+static void writeShip()
+{
+    FILE *f = std::fopen(kShipPath, "w");
+    std::fputs(kShipSource, f);
+    std::fclose(f);
+}
+
+static bool testScanFindsLiterals()
+{
+    ct::Vector<k2d::ZenScriptProperty> props;
+    const std::size_t count = k2d::ScanZenScriptProperties(kShipSource, props);
+
+    bool ok = count == 5;
+    ok = ok && props[0].name == "speed" && props[0].kind == k2d::ZenScriptProperty::Kind::Number &&
+         nearEqual(props[0].number, 200.0) && props[0].integer;
+    ok = ok && props[1].name == "turn" && !props[1].integer && nearEqual(props[1].number, 1.5);
+    ok = ok && props[2].name == "label" && props[2].kind == k2d::ZenScriptProperty::Kind::String &&
+         props[2].text == "alpha";
+    ok = ok && props[3].name == "armed" && props[3].kind == k2d::ZenScriptProperty::Kind::Bool &&
+         props[3].flag;
+    ok = ok && props[4].name == "lives" && props[4].integer && nearEqual(props[4].number, 3.0);
+
+    std::printf("  scan: found=%d", (int)count);
+    for (size_t i = 0; i < props.size(); ++i)
+        std::printf(" %s", props[i].name.c_str());
+    std::printf("\n");
+    return ok;
+}
+
+static bool testDeclaredPropertiesComeFromTheClass()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("ship");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadFile(kShipPath);
+    ok = ok && script->declaredPropertyCount() == 5;
+    ok = ok && script->declaredProperty("speed") != nullptr;
+    ok = ok && script->declaredProperty("_timer") == nullptr;
+    ok = ok && script->declaredProperty("node") == nullptr;
+    ok = ok && script->declaredProperty("computed") == nullptr;
+
+    k2d::GameObject *second = scene.createObject("ship2");
+    k2d::ZenScriptComponent *cached = second->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && cached->loadFile(kShipPath);
+    ok = ok && cached->declaredPropertyCount() == 5;
+
+    std::printf("  declared: count=%d cached_count=%d\n", (int)script->declaredPropertyCount(),
+                (int)cached->declaredPropertyCount());
+    return ok;
+}
+
+static bool testOverridesReachTheInstance()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *plain = scene.createObject("plain");
+    k2d::GameObject *fast = scene.createObject("fast");
+
+    k2d::ZenScriptComponent *a = plain->addComponent<k2d::ZenScriptComponent>();
+    k2d::ZenScriptComponent *b = fast->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = a->loadFile(kShipPath) && b->loadFile(kShipPath);
+    b->setNumberOverride("speed", 500.0, true);
+    b->setNumberOverride("turn", 90.0);
+
+    scene.update(1.0f);
+
+    ok = ok && nearEqual(plain->position().x, 200.0) && nearEqual(plain->rotationDegrees(), 1.5);
+    ok = ok && nearEqual(fast->position().x, 500.0) && nearEqual(fast->rotationDegrees(), 90.0);
+    ok = ok && k2d::ZenRuntime::instance().compileCount() >= 1;
+
+    std::printf("  overrides: plain=(%.1f, %.1f) fast=(%.1f, %.1f)\n", plain->position().x,
+                plain->rotationDegrees(), fast->position().x, fast->rotationDegrees());
+    return ok;
+}
+
+static bool testLiveOverrideRetunesRunningInstance()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("ship");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadFile(kShipPath);
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->position().x, 200.0);
+
+    script->setNumberOverride("speed", 10.0, true);
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->position().x, 210.0);
+
+    script->clearOverride("speed");
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->position().x, 410.0);
+
+    std::printf("  live_tuning: x=%.1f\n", object->position().x);
+    return ok;
+}
+
+static bool testClearingAnOverrideKeepsTheInstanceAlive()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+    k2d::ZenBlackboard::clear();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("ship");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadFile(kShipPath);
+    script->setNumberOverride("speed", 40.0, true);
+    scene.update(0.0f);
+    ok = ok && nearEqual(k2d::ZenBlackboard::getNumber("starts"), 1.0);
+
+    script->clearOverride("speed");
+    scene.update(0.0f);
+    ok = ok && nearEqual(k2d::ZenBlackboard::getNumber("starts"), 1.0);
+
+    std::printf("  keep_alive: starts=%g\n", k2d::ZenBlackboard::getNumber("starts"));
+    return ok;
+}
+
+static bool testOverridesRoundTripThroughTheSerializer()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+    k2d::RegisterZenScriptSerializer();
+
+    k2d::Scene source;
+    k2d::GameObject *object = source.createObject("ship");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadFile(kShipPath);
+    script->setNumberOverride("speed", 320.0, true);
+    script->setNumberOverride("turn", 2.25);
+    script->setStringOverride("label", "beta");
+    script->setBoolOverride("armed", false);
+
+    const ct::Json json = k2d::Serializer::WriteObject(*object);
+
+    k2d::Scene target;
+    k2d::GameObject *loaded = k2d::Serializer::ReadObject(target, json);
+    ok = ok && loaded != nullptr;
+
+    k2d::ZenScriptComponent *restored =
+        loaded ? loaded->getComponent<k2d::ZenScriptComponent>() : nullptr;
+    ok = ok && restored != nullptr && restored->overrideCount() == 4;
+
+    if (restored)
+    {
+        const k2d::ZenScriptProperty *speed = restored->findOverride("speed");
+        const k2d::ZenScriptProperty *turn = restored->findOverride("turn");
+        const k2d::ZenScriptProperty *label = restored->findOverride("label");
+        const k2d::ZenScriptProperty *armed = restored->findOverride("armed");
+        ok = ok && speed && nearEqual(speed->number, 320.0) && speed->integer;
+        ok = ok && turn && nearEqual(turn->number, 2.25) && !turn->integer;
+        ok = ok && label && label->text == "beta";
+        ok = ok && armed && !armed->flag;
+
+        target.update(1.0f);
+        ok = ok && nearEqual(loaded->position().x, 320.0) &&
+             nearEqual(loaded->rotationDegrees(), 2.25);
+    }
+
+    std::printf("  serializer: overrides=%d x=%.1f\n",
+                restored ? (int)restored->overrideCount() : -1,
+                loaded ? loaded->position().x : 0.0f);
+    return ok;
+}
+
+static bool testOverridesSurviveReload()
+{
+    writeShip();
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("ship");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+
+    bool ok = script->loadFile(kShipPath);
+    script->setNumberOverride("speed", 50.0, true);
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->position().x, 50.0);
+
+    k2d::ZenRuntime::instance().invalidate(kShipPath);
+    ok = ok && script->loadFile(kShipPath);
+    ok = ok && script->overrideCount() == 1;
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->position().x, 100.0);
+
+    std::printf("  reload: overrides=%d x=%.1f\n", (int)script->overrideCount(),
+                object->position().x);
+    return ok;
+}
+
+int main()
+{
+    k2d::SetZenScriptsEnabled(true);
+
+    const bool scan = testScanFindsLiterals();
+    const bool declared = testDeclaredPropertiesComeFromTheClass();
+    const bool overrides = testOverridesReachTheInstance();
+    const bool live = testLiveOverrideRetunesRunningInstance();
+    const bool alive = testClearingAnOverrideKeepsTheInstanceAlive();
+    const bool serialized = testOverridesRoundTripThroughTheSerializer();
+    const bool reload = testOverridesSurviveReload();
+
+    std::remove(kShipPath);
+    std::printf("zen props: scan=%s declared=%s overrides=%s live=%s keep_alive=%s serializer=%s reload=%s\n",
+                scan ? "pass" : "fail", declared ? "pass" : "fail", overrides ? "pass" : "fail",
+                live ? "pass" : "fail", alive ? "pass" : "fail", serialized ? "pass" : "fail",
+                reload ? "pass" : "fail");
+    return scan && declared && overrides && live && alive && serialized && reload ? 0 : 1;
+}

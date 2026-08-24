@@ -5,7 +5,7 @@ class Orbit:
         self.node = node
         self.radius = 120
         self.speed = 2.0
-        self.t = 0.0
+        self._t = 0.0
 
     def on_start(self):
         target = self.node.find("player")
@@ -13,10 +13,10 @@ class Orbit:
             print("orbiting around:", target.get_name())
 
     def on_update(self, dt):
-        self.t = self.t + dt * self.speed
+        self._t = self._t + dt * self.speed
         target = self.node.find("player")
         if target != None:
             cx, cy = target.get_position()
-            self.node.set_position(cx + math.cos(self.t) * self.radius,
-                                   cy + math.sin(self.t) * self.radius)
+            self.node.set_position(cx + math.cos(self._t) * self.radius,
+                                   cy + math.sin(self._t) * self.radius)
         self.node.rotate(180 * dt)

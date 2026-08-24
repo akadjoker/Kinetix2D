@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/ZenRuntime.h"
+#include "k2d/ZenScriptComponent.h"
 
 #include <zen/value.h>
 #include <zen/vm.h>
@@ -22,6 +23,7 @@ namespace k2d
         int slotDestroy = -1;
         int slotEvent = -1;
         long long timestamp = 0;
+        ct::Vector<ZenScriptProperty> properties;
     };
 
     struct ZenRuntime::Impl

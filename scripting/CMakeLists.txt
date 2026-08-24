@@ -1,6 +1,7 @@
 add_library(k2d_zen STATIC
     src/ZenRuntime.cpp
     src/ZenScriptComponent.cpp
+    src/ZenScriptProperties.cpp
 )
 
 target_include_directories(k2d_zen PUBLIC include)

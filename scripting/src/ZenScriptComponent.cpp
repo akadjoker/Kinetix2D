@@ -919,6 +919,7 @@ namespace k2d
         ++runtime.mCompileCount;
         compiled.path = path;
         compiled.timestamp = mSourceTimestamp;
+        ScanZenScriptProperties(source, compiled.properties);
         mState->scriptClass = impl.addClass(compiled);
         mState->generation = runtime.generation();
         mState->loaded = true;
@@ -962,6 +963,7 @@ namespace k2d
                 zen::Value args[1] = {mState->self};
                 impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, args, 1);
             }
+            applyOverrides();
             mState->started = false;
         }
         return true;
@@ -1035,6 +1037,186 @@ namespace k2d
     bool ZenScriptComponent::loaded() const
     {
         return mState->loaded;
+    }
+
+    std::size_t ZenScriptComponent::declaredPropertyCount() const
+    {
+        return mState->scriptClass ? mState->scriptClass->properties.size() : 0;
+    }
+
+    const ZenScriptProperty *ZenScriptComponent::declaredPropertyAt(std::size_t index) const
+    {
+        if (!mState->scriptClass || index >= mState->scriptClass->properties.size())
+            return nullptr;
+        return &mState->scriptClass->properties[index];
+    }
+
+    const ZenScriptProperty *ZenScriptComponent::declaredProperty(const char *name) const
+    {
+        if (!mState->scriptClass || !name)
+            return nullptr;
+        const ct::Vector<ZenScriptProperty> &declared = mState->scriptClass->properties;
+        for (size_t i = 0; i < declared.size(); ++i)
+            if (declared[i].name == name)
+                return &declared[i];
+        return nullptr;
+    }
+
+    std::size_t ZenScriptComponent::overrideCount() const
+    {
+        return mOverrides.size();
+    }
+
+    const ZenScriptProperty *ZenScriptComponent::overrideAt(std::size_t index) const
+    {
+        return index < mOverrides.size() ? &mOverrides[index] : nullptr;
+    }
+
+    const ZenScriptProperty *ZenScriptComponent::findOverride(const char *name) const
+    {
+        if (!name)
+            return nullptr;
+        for (size_t i = 0; i < mOverrides.size(); ++i)
+            if (mOverrides[i].name == name)
+                return &mOverrides[i];
+        return nullptr;
+    }
+
+    ZenScriptProperty &ZenScriptComponent::overrideSlot(const char *name)
+    {
+        for (size_t i = 0; i < mOverrides.size(); ++i)
+            if (mOverrides[i].name == name)
+                return mOverrides[i];
+
+        ZenScriptProperty added;
+        added.name = name;
+        mOverrides.push_back(added);
+        return mOverrides[mOverrides.size() - 1];
+    }
+
+    void ZenScriptComponent::setNumberOverride(const char *name, double value, bool integer)
+    {
+        if (!name || !name[0])
+            return;
+        ZenScriptProperty &prop = overrideSlot(name);
+        prop.kind = ZenScriptProperty::Kind::Number;
+        prop.number = value;
+        prop.integer = integer;
+        applyOverrides();
+    }
+
+    void ZenScriptComponent::setStringOverride(const char *name, const char *value)
+    {
+        if (!name || !name[0])
+            return;
+        ZenScriptProperty &prop = overrideSlot(name);
+        prop.kind = ZenScriptProperty::Kind::String;
+        prop.text = value ? value : "";
+        applyOverrides();
+    }
+
+    void ZenScriptComponent::setBoolOverride(const char *name, bool value)
+    {
+        if (!name || !name[0])
+            return;
+        ZenScriptProperty &prop = overrideSlot(name);
+        prop.kind = ZenScriptProperty::Kind::Bool;
+        prop.flag = value;
+        applyOverrides();
+    }
+
+    void ZenScriptComponent::clearOverride(const char *name)
+    {
+        if (!name)
+            return;
+
+        const ct::String key(name);
+        bool removed = false;
+        for (size_t i = 0; i < mOverrides.size(); ++i)
+        {
+            if (mOverrides[i].name == key)
+            {
+                mOverrides.erase(mOverrides.begin() + i);
+                removed = true;
+                break;
+            }
+        }
+        if (!removed)
+            return;
+
+        if (const ZenScriptProperty *declared = declaredProperty(key.c_str()))
+            writeProperty(*declared);
+        else
+            destroyInstance();
+    }
+
+    void ZenScriptComponent::clearOverrides()
+    {
+        if (mOverrides.empty())
+            return;
+
+        ct::Vector<ZenScriptProperty> cleared;
+        for (size_t i = 0; i < mOverrides.size(); ++i)
+            cleared.push_back(mOverrides[i]);
+        mOverrides.clear();
+
+        for (size_t i = 0; i < cleared.size(); ++i)
+        {
+            const ZenScriptProperty *declared = declaredProperty(cleared[i].name.c_str());
+            if (declared)
+                writeProperty(*declared);
+            else
+                destroyInstance();
+        }
+    }
+
+    bool ZenScriptComponent::writeProperty(const ZenScriptProperty &prop)
+    {
+        if (zen::is_nil(mState->instance))
+            return false;
+
+        zen::ObjInstance *inst = zen::as_instance(mState->instance);
+        if (!inst || !inst->klass || !inst->klass->field_names)
+            return false;
+
+        zen::ObjClass *klass = inst->klass;
+        int field = -1;
+        for (int f = 0; f < klass->num_fields; ++f)
+        {
+            if (klass->field_names[f] &&
+                std::strcmp(klass->field_names[f]->chars, prop.name.c_str()) == 0)
+            {
+                field = f;
+                break;
+            }
+        }
+        if (field < 0 || field >= inst->num_fields)
+            return false;
+
+        switch (prop.kind)
+        {
+        case ZenScriptProperty::Kind::Number:
+            inst->fields[field] =
+                prop.integer ? zen::val_int((int64_t)prop.number) : zen::val_float(prop.number);
+            break;
+        case ZenScriptProperty::Kind::String:
+            inst->fields[field] = zen::val_obj(
+                (zen::Obj *)ZenRuntime::instance().impl().vm.make_string(prop.text.c_str()));
+            break;
+        case ZenScriptProperty::Kind::Bool:
+            inst->fields[field] = zen::val_bool(prop.flag);
+            break;
+        }
+        return true;
+    }
+
+    std::size_t ZenScriptComponent::applyOverrides()
+    {
+        std::size_t applied = 0;
+        for (size_t i = 0; i < mOverrides.size(); ++i)
+            if (writeProperty(mOverrides[i]))
+                ++applied;
+        return applied;
     }
 
     std::size_t ReloadChangedZenScripts(GameObject &root)
@@ -1322,6 +1504,34 @@ namespace k2d
         {
             const ZenScriptComponent &script = static_cast<const ZenScriptComponent &>(component);
             data.set("path", ct::Json(script.scriptPath().c_str()));
+
+            if (script.overrideCount() == 0)
+                return;
+
+            ct::Json properties = ct::Json::array();
+            for (size_t i = 0; i < script.overrideCount(); ++i)
+            {
+                const ZenScriptProperty *prop = script.overrideAt(i);
+                ct::Json entry = ct::Json::object();
+                entry.set("name", ct::Json(prop->name.c_str()));
+                switch (prop->kind)
+                {
+                case ZenScriptProperty::Kind::Number:
+                    if (prop->integer)
+                        entry.set("value", ct::Json((int64_t)prop->number));
+                    else
+                        entry.set("value", ct::Json(prop->number));
+                    break;
+                case ZenScriptProperty::Kind::String:
+                    entry.set("value", ct::Json(prop->text.c_str()));
+                    break;
+                case ZenScriptProperty::Kind::Bool:
+                    entry.set("value", ct::Json(prop->flag));
+                    break;
+                }
+                properties.push_back(entry);
+            }
+            data.set("properties", properties);
         }
 
         void readZenScript(Component &component, const ct::Json &data, Assets *)
@@ -1330,6 +1540,25 @@ namespace k2d
             const char *path = data["path"].as_cstr("");
             if (path[0])
                 script.loadFile(path);
+
+            const ct::Json &properties = data["properties"];
+            if (!properties.is_array())
+                return;
+
+            for (size_t i = 0; i < properties.size(); ++i)
+            {
+                const ct::Json &entry = properties[i];
+                const char *name = entry["name"].as_cstr("");
+                if (!name[0])
+                    continue;
+                const ct::Json &value = entry["value"];
+                if (value.is_bool())
+                    script.setBoolOverride(name, value.as_bool());
+                else if (value.is_string())
+                    script.setStringOverride(name, value.as_cstr(""));
+                else if (value.is_number())
+                    script.setNumberOverride(name, value.as_double(), !value.is_real());
+            }
         }
 
         bool matchZenScript(const Component &component)

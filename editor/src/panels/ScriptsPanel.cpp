@@ -9,6 +9,7 @@
 
 #include <IconsMaterialDesignIcons.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -56,8 +57,11 @@ void ScriptsPanel::drawScriptList(GameObject &object, int depth)
             app().selection().select(&object);
         ImGui::SameLine();
         const ct::String &path = script->scriptPath();
-        ImGui::TextDisabled("%s%s", path.empty() ? "(inline)" : path.c_str(),
-                            script->hasFunction("on_event") ? "  [on_event]" : "");
+        char tuned[32] = "";
+        if (script->overrideCount() > 0)
+            std::snprintf(tuned, sizeof(tuned), "  [%d tuned]", (int)script->overrideCount());
+        ImGui::TextDisabled("%s%s%s", path.empty() ? "(inline)" : path.c_str(),
+                            script->hasFunction("on_event") ? "  [on_event]" : "", tuned);
         ImGui::Unindent(depth * 12.0f);
         ImGui::PopID();
     }
