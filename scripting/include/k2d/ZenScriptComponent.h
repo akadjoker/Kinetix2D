@@ -85,7 +85,7 @@ namespace k2d
         long long mSourceTimestamp = 0;
     };
 
-    std::size_t ReloadChangedZenScripts(GameObject &root);
+    std::size_t ReloadChangedZenScripts();
 
     class Assets;
     class GameObject;

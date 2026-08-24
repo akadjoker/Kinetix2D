@@ -234,6 +234,13 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
   across scripts; keep per-object state in `self`, and use the blackboard for shared state.
 - `ZenRuntime::instance().reset()` drops every cached class and instance (call it when
   tearing a game down); components re-instantiate themselves on the next frame.
+- Reloading is per script, not per component: `ReloadChangedZenScripts()` walks the compiled
+  classes, recompiles the files whose timestamp moved, and returns how many scripts it rebuilt.
+  Only the objects running a rebuilt script re-instantiate, so editing one `.py` mid-play does
+  not reset the state of every other script in the scene. A file that fails to compile keeps
+  the last good class running rather than taking the object down with it.
+- `ZenRuntime::instance().recompile(path)` forces one script to rebuild, which is what the
+  Inspector's Reload button does.
 - The script's file path and the property overrides are serialized, so the `.py` must be
   reachable at load time.
 - An override whose field disappears from the `.py` is kept but flagged in the Inspector, so a

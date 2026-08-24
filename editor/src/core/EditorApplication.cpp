@@ -145,7 +145,7 @@ int EditorApplication::run()
                 if (mScriptWatchTimer >= 0.5f)
                 {
                     mScriptWatchTimer = 0.0f;
-                    if (const size_t reloaded = ReloadChangedZenScripts(mRuntimeScene.root()))
+                    if (const size_t reloaded = ReloadChangedZenScripts())
                     {
                         char message[64];
                         std::snprintf(message, sizeof(message), "Hot reloaded %d script(s)",

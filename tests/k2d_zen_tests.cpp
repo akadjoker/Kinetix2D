@@ -371,7 +371,7 @@ static bool testHotReload()
     ok = ok && nearEqual(object->position().x, 1.0f);
 
     ok = ok && !script->reloadIfChanged();
-    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 0;
+    ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
     std::filesystem::last_write_time(
         path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
@@ -381,10 +381,10 @@ static bool testHotReload()
     std::filesystem::last_write_time(
         path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
 
-    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 1;
+    ok = ok && k2d::ReloadChangedZenScripts() == 1;
     scene.update(0.016f);
     ok = ok && nearEqual(object->position().x, 2.0f);
-    ok = ok && k2d::ReloadChangedZenScripts(scene.root()) == 0;
+    ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
     std::remove(path);
     return ok;

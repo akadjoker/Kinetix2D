@@ -16,6 +16,7 @@ namespace k2d
 
     std::size_t CollectZenClassProperties(zen::ObjClass *klass, ct::Vector<ZenScriptProperty> &out);
 
+
     struct ZenScriptClass
     {
         ct::String path;
@@ -28,8 +29,12 @@ namespace k2d
         int slotEvent = -1;
         int slotCollision = -1;
         long long timestamp = 0;
+        unsigned int version = 1;
         ct::Vector<ZenScriptProperty> properties;
     };
+
+    long long ZenFileTimestamp(const char *path);
+    void BuildZenClassProperties(ZenScriptClass &entry, const char *source);
 
     struct ZenRuntime::Impl
     {
@@ -61,6 +66,7 @@ namespace k2d
 
         void initialize();
         bool compileClass(const char *source, const char *path, ZenScriptClass &out);
+        bool recompileClass(ZenScriptClass &entry, const char *source);
         ZenScriptClass *findClass(const char *path);
         ZenScriptClass *addClass(const ZenScriptClass &entry);
         void clearClasses();

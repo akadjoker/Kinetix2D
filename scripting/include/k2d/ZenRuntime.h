@@ -29,6 +29,8 @@ namespace k2d
 
         void reset();
         bool invalidate(const char *path);
+        bool recompile(const char *path);
+        std::size_t refreshChangedFiles();
 
         struct Impl;
         Impl &impl() { return *mImpl; }

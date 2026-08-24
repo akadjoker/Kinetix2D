@@ -151,6 +151,7 @@ namespace k2d
         zen::Value self = zen::val_nil();
         zen::Value instance = zen::val_nil();
         unsigned int generation = 0;
+        unsigned int classVersion = 0;
         bool loaded = false;
         bool pending = false;
         bool started = false;
@@ -1115,6 +1116,7 @@ namespace k2d
             mSourceTimestamp = cached->timestamp;
             destroyInstance();
             mState->scriptClass = cached;
+            mState->classVersion = cached->version;
             mState->generation = runtime.generation();
             mState->loaded = true;
             mState->pending = false;
@@ -1158,26 +1160,8 @@ namespace k2d
         ++runtime.mCompileCount;
         compiled.path = path;
         compiled.timestamp = mSourceTimestamp;
-        compiled.properties.clear();
-        CollectZenClassProperties(zen::is_class(compiled.klass) ? zen::as_class(compiled.klass)
-                                                                : nullptr,
-                                  compiled.properties);
-
-        ct::Vector<ZenScriptProperty> fromInit;
-        ScanZenScriptProperties(source, fromInit);
-        for (size_t i = 0; i < fromInit.size(); ++i)
-        {
-            bool declared = false;
-            for (size_t j = 0; j < compiled.properties.size(); ++j)
-                if (compiled.properties[j].name == fromInit[i].name)
-                {
-                    declared = true;
-                    break;
-                }
-            if (!declared)
-                compiled.properties.push_back(fromInit[i]);
-        }
         mState->scriptClass = impl.addClass(compiled);
+        mState->classVersion = mState->scriptClass->version;
         mState->generation = runtime.generation();
         mState->loaded = true;
         return true;
@@ -1207,6 +1191,13 @@ namespace k2d
                 return false;
             if (!mState->scriptClass)
                 return false;
+        }
+
+        if (mState->scriptClass && mState->scriptClass->version != mState->classVersion)
+        {
+            destroyInstance();
+            mState->classVersion = mState->scriptClass->version;
+            mSourceTimestamp = mState->scriptClass->timestamp;
         }
 
         if (!mState->scriptClass || !owner())
@@ -1330,17 +1321,10 @@ namespace k2d
     {
         if (mScriptPath.empty())
             return false;
-
         const long long stamp = fileTimestamp(mScriptPath.c_str());
         if (stamp == 0 || stamp == mSourceTimestamp)
             return false;
-
-        const ct::String path = mScriptPath;
-        ZenRuntime &runtime = ZenRuntime::instance();
-        ZenScriptClass *cached = runtime.impl().findClass(path.c_str());
-        if (!cached || cached->timestamp != stamp)
-            runtime.invalidate(path.c_str());
-        return loadFile(path.c_str());
+        return ZenRuntime::instance().recompile(mScriptPath.c_str());
     }
 
     bool ZenScriptComponent::loaded() const
@@ -1533,18 +1517,9 @@ namespace k2d
         return applied;
     }
 
-    std::size_t ReloadChangedZenScripts(GameObject &root)
+    std::size_t ReloadChangedZenScripts()
     {
-        std::size_t reloaded = 0;
-        const size_t count = root.componentCount<ZenScriptComponent>();
-        for (size_t i = 0; i < count; ++i)
-            if (ZenScriptComponent *script = root.getComponentAt<ZenScriptComponent>(i))
-                if (script->reloadIfChanged())
-                    ++reloaded;
-
-        for (size_t i = 0; i < root.childCount(); ++i)
-            reloaded += ReloadChangedZenScripts(*root.child(i));
-        return reloaded;
+        return ZenRuntime::instance().refreshChangedFiles();
     }
 
     void ZenScriptComponent::onUpdate(float deltaTime)

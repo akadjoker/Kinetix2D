@@ -26,6 +26,7 @@
 #include <k2d/EdgeCollider2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RigidBody2D.h>
+#include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 #include <IconsMaterialDesignIcons.h>
 
@@ -971,11 +972,15 @@ void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
     if (ImGui::Button(ICON_MDI_RESTART " Reload"))
     {
         const ct::String path = script.scriptPath();
-        if (script.loadFile(path.c_str()))
-            app.toasts().info("Script reloaded");
+        if (ZenRuntime::instance().recompile(path.c_str()))
+            app.toasts().info("Script recompiled");
+        else if (script.loadFile(path.c_str()))
+            app.toasts().info("Script loaded");
         else
-            app.toasts().error("Script reload failed");
+            app.toasts().error("Script reload failed - check the console output");
     }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Recompiles the file for every object using it");
     ImGui::EndDisabled();
 
     if (script.loaded())

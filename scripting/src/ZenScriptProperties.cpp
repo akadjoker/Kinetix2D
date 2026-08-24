@@ -186,6 +186,28 @@ namespace k2d
         return out.size();
     }
 
+    void BuildZenClassProperties(ZenScriptClass &entry, const char *source)
+    {
+        entry.properties.clear();
+        CollectZenClassProperties(zen::is_class(entry.klass) ? zen::as_class(entry.klass) : nullptr,
+                                  entry.properties);
+
+        ct::Vector<ZenScriptProperty> fromInit;
+        ScanZenScriptProperties(source, fromInit);
+        for (size_t i = 0; i < fromInit.size(); ++i)
+        {
+            bool declared = false;
+            for (size_t j = 0; j < entry.properties.size(); ++j)
+                if (entry.properties[j].name == fromInit[i].name)
+                {
+                    declared = true;
+                    break;
+                }
+            if (!declared)
+                entry.properties.push_back(fromInit[i]);
+        }
+    }
+
     std::size_t ScanZenScriptProperties(const char *source, ct::Vector<ZenScriptProperty> &out)
     {
         out.clear();

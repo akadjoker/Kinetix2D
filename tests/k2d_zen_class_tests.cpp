@@ -125,8 +125,8 @@ static bool testReloadInvalidatesAllUsers()
     std::filesystem::last_write_time(
         kSpinnerPath, std::filesystem::last_write_time(kSpinnerPath) + std::chrono::seconds(3));
 
-    const std::size_t reloaded = k2d::ReloadChangedZenScripts(scene.root());
-    ok = ok && reloaded == 2;
+    const std::size_t reloaded = k2d::ReloadChangedZenScripts();
+    ok = ok && reloaded == 1;
     const std::size_t compiles = k2d::ZenRuntime::instance().compileCount() - compilesBefore;
     ok = ok && compiles == 2;
     ok = ok && k2d::ZenRuntime::instance().cachedClassCount() == 1;
@@ -135,7 +135,7 @@ static bool testReloadInvalidatesAllUsers()
     ok = ok && nearEqual(a->rotationDegrees(), 10.0f, 0.01f);
     ok = ok && nearEqual(b->rotationDegrees(), 10.0f, 0.01f);
 
-    std::printf("  reload: reloaded=%d compiles=%d (1 initial + 1 recompile) rot=(%.1f, %.1f)\n",
+    std::printf("  reload: scripts_rebuilt=%d compiles=%d (1 initial + 1 recompile) rot=(%.1f, %.1f)\n",
                 (int)reloaded, (int)compiles, a->rotationDegrees(), b->rotationDegrees());
     return ok;
 }
@@ -194,6 +194,79 @@ static bool testDestroyHook()
     return ok;
 }
 
+static const char *kOtherPath = "/tmp/k2d_zen_other.py";
+
+static bool testReloadLeavesOtherScriptsAlone()
+{
+    writeSpinner(90.0f);
+    FILE *f = std::fopen(kOtherPath, "w");
+    std::fputs("class Counter:\n"
+               "    def __init__(self, node):\n"
+               "        self.node = node\n"
+               "        self.ticks = 0\n"
+               "    def on_update(self, dt):\n"
+               "        self.ticks = self.ticks + 1\n"
+               "        self.node.set_z_index(self.ticks)\n",
+               f);
+    std::fclose(f);
+
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *spinner = scene.createObject("spinner");
+    k2d::GameObject *counter = scene.createObject("counter");
+    spinner->addComponent<k2d::ZenScriptComponent>()->loadFile(kSpinnerPath);
+    counter->addComponent<k2d::ZenScriptComponent>()->loadFile(kOtherPath);
+
+    for (int i = 0; i < 5; ++i)
+        scene.update(0.016f);
+    bool ok = counter->zIndex() == 5;
+
+    writeSpinner(10.0f);
+    std::filesystem::last_write_time(
+        kSpinnerPath, std::filesystem::last_write_time(kSpinnerPath) + std::chrono::seconds(3));
+    ok = ok && k2d::ReloadChangedZenScripts() == 1;
+
+    scene.update(0.016f);
+    ok = ok && counter->zIndex() == 6;
+
+    std::printf("  isolation: counter kept counting to %d across another script's reload\n",
+                counter->zIndex());
+    std::remove(kOtherPath);
+    return ok;
+}
+
+static bool testBrokenReloadKeepsTheLastGoodClass()
+{
+    writeSpinner(90.0f);
+    k2d::ZenRuntime::instance().reset();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("spinner");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadFile(kSpinnerPath);
+
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->rotationDegrees(), 90.0f, 0.01f);
+
+    FILE *f = std::fopen(kSpinnerPath, "w");
+    std::fputs("class Spinner:\n    def __init__(self, node)\n        broken\n", f);
+    std::fclose(f);
+    std::filesystem::last_write_time(
+        kSpinnerPath, std::filesystem::last_write_time(kSpinnerPath) + std::chrono::seconds(3));
+
+    ok = ok && k2d::ReloadChangedZenScripts() == 0;
+    ok = ok && script->loaded();
+
+    object->setRotationDegrees(0.0f);
+    scene.update(1.0f);
+    ok = ok && nearEqual(object->rotationDegrees(), 90.0f, 0.01f);
+
+    std::printf("  broken_reload: still running the last good class, rot=%.1f\n",
+                object->rotationDegrees());
+    return ok;
+}
+
 int main()
 {
     k2d::SetZenScriptsEnabled(true);
@@ -201,12 +274,16 @@ int main()
     const bool shared = testSharedClassPerInstanceState();
     const bool spawn = testSpawnCostIsCheap();
     const bool reload = testReloadInvalidatesAllUsers();
+    const bool isolation = testReloadLeavesOtherScriptsAlone();
+    const bool broken = testBrokenReloadKeepsTheLastGoodClass();
     const bool reset = testResetInvalidatesStaleInstances();
     const bool destroy = testDestroyHook();
 
     std::remove(kSpinnerPath);
-    std::printf("zen class: shared=%s spawn=%s reload=%s reset=%s destroy=%s\n",
+    std::printf("zen class: shared=%s spawn=%s reload=%s isolation=%s broken_reload=%s reset=%s "
+                "destroy=%s\n",
                 shared ? "pass" : "fail", spawn ? "pass" : "fail", reload ? "pass" : "fail",
-                reset ? "pass" : "fail", destroy ? "pass" : "fail");
-    return shared && spawn && reload && reset && destroy ? 0 : 1;
+                isolation ? "pass" : "fail", broken ? "pass" : "fail", reset ? "pass" : "fail",
+                destroy ? "pass" : "fail");
+    return shared && spawn && reload && isolation && broken && reset && destroy ? 0 : 1;
 }

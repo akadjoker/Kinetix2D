@@ -7,6 +7,11 @@
 #include <zen/vm.h>
 
 #include <cstring>
+#include <filesystem>
+#include <system_error>
+
+#include "k2d/FileBuffer.h"
+#include "k2d/FileSystem.h"
 
 namespace k2d
 {
@@ -62,6 +67,87 @@ namespace k2d
         mImpl->clearClasses();
         mImpl->instances.clear();
         ++mGeneration;
+    }
+
+    long long ZenFileTimestamp(const char *path)
+    {
+        if (!path || !path[0])
+            return 0;
+        std::error_code error;
+        const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
+        if (error)
+            return 0;
+        return (long long)time.time_since_epoch().count();
+    }
+
+    bool ZenRuntime::Impl::recompileClass(ZenScriptClass &entry, const char *source)
+    {
+        ZenScriptClass rebuilt;
+        if (!compileClass(source, entry.path.c_str(), rebuilt))
+            return false;
+
+        entry.klass = rebuilt.klass;
+        entry.module = rebuilt.module;
+        entry.slotInit = rebuilt.slotInit;
+        entry.slotStart = rebuilt.slotStart;
+        entry.slotUpdate = rebuilt.slotUpdate;
+        entry.slotDestroy = rebuilt.slotDestroy;
+        entry.slotEvent = rebuilt.slotEvent;
+        entry.slotCollision = rebuilt.slotCollision;
+        entry.properties.clear();
+        for (size_t i = 0; i < rebuilt.properties.size(); ++i)
+            entry.properties.push_back(rebuilt.properties[i]);
+        ++entry.version;
+        return true;
+    }
+
+    bool ZenRuntime::recompile(const char *path)
+    {
+        ZenScriptClass *entry = path ? mImpl->findClass(path) : nullptr;
+        if (!entry)
+            return false;
+
+        FileBuffer buffer;
+        if (!FileSystem::Instance().LoadFile(path, buffer, true))
+            return false;
+
+        if (!mImpl->recompileClass(*entry, buffer.Text()))
+            return false;
+
+        ++mCompileCount;
+        entry->timestamp = ZenFileTimestamp(path);
+        return true;
+    }
+
+    std::size_t ZenRuntime::refreshChangedFiles()
+    {
+        std::size_t rebuilt = 0;
+        for (size_t i = 0; i < mImpl->classes.size(); ++i)
+        {
+            ZenScriptClass *entry = mImpl->classes[i];
+            if (!entry || entry->path.empty())
+                continue;
+
+            const long long written = ZenFileTimestamp(entry->path.c_str());
+            if (written == 0 || written == entry->timestamp)
+                continue;
+
+            FileBuffer buffer;
+            if (!FileSystem::Instance().LoadFile(entry->path.c_str(), buffer, true))
+                continue;
+
+            if (mImpl->recompileClass(*entry, buffer.Text()))
+            {
+                ++mCompileCount;
+                entry->timestamp = written;
+                ++rebuilt;
+            }
+            else
+            {
+                entry->timestamp = written;
+            }
+        }
+        return rebuilt;
     }
 
     bool ZenRuntime::invalidate(const char *path)
@@ -153,6 +239,7 @@ namespace k2d
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
+        BuildZenClassProperties(out, source);
         return true;
     }
 
