@@ -14,6 +14,8 @@ namespace k2d
         constexpr float kDegToRad = 0.01745329251994329577f;
         constexpr float kRadToDeg = 57.29577951308232088f;
         constexpr float kMinShapeExtent = 0.01f;
+
+        PhysicsWorld2D *gActiveWorld = nullptr;
     }
 
     PhysicsWorld2D::PhysicsWorld2D(const Math::Vec2 &gravity)
@@ -25,6 +27,18 @@ namespace k2d
     PhysicsWorld2D::~PhysicsWorld2D()
     {
         clear();
+        if (gActiveWorld == this)
+            gActiveWorld = nullptr;
+    }
+
+    void PhysicsWorld2D::SetActive(PhysicsWorld2D *world)
+    {
+        gActiveWorld = world;
+    }
+
+    PhysicsWorld2D *PhysicsWorld2D::Active()
+    {
+        return gActiveWorld;
     }
 
     GameObject *PhysicsWorld2D::objectFor(const kx::Body *body)
@@ -51,6 +65,11 @@ namespace k2d
             rigidBody->mWorld = nullptr;
         }
         mBodies.clear();
+
+        for (size_t i = 0; i < mPending.size(); ++i)
+            if (mPending[i])
+                mPending[i]->mWorld = nullptr;
+        mPending.clear();
         mAccumulator = 0.0f;
     }
 
@@ -58,6 +77,124 @@ namespace k2d
     {
         clear();
         collect(root);
+        SetActive(this);
+    }
+
+    void PhysicsWorld2D::attach(GameObject &object)
+    {
+        collect(object);
+    }
+
+    void PhysicsWorld2D::detach(RigidBody2D &rigidBody)
+    {
+        for (size_t i = 0; i < mPending.size(); ++i)
+        {
+            if (mPending[i] == &rigidBody)
+            {
+                mPending.erase(mPending.begin() + i);
+                break;
+            }
+        }
+
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            if (mBodies[i] != &rigidBody)
+                continue;
+            mBodies.erase(mBodies.begin() + i);
+            break;
+        }
+
+        if (rigidBody.mBody)
+            mWorld.Destroy(rigidBody.mBody);
+        rigidBody.mBody = nullptr;
+        rigidBody.mWorld = nullptr;
+    }
+
+    bool PhysicsWorld2D::markDirty(RigidBody2D &rigidBody)
+    {
+        rigidBody.mNeedsRebuild = true;
+        return rigidBody.mBody != nullptr;
+    }
+
+    void PhysicsWorld2D::drainPending()
+    {
+        if (mPending.empty())
+            return;
+
+        ct::Vector<RigidBody2D *> pending;
+        for (size_t i = 0; i < mPending.size(); ++i)
+            pending.push_back(mPending[i]);
+        mPending.clear();
+
+        for (size_t i = 0; i < pending.size(); ++i)
+        {
+            RigidBody2D *rigidBody = pending[i];
+            if (!rigidBody || rigidBody->mBody || !rigidBody->owner())
+                continue;
+            createBody(*rigidBody->owner(), *rigidBody);
+        }
+    }
+
+    bool PhysicsWorld2D::needsRebuild(const RigidBody2D &rigidBody) const
+    {
+        if (rigidBody.mNeedsRebuild)
+            return true;
+
+        const GameObject *object = rigidBody.owner();
+        if (!object)
+            return false;
+
+        const size_t count = object->componentCount<Collider2D>();
+        if (count != rigidBody.mColliderCount)
+            return true;
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            const Collider2D *collider = object->getComponentAt<Collider2D>(i);
+            if (collider && collider->mDirty)
+                return true;
+        }
+        return false;
+    }
+
+    void PhysicsWorld2D::rebuildChanged()
+    {
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            RigidBody2D *rigidBody = mBodies[i];
+            if (rigidBody && rigidBody->mBody && needsRebuild(*rigidBody))
+                rebuildBody(*rigidBody);
+        }
+    }
+
+    void PhysicsWorld2D::rebuildBody(RigidBody2D &rigidBody)
+    {
+        GameObject *object = rigidBody.owner();
+        if (!object || !rigidBody.mBody)
+            return;
+
+        const Math::Vec2 velocity = rigidBody.mBody->Velocity();
+        const float angularVelocity = rigidBody.mBody->AngularVelocity();
+
+        mWorld.Destroy(rigidBody.mBody);
+        rigidBody.mBody = nullptr;
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            if (mBodies[i] == &rigidBody)
+            {
+                mBodies.erase(mBodies.begin() + i);
+                break;
+            }
+        }
+
+        rigidBody.mNeedsRebuild = false;
+        createBody(*object, rigidBody);
+
+        if (rigidBody.mBody)
+        {
+            rigidBody.mBody->SetVelocity(velocity);
+            rigidBody.mBody->SetAngularVelocity(angularVelocity);
+        }
     }
 
     void PhysicsWorld2D::collect(GameObject &object)
@@ -122,6 +259,7 @@ namespace k2d
         const float scaleY = std::fabs(scale.y) > 0.0001f ? std::fabs(scale.y) : 1.0f;
 
         const size_t count = object.componentCount<Collider2D>();
+        rigidBody.mColliderCount = count;
         for (size_t i = 0; i < count; ++i)
         {
             Collider2D *collider = object.getComponentAt<Collider2D>(i);
@@ -172,6 +310,7 @@ namespace k2d
             {
                 body->SetSensor(index, collider->isSensor());
                 body->SetShapeUserData(index, collider);
+                body->SetShapeFilter(index, collider->category(), collider->mask());
             }
         }
 
@@ -237,6 +376,9 @@ namespace k2d
 
     void PhysicsWorld2D::step(float deltaTime)
     {
+        drainPending();
+        rebuildChanged();
+
         if (deltaTime <= 0.0f || mBodies.empty())
             return;
 
@@ -319,7 +461,7 @@ namespace k2d
 
     GameObject *PhysicsWorld2D::objectAtPoint(const Math::Vec2 &point)
     {
-        return objectFor(mWorld.BodyAtPoint(point));
+        return objectFor(mWorld.BodyAtPoint(point, false));
     }
 
     void PhysicsWorld2D::overlapCircle(const Math::Vec2 &center, float radius,

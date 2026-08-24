@@ -25,6 +25,8 @@ namespace k2d
     class PhysicsWorld2D
     {
     public:
+        friend class RigidBody2D;
+
         using CollisionCallback = void (*)(const CollisionInfo &info, void *user);
 
         explicit PhysicsWorld2D(const Math::Vec2 &gravity = Math::Vec2(0.0f, 980.0f));
@@ -36,6 +38,13 @@ namespace k2d
         void build(GameObject &root);
         void clear();
         void step(float deltaTime);
+
+        void attach(GameObject &object);
+        void detach(RigidBody2D &rigidBody);
+        bool markDirty(RigidBody2D &rigidBody);
+
+        static void SetActive(PhysicsWorld2D *world);
+        static PhysicsWorld2D *Active();
 
         void setGravity(const Math::Vec2 &gravity) { mWorld.SetGravity(gravity); }
         Math::Vec2 gravity() const { return mWorld.Gravity(); }
@@ -61,12 +70,17 @@ namespace k2d
         void collect(GameObject &object);
         void createBody(GameObject &object, RigidBody2D &rigidBody);
         void attachColliders(GameObject &object, RigidBody2D &rigidBody);
+        void drainPending();
+        void rebuildChanged();
+        void rebuildBody(RigidBody2D &rigidBody);
+        bool needsRebuild(const RigidBody2D &rigidBody) const;
         void pushTransforms();
         void pullTransforms();
         static void onContact(const kx::ContactEvent &event, void *context);
 
         kx::World mWorld;
         ct::Vector<RigidBody2D *> mBodies;
+        ct::Vector<RigidBody2D *> mPending;
         float mFixedStep;
         float mAccumulator;
         CollisionCallback mCallback;

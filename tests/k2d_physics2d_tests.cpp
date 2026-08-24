@@ -232,6 +232,172 @@ static bool testFixedStepIsDeterministic()
     return ok;
 }
 
+
+static bool testDestroyingAnObjectRemovesItsBody()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+    k2d::GameObject *doomed = makeBox(scene, "doomed", Math::Vec2(0.0f, 0.0f),
+                                      Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+    k2d::GameObject *keeper = makeBox(scene, "keeper", Math::Vec2(200.0f, 0.0f),
+                                      Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    bool ok = world.bodyCount() == 3;
+
+    for (int i = 0; i < 30; ++i)
+    {
+        scene.update(1.0f / 60.0f);
+        world.step(1.0f / 60.0f);
+    }
+
+    scene.destroy(doomed);
+    ok = ok && world.bodyCount() == 3;
+    scene.update(1.0f / 60.0f);
+    ok = ok && world.bodyCount() == 2;
+
+    for (int i = 0; i < 150; ++i)
+    {
+        scene.update(1.0f / 60.0f);
+        world.step(1.0f / 60.0f);
+    }
+
+    ok = ok && nearEqual(keeper->position().y, 260.0f, 2.0f);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  destroy: bodies=%d keeper_y=%.1f (no dangling body)\n", (int)world.bodyCount(),
+                keeper->position().y);
+    return ok;
+}
+
+static bool testObjectSpawnedDuringPlayGetsABody()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    bool ok = world.bodyCount() == 1;
+
+    world.step(1.0f / 60.0f);
+
+    k2d::GameObject *late = makeBox(scene, "late", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f),
+                                    kx::BodyType::Dynamic);
+
+    for (int i = 0; i < 180; ++i)
+        world.step(1.0f / 60.0f);
+
+    ok = ok && world.bodyCount() == 2;
+    ok = ok && nearEqual(late->position().y, 260.0f, 2.0f);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  late_spawn: bodies=%d y=%.1f (fell and landed)\n", (int)world.bodyCount(),
+                late->position().y);
+    return ok;
+}
+
+static bool testColliderChangeRebuildsTheBody()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f),
+            kx::BodyType::Static);
+    k2d::GameObject *box = makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f),
+                                   kx::BodyType::Dynamic);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+
+    for (int i = 0; i < 180; ++i)
+        world.step(1.0f / 60.0f);
+
+    bool ok = nearEqual(box->position().y, 260.0f, 2.0f);
+
+    box->getComponent<k2d::Collider2D>()->setSize(Math::Vec2(40.0f, 120.0f));
+    for (int i = 0; i < 120; ++i)
+        world.step(1.0f / 60.0f);
+
+    ok = ok && nearEqual(box->position().y, 220.0f, 3.0f);
+    ok = ok && world.bodyCount() == 2;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  collider_change: taller box now rests at y=%.1f (was 260)\n",
+                box->position().y);
+    return ok;
+}
+
+static bool testBodyTypeAndDensityApplyLive()
+{
+    k2d::Scene scene;
+    k2d::GameObject *box = makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f),
+                                   kx::BodyType::Dynamic);
+    k2d::RigidBody2D *body = box->getComponent<k2d::RigidBody2D>();
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+
+    for (int i = 0; i < 60; ++i)
+        world.step(1.0f / 60.0f);
+
+    const float fellTo = box->position().y;
+    bool ok = fellTo > 100.0f;
+
+    body->setBodyType(kx::BodyType::Static);
+    for (int i = 0; i < 60; ++i)
+        world.step(1.0f / 60.0f);
+
+    ok = ok && nearEqual(box->position().y, fellTo, 0.001f);
+    ok = ok && body->body() && body->body()->Type() == kx::BodyType::Static;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  live_type: fell to %.1f then froze at %.1f\n", fellTo, box->position().y);
+    return ok;
+}
+
+static bool testFiltersKeepShapesApart()
+{
+    k2d::Scene scene;
+    k2d::GameObject *floor = makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f),
+                                     Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    floor->getComponent<k2d::Collider2D>()->setFilter(0x0001, 0xFFFF);
+
+    k2d::GameObject *ghost = makeBox(scene, "ghost", Math::Vec2(0.0f, 0.0f),
+                                     Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+    ghost->getComponent<k2d::Collider2D>()->setFilter(0x0002, 0x0004);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+
+    for (int i = 0; i < 180; ++i)
+        world.step(1.0f / 60.0f);
+
+    const bool ok = ghost->position().y > 400.0f;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  filters: ghost fell through to y=%.1f\n", ghost->position().y);
+    return ok;
+}
+
+static bool testObjectAtPointFindsStatics()
+{
+    k2d::Scene scene;
+    k2d::GameObject *ground = makeBox(scene, "ground", Math::Vec2(0.0f, 300.0f),
+                                      Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    bool ok = world.objectAtPoint(Math::Vec2(0.0f, 300.0f)) == ground;
+    ok = ok && world.objectAtPoint(Math::Vec2(0.0f, -200.0f)) == nullptr;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  point_query: static ground picked by objectAtPoint\n");
+    return ok;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -241,12 +407,24 @@ int main()
     const bool staticFollow = testStaticBodyFollowsItsTransform();
     const bool velocity = testImpulseAndVelocity();
     const bool deterministic = testFixedStepIsDeterministic();
+    const bool destroy = testDestroyingAnObjectRemovesItsBody();
+    const bool lateSpawn = testObjectSpawnedDuringPlayGetsABody();
+    const bool colliderChange = testColliderChangeRebuildsTheBody();
+    const bool liveType = testBodyTypeAndDensityApplyLive();
+    const bool filters = testFiltersKeepShapesApart();
+    const bool pointQuery = testObjectAtPointFindsStatics();
 
     std::printf("physics2d: falls=%s contacts=%s sensor=%s queries=%s static_follow=%s "
-                "velocity=%s determinism=%s\n",
+                "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
+                "live_type=%s filters=%s point_query=%s\n",
                 falls ? "pass" : "fail", contacts ? "pass" : "fail", sensor ? "pass" : "fail",
                 queries ? "pass" : "fail", staticFollow ? "pass" : "fail",
-                velocity ? "pass" : "fail", deterministic ? "pass" : "fail");
-    return falls && contacts && sensor && queries && staticFollow && velocity && deterministic ? 0
-                                                                                              : 1;
+                velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
+                destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail",
+                colliderChange ? "pass" : "fail", liveType ? "pass" : "fail",
+                filters ? "pass" : "fail", pointQuery ? "pass" : "fail");
+    return falls && contacts && sensor && queries && staticFollow && velocity && deterministic &&
+                   destroy && lateSpawn && colliderChange && liveType && filters && pointQuery
+               ? 0
+               : 1;
 }

@@ -122,7 +122,7 @@ namespace kx
                               unsigned char threshold, float density, float scale = 1.0f, float simplifyDegrees = 2.0f);
         void Destroy(Body *body);
 
-        Body *BodyAtPoint(const Math::Vec2 &point) const;
+        Body *BodyAtPoint(const Math::Vec2 &point, bool dynamicOnly = true) const;
         void QueryAABB(const AABB &aabb, ct::Vector<Body *> &out) const;
         void QueryCircle(const Math::Vec2 &center, float radius, ct::Vector<Body *> &out) const;
 

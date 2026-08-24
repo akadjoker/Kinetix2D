@@ -1,5 +1,7 @@
 #include "k2d/RigidBody2D.h"
 
+#include "k2d/PhysicsWorld2D.h"
+
 #include <cmath>
 
 namespace k2d
@@ -16,18 +18,37 @@ namespace k2d
           mBodyType(kx::BodyType::Dynamic), mDensity(1.0f), mFriction(0.3f), mRestitution(0.0f),
           mLinearDamping(0.0f), mAngularDamping(0.0f), mGravityScale(1.0f), mFixedRotation(false),
           mBullet(false), mPendingVelocity(0.0f, 0.0f), mPendingAngularVelocity(0.0f),
-          mHasPendingVelocity(false), mHasPendingAngularVelocity(false)
+          mHasPendingVelocity(false), mHasPendingAngularVelocity(false), mNeedsRebuild(false),
+          mColliderCount(0)
     {
+        if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
+        {
+            mWorld = world;
+            world->mPending.push_back(this);
+        }
+    }
+
+    RigidBody2D::~RigidBody2D()
+    {
+        if (mWorld)
+            mWorld->detach(*this);
     }
 
     void RigidBody2D::setBodyType(kx::BodyType type)
     {
+        if (mBodyType == type)
+            return;
         mBodyType = type;
+        mNeedsRebuild = true;
     }
 
     void RigidBody2D::setDensity(float density)
     {
-        mDensity = density > 0.0f ? density : 0.0f;
+        const float clamped = density > 0.0f ? density : 0.0f;
+        if (mDensity == clamped)
+            return;
+        mDensity = clamped;
+        mNeedsRebuild = true;
     }
 
     void RigidBody2D::setFriction(float friction)

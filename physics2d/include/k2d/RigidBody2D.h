@@ -4,6 +4,8 @@
 
 #include <kx/body.h>
 
+#include <cstddef>
+
 namespace k2d
 {
 
@@ -15,6 +17,7 @@ namespace k2d
         static const ComponentType Type = ComponentType::RigidBody;
 
         RigidBody2D();
+        ~RigidBody2D() override;
 
         kx::BodyType bodyType() const { return mBodyType; }
         void setBodyType(kx::BodyType type);
@@ -68,6 +71,8 @@ namespace k2d
         float mPendingAngularVelocity;
         bool mHasPendingVelocity;
         bool mHasPendingAngularVelocity;
+        bool mNeedsRebuild;
+        std::size_t mColliderCount;
     };
 
 }

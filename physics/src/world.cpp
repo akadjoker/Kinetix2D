@@ -407,7 +407,7 @@ namespace kx
         return closest;
     }
 
-    Body *World::BodyAtPoint(const Math::Vec2 &point) const
+    Body *World::BodyAtPoint(const Math::Vec2 &point, bool dynamicOnly) const
     {
 
         if (mUseTree)
@@ -423,7 +423,7 @@ namespace kx
             for (size_t i = 0; i < hits.size(); ++i)
             {
                 Body *body = hits[i];
-                if (body->Type() != BodyType::Dynamic)
+                if (dynamicOnly && body->Type() != BodyType::Dynamic)
                     continue;
                 Transform xf = body->GetTransform();
                 for (int s = 0; s < body->ShapeCount(); ++s)
@@ -436,7 +436,7 @@ namespace kx
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
             Body *body = mBodies[i];
-            if (body->Type() != BodyType::Dynamic)
+            if (dynamicOnly && body->Type() != BodyType::Dynamic)
                 continue;
             Transform xf = body->GetTransform();
             for (int s = 0; s < body->ShapeCount(); ++s)

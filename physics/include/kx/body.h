@@ -242,6 +242,23 @@ namespace kx
                 mShapes[i].filter = mDefaultFilter;
         }
 
+        bool SetShapeFilter(int shapeIndex, uint16_t category, uint16_t mask, int16_t group = 0)
+        {
+            if (shapeIndex < 0 || shapeIndex >= mShapeCount)
+                return false;
+            mShapes[shapeIndex].filter.category = category;
+            mShapes[shapeIndex].filter.mask = mask;
+            mShapes[shapeIndex].filter.group = group;
+            SetAwake(true);
+            return true;
+        }
+
+        Filter ShapeFilter(int shapeIndex) const
+        {
+            return shapeIndex >= 0 && shapeIndex < mShapeCount ? mShapes[shapeIndex].filter
+                                                              : Filter();
+        }
+
         int AddCircle(const Math::Vec2 &localCenter, float radius, float density);
         int AddBox(float halfWidth, float halfHeight, const Math::Vec2 &localCenter, float density);
         int AddEdge(const Math::Vec2 &localA, const Math::Vec2 &localB);
