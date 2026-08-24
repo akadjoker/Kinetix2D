@@ -1582,6 +1582,13 @@ namespace zen
             gc_mark_obj(gc, (Obj *)cls->name);
             gc_mark_obj(gc, (Obj *)cls->parent);
             if (cls->methods) gc_mark_obj(gc, (Obj *)cls->methods);
+            /* Field names are interned strings compared by pointer in
+            ** OP_GETFIELD/OP_SETFIELD. A class built from C++ (ClassBuilder)
+            ** is their only holder, so without this they are swept and the
+            ** pointer compare fails against a freshly interned name. */
+            for (int32_t i = 0; i < cls->num_fields; i++)
+                if (cls->field_names[i])
+                    gc_mark_obj(gc, (Obj *)cls->field_names[i]);
             /* Mark vtable entries */
             for (int32_t i = 0; i < cls->vtable_size; i++)
                 if (cls->vtable[i].type == VAL_OBJ)
