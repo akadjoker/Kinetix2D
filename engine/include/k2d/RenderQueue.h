@@ -22,7 +22,7 @@ namespace k2d
         void AddOccluder(const Occluder &occluder);
         void Flush(CanvasRenderer &canvas);
 
-        std::size_t ItemCount() const { return mItems.size(); }
+        std::size_t ItemCount() const { return mItemCount; }
         std::size_t CommandCount() const;
         std::size_t LightCount() const { return mLights.size(); }
         std::size_t DirectionalLightCount() const { return mDirectionalLights.size(); }
@@ -34,6 +34,7 @@ namespace k2d
         ct::Vector<DirectionalLight> mDirectionalLights;
         ct::Vector<Occluder> mOccluders;
         unsigned int mSeq;
+        std::size_t mItemCount;
     };
 
 }

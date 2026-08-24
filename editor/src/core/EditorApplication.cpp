@@ -13,6 +13,7 @@
 #include "panels/ScriptsPanel.h"
 #include "panels/SettingsPanel.h"
 #include "panels/SceneViewportPanel.h"
+#include "panels/ScriptEditorPanel.h"
 #include "widgets/EditorToolbar.h"
 
 #include <glad/glad.h>
@@ -20,17 +21,29 @@
 #include <imgui_internal.h>
 #include <IconsMaterialDesignIcons.h>
 #include <k2d/Animation2D.h>
+#include <k2d/BoxCollider2D.h>
+#include <k2d/CircleCollider2D.h>
+#include <k2d/CircleShape.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
 #include <k2d/ParticleComponent.h>
+#include <k2d/Profiler.h>
+#include <k2d/ProfilerUI.h>
+#include <k2d/RectShape.h>
+#include <k2d/RigidBody2D.h>
 #include <k2d/Serializer.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/ZenScriptComponent.h>
+#include <k2d/ZenRuntime.h>
 
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
 
 namespace k2d::editor
 {
@@ -135,6 +148,7 @@ int EditorApplication::run()
     bool running = true;
     while (running)
     {
+        Profiler::Get().beginFrame();
         running = mDevice.PollEvents();
 
         if (mPlaying && !mPaused)
@@ -155,6 +169,7 @@ int EditorApplication::run()
                     }
                 }
             }
+            SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
             mRuntimeScene.update(mDevice.DeltaTime());
             if (mPhysicsWorld)
                 mPhysicsWorld->step(mDevice.DeltaTime());
@@ -171,6 +186,7 @@ int EditorApplication::run()
         drawWorkspace();
         for (const ct::Unique<EditorPanel> &panel : mPanels)
             panel->draw();
+        ShowProfilerWindow(&mProfilerOpen);
         if (mDefaultFocusPending)
         {
             ImGui::SetWindowFocus("Hierarchy");
@@ -181,7 +197,10 @@ int EditorApplication::run()
         mToasts.update(mDevice.DeltaTime());
         mToasts.draw();
         mDevice.EndUI();
+        ZenRuntime::instance().setVmProfiling(mProfilerOpen);
+        ZenRuntime::instance().submitProfilerSamples();
         mDevice.Swap();
+        Profiler::Get().endFrame();
     }
     return 0;
 }
@@ -220,7 +239,16 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));
+    ct::Unique<ScriptEditorPanel> scriptEditor = ct::make_unique<ScriptEditorPanel>(*this);
+    mScriptEditor = scriptEditor.get();
+    mPanels.push_back(ct::detail::move(scriptEditor));
     mPanels.push_back(ct::make_unique<ConsolePanel>(*this));
+}
+
+void EditorApplication::openScriptEditor(const char *path)
+{
+    if (mScriptEditor)
+        mScriptEditor->openFile(path);
 }
 
 void EditorApplication::log(const char *message)
@@ -413,6 +441,53 @@ void EditorApplication::stepPlay()
     }
 }
 
+void EditorApplication::runStandalone()
+{
+    if (mCurrentScenePath.empty())
+    {
+        mToasts.error("Save the scene before running it in a game window");
+        log("Run requires a saved scene");
+        return;
+    }
+    if (!saveScene(mCurrentScenePath.c_str()))
+        return;
+
+#if defined(__unix__) || defined(__APPLE__)
+    const std::filesystem::path runnerPath = std::filesystem::path(FileSystem::Instance().BasePath()) / "k2d_runner";
+    if (!std::filesystem::exists(runnerPath))
+    {
+        ct::String message("Runner executable was not found: ");
+        message += runnerPath.string().c_str();
+        log(message);
+        mToasts.error("Build k2d_runner before using Run");
+        return;
+    }
+
+    const pid_t pid = fork();
+    if (pid == 0)
+    {
+        if (mProject.valid())
+            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(),
+                  mProject.projectFile().c_str(), static_cast<char *>(nullptr));
+        else
+            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(),
+                  static_cast<char *>(nullptr));
+        _exit(127);
+    }
+    if (pid < 0)
+    {
+        log("Could not launch standalone runner");
+        mToasts.error("Could not start game runner");
+        return;
+    }
+    log("Run: standalone game window launched");
+    mToasts.info("Game runner started");
+#else
+    log("Standalone runner launch is not implemented on this platform");
+    mToasts.error("Standalone runner is unavailable on this platform");
+#endif
+}
+
 void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)
 {
     if (!object.isActiveInHierarchy())
@@ -527,6 +602,94 @@ void EditorApplication::newScene()
     mScenePhysics = ScenePhysics();
     applyPhysicsSettings();
     log("New scene");
+}
+
+void EditorApplication::createShapesExampleScene()
+{
+    newScene();
+    mScene.root().setName("Shapes Example");
+
+    GameObject *filledCircle = mScene.createObject("Filled Circle");
+    filledCircle->setPosition(Math::Vec2(-150.0f, 0.0f));
+    CircleShape *circle = filledCircle->addComponent<CircleShape>();
+    circle->setRadius(70.0f);
+    circle->setColor(80, 170, 255, 255);
+
+    GameObject *outlineCircle = mScene.createObject("Circle Outline");
+    outlineCircle->setPosition(Math::Vec2(50.0f, 0.0f));
+    CircleShape *lineCircle = outlineCircle->addComponent<CircleShape>();
+    lineCircle->setRadius(70.0f);
+    lineCircle->setMode(ShapeRenderMode::Line);
+    lineCircle->setLineWidth(6.0f);
+    lineCircle->setColor(255, 210, 90, 255);
+
+    GameObject *filledRect = mScene.createObject("Filled Rect");
+    filledRect->setPosition(Math::Vec2(-50.0f, 150.0f));
+    RectShape *rect = filledRect->addComponent<RectShape>();
+    rect->setSize(Math::Vec2(180.0f, 80.0f));
+    rect->setColor(115, 220, 145, 255);
+
+    GameObject *outlineRect = mScene.createObject("Rect Outline");
+    outlineRect->setPosition(Math::Vec2(170.0f, 150.0f));
+    RectShape *lineRect = outlineRect->addComponent<RectShape>();
+    lineRect->setSize(Math::Vec2(160.0f, 80.0f));
+    lineRect->setMode(ShapeRenderMode::Line);
+    lineRect->setLineWidth(6.0f);
+    lineRect->setColor(240, 120, 170, 255);
+
+    mSelection.select(filledCircle);
+    log("Created Shapes example scene. Press Play to preview it.");
+}
+
+void EditorApplication::createPhysicsExampleScene()
+{
+    newScene();
+    mScene.root().setName("Physics Example");
+
+    GameObject *ground = mScene.createObject("Ground");
+    ground->setPosition(Math::Vec2(0.0f, 270.0f));
+    RectShape *groundShape = ground->addComponent<RectShape>();
+    groundShape->setSize(Math::Vec2(800.0f, 40.0f));
+    groundShape->setColor(90, 105, 125, 255);
+    ground->addComponent<RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    ground->addComponent<BoxCollider2D>()->setSize(Math::Vec2(800.0f, 40.0f));
+
+    GameObject *ball = mScene.createObject("Ball");
+    ball->setPosition(Math::Vec2(-100.0f, -180.0f));
+    CircleShape *ballShape = ball->addComponent<CircleShape>();
+    ballShape->setRadius(32.0f);
+    ballShape->setColor(85, 175, 255, 255);
+    ball->addComponent<RigidBody2D>();
+    ball->addComponent<CircleCollider2D>()->setRadius(32.0f);
+
+    GameObject *box = mScene.createObject("Box");
+    box->setPosition(Math::Vec2(120.0f, -80.0f));
+    RectShape *boxShape = box->addComponent<RectShape>();
+    boxShape->setSize(Math::Vec2(64.0f, 64.0f));
+    boxShape->setColor(245, 180, 80, 255);
+    box->addComponent<RigidBody2D>();
+    box->addComponent<BoxCollider2D>()->setSize(Math::Vec2(64.0f, 64.0f));
+
+    mSelection.select(ball);
+    log("Created Physics example scene. Enable Physics Debug in Game and press Play.");
+}
+
+void EditorApplication::createBunnymarkExampleScene()
+{
+    newScene();
+    mScene.root().setName("Bunnymark Example");
+
+    GameObject *main = mScene.createObject("Bunnymark Main");
+    ZenScriptComponent *script = main->addComponent<ZenScriptComponent>();
+    if (!script->loadFile("scripts/bunnymark_main.py"))
+    {
+        log("Could not load scripts/bunnymark_main.py from the Assets search paths");
+        mToasts.error("Bunnymark script was not found");
+        return;
+    }
+
+    mSelection.select(main);
+    log("Created Bunnymark example. Press Play, then click inside Game to spawn 100 bunnies.");
 }
 
 void EditorApplication::preloadTextures(const ct::Json &node)
@@ -776,6 +939,16 @@ void EditorApplication::drawMenuBar()
         ImGui::Separator();
         if (ImGui::MenuItem("New Scene", "Ctrl+N"))
             newScene();
+        if (ImGui::BeginMenu("New Example Scene"))
+        {
+            if (ImGui::MenuItem("Shapes"))
+                createShapesExampleScene();
+            if (ImGui::MenuItem("Physics"))
+                createPhysicsExampleScene();
+            if (ImGui::MenuItem("Bunnymark"))
+                createBunnymarkExampleScene();
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Open Scene..."))
             openFileDialog(FileDialogPurpose::OpenScene, ImGuiFileDialog::Mode::OpenFile,
                           mProject.valid() ? mProject.scenesDirectory()
@@ -853,6 +1026,7 @@ void EditorApplication::drawMenuBar()
             }
         }
         ImGui::Separator();
+        ImGui::MenuItem("Profiler", nullptr, &mProfilerOpen);
         if (ImGui::MenuItem("Script Hot Reload", nullptr, &mSettings.scriptHotReload))
             log(mSettings.scriptHotReload ? "Script hot reload enabled" : "Script hot reload disabled");
         if (ImGui::IsItemHovered())
@@ -1007,11 +1181,14 @@ void EditorApplication::drawToolbar()
                     false, canRedo()))
         redo();
 
-    const float playbackWidth = 30.0f * 4.0f + 3.0f * 3.0f;
+    const float playbackWidth = 30.0f * 5.0f + 3.0f * 4.0f;
     ImGui::SameLine();
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - playbackWidth) * 0.5f);
     if (toolbarIcon("play", ICON_MDI_PLAY, "Play", mPlaying && !mPaused, !mPlaying))
         startPlay();
+    toolbarSameLine();
+    if (toolbarIcon("run", ICON_MDI_LAUNCH, "Run in a standalone game window"))
+        runStandalone();
     toolbarSameLine();
     if (toolbarIcon("pause", ICON_MDI_PAUSE, "Pause", mPaused, mPlaying))
     {
@@ -1052,6 +1229,7 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Particles", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Scripts", bottom);
+    ImGui::DockBuilderDockWindow("Script Editor", center);
     ImGui::DockBuilderFinish(dockspaceId);
     mDefaultFocusPending = true;
 }

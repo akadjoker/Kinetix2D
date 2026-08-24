@@ -11,9 +11,9 @@ A script file defines **one class**. It is compiled **once per file**, no matter
 objects use it; each object gets its own cheap instance with its own state.
 
 ```python
-class Bullet:
-    def __init__(self, node):    # called when the instance is created
-        self.node = node
+class Bullet(ScriptComponent):
+    # self.node is assigned by the editor before this runs.
+    def __init__(self):          # called when the instance is created
         self.speed = 400
 
     def on_start(self):          # called once, on the first frame
@@ -22,6 +22,12 @@ class Bullet:
     def on_update(self, dt):     # called every frame, dt in seconds
         self.node.translate(self.speed * dt, 0)
 
+    def on_draw(self):           # called every frame while the object is visible
+        pass
+
+    def on_draw_ui(self):        # optional overlay pass, always above world sprites
+        pass
+
     def on_destroy(self):        # called when the component goes away
         pass
 
@@ -29,10 +35,46 @@ class Bullet:
         pass
 ```
 
-Only `__init__` is required. Instance fields (`self.speed`) are per object, so 500 bullets
+`ScriptComponent` provides `self.node`, the GameObject hosting this script. `__init__` is
+optional. Instance fields (`self.speed`) are per object, so 500 bullets
 sharing one file each keep their own state. Module-level constants are shared.
 
+Older scripts are still supported: `class Bullet:` with
+`def __init__(self, node): self.node = node` keeps working.
+
 Cost: one compile per file (~0.2 ms), then ~0.0005 ms per spawned object.
+
+## Drawing from scripts
+
+Draw calls are global and can only be made inside `on_draw()` or `on_draw_ui()`.
+`on_draw()` renders in world order at the script owner's Z index. `on_draw_ui()` is an
+overlay pass after all world sprites, suited to HUD counters and text. Coordinates remain
+in world/screen coordinates defined by the active camera. `set_draw_color` uses normalized
+RGB(A) values from `0` to `1` and remains active until the next call to it.
+
+```python
+class DrawDemo(ScriptComponent):
+    def on_draw(self):
+        set_draw_color(0.15, 0.7, 1.0)
+        draw_rect(40, 40, 160, 72, True)
+
+        set_draw_color(1.0, 0.85, 0.2)
+        draw_circle(280, 76, 32, False, 32, 3)
+        draw_line(20, 150, 340, 180, 2)
+        draw_text(48, 64, "Zen draw API", 16)
+```
+
+| Function | Arguments |
+|---|---|
+| `set_draw_color` | `r, g, b, a=1` |
+| `draw_line` | `x1, y1, x2, y2, thickness=1` |
+| `draw_rect` | `x, y, width, height, fill=True, thickness=1` |
+| `draw_circle` | `x, y, radius, fill=True, segments=32, thickness=1` |
+| `draw_text` | `x, y, text, size=16` |
+| `draw_text_width` | `text, size=16` → width in world units |
+
+`draw_rect` and `draw_circle` use their final `thickness` argument only when `fill=False`.
+Calling `draw_*` in `on_update` has no effect, because there is no active render queue then.
 
 ## Properties in the Inspector
 
@@ -40,15 +82,12 @@ A field the class body gives a value to becomes a property the Inspector can tun
 This is the way to write one:
 
 ```python
-class Player:
+class Player(ScriptComponent):
     speed = 200         # exported, default 200 (whole number)
     jump = 380.5        # exported, default 380.5
     tag = "hero"        # exported, default "hero"
     armed = True        # exported, default True
     _phase = 0.0        # leading underscore, not exported
-
-    def __init__(self, node):
-        self.node = node
 
     def on_update(self, dt):
         self.node.translate(self.speed * dt, 0)
@@ -64,9 +103,8 @@ class body accepted fields:
 ```python
 SPEED = 200
 
-class Player:
-    def __init__(self, node):
-        self.node = node        # not a literal, not exported
+class Player(ScriptComponent):
+    def __init__(self):
         self.speed = SPEED      # exported through the source scan
         self._timer = 0.0       # leading underscore, not exported
 ```
@@ -227,6 +265,15 @@ DispatchZenScriptEvents(scene.root());
 `"up"`, `"down"`), and modifiers (`"lshift"`, `"rshift"`, `"lctrl"`, `"rctrl"`, `"lalt"`).
 
 Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, `wheel_y()`.
+`get_fps()` returns the engine's rolling half-second FPS measurement; it is stable enough for HUDs,
+unlike calculating `1 / dt` every frame.
+`profiler_visible()` is true while the runner's F5 profiler overlay is open, so a game HUD can avoid
+drawing duplicate diagnostics.
+Inside the editor, the mouse position is relative to the Game view and clicks in the other editor
+panels are ignored. `viewport_width()` and `viewport_height()` return the current Game view size.
+For world-space gameplay, use `wx, wy = mouse_world_position()` or
+`wx, wy = screen_to_world(x, y)`; both account for the active Camera2D. `world_view_rect()` returns
+`left, top, right, bottom` for the camera's current visible world area.
 
 ## Notes
 

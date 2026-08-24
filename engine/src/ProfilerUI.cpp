@@ -10,7 +10,8 @@ namespace k2d
 
     static bool IsPhysicsSample(const ProfileSample &sample)
     {
-        return std::strncmp(sample.name, "kx.", 3) == 0;
+        return std::strncmp(sample.name, "kx.", 3) == 0 ||
+               std::strncmp(sample.name, "physics.", 8) == 0;
     }
 
     static void DrawSampleGroup(const char *tableId, bool physics)
@@ -19,12 +20,13 @@ namespace k2d
         const ProfileSample *samples = profiler.samples();
         uint32_t count = profiler.sampleCount();
 
-        if (ImGui::BeginTable(tableId, 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+        if (ImGui::BeginTable(tableId, 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
         {
             ImGui::TableSetupColumn("Name");
             ImGui::TableSetupColumn("ms");
             ImGui::TableSetupColumn("avg");
             ImGui::TableSetupColumn("max");
+            ImGui::TableSetupColumn("calls");
             ImGui::TableHeadersRow();
 
             for (uint32_t i = 0; i < count; ++i)
@@ -41,6 +43,8 @@ namespace k2d
                 ImGui::Text("%.3f", sample.average);
                 ImGui::TableSetColumnIndex(3);
                 ImGui::Text("%.3f", sample.maximum);
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%u", sample.displayCalls);
             }
 
             ImGui::EndTable();

@@ -1,9 +1,12 @@
 #include "k2d/Scene.h"
 
+#include "k2d/CameraComponent.h"
+#include "k2d/Profiler.h"
+
 namespace k2d
 {
 
-    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mLateUpdateCount(0)
+    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0)
     {
         mRoot.mScene = this;
     }
@@ -85,47 +88,83 @@ namespace k2d
         return mObjectCount;
     }
 
+    CameraComponent *Scene::activeCamera()
+    {
+        CameraComponent *camera = nullptr;
+        for (std::size_t i = 0; i < mCameras.size(); ++i)
+        {
+            CameraComponent *candidate = mCameras[i];
+            GameObject *object = candidate ? candidate->owner() : nullptr;
+            if (!candidate || !object || !candidate->active() || !object->isActiveInHierarchy())
+                continue;
+            if (!camera || candidate->renderPriority() > camera->renderPriority() ||
+                (candidate->renderPriority() == camera->renderPriority() &&
+                 object->id() < camera->owner()->id()))
+                camera = candidate;
+        }
+        return camera;
+    }
+
+    const CameraComponent *Scene::activeCamera() const
+    {
+        return const_cast<Scene *>(this)->activeCamera();
+    }
+
     void Scene::update(float deltaTime)
     {
-        GameObject **objects = mObjects.data();
-        const std::size_t count = mObjects.size();
+        ProfileScope profileScope("scene.update");
+        // Capture the counts: components added from an update begin on the next
+        // frame. Removed components become null entries until compaction, so a
+        // callback can never invalidate the list being iterated.
+        const std::size_t count = mAllComponents.size();
         for (std::size_t i = 0; i < count; ++i)
         {
-            GameObject *object = objects[i];
-            if (!object->disposed() && object->isActiveInHierarchy())
-                object->updateComponents(deltaTime);
+            Component *component = mAllComponents[i];
+            GameObject *object = component ? component->owner() : nullptr;
+            if (object && !object->disposed() && object->isActiveInHierarchy())
+                object->updateComponent(component, deltaTime);
         }
-        if (mLateUpdateCount > 0)
+
+        const std::size_t lateCount = mLateUpdateComponents.size();
+        for (std::size_t i = 0; i < lateCount; ++i)
         {
-            for (std::size_t i = 0; i < count; ++i)
-            {
-                GameObject *object = objects[i];
-                if (!object->disposed() && object->isActiveInHierarchy())
-                    object->lateUpdateComponents(deltaTime);
-            }
+            Component *component = mLateUpdateComponents[i];
+            GameObject *object = component ? component->owner() : nullptr;
+            if (object && !object->disposed() && object->isActiveInHierarchy())
+                object->lateUpdateComponent(component, deltaTime);
         }
         flushDisposed();
+        compactComponentLists();
     }
 
     void Scene::render(CanvasRenderer &canvas)
     {
+        buildRenderQueue().Flush(canvas);
+    }
+
+    RenderQueue &Scene::buildRenderQueue()
+    {
+        ProfileScope profileScope("scene.render_queue");
         mRenderQueue.Clear();
-        GameObject **objects = mObjects.data();
-        const std::size_t count = mObjects.size();
+        const std::size_t count = mRenderComponents.size();
         for (std::size_t i = 0; i < count; ++i)
         {
-            GameObject *object = objects[i];
-            if (object->isActiveAndVisibleInHierarchy())
-                object->renderComponents(mRenderQueue);
+            Component *component = mRenderComponents[i];
+            GameObject *object = component ? component->owner() : nullptr;
+            if (object && !object->disposed() && object->isActiveAndVisibleInHierarchy())
+                object->renderComponent(component, mRenderQueue);
         }
-        mRenderQueue.Flush(canvas);
+        compactComponentLists();
+        return mRenderQueue;
     }
 
     void Scene::clear()
     {
         mRoot.deleteChildrenRaw();
-        mObjects.clear();
-        mLateUpdateCount = 0;
+        mAllComponents.clear();
+        mLateUpdateComponents.clear();
+        mRenderComponents.clear();
+        mCameras.clear();
         mObjectCount = 0;
         mNextId = 1;
     }
@@ -135,11 +174,9 @@ namespace k2d
         object->mScene = this;
         object->mId = mNextId++;
         ++mObjectCount;
-        mObjects.push_back(object);
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
             for (Component *component = object->mComponents[i]; component; component = component->mNextSibling)
-                if ((component->mEvents & ComponentEventLateUpdate) != 0)
-                    ++mLateUpdateCount;
+                registerComponent(component);
         for (std::size_t i = 0; i < object->childCount(); ++i)
             registerBranch(object->child(i));
     }
@@ -150,18 +187,79 @@ namespace k2d
             unregisterBranch(object->child(i));
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
             for (Component *component = object->mComponents[i]; component; component = component->mNextSibling)
-                if ((component->mEvents & ComponentEventLateUpdate) != 0)
-                    --mLateUpdateCount;
+                unregisterComponent(component);
         object->mScene = nullptr;
         --mObjectCount;
-        for (std::size_t i = 0; i < mObjects.size(); ++i)
+    }
+
+    void Scene::registerComponent(Component *component)
+    {
+        if (!component)
+            return;
+        component->mSceneAllIndex = mAllComponents.size();
+        mAllComponents.push_back(component);
+        if ((component->mEvents & ComponentEventLateUpdate) != 0)
         {
-            if (mObjects[i] == object)
-            {
-                mObjects.erase(mObjects.begin() + i);
-                break;
-            }
+            component->mSceneLateIndex = mLateUpdateComponents.size();
+            mLateUpdateComponents.push_back(component);
         }
+        if ((component->mEvents & ComponentEventRender) != 0)
+        {
+            component->mSceneRenderIndex = mRenderComponents.size();
+            mRenderComponents.push_back(component);
+        }
+        if (component->mType == ComponentType::Camera)
+            mCameras.push_back(static_cast<CameraComponent *>(component));
+    }
+
+    void Scene::unregisterComponent(Component *component)
+    {
+        const auto removeFrom = [component](ct::Vector<Component *> &components, std::size_t &index)
+        {
+            if (index < components.size() && components[index] == component)
+                components[index] = nullptr;
+            index = Component::InvalidSceneListIndex;
+        };
+        removeFrom(mAllComponents, component->mSceneAllIndex);
+        removeFrom(mLateUpdateComponents, component->mSceneLateIndex);
+        removeFrom(mRenderComponents, component->mSceneRenderIndex);
+        if (component->mType == ComponentType::Camera)
+            for (std::size_t i = 0; i < mCameras.size(); ++i)
+                if (mCameras[i] == component)
+                {
+                    mCameras[i] = nullptr;
+                    break;
+                }
+    }
+
+    void Scene::compactComponentLists()
+    {
+        const auto compact = [](ct::Vector<Component *> &components, int list)
+        {
+            std::size_t write = 0;
+            for (std::size_t read = 0; read < components.size(); ++read)
+                if (components[read])
+                {
+                    Component *component = components[read];
+                    components[write] = component;
+                    if (list == 0)
+                        component->mSceneAllIndex = write;
+                    else if (list == 1)
+                        component->mSceneLateIndex = write;
+                    else
+                        component->mSceneRenderIndex = write;
+                    ++write;
+                }
+            components.resize(write);
+        };
+        compact(mAllComponents, 0);
+        compact(mLateUpdateComponents, 1);
+        compact(mRenderComponents, 2);
+        std::size_t cameraWrite = 0;
+        for (std::size_t cameraRead = 0; cameraRead < mCameras.size(); ++cameraRead)
+            if (mCameras[cameraRead])
+                mCameras[cameraWrite++] = mCameras[cameraRead];
+        mCameras.resize(cameraWrite);
     }
 
     void Scene::flushDisposed()

@@ -7,7 +7,8 @@ namespace k2d
 {
 
     CameraComponent::CameraComponent()
-        : Component(Type, ComponentEventUpdate), mCamera(), mViewportWidth(0.0f), mViewportHeight(0.0f)
+        : Component(Type, ComponentEventUpdate), mCamera(), mViewportWidth(0.0f), mViewportHeight(0.0f),
+          mRenderPriority(0)
     {
     }
 

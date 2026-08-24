@@ -41,6 +41,25 @@ namespace k2d
         int TouchCount() const;
         const Touch &GetTouch(int index) const { return mTouch[index & (MAX_TOUCH - 1)]; }
 
+        // Preferred camelCase API. PascalCase names above remain for source compatibility.
+        void newFrame() { NewFrame(); }
+        void onKey(int scancode, bool down, bool repeat) { OnKey(scancode, down, repeat); }
+        void onMouseButton(int button, bool down) { OnMouseButton(button, down); }
+        void onMouseMove(float x, float y) { OnMouseMove(x, y); }
+        void onWheel(float y) { OnWheel(y); }
+        void onTouch(long long id, float x, float y, bool down, bool up) { OnTouch(id, x, y, down, up); }
+        bool keyDown(int scancode) const { return KeyDown(scancode); }
+        bool keyPressed(int scancode) const { return KeyPressed(scancode); }
+        bool keyReleased(int scancode) const { return KeyReleased(scancode); }
+        bool mouseDown(int button) const { return MouseDown(button); }
+        bool mousePressed(int button) const { return MousePressed(button); }
+        bool mouseReleased(int button) const { return MouseReleased(button); }
+        float mouseX() const { return MouseX(); }
+        float mouseY() const { return MouseY(); }
+        float wheelY() const { return WheelY(); }
+        int touchCount() const { return TouchCount(); }
+        const Touch &touch(int index) const { return GetTouch(index); }
+
     private:
         bool mKeys[MAX_KEYS];
         bool mKeysPressed[MAX_KEYS];
@@ -54,4 +73,4 @@ namespace k2d
         Touch mTouch[MAX_TOUCH];
     };
 
-} 
+}

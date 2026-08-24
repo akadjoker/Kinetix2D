@@ -11,6 +11,7 @@ namespace k2d
 {
 
     class Input;
+    struct Camera2D;
 
     struct ZenScriptProperty
     {
@@ -71,6 +72,7 @@ namespace k2d
 
     protected:
         void onUpdate(float deltaTime) override;
+        void onRender(RenderQueue &queue) override;
 
     private:
         bool loadFromSource(const char *source, const char *path);
@@ -100,6 +102,12 @@ namespace k2d
     bool ZenScriptsEnabled();
 
     void SetZenScriptInput(Input *input);
+    // The editor supplies the Game view rectangle so mouse input in scripts is
+    // local to the running game instead of the whole editor window.
+    void SetZenScriptGameViewport(float x, float y, float width, float height);
+    void SetZenScriptGameCamera(const Camera2D *camera);
+    void SetZenScriptFrameStats(float deltaTime, float fps);
+    void SetZenScriptProfilerVisible(bool visible);
     void SetZenScriptAssets(Assets *assets);
     void SetZenScriptOutput(void (*fn)(const char *text, bool isError, void *user), void *user);
     void RegisterZenScriptSerializer();

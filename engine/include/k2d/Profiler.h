@@ -17,6 +17,8 @@ namespace k2d
         float history[HistorySize];
         uint32_t historyCount;
         uint32_t historyCursor;
+        uint32_t calls;
+        uint32_t displayCalls;
     };
 
     class Profiler
@@ -32,7 +34,7 @@ namespace k2d
         void endFrame();
         bool begin(const char *name);
         void end();
-        void addSample(const char *name, float milliseconds);
+        void addSample(const char *name, float milliseconds, uint32_t calls = 1);
 
         const ProfileSample *samples() const;
         uint32_t sampleCount() const;

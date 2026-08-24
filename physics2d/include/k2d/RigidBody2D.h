@@ -5,6 +5,7 @@
 #include <kx/body.h>
 
 #include <cstddef>
+#include <limits>
 
 namespace k2d
 {
@@ -73,6 +74,9 @@ namespace k2d
         bool mHasPendingAngularVelocity;
         bool mNeedsRebuild;
         std::size_t mColliderCount;
+        static constexpr std::size_t InvalidWorldIndex = (std::numeric_limits<std::size_t>::max)();
+        std::size_t mBodyIndex;
+        std::size_t mPendingIndex;
     };
 
 }

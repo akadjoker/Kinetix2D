@@ -306,8 +306,8 @@ namespace k2d
                 tail = tail->mNextSibling;
             tail->mNextSibling = component;
         }
-        if (mScene && (component->mEvents & ComponentEventLateUpdate) != 0)
-            ++mScene->mLateUpdateCount;
+        if (mScene)
+            mScene->registerComponent(component);
         component->attached();
         return true;
     }
@@ -316,8 +316,8 @@ namespace k2d
     {
         if (!component || component->mOwner != this)
             return false;
-        if (mScene && (component->mEvents & ComponentEventLateUpdate) != 0)
-            --mScene->mLateUpdateCount;
+        if (mScene)
+            mScene->unregisterComponent(component);
         component->detached();
         component->mOwner = nullptr;
         // Splicing out of the chain is safe to do immediately: it only ever
@@ -411,6 +411,47 @@ namespace k2d
             for (Component *component = head; component; component = component->mNextSibling)
                 if (component->active() && (component->mEvents & ComponentEventRender) != 0)
                     component->onRender(queue);
+        if (--mComponentCallbackDepth == 0)
+            flushPendingComponentDeletes();
+    }
+
+    void GameObject::updateComponent(Component *component, float deltaTime)
+    {
+        if (!component || component->mOwner != this)
+            return;
+        ++mComponentCallbackDepth;
+        if (component->active())
+        {
+            if (!component->mStarted)
+            {
+                component->mStarted = true;
+                component->onStart();
+            }
+            if (component->mOwner == this && (component->mEvents & ComponentEventUpdate) != 0)
+                component->onUpdate(deltaTime);
+        }
+        if (--mComponentCallbackDepth == 0)
+            flushPendingComponentDeletes();
+    }
+
+    void GameObject::lateUpdateComponent(Component *component, float deltaTime)
+    {
+        if (!component || component->mOwner != this)
+            return;
+        ++mComponentCallbackDepth;
+        if (component->active() && (component->mEvents & ComponentEventLateUpdate) != 0)
+            component->onLateUpdate(deltaTime);
+        if (--mComponentCallbackDepth == 0)
+            flushPendingComponentDeletes();
+    }
+
+    void GameObject::renderComponent(Component *component, RenderQueue &queue)
+    {
+        if (!component || component->mOwner != this)
+            return;
+        ++mComponentCallbackDepth;
+        if (component->active() && (component->mEvents & ComponentEventRender) != 0)
+            component->onRender(queue);
         if (--mComponentCallbackDepth == 0)
             flushPendingComponentDeletes();
     }

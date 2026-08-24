@@ -54,6 +54,27 @@ namespace k2d
         void PrintStats() const;
         const Stats &GetStats() const { return mStats; }
 
+        // Preferred camelCase API. PascalCase names above remain compatible.
+        bool init(const Config &config = Config()) { return Init(config); }
+        void shutdown() { Shutdown(); }
+        void setProjection(const Math::Mat4 &matrix) { SetProjection(matrix); }
+        void setOrtho(float width, float height) { SetOrtho(width, height); }
+        void setDefaultLightTexture(unsigned int textureId) { SetDefaultLightTexture(textureId); }
+        void setCanvasModulate(float r, float g, float b) { SetCanvasModulate(r, g, b); }
+        unsigned int createShader(const char *fragmentSource) { return CreateShader(fragmentSource); }
+        void destroyShader(unsigned int program) { DestroyShader(program); }
+        void drawItems(const RenderItem *items, size_t count,
+                       const PointLight *lights, size_t lightCount,
+                       const DirectionalLight *directionalLights, size_t directionalLightCount,
+                       const Occluder *occluders, size_t occluderCount)
+        {
+            DrawItems(items, count, lights, lightCount, directionalLights, directionalLightCount,
+                      occluders, occluderCount);
+        }
+        void resetStats() { ResetStats(); }
+        void printStats() const { PrintStats(); }
+        const Stats &stats() const { return GetStats(); }
+
     private:
 #pragma pack(push, 1)
         struct Vertex
@@ -94,7 +115,10 @@ namespace k2d
                          unsigned int customProgram, const Matrix2D &matrix,
                          const ct::Vector<Math::Vec2> &points, const Color &color, unsigned int lightMask,
                          int texWidth = 0, int texHeight = 0);
+        void EmitText(BlendMode blendMode, const Matrix2D &matrix, float x, float y, float size,
+                      const char *text, const Color &color, unsigned int lightMask);
         void FlattenOccluderEdges();
+        void SetupFontTexture();
 
         Config mConfig;
         Stats mStats;
@@ -114,6 +138,7 @@ namespace k2d
         unsigned int mProgram;
         unsigned int mShadowProgram;
         unsigned int mWhiteTexture;
+        unsigned int mFontTexture;
         unsigned int mDefaultLightTexture;
         int mLightTextureLoc;
         int mHasLightTextureLoc;

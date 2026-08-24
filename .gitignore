@@ -1,7 +1,10 @@
 build/
 build-*/
 bin/
+bin-sanitize/
 
-# Notas internas — fora do git
-docs/
+# Notas internas — fora do git. Os dois guias públicos abaixo fazem parte do projecto.
+docs/*
+!docs/api-style.md
+!docs/editor-workflow.md
 PLAN.md

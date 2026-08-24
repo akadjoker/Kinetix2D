@@ -6,6 +6,7 @@
 #include <k2d/GameObject.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/Scene.h>
+#include <k2d/ZenScriptComponent.h>
 
 #include <glad/glad.h>
 
@@ -13,19 +14,6 @@
 
 namespace k2d::editor
 {
-
-namespace
-{
-CameraComponent *findFirstCamera(GameObject &object)
-{
-    if (CameraComponent *camera = object.getComponent<CameraComponent>())
-        return camera;
-    for (size_t i = 0; i < object.childCount(); ++i)
-        if (CameraComponent *found = findFirstCamera(*object.child(i)))
-            return found;
-    return nullptr;
-}
-}
 
 GamePanel::GamePanel(EditorApplication &application) : EditorPanel("Game", application)
 {
@@ -102,22 +90,31 @@ void GamePanel::renderScene(int width, int height)
     glClear(GL_COLOR_BUFFER_BIT);
 
     Scene &scene = app().runtimeScene();
-    CameraComponent *camera = findFirstCamera(scene.root());
+    CameraComponent *camera = scene.activeCamera();
     if (camera)
     {
         camera->setViewport(static_cast<float>(width), static_cast<float>(height));
         mCanvas.SetProjection(camera->projection());
+        SetZenScriptGameCamera(&camera->camera());
     }
     else
     {
         Camera2D defaultCamera;
         mCanvas.SetProjection(defaultCamera.Projection(static_cast<float>(width), static_cast<float>(height)));
+        SetZenScriptGameCamera(&defaultCamera);
     }
     scene.render(mCanvas);
     if (app().settings().showPhysicsDebug)
         if (PhysicsWorld2D *world = app().physicsWorld())
+        {
+            // Physics is an editor overlay. scene.render() has already
+            // submitted its batch; make the overlay independent from any
+            // depth state a material/shadow pass may have changed.
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
             world->debugDraw(mCanvas, kx::DebugDrawShapes | kx::DebugDrawAABBs |
                                           kx::DebugDrawContacts | kx::DebugDrawJoints);
+        }
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -166,6 +163,7 @@ void GamePanel::drawContents()
         drawList.AddRectFilled(position, ImVec2(position.x + width, position.y + height),
                                IM_COL32(12, 14, 18, 255));
     }
+    SetZenScriptGameViewport(position.x, position.y, width, height);
     if (app().paused())
     {
         ImGui::SetCursorScreenPos(ImVec2(position.x + 8.0f, position.y + 8.0f));

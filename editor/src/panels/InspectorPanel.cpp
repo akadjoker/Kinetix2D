@@ -79,6 +79,47 @@ const char *componentName(const Component &component)
     return componentName(component.type());
 }
 
+const char *componentDescription(const Component &component)
+{
+    if (dynamic_cast<const BoxCollider2D *>(&component))
+        return "Physical rectangular collision shape. Add a Rigid Body to simulate it.";
+    if (dynamic_cast<const CircleCollider2D *>(&component))
+        return "Physical circular collision shape. Add a Rigid Body to simulate it.";
+    if (dynamic_cast<const EdgeCollider2D *>(&component))
+        return "Physical line segment, useful for floors and one-dimensional obstacles.";
+    if (dynamic_cast<const PolygonCollider2D *>(&component))
+        return "Physical convex polygon collision shape.";
+    if (dynamic_cast<const ChainCollider2D *>(&component))
+        return "Physical chain of segments, useful for terrain.";
+    switch (component.type())
+    {
+    case ComponentType::Sprite: return "Draws one texture with transform, colour and material settings.";
+    case ComponentType::TileMap: return "Draws a grid of tiles from a texture atlas.";
+    case ComponentType::Polygon2D: return "Draws a filled custom polygon.";
+    case ComponentType::LinePath: return "Draws a line or closed outline through editable points.";
+    case ComponentType::CircleShape: return "Draws a circle; this is visual only, not a physics collider.";
+    case ComponentType::RectShape: return "Draws a rectangle; this is visual only, not a physics collider.";
+    case ComponentType::NinePatch: return "Draws a scalable UI-style panel with protected borders.";
+    case ComponentType::SpriteBatch: return "Draws many sprites efficiently from one component.";
+    case ComponentType::Animation: return "Plays frame-based sprite animation clips.";
+    case ComponentType::Script: return "Runs a Zen script. ScriptComponent scripts receive self.node.";
+    case ComponentType::RigidBody: return "Gives this object a simulated physics body during Play.";
+    case ComponentType::Particle: return "Emits and simulates particle effects.";
+    case ComponentType::Light: return "Adds point or directional lighting to the scene.";
+    case ComponentType::Occluder: return "Blocks shadows cast by 2D lights.";
+    case ComponentType::Camera: return "Controls the Game view projection and can follow another object.";
+    default: return "";
+    }
+}
+
+bool componentMenuItem(const char *label, const char *description)
+{
+    const bool selected = ImGui::MenuItem(label);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", description);
+    return selected;
+}
+
 constexpr int kPlaceholderSize = 32;
 
 Texture *placeholderSpriteTexture(EditorApplication &application)
@@ -684,6 +725,11 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
     viewportChanged |= dragFloatProperty(app, "Viewport Height", viewportH, 1.0f, "Resize Camera Viewport");
     if (viewportChanged)
         cameraComponent.setViewport(viewportW, viewportH);
+
+    int renderPriority = cameraComponent.renderPriority();
+    if (dragIntProperty(app, "Render Priority", renderPriority, 1.0f,
+                        "Higher priority becomes the active camera for the Game view"))
+        cameraComponent.setRenderPriority(renderPriority);
 
     Camera2D &camera = cameraComponent.camera();
 
@@ -1787,6 +1833,9 @@ void InspectorPanel::drawContents()
 
     ImGui::SeparatorText("Components");
     bool any = false;
+    Component *componentToRemove = nullptr;
+    EditorApplication::SceneChange removeBefore;
+    ct::String removeLabel;
     for (unsigned int value = 0; value < static_cast<unsigned int>(ComponentType::Count); ++value)
     {
         const ComponentType type = static_cast<ComponentType>(value);
@@ -1812,12 +1861,30 @@ void InspectorPanel::drawContents()
             if (open)
             {
                 ImGui::Indent();
+                const char *description = componentDescription(*component);
+                if (description[0] != '\0')
+                    ImGui::TextDisabled("%s", description);
                 drawComponentProperties(app(), *component);
+                ImGui::Separator();
+                if (ImGui::Button(ICON_MDI_DELETE " Remove Component"))
+                {
+                    componentToRemove = component;
+                    removeBefore = app().beginChange();
+                    removeLabel = "Remove ";
+                    removeLabel += componentName(*component);
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Remove this component. Ctrl+Z restores it.");
                 ImGui::Unindent();
                 ImGui::TreePop();
             }
             ImGui::PopID();
         }
+    }
+    if (componentToRemove && object->removeComponent(componentToRemove))
+    {
+        app().commitChange(removeLabel.c_str(), removeBefore);
+        app().toasts().info("Component removed");
     }
     if (!any)
         ImGui::TextDisabled("No components yet.");
@@ -1826,27 +1893,27 @@ void InspectorPanel::drawContents()
         ImGui::OpenPopup("Add Component");
     if (ImGui::BeginPopup("Add Component"))
     {
-        if (ImGui::MenuItem("Sprite"))
+        if (componentMenuItem("Sprite", "Draw a texture on this object."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
             app().commitChange("Add Sprite Component", addBefore);
         }
-        if (ImGui::MenuItem("NinePatch"))
+        if (componentMenuItem("NinePatch", "Draw a scalable panel with fixed borders."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             NinePatchComponent *ninePatch = object->addComponent<NinePatchComponent>();
             ninePatch->setTexture(placeholderSpriteTexture(app()));
             app().commitChange("Add NinePatch Component", addBefore);
         }
-        if (ImGui::MenuItem("TileMap"))
+        if (componentMenuItem("TileMap", "Draw a grid of tiles from a texture atlas."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             TileMapComponent *tileMap = object->addComponent<TileMapComponent>();
             tileMap->setMapSize(8, 8);
             app().commitChange("Add TileMap Component", addBefore);
         }
-        if (ImGui::MenuItem("Polygon2D"))
+        if (componentMenuItem("Polygon2D", "Draw a filled custom polygon."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             Polygon2D *polygon = object->addComponent<Polygon2D>();
@@ -1855,7 +1922,7 @@ void InspectorPanel::drawContents()
             polygon->setPolygon(defaultShape, 3);
             app().commitChange("Add Polygon2D Component", addBefore);
         }
-        if (ImGui::MenuItem("Line2D"))
+        if (componentMenuItem("Line2D", "Draw an editable line or outline."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             Line2D *line = object->addComponent<Line2D>();
@@ -1863,25 +1930,25 @@ void InspectorPanel::drawContents()
             line->setPoints(defaultPoints, 2);
             app().commitChange("Add Line2D Component", addBefore);
         }
-        if (ImGui::MenuItem("Circle Shape"))
+        if (componentMenuItem("Circle Shape", "Draw a visual circle. Use Circle Collider for physics."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<CircleShape>();
             app().commitChange("Add Circle Shape Component", addBefore);
         }
-        if (ImGui::MenuItem("Rect Shape"))
+        if (componentMenuItem("Rect Shape", "Draw a visual rectangle. Use Box Collider for physics."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<RectShape>();
             app().commitChange("Add Rect Shape Component", addBefore);
         }
-        if (ImGui::MenuItem("SpriteBatch"))
+        if (componentMenuItem("SpriteBatch", "Draw many sprites efficiently."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<SpriteBatch>();
             app().commitChange("Add SpriteBatch Component", addBefore);
         }
-        if (ImGui::MenuItem("Animation2D"))
+        if (componentMenuItem("Animation2D", "Play a frame-based sprite animation."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             Animation2D *anim = object->addComponent<Animation2D>();
@@ -1889,7 +1956,7 @@ void InspectorPanel::drawContents()
             anim->play("default");
             app().commitChange("Add Animation2D Component", addBefore);
         }
-        if (ImGui::MenuItem("Zen Script"))
+        if (componentMenuItem("Zen Script", "Run a Python-style Zen script with self.node."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<ZenScriptComponent>();
@@ -1897,38 +1964,38 @@ void InspectorPanel::drawContents()
         }
         if (ImGui::BeginMenu("Physics 2D"))
         {
-            if (ImGui::MenuItem("Rigid Body"))
+            if (componentMenuItem("Rigid Body", "Simulate this object with Physics 2D during Play."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<RigidBody2D>();
                 app().commitChange("Add Rigid Body Component", addBefore);
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Box Collider"))
+            if (componentMenuItem("Box Collider", "Physical rectangular collision shape."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<BoxCollider2D>();
                 app().commitChange("Add Box Collider Component", addBefore);
             }
-            if (ImGui::MenuItem("Circle Collider"))
+            if (componentMenuItem("Circle Collider", "Physical circular collision shape."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<CircleCollider2D>();
                 app().commitChange("Add Circle Collider Component", addBefore);
             }
-            if (ImGui::MenuItem("Edge Collider"))
+            if (componentMenuItem("Edge Collider", "Physical line segment; useful for floors."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<EdgeCollider2D>();
                 app().commitChange("Add Edge Collider Component", addBefore);
             }
-            if (ImGui::MenuItem("Polygon Collider"))
+            if (componentMenuItem("Polygon Collider", "Physical convex polygon collision shape."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<PolygonCollider2D>();
                 app().commitChange("Add Polygon Collider Component", addBefore);
             }
-            if (ImGui::MenuItem("Chain Collider"))
+            if (componentMenuItem("Chain Collider", "Physical chain of segments for terrain."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 ChainCollider2D *chain = object->addComponent<ChainCollider2D>();
@@ -1939,7 +2006,7 @@ void InspectorPanel::drawContents()
             }
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Particle"))
+        if (componentMenuItem("Particle", "Emit and simulate a particle effect."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             ParticleComponent *particle = object->addComponent<ParticleComponent>();
@@ -1961,19 +2028,19 @@ void InspectorPanel::drawContents()
             app().commitChange("Add Particle Component", addBefore);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Point Light"))
+        if (componentMenuItem("Point Light", "Illuminate an area from this object's position."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<Light2D>();
             app().commitChange("Add Point Light Component", addBefore);
         }
-        if (ImGui::MenuItem("Directional Light"))
+        if (componentMenuItem("Directional Light", "Illuminate the scene with one direction."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<DirectionalLight2D>();
             app().commitChange("Add Directional Light Component", addBefore);
         }
-        if (ImGui::MenuItem("Light Occluder"))
+        if (componentMenuItem("Light Occluder", "Block shadows cast by 2D lights."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             LightOccluder2D *occluder = object->addComponent<LightOccluder2D>();
@@ -1983,7 +2050,7 @@ void InspectorPanel::drawContents()
             app().commitChange("Add Light Occluder Component", addBefore);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Camera"))
+        if (componentMenuItem("Camera", "Control the Game view and optionally follow another object."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             object->addComponent<CameraComponent>();

@@ -12,6 +12,9 @@
 
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
+#include "k2d/Profiler.h"
+
+#include <SDL.h>
 
 namespace k2d
 {
@@ -27,8 +30,8 @@ namespace k2d
                 zen::gc_mark_value(gc, impl.classes[i]->klass);
                 zen::gc_mark_value(gc, impl.classes[i]->module);
             }
-            for (size_t i = 0; i < impl.instances.size(); ++i)
-                zen::gc_mark_value(gc, impl.instances[i].value);
+            for (const auto &entry : impl.instances)
+                zen::gc_mark_value(gc, entry.value.value);
             for (size_t i = 0; i < impl.liveInstances.size(); ++i)
                 zen::gc_mark_value(gc, *impl.liveInstances[i]);
         }
@@ -43,6 +46,11 @@ namespace k2d
 
     ZenRuntime::~ZenRuntime()
     {
+        // classes owns raw ZenScriptClass allocations.  ct::Vector only owns
+        // the pointers, so clear the cache before destroying Impl.
+        mImpl->clearClasses();
+        mImpl->instances.clear();
+        mImpl->liveInstances.clear();
         delete mImpl;
     }
 
@@ -60,6 +68,50 @@ namespace k2d
     std::size_t ZenRuntime::cachedClassCount() const
     {
         return mImpl->classes.size();
+    }
+
+    void ZenRuntime::setVmProfiling(bool enabled)
+    {
+        mImpl->vmProfiling = enabled;
+        if (!enabled)
+        {
+            mImpl->vmUpdateTicks = 0;
+            mImpl->vmRenderTicks = 0;
+            mImpl->vmOtherTicks = 0;
+            mImpl->vmUpdateCalls = 0;
+            mImpl->vmRenderCalls = 0;
+            mImpl->vmOtherCalls = 0;
+        }
+    }
+
+    bool ZenRuntime::vmProfiling() const
+    {
+        return mImpl->vmProfiling;
+    }
+
+    void ZenRuntime::submitProfilerSamples()
+    {
+        Impl &impl = *mImpl;
+        if (!impl.vmProfiling)
+            return;
+        if (impl.vmProfileFrequency == 0)
+            impl.vmProfileFrequency = SDL_GetPerformanceFrequency();
+
+        const float toMilliseconds = 1000.0f / static_cast<float>(impl.vmProfileFrequency);
+        Profiler &profiler = Profiler::Get();
+        profiler.addSample("vm.update", static_cast<float>(impl.vmUpdateTicks) * toMilliseconds,
+                           impl.vmUpdateCalls);
+        profiler.addSample("vm.render", static_cast<float>(impl.vmRenderTicks) * toMilliseconds,
+                           impl.vmRenderCalls);
+        profiler.addSample("vm.other", static_cast<float>(impl.vmOtherTicks) * toMilliseconds,
+                           impl.vmOtherCalls);
+
+        impl.vmUpdateTicks = 0;
+        impl.vmRenderTicks = 0;
+        impl.vmOtherTicks = 0;
+        impl.vmUpdateCalls = 0;
+        impl.vmRenderCalls = 0;
+        impl.vmOtherCalls = 0;
     }
 
     void ZenRuntime::reset()
@@ -91,6 +143,8 @@ namespace k2d
         entry.slotInit = rebuilt.slotInit;
         entry.slotStart = rebuilt.slotStart;
         entry.slotUpdate = rebuilt.slotUpdate;
+        entry.slotDraw = rebuilt.slotDraw;
+        entry.slotDrawUi = rebuilt.slotDrawUi;
         entry.slotDestroy = rebuilt.slotDestroy;
         entry.slotEvent = rebuilt.slotEvent;
         entry.slotCollision = rebuilt.slotCollision;
@@ -215,11 +269,13 @@ namespace k2d
         out.klass = found;
         out.module = zen::val_nil();
 
-        if (selectorStart < 0)
+        if (selectorInit < 0)
         {
             selectorInit = vm.intern_selector("__init__", 8);
             selectorStart = vm.intern_selector("on_start", 8);
             selectorUpdate = vm.intern_selector("on_update", 9);
+            selectorDraw = vm.intern_selector("on_draw", 7);
+            selectorDrawUi = vm.intern_selector("on_draw_ui", 10);
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
             selectorCollision = vm.intern_selector("on_collision", 12);
@@ -236,6 +292,8 @@ namespace k2d
         out.slotInit = slotIfPresent(selectorInit);
         out.slotStart = slotIfPresent(selectorStart);
         out.slotUpdate = slotIfPresent(selectorUpdate);
+        out.slotDraw = slotIfPresent(selectorDraw);
+        out.slotDrawUi = slotIfPresent(selectorDrawUi);
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
@@ -269,29 +327,23 @@ namespace k2d
     {
         if (!ptr)
             return zen::val_nil();
-        for (size_t i = 0; i < instances.size(); ++i)
-            if (instances[i].key == ptr)
-                return instances[i].value;
+        if (CachedInstance *cached = instances.find(ptr))
+            if (cached->klass == klass)
+                return cached->value;
 
         zen::Value value = vm.make_instance(klass);
         zen::as_instance(value)->native_data = ptr;
         CachedInstance cached;
         cached.key = ptr;
+        cached.klass = klass;
         cached.value = value;
-        instances.push_back(cached);
+        instances.put(ptr, cached);
         return value;
     }
 
     void ZenRuntime::Impl::forgetInstance(void *ptr)
     {
-        for (size_t i = 0; i < instances.size(); ++i)
-        {
-            if (instances[i].key == ptr)
-            {
-                instances.erase(instances.begin() + i);
-                return;
-            }
-        }
+        instances.erase(ptr);
     }
 
 }

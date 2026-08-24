@@ -396,6 +396,7 @@ namespace
         k2d::GameObject *root = srcScene.createObject("Cam");
         k2d::CameraComponent *cam = root->addComponent<k2d::CameraComponent>();
         cam->setViewport(1280.0f, 720.0f);
+        cam->setRenderPriority(5);
         cam->camera().position = Math::Vec2(100.0f, 50.0f);
         cam->camera().rotationDegrees = 15.0f;
         cam->camera().zoom = Math::Vec2(2.0f, 2.0f);
@@ -411,7 +412,8 @@ namespace
         if (!copyCam)
             return false;
 
-        bool ok = Near(copyCam->viewportWidth(), 1280.0f) && Near(copyCam->viewportHeight(), 720.0f);
+        bool ok = Near(copyCam->viewportWidth(), 1280.0f) && Near(copyCam->viewportHeight(), 720.0f) &&
+                  copyCam->renderPriority() == 5;
         const k2d::Camera2D &c = copyCam->camera();
         ok = ok && NearVec2(c.position, {100.0f, 50.0f}) && Near(c.rotationDegrees, 15.0f);
         ok = ok && NearVec2(c.zoom, {2.0f, 2.0f});

@@ -31,7 +31,10 @@ namespace k2d
         if (mFrequency == 1)
             mFrequency = SDL_GetPerformanceFrequency();
         for (uint32_t i = 0; i < mSampleCount; ++i)
+        {
             mSamples[i].milliseconds = 0.0f;
+            mSamples[i].calls = 0;
+        }
         mDepth = 0;
         mFrameStart = SDL_GetPerformanceCounter();
     }
@@ -45,7 +48,10 @@ namespace k2d
         mFrameMilliseconds = (float)((now - mFrameStart) * 1000.0 / mFrequency);
         const uint32_t frameSample = findOrCreate("Frame");
         if (frameSample < MaxSamples)
+        {
             mSamples[frameSample].milliseconds = mFrameMilliseconds;
+            mSamples[frameSample].calls = 1;
+        }
 
         const bool refresh = (now - mLastRefresh) > (uint64_t)(RefreshSeconds * mFrequency);
         if (refresh)
@@ -58,7 +64,10 @@ namespace k2d
         {
             ProfileSample &sample = mSamples[i];
             if (refresh)
+            {
                 sample.display = sample.milliseconds;
+                sample.displayCalls = sample.calls;
+            }
             sample.history[sample.historyCursor] = sample.milliseconds;
             sample.historyCursor = (sample.historyCursor + 1) % ProfileSample::HistorySize;
             if (sample.historyCount < ProfileSample::HistorySize)
@@ -117,9 +126,10 @@ namespace k2d
         const uint64_t now = SDL_GetPerformanceCounter();
         const ActiveScope scope = mStack[--mDepth];
         mSamples[scope.sample].milliseconds += (float)((now - scope.counter) * 1000.0 / mFrequency);
+        ++mSamples[scope.sample].calls;
     }
 
-    void Profiler::addSample(const char *name, float milliseconds)
+    void Profiler::addSample(const char *name, float milliseconds, uint32_t calls)
     {
         if (!mEnabled)
             return;
@@ -127,7 +137,10 @@ namespace k2d
             return;
         const uint32_t sample = findOrCreate(name);
         if (sample < MaxSamples)
+        {
             mSamples[sample].milliseconds += milliseconds;
+            mSamples[sample].calls += calls;
+        }
     }
 
     const ProfileSample *Profiler::samples() const

@@ -168,6 +168,9 @@ namespace k2d
         void updateComponents(float deltaTime);
         void lateUpdateComponents(float deltaTime);
         void renderComponents(RenderQueue &queue);
+        void updateComponent(Component *component, float deltaTime);
+        void lateUpdateComponent(Component *component, float deltaTime);
+        void renderComponent(Component *component, RenderQueue &queue);
         void flushPendingComponentDeletes();
         bool isAncestorOf(const GameObject *object) const;
         void invalidateTransform();

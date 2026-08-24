@@ -7,11 +7,13 @@
 
 #include "k2d/Animation2D.h"
 #include "k2d/Assets.h"
+#include "k2d/Camera2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
 #include "k2d/Input.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/RenderQueue.h"
 #include "k2d/Scene.h"
 #include "k2d/Serializer.h"
 #include "k2d/SpriteComponent.h"
@@ -22,10 +24,13 @@
 #include <zen/object.h>
 #include <zen/zen_host_output.h>
 
+#include <SDL.h>
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <system_error>
 
 namespace k2d
@@ -35,9 +40,57 @@ namespace k2d
     {
         Input *gZenInput = nullptr;
         Assets *gZenAssets = nullptr;
+        struct ZenGameViewport
+        {
+            float x = 0.0f;
+            float y = 0.0f;
+            float width = 0.0f;
+            float height = 0.0f;
+            bool valid = false;
+        };
+        ZenGameViewport gZenGameViewport;
+        Camera2D gZenGameCamera;
+        bool gZenGameCameraValid = false;
+        float gZenFps = 0.0f;
+        bool gZenProfilerVisible = false;
         bool gZenScriptsEnabled = false;
         void (*gZenOutput)(const char *text, bool isError, void *user) = nullptr;
         void *gZenOutputUser = nullptr;
+        GameObject *gZenCallbackNode = nullptr;
+
+        struct ZenCallbackScope
+        {
+            explicit ZenCallbackScope(GameObject *node) : previous(gZenCallbackNode)
+            {
+                gZenCallbackNode = node;
+            }
+            ~ZenCallbackScope() { gZenCallbackNode = previous; }
+
+            GameObject *previous;
+        };
+
+        struct ZenDrawContext
+        {
+            RenderQueue *queue = nullptr;
+            RenderItem *item = nullptr;
+            int zIndex = 0;
+            Color color = Color::White();
+            Matrix2D xform;
+            bool hasXform = false;
+
+            RenderItem *ensureItem()
+            {
+                if (!item && queue)
+                {
+                    item = &queue->AddItem(zIndex);
+                    if (hasXform)
+                        item->xform = xform;
+                }
+                return item;
+            }
+        };
+
+        ZenDrawContext *gZenDrawContext = nullptr;
 
         void zenHostWriter(const char *text, size_t length, int isError, void *)
         {
@@ -143,6 +196,189 @@ namespace k2d
             (void)vm;
             return "";
         }
+
+        float drawColorComponent(zen::Value value)
+        {
+            const float component = (float)zen::to_number(value);
+            return component < 0.0f ? 0.0f : (component > 1.0f ? 1.0f : component);
+        }
+
+        void addLineTriangles(ct::Vector<Math::Vec2> &triangles, float x0, float y0,
+                              float x1, float y1, float thickness)
+        {
+            Math::Vec2 direction(x1 - x0, y1 - y0);
+            const float length = direction.Length();
+            if (length < 0.0001f)
+                return;
+            direction /= length;
+            const float half = thickness > 0.0f ? thickness * 0.5f : 0.5f;
+            const Math::Vec2 normal(-direction.y * half, direction.x * half);
+            const Math::Vec2 a(x0, y0);
+            const Math::Vec2 b(x1, y1);
+            triangles.push_back(a - normal);
+            triangles.push_back(a + normal);
+            triangles.push_back(b + normal);
+            triangles.push_back(a - normal);
+            triangles.push_back(b + normal);
+            triangles.push_back(b - normal);
+        }
+
+        int natSetDrawColor(zen::VM *, zen::Value *args, int nargs)
+        {
+            if (gZenDrawContext && nargs >= 3)
+            {
+                gZenDrawContext->color.r = drawColorComponent(args[0]);
+                gZenDrawContext->color.g = drawColorComponent(args[1]);
+                gZenDrawContext->color.b = drawColorComponent(args[2]);
+                gZenDrawContext->color.a = nargs >= 4 ? drawColorComponent(args[3]) : 1.0f;
+            }
+            return 0;
+        }
+
+        int natDrawLine(zen::VM *, zen::Value *args, int nargs)
+        {
+            RenderItem *item = gZenDrawContext ? gZenDrawContext->ensureItem() : nullptr;
+            if (!item || nargs < 4)
+                return 0;
+            RenderCommand command;
+            command.type = RenderCommand::kPolygon;
+            command.color = gZenDrawContext->color;
+            addLineTriangles(command.ownedPolygonPoints, (float)zen::to_number(args[0]),
+                             (float)zen::to_number(args[1]), (float)zen::to_number(args[2]),
+                             (float)zen::to_number(args[3]),
+                             nargs >= 5 ? (float)zen::to_number(args[4]) : 1.0f);
+            if (!command.ownedPolygonPoints.empty())
+                item->commands.push_back(command);
+            return 0;
+        }
+
+        int natDrawRect(zen::VM *, zen::Value *args, int nargs)
+        {
+            RenderItem *item = gZenDrawContext ? gZenDrawContext->ensureItem() : nullptr;
+            if (!item || nargs < 4)
+                return 0;
+            const float x = (float)zen::to_number(args[0]);
+            const float y = (float)zen::to_number(args[1]);
+            const float width = (float)zen::to_number(args[2]);
+            const float height = (float)zen::to_number(args[3]);
+            const bool fill = nargs < 5 || zen::is_truthy(args[4]);
+            RenderCommand command;
+            command.color = gZenDrawContext->color;
+            if (fill)
+            {
+                command.type = RenderCommand::kRect;
+                command.x = x;
+                command.y = y;
+                command.width = width;
+                command.height = height;
+                command.pivotX = 0.0f;
+                command.pivotY = 0.0f;
+            }
+            else
+            {
+                command.type = RenderCommand::kPolygon;
+                const float thickness = nargs >= 6 ? (float)zen::to_number(args[5]) : 1.0f;
+                addLineTriangles(command.ownedPolygonPoints, x, y, x + width, y, thickness);
+                addLineTriangles(command.ownedPolygonPoints, x + width, y, x + width, y + height, thickness);
+                addLineTriangles(command.ownedPolygonPoints, x + width, y + height, x, y + height, thickness);
+                addLineTriangles(command.ownedPolygonPoints, x, y + height, x, y, thickness);
+            }
+            item->commands.push_back(command);
+            return 0;
+        }
+
+        int natDrawCircle(zen::VM *, zen::Value *args, int nargs)
+        {
+            RenderItem *item = gZenDrawContext ? gZenDrawContext->ensureItem() : nullptr;
+            if (!item || nargs < 3)
+                return 0;
+            const float x = (float)zen::to_number(args[0]);
+            const float y = (float)zen::to_number(args[1]);
+            const float radius = (float)zen::to_number(args[2]);
+            if (radius <= 0.0f)
+                return 0;
+            const bool fill = nargs < 4 || zen::is_truthy(args[3]);
+            int segments = nargs >= 5 ? (int)zen::to_integer(args[4]) : 32;
+            segments = segments < 3 ? 3 : (segments > 512 ? 512 : segments);
+            const float thickness = nargs >= 6 ? (float)zen::to_number(args[5]) : 1.0f;
+            const float pi = 3.14159265358979323846f;
+
+            RenderCommand command;
+            command.type = RenderCommand::kPolygon;
+            command.color = gZenDrawContext->color;
+            for (int i = 0; i < segments; ++i)
+            {
+                const float a0 = (float)i * 2.0f * pi / (float)segments;
+                const float a1 = (float)(i + 1) * 2.0f * pi / (float)segments;
+                const float x0 = x + std::cos(a0) * radius;
+                const float y0 = y + std::sin(a0) * radius;
+                const float x1 = x + std::cos(a1) * radius;
+                const float y1 = y + std::sin(a1) * radius;
+                if (fill)
+                {
+                    command.ownedPolygonPoints.push_back(Math::Vec2(x, y));
+                    command.ownedPolygonPoints.push_back(Math::Vec2(x0, y0));
+                    command.ownedPolygonPoints.push_back(Math::Vec2(x1, y1));
+                }
+                else
+                {
+                    addLineTriangles(command.ownedPolygonPoints, x0, y0, x1, y1, thickness);
+                }
+            }
+            item->commands.push_back(command);
+            return 0;
+        }
+
+        int natDrawText(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            RenderItem *item = gZenDrawContext ? gZenDrawContext->ensureItem() : nullptr;
+            if (!item || nargs < 3)
+                return 0;
+            char small[16];
+            RenderCommand command;
+            command.type = RenderCommand::kText;
+            command.x = (float)zen::to_number(args[0]);
+            command.y = (float)zen::to_number(args[1]);
+            command.width = nargs >= 4 ? (float)zen::to_number(args[3]) : 16.0f;
+            command.color = gZenDrawContext->color;
+            command.text = valueToCString(vm, args[2], small, sizeof(small));
+            if (command.width > 0.0f && !command.text.empty())
+                item->commands.push_back(command);
+            return 0;
+        }
+
+        int natDrawTextWidth(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[16];
+            const char *text = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const float size = nargs >= 2 ? (float)zen::to_number(args[1]) : 16.0f;
+            unsigned int longest = 0;
+            unsigned int length = 0;
+            for (const char *character = text; *character; ++character)
+            {
+                if (*character == '\n')
+                {
+                    if (length > longest)
+                        longest = length;
+                    length = 0;
+                }
+                else
+                {
+                    ++length;
+                }
+            }
+            if (length > longest)
+                longest = length;
+            args[0] = zen::val_float((double)longest * (size > 0.0f ? size : 0.0f));
+            return 1;
+        }
+
+        int natObjectCount(zen::VM *, zen::Value *args, int)
+        {
+            const Scene *scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+            args[0] = zen::val_int(scene ? (int64_t)scene->objectCount() : 0);
+            return 1;
+        }
     }
 
     struct ZenScriptComponent::State
@@ -159,10 +395,51 @@ namespace k2d
 
     namespace
     {
+        enum class ScriptProfilePhase
+        {
+            Other,
+            Update,
+            Render
+        };
+
         struct RunningScript
         {
-            RunningScript() { ++ZenRuntime::instance().impl().executing; }
-            ~RunningScript() { --ZenRuntime::instance().impl().executing; }
+            explicit RunningScript(ScriptProfilePhase phase = ScriptProfilePhase::Other)
+                : mImpl(ZenRuntime::instance().impl()), mPhase(phase), mCounter(0), mProfiling(mImpl.vmProfiling)
+            {
+                ++mImpl.executing;
+                if (mProfiling)
+                    mCounter = SDL_GetPerformanceCounter();
+            }
+
+            ~RunningScript()
+            {
+                if (mProfiling)
+                {
+                    const uint64_t elapsed = SDL_GetPerformanceCounter() - mCounter;
+                    switch (mPhase)
+                    {
+                    case ScriptProfilePhase::Update:
+                        mImpl.vmUpdateTicks += elapsed;
+                        ++mImpl.vmUpdateCalls;
+                        break;
+                    case ScriptProfilePhase::Render:
+                        mImpl.vmRenderTicks += elapsed;
+                        ++mImpl.vmRenderCalls;
+                        break;
+                    default:
+                        mImpl.vmOtherTicks += elapsed;
+                        ++mImpl.vmOtherCalls;
+                        break;
+                    }
+                }
+                --mImpl.executing;
+            }
+
+            ZenRuntime::Impl &mImpl;
+            ScriptProfilePhase mPhase;
+            uint64_t mCounter;
+            bool mProfiling;
         };
 
         bool scriptRunning()
@@ -906,27 +1183,121 @@ namespace k2d
         int natMouseDown(zen::VM *, zen::Value *args, int nargs)
         {
             const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-            args[0] = zen::val_bool(gZenInput && gZenInput->MouseDown(button));
+            const bool inside = !gZenGameViewport.valid ||
+                                (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
+                                 gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
+                                 gZenInput->MouseY() >= gZenGameViewport.y &&
+                                 gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
+            args[0] = zen::val_bool(gZenInput && inside && gZenInput->MouseDown(button));
             return 1;
         }
 
         int natMousePressed(zen::VM *, zen::Value *args, int nargs)
         {
             const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-            args[0] = zen::val_bool(gZenInput && gZenInput->MousePressed(button));
+            const bool inside = !gZenGameViewport.valid ||
+                                (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
+                                 gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
+                                 gZenInput->MouseY() >= gZenGameViewport.y &&
+                                 gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
+            args[0] = zen::val_bool(gZenInput && inside && gZenInput->MousePressed(button));
             return 1;
         }
 
         int natMouseX(zen::VM *, zen::Value *args, int)
         {
-            args[0] = zen::val_float(gZenInput ? gZenInput->MouseX() : 0.0);
+            args[0] = zen::val_float(gZenInput ? gZenInput->MouseX() -
+                                                  (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f)
+                                                : 0.0);
             return 1;
         }
 
         int natMouseY(zen::VM *, zen::Value *args, int)
         {
-            args[0] = zen::val_float(gZenInput ? gZenInput->MouseY() : 0.0);
+            args[0] = zen::val_float(gZenInput ? gZenInput->MouseY() -
+                                                  (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f)
+                                                : 0.0);
             return 1;
+        }
+
+        int natViewportWidth(zen::VM *, zen::Value *args, int)
+        {
+            args[0] = zen::val_float(gZenGameViewport.valid ? gZenGameViewport.width : 1280.0f);
+            return 1;
+        }
+
+        int natViewportHeight(zen::VM *, zen::Value *args, int)
+        {
+            args[0] = zen::val_float(gZenGameViewport.valid ? gZenGameViewport.height : 720.0f);
+            return 1;
+        }
+
+        int natGetFps(zen::VM *, zen::Value *args, int)
+        {
+            args[0] = zen::val_float(gZenFps);
+            return 1;
+        }
+
+        int natProfilerVisible(zen::VM *, zen::Value *args, int)
+        {
+            args[0] = zen::val_bool(gZenProfilerVisible);
+            return 1;
+        }
+
+        Math::Vec2 screenToWorld(float x, float y)
+        {
+            if (!gZenGameCameraValid || !gZenGameViewport.valid)
+                return Math::Vec2(x, y);
+            return gZenGameCamera.ScreenToWorld(x, y, gZenGameViewport.width, gZenGameViewport.height);
+        }
+
+        int natScreenToWorld(zen::VM *, zen::Value *args, int nargs)
+        {
+            const float x = nargs >= 1 ? (float)zen::to_number(args[0]) : 0.0f;
+            const float y = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+            const Math::Vec2 point = screenToWorld(x, y);
+            args[0] = zen::val_float(point.x);
+            args[1] = zen::val_float(point.y);
+            return 2;
+        }
+
+        int natMouseWorldPosition(zen::VM *, zen::Value *args, int)
+        {
+            const float x = gZenInput ? gZenInput->MouseX() -
+                                           (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f)
+                                     : 0.0f;
+            const float y = gZenInput ? gZenInput->MouseY() -
+                                           (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f)
+                                     : 0.0f;
+            const Math::Vec2 point = screenToWorld(x, y);
+            args[0] = zen::val_float(point.x);
+            args[1] = zen::val_float(point.y);
+            return 2;
+        }
+
+        int natWorldViewRect(zen::VM *, zen::Value *args, int)
+        {
+            const float width = gZenGameViewport.valid ? gZenGameViewport.width : 1280.0f;
+            const float height = gZenGameViewport.valid ? gZenGameViewport.height : 720.0f;
+            const Math::Vec2 corners[4] = {
+                screenToWorld(0.0f, 0.0f), screenToWorld(width, 0.0f),
+                screenToWorld(width, height), screenToWorld(0.0f, height)};
+            float minX = corners[0].x;
+            float minY = corners[0].y;
+            float maxX = corners[0].x;
+            float maxY = corners[0].y;
+            for (int i = 1; i < 4; ++i)
+            {
+                if (corners[i].x < minX) minX = corners[i].x;
+                if (corners[i].y < minY) minY = corners[i].y;
+                if (corners[i].x > maxX) maxX = corners[i].x;
+                if (corners[i].y > maxY) maxY = corners[i].y;
+            }
+            args[0] = zen::val_float(minX);
+            args[1] = zen::val_float(minY);
+            args[2] = zen::val_float(maxX);
+            args[3] = zen::val_float(maxY);
+            return 4;
         }
 
         int natWheelY(zen::VM *, zen::Value *args, int)
@@ -948,6 +1319,12 @@ namespace k2d
         vm.register_lib(&zen::zen_lib_http);
 
         vm.def_global("__k2d", zen::val_ptr(this));
+
+        auto scriptComponent = vm.def_class("ScriptComponent");
+        // Set to the host GameObject by ZenScriptComponent before user __init__ runs.
+        scriptComponent.field("node");
+        scriptComponent.constructable(false);
+        scriptComponentClass = scriptComponent.end();
 
         auto node = vm.def_class("Node");
         node.method("get_name", &natNodeGetName, 0);
@@ -1043,6 +1420,21 @@ namespace k2d
         vm.def_native("mouse_x", &natMouseX, 0);
         vm.def_native("mouse_y", &natMouseY, 0);
         vm.def_native("wheel_y", &natWheelY, 0);
+        vm.def_native("viewport_width", &natViewportWidth, 0);
+        vm.def_native("viewport_height", &natViewportHeight, 0);
+        vm.def_native("get_fps", &natGetFps, 0);
+        vm.def_native("profiler_visible", &natProfilerVisible, 0);
+        vm.def_native("screen_to_world", &natScreenToWorld, 2);
+        vm.def_native("mouse_world_position", &natMouseWorldPosition, 0);
+        vm.def_native("world_view_rect", &natWorldViewRect, 0);
+
+        vm.def_native("set_draw_color", &natSetDrawColor, -1);
+        vm.def_native("draw_line", &natDrawLine, -1);
+        vm.def_native("draw_rect", &natDrawRect, -1);
+        vm.def_native("draw_circle", &natDrawCircle, -1);
+        vm.def_native("draw_text", &natDrawText, -1);
+        vm.def_native("draw_text_width", &natDrawTextWidth, -1);
+        vm.def_native("object_count", &natObjectCount, 0);
 
         vm.def_native("raycast", &natRaycast, -1);
         vm.def_native("body_at", &natBodyAt, 2);
@@ -1051,7 +1443,7 @@ namespace k2d
     }
 
     ZenScriptComponent::ZenScriptComponent()
-        : ScriptComponent(ComponentEventUpdate), mState(new State())
+        : ScriptComponent(ComponentEventUpdate | ComponentEventRender), mState(new State())
     {
         ZenRuntime::instance().impl().liveInstances.push_back(&mState->instance);
     }
@@ -1064,12 +1456,11 @@ namespace k2d
         {
             if (impl.liveInstances[i] == &mState->instance)
             {
-                impl.liveInstances.erase(impl.liveInstances.begin() + i);
+                impl.liveInstances[i] = impl.liveInstances.back();
+                impl.liveInstances.pop_back();
                 break;
             }
         }
-        if (owner())
-            impl.forgetInstance(owner());
         delete mState;
     }
 
@@ -1210,17 +1601,31 @@ namespace k2d
 
         if (zen::is_nil(mState->instance))
         {
-            mState->instance = impl.vm.make_instance(zen::as_class(mState->scriptClass->klass));
+            zen::ObjClass *scriptClass = zen::as_class(mState->scriptClass->klass);
+            const bool derivesFromScriptComponent = scriptClass &&
+                                                    scriptClass->parent == impl.scriptComponentClass;
+            mState->instance = impl.vm.make_instance(scriptClass);
             if (!zen::is_instance(mState->instance))
             {
                 mState->instance = zen::val_nil();
                 return false;
             }
+            if (derivesFromScriptComponent)
+            {
+                zen::ObjInstance *instance = zen::as_instance(mState->instance);
+                if (instance && instance->fields && instance->num_fields > 0)
+                    instance->fields[0] = mState->self;
+            }
             if (mState->scriptClass->slotInit >= 0)
             {
-                zen::Value args[1] = {mState->self};
                 RunningScript running;
-                impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, args, 1);
+                if (derivesFromScriptComponent)
+                    impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, nullptr, 0);
+                else
+                {
+                    zen::Value args[1] = {mState->self};
+                    impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, args, 1);
+                }
             }
             applyOverrides();
             mState->started = false;
@@ -1230,6 +1635,7 @@ namespace k2d
 
     bool ZenScriptComponent::callEvent(const char *event, double value)
     {
+        ZenCallbackScope callbackScope(owner());
         if ((!mState->loaded && !mState->pending) || !ensureInstance() || !event)
             return false;
 
@@ -1252,6 +1658,7 @@ namespace k2d
 
     bool ZenScriptComponent::callCollision(GameObject *other, bool began)
     {
+        ZenCallbackScope callbackScope(owner());
         if ((!mState->loaded && !mState->pending) || !ensureInstance())
             return false;
 
@@ -1292,6 +1699,7 @@ namespace k2d
 
     bool ZenScriptComponent::callFunction(const char *name, double value)
     {
+        ZenCallbackScope callbackScope(owner());
         if ((!mState->loaded && !mState->pending) || !ensureInstance() || !name)
             return false;
 
@@ -1525,6 +1933,7 @@ namespace k2d
 
     void ZenScriptComponent::onUpdate(float deltaTime)
     {
+        ZenCallbackScope callbackScope(owner());
         if (!gZenScriptsEnabled || (!mState->loaded && !mState->pending) || !owner())
             return;
         if (!ensureInstance())
@@ -1542,7 +1951,7 @@ namespace k2d
             if (scriptClass->slotStart >= 0 && scriptClass->slotStart < inst->klass->vtable_size &&
                 !zen::is_nil(inst->klass->vtable[scriptClass->slotStart]))
             {
-                RunningScript running;
+                RunningScript running(ScriptProfilePhase::Update);
                 impl.vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
             }
         }
@@ -1551,9 +1960,55 @@ namespace k2d
             !zen::is_nil(inst->klass->vtable[scriptClass->slotUpdate]))
         {
             zen::Value dt = zen::val_float(deltaTime);
-            RunningScript running;
+            RunningScript running(ScriptProfilePhase::Update);
             impl.vm.invoke(mState->instance, scriptClass->slotUpdate, &dt, 1);
         }
+    }
+
+    void ZenScriptComponent::onRender(RenderQueue &queue)
+    {
+        ZenCallbackScope callbackScope(owner());
+        if (!gZenScriptsEnabled || (!mState->loaded && !mState->pending) || !owner())
+            return;
+        if (!ensureInstance())
+            return;
+
+        ZenScriptClass *scriptClass = mState->scriptClass;
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        zen::ObjInstance *inst = zen::as_instance(mState->instance);
+        if (!inst || !inst->klass)
+            return;
+
+        const auto invokeDraw = [&](int slot, int zIndex, bool screenSpace)
+        {
+            if (slot < 0 || slot >= inst->klass->vtable_size || zen::is_nil(inst->klass->vtable[slot]))
+                return;
+            ZenDrawContext context;
+            context.queue = &queue;
+            context.zIndex = zIndex;
+            if (screenSpace)
+            {
+                const float width = gZenGameViewport.valid ? gZenGameViewport.width : 1280.0f;
+                const float height = gZenGameViewport.valid ? gZenGameViewport.height : 720.0f;
+                const Camera2D camera = gZenGameCameraValid ? gZenGameCamera : Camera2D();
+                // The renderer keeps the world's camera projection. Cancel it for
+                // the UI item, yielding stable top-left screen coordinates.
+                context.xform = camera.CameraXform(width, height);
+                context.hasXform = true;
+            }
+            ZenDrawContext *previousContext = gZenDrawContext;
+            gZenDrawContext = &context;
+            {
+                RunningScript running(ScriptProfilePhase::Render);
+                impl.vm.invoke(mState->instance, slot, nullptr, 0);
+            }
+            gZenDrawContext = previousContext;
+        };
+
+        invokeDraw(scriptClass->slotDraw, owner()->zIndex(), false);
+        // UI commands form a second pass after every world-space item, so
+        // counters/HUDs are never covered by sprites spawned later in a scene.
+        invokeDraw(scriptClass->slotDrawUi, (std::numeric_limits<int>::max)(), true);
     }
 
     namespace
@@ -1774,6 +2229,32 @@ namespace k2d
     void SetZenScriptInput(Input *input)
     {
         gZenInput = input;
+    }
+
+    void SetZenScriptGameViewport(float x, float y, float width, float height)
+    {
+        gZenGameViewport.x = x;
+        gZenGameViewport.y = y;
+        gZenGameViewport.width = width > 0.0f ? width : 0.0f;
+        gZenGameViewport.height = height > 0.0f ? height : 0.0f;
+        gZenGameViewport.valid = gZenGameViewport.width > 0.0f && gZenGameViewport.height > 0.0f;
+    }
+
+    void SetZenScriptGameCamera(const Camera2D *camera)
+    {
+        gZenGameCameraValid = camera != nullptr;
+        if (camera)
+            gZenGameCamera = *camera;
+    }
+
+    void SetZenScriptFrameStats(float, float fps)
+    {
+        gZenFps = fps > 0.0f ? fps : 0.0f;
+    }
+
+    void SetZenScriptProfilerVisible(bool visible)
+    {
+        gZenProfilerVisible = visible;
     }
 
     void SetZenScriptAssets(Assets *assets)

@@ -23,7 +23,9 @@ namespace k2d
     Device::Device()
         : mWindow(nullptr), mGLContext(nullptr), mWidth(0), mHeight(0),
           mResized(false), mLastCounter(0), mDeltaTime(0.0f),
+          mFps(0.0f), mFpsAccumulator(0.0f), mFpsFrames(0),
           mImGuiWantsMouse(false), mImGuiWantsKeyboard(false),
+          mUiInitialized(false),
           mGifCapturing(false), mGifFrameRate(60), mGifFrameCounter(0),
           mGifHandle(nullptr), mScreenshotIndex(1), mGifFileIndex(1)
     {
@@ -34,7 +36,7 @@ namespace k2d
         Shutdown();
     }
 
-    bool Device::Init(const char *title, int width, int height, bool vsync)
+    bool Device::Init(const char *title, int width, int height, bool vsync, bool enableUi)
     {
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
         {
@@ -93,11 +95,18 @@ namespace k2d
 
         mLastCounter = SDL_GetPerformanceCounter();
         mDeltaTime = 0.0f;
+        mFps = 0.0f;
+        mFpsAccumulator = 0.0f;
+        mFpsFrames = 0;
 
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui_ImplSDL2_InitForOpenGL(mWindow, mGLContext);
-        ImGui_ImplOpenGL3_Init("#version 300 es");
+        if (enableUi)
+        {
+            IMGUI_CHECKVERSION();
+            ImGui::CreateContext();
+            ImGui_ImplSDL2_InitForOpenGL(mWindow, mGLContext);
+            ImGui_ImplOpenGL3_Init("#version 300 es");
+            mUiInitialized = true;
+        }
 
         mWindowTitle = title;
 
@@ -106,11 +115,12 @@ namespace k2d
 
     void Device::Shutdown()
     {
-        if (mGLContext)
+        if (mUiInitialized)
         {
             ImGui_ImplOpenGL3_Shutdown();
             ImGui_ImplSDL2_Shutdown();
             ImGui::DestroyContext();
+            mUiInitialized = false;
         }
         if (mGLContext)
         {
@@ -128,15 +138,21 @@ namespace k2d
 
     void Device::BeginUI()
     {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
+        if (mUiInitialized)
+        {
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
+        }
     }
 
     void Device::EndUI()
     {
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        if (mUiInitialized)
+        {
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
     }
 
     void Device::Focus()
@@ -155,7 +171,8 @@ namespace k2d
         SDL_Event e;
         while (SDL_PollEvent(&e))
         {
-            ImGui_ImplSDL2_ProcessEvent(&e);
+            if (mUiInitialized)
+                ImGui_ImplSDL2_ProcessEvent(&e);
 
             switch (e.type)
             {
@@ -248,10 +265,28 @@ namespace k2d
         if (dt > 0.25f)
             dt = 0.25f;
         mDeltaTime = dt;
+        mFpsAccumulator += dt;
+        ++mFpsFrames;
+        // Sample over half a second instead of displaying 1 / dt. It is stable
+        // under vsync and still responds quickly when a scene becomes expensive.
+        if (mFpsAccumulator >= 0.5f)
+        {
+            mFps = static_cast<float>(mFpsFrames) / mFpsAccumulator;
+            mFpsAccumulator = 0.0f;
+            mFpsFrames = 0;
+        }
 
-        ImGuiIO &io = ImGui::GetIO();
-        mImGuiWantsMouse = io.WantCaptureMouse;
-        mImGuiWantsKeyboard = io.WantCaptureKeyboard;
+        if (mUiInitialized)
+        {
+            ImGuiIO &io = ImGui::GetIO();
+            mImGuiWantsMouse = io.WantCaptureMouse;
+            mImGuiWantsKeyboard = io.WantCaptureKeyboard;
+        }
+        else
+        {
+            mImGuiWantsMouse = false;
+            mImGuiWantsKeyboard = false;
+        }
 
         return true;
     }

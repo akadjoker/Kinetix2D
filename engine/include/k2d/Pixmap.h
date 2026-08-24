@@ -37,6 +37,23 @@ namespace k2d
         const unsigned char *Pixels() const { return mPixels; }
         unsigned char *Pixels() { return mPixels; }
 
+        // Preferred camelCase API. PascalCase names above remain compatible.
+        bool create(int width, int height) { return Create(width, height); }
+        bool load(const char *path) { return Load(path); }
+        bool save(const char *path) const { return Save(path); }
+        Pixmap *generateNormalMap(float strength = 2.0f) const { return GenerateNormalMap(strength); }
+        void clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255) { Clear(r, g, b, a); }
+        void setPixel(int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
+        { SetPixel(x, y, r, g, b, a); }
+        void fillRect(int x, int y, int width, int height, unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
+        { FillRect(x, y, width, height, r, g, b, a); }
+        void fillCircle(int centerX, int centerY, int radius, unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
+        { FillCircle(centerX, centerY, radius, r, g, b, a); }
+        int width() const { return Width(); }
+        int height() const { return Height(); }
+        const unsigned char *pixels() const { return Pixels(); }
+        unsigned char *pixels() { return Pixels(); }
+
     private:
         int mWidth;
         int mHeight;

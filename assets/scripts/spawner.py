@@ -1,6 +1,5 @@
-class Spawner:
-    def __init__(self, node):
-        self.node = node
+class Spawner(ScriptComponent):
+    def __init__(self):
         self.cooldown = 0.4
         self._timer = 0.0
 

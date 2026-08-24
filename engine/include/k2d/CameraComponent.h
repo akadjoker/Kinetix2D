@@ -23,6 +23,8 @@ namespace k2d
         void setViewport(float width, float height);
         float viewportWidth() const { return mViewportWidth; }
         float viewportHeight() const { return mViewportHeight; }
+        void setRenderPriority(int value) { mRenderPriority = value; }
+        int renderPriority() const { return mRenderPriority; }
         Math::Mat4 projection() const;
         void visibleRect(float &minX, float &minY, float &maxX, float &maxY) const;
         Math::Vec2 screenToWorld(float x, float y) const;
@@ -39,6 +41,7 @@ namespace k2d
         Camera2D mCamera;
         float mViewportWidth;
         float mViewportHeight;
+        int mRenderPriority;
         ct::String mFollowTargetName;
     };
 

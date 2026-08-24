@@ -1,8 +1,7 @@
 import math
 
-class Orbit:
-    def __init__(self, node):
-        self.node = node
+class Orbit(ScriptComponent):
+    def __init__(self):
         self.radius = 120
         self.speed = 2.0
         self._t = 0.0

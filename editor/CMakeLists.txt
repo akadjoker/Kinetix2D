@@ -14,6 +14,7 @@ target_link_libraries(k2d_editor_widgets PUBLIC imgui)
 target_compile_features(k2d_editor_widgets PUBLIC cxx_std_17)
 
 add_executable(k2d_editor
+    external/TextEditor.cpp
     src/main.cpp
     src/core/EditorApplication.cpp
     src/core/CommandStack.cpp
@@ -32,9 +33,11 @@ add_executable(k2d_editor
     src/panels/ScriptsPanel.cpp
     src/panels/SettingsPanel.cpp
     src/panels/SceneViewportPanel.cpp
+    src/panels/ScriptEditorPanel.cpp
 )
 
 target_include_directories(k2d_editor PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/external
     ${CMAKE_CURRENT_SOURCE_DIR}/external/icons
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core
@@ -46,5 +49,5 @@ target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d k2d_editor_wi
 target_compile_features(k2d_editor PRIVATE cxx_std_17)
 
 set_target_properties(k2d_editor PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${K2D_RUNTIME_OUTPUT_DIRECTORY}
 )

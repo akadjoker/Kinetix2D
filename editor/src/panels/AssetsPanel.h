@@ -64,6 +64,7 @@ private:
 
     ct::HashMap<ct::String, Texture *> mThumbnailCache;
     char mNewScriptName[64] = "new_script";
+    int mNewScriptTemplate = 0;
 };
 
 }

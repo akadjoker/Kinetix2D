@@ -1,6 +1,7 @@
 #include "k2d/RenderQueue.h"
 
 #include "k2d/CanvasRenderer.h"
+#include "k2d/Profiler.h"
 
 #include <ct/sort.hpp>
 
@@ -23,13 +24,19 @@ namespace k2d
         }
     } 
 
-    RenderQueue::RenderQueue() : mItems(), mLights(), mDirectionalLights(), mOccluders(), mSeq(0) {}
+    RenderQueue::RenderQueue()
+        : mItems(), mLights(), mDirectionalLights(), mOccluders(), mSeq(0), mItemCount(0) {}
 
     RenderQueue::~RenderQueue() {}
 
     void RenderQueue::Clear()
     {
-        mItems.clear();
+        // Keep RenderItems (and, importantly, each item's command capacity) alive.
+        // A sprite-only scene otherwise performs one small allocation per sprite,
+        // per frame, while rebuilding the queue.
+        for (std::size_t i = 0; i < mItemCount; ++i)
+            mItems[i].commands.clear();
+        mItemCount = 0;
         mLights.clear();
         mDirectionalLights.clear();
         mOccluders.clear();
@@ -54,34 +61,46 @@ namespace k2d
 
     RenderItem &RenderQueue::AddItem(int zIndex, bool ySort)
     {
-        RenderItem item;
-        item.zIndex = zIndex;
-        item.ySort = ySort;
-        item.seq = mSeq++;
-        mItems.push_back(item);
-        return mItems.back();
+        RenderItem *item = nullptr;
+        if (mItemCount < mItems.size())
+            item = &mItems[mItemCount];
+        else
+            item = &mItems.emplace_back();
+        ++mItemCount;
+
+        item->commands.clear();
+        item->zIndex = zIndex;
+        item->ySort = ySort;
+        item->y = 0.0f;
+        item->xform = Matrix2D();
+        item->blendMode = BLEND_MIX;
+        item->seq = mSeq++;
+        return *item;
     }
 
     std::size_t RenderQueue::CommandCount() const
     {
         std::size_t count = 0;
-        for (std::size_t i = 0; i < mItems.size(); ++i)
+        for (std::size_t i = 0; i < mItemCount; ++i)
             count += mItems[i].commands.size();
         return count;
     }
 
     void RenderQueue::Flush(CanvasRenderer &canvas)
     {
-        if (mItems.empty())
+        if (mItemCount == 0)
             return;
 
-        if (mItems.size() > 1)
-            ct::sort(mItems.data(), mItems.data() + mItems.size(), ItemLess);
+        if (mItemCount > 1)
+        {
+            ProfileScope scope("render.sort");
+            ct::sort(mItems.data(), mItems.data() + mItemCount, ItemLess);
+        }
 
-        canvas.DrawItems(mItems.data(), mItems.size(),
-                         mLights.data(), mLights.size(),
-                         mDirectionalLights.data(), mDirectionalLights.size(),
-                         mOccluders.data(), mOccluders.size());
+        ProfileScope scope("render.submit");
+        canvas.DrawItems(mItems.data(), mItemCount, mLights.data(), mLights.size(),
+                         mDirectionalLights.data(), mDirectionalLights.size(), mOccluders.data(),
+                         mOccluders.size());
     }
 
-} 
+}

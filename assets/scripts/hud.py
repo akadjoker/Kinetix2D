@@ -1,6 +1,4 @@
-class Hud:
-    def __init__(self, node):
-        self.node = node
+class Hud(ScriptComponent):
 
     def on_start(self):
         set_number("score", 0)

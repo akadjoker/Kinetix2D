@@ -1,0 +1,35 @@
+{
+  "name": "Bunnymark Bunny",
+  "tag": "bunny",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [0, 0],
+  "rotation": 0,
+  "scale": [1, 1],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "wabbit_alpha.png",
+        "size": [26, 37],
+        "pivot": [0.5, 0.5],
+        "tiling": [1, 1],
+        "color": [1, 1, 1, 1],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "scripts/bunnymark_bunny.py"
+      }
+    }
+  ],
+  "children": []
+}

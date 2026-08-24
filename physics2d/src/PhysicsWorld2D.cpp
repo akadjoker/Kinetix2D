@@ -5,6 +5,7 @@
 #include "k2d/GameObject.h"
 #include "k2d/RenderQueue.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Profiler.h"
 
 #include <cmath>
 #include <limits>
@@ -203,12 +204,16 @@ namespace k2d
                 mWorld.Destroy(rigidBody->mBody);
             rigidBody->mBody = nullptr;
             rigidBody->mWorld = nullptr;
+            rigidBody->mBodyIndex = RigidBody2D::InvalidWorldIndex;
         }
         mBodies.clear();
 
         for (size_t i = 0; i < mPending.size(); ++i)
             if (mPending[i])
+            {
                 mPending[i]->mWorld = nullptr;
+                mPending[i]->mPendingIndex = RigidBody2D::InvalidWorldIndex;
+            }
         mPending.clear();
         mAccumulator = 0.0f;
     }
@@ -227,22 +232,33 @@ namespace k2d
 
     void PhysicsWorld2D::detach(RigidBody2D &rigidBody)
     {
-        for (size_t i = 0; i < mPending.size(); ++i)
+        const auto removePending = [&](RigidBody2D &body)
         {
-            if (mPending[i] == &rigidBody)
+            const size_t index = body.mPendingIndex;
+            if (index < mPending.size() && mPending[index] == &body)
             {
-                mPending.erase(mPending.begin() + i);
-                break;
+                RigidBody2D *moved = mPending.back();
+                mPending[index] = moved;
+                moved->mPendingIndex = index;
+                mPending.pop_back();
             }
-        }
-
-        for (size_t i = 0; i < mBodies.size(); ++i)
+            body.mPendingIndex = RigidBody2D::InvalidWorldIndex;
+        };
+        const auto removeBody = [&](RigidBody2D &body)
         {
-            if (mBodies[i] != &rigidBody)
-                continue;
-            mBodies.erase(mBodies.begin() + i);
-            break;
-        }
+            const size_t index = body.mBodyIndex;
+            if (index < mBodies.size() && mBodies[index] == &body)
+            {
+                RigidBody2D *moved = mBodies.back();
+                mBodies[index] = moved;
+                moved->mBodyIndex = index;
+                mBodies.pop_back();
+            }
+            body.mBodyIndex = RigidBody2D::InvalidWorldIndex;
+        };
+
+        removePending(rigidBody);
+        removeBody(rigidBody);
 
         if (rigidBody.mBody)
             mWorld.Destroy(rigidBody.mBody);
@@ -269,6 +285,8 @@ namespace k2d
         for (size_t i = 0; i < pending.size(); ++i)
         {
             RigidBody2D *rigidBody = pending[i];
+            if (rigidBody)
+                rigidBody->mPendingIndex = RigidBody2D::InvalidWorldIndex;
             if (!rigidBody || rigidBody->mBody || !rigidBody->owner())
                 continue;
             createBody(*rigidBody->owner(), *rigidBody);
@@ -318,14 +336,15 @@ namespace k2d
 
         mWorld.Destroy(rigidBody.mBody);
         rigidBody.mBody = nullptr;
-        for (size_t i = 0; i < mBodies.size(); ++i)
+        const size_t index = rigidBody.mBodyIndex;
+        if (index < mBodies.size() && mBodies[index] == &rigidBody)
         {
-            if (mBodies[i] == &rigidBody)
-            {
-                mBodies.erase(mBodies.begin() + i);
-                break;
-            }
+            RigidBody2D *moved = mBodies.back();
+            mBodies[index] = moved;
+            moved->mBodyIndex = index;
+            mBodies.pop_back();
         }
+        rigidBody.mBodyIndex = RigidBody2D::InvalidWorldIndex;
 
         rigidBody.mNeedsRebuild = false;
         createBody(*object, rigidBody);
@@ -371,6 +390,7 @@ namespace k2d
 
         rigidBody.mBody = body;
         rigidBody.mWorld = this;
+        rigidBody.mBodyIndex = mBodies.size();
         mBodies.push_back(&rigidBody);
 
         attachColliders(object, rigidBody);
@@ -483,6 +503,7 @@ namespace k2d
 
     void PhysicsWorld2D::step(float deltaTime)
     {
+        ProfileScope profileScope("physics.step");
         drainPending();
         rebuildChanged();
 

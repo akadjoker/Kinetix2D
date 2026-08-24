@@ -3,6 +3,7 @@
 #include "k2d/Matrix2D.h"
 #include "k2d/Color.h"
 
+#include <ct/string.hpp>
 #include <ct/vector.hpp>
 #include <mathc.h>
 
@@ -64,7 +65,8 @@ namespace k2d
         {
             kTransform, 
             kRect,      
-            kPolygon    
+            kPolygon,
+            kText
         };
 
         Type type;
@@ -83,6 +85,10 @@ namespace k2d
         unsigned char flags;
         const ct::Vector<Math::Vec2> *polygonPoints;
         unsigned int polygonPointCount;
+        // Script-created polygons own their points. Native components can keep using
+        // polygonPoints to avoid copying their cached geometry every frame.
+        ct::Vector<Math::Vec2> ownedPolygonPoints;
+        ct::String text;
 
         unsigned int lightMask;
 
@@ -92,6 +98,7 @@ namespace k2d
               srcX(0.0f), srcY(0.0f), srcW(0.0f), srcH(0.0f),
               texWidth(0), texHeight(0), pivotX(0.5f), pivotY(0.5f),
               color(0xFFFFFFFFu), flags(0), polygonPoints(nullptr), polygonPointCount(0),
+              ownedPolygonPoints(), text(),
               lightMask(1)
         {
         }
@@ -136,4 +143,4 @@ namespace k2d
     static const int kMaxPointLights = 8;
     static const int kMaxDirectionalLights = 8;
 
-} 
+}

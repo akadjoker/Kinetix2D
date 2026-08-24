@@ -1,8 +1,7 @@
 SPEED = 200
 
-class Player:
-    def __init__(self, node):
-        self.node = node
+class Player(ScriptComponent):
+    def __init__(self):
         self.speed = SPEED
 
     def on_update(self, dt):

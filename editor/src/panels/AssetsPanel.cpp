@@ -87,6 +87,81 @@ ImVec4 colorFor(bool directory, const ct::String &ext)
         return ImVec4(0.75f, 0.75f, 0.75f, 1.0f);
     return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
+
+ct::String scriptClassName(const char *fileName)
+{
+    ct::String result;
+    bool uppercaseNext = true;
+    for (const char *c = fileName; c && *c; ++c)
+    {
+        const bool lower = *c >= 'a' && *c <= 'z';
+        const bool upper = *c >= 'A' && *c <= 'Z';
+        const bool digit = *c >= '0' && *c <= '9';
+        if (!lower && !upper && !digit)
+        {
+            uppercaseNext = true;
+            continue;
+        }
+        if (result.empty() && digit)
+            result += "Script";
+        if (uppercaseNext && lower)
+            result.push_back(static_cast<char>(*c - 'a' + 'A'));
+        else
+            result.push_back(*c);
+        uppercaseNext = false;
+    }
+    return result.empty() ? ct::String("NewScript") : result;
+}
+
+ct::String makeScriptTemplate(const char *fileName, int kind)
+{
+    ct::String source("class ");
+    source += scriptClassName(fileName);
+    source += "(ScriptComponent):\n";
+
+    switch (kind)
+    {
+    case 1:
+        source += "    speed = 200\n\n"
+                  "    def on_update(self, dt):\n"
+                  "        dx = 0\n"
+                  "        dy = 0\n"
+                  "        if key_down(\"left\"):\n"
+                  "            dx = dx - 1\n"
+                  "        if key_down(\"right\"):\n"
+                  "            dx = dx + 1\n"
+                  "        if key_down(\"up\"):\n"
+                  "            dy = dy - 1\n"
+                  "        if key_down(\"down\"):\n"
+                  "            dy = dy + 1\n"
+                  "        self.node.translate(dx * self.speed * dt, dy * self.speed * dt)\n";
+        break;
+    case 2:
+        source += "    jump_impulse = 160000\n\n"
+                  "    def on_start(self):\n"
+                  "        self.body = self.node.get_body()\n\n"
+                  "    def on_update(self, dt):\n"
+                  "        if self.body != None and key_pressed(\"space\"):\n"
+                  "            self.body.apply_impulse(0, -self.jump_impulse)\n";
+        break;
+    case 3:
+        source += "    def on_start(self):\n"
+                  "        print(\"Script started on\", self.node.get_name())\n\n"
+                  "    def on_event(self, name, value):\n"
+                  "        print(\"Event:\", name, value)\n\n"
+                  "    def on_collision(self, other, began):\n"
+                  "        if began:\n"
+                  "            print(\"Touched\", other.get_name())\n";
+        break;
+    default:
+        source += "    def on_start(self):\n"
+                  "        pass\n\n"
+                  "    def on_update(self, dt):\n"
+                  "        pass\n";
+        break;
+    }
+    return source;
+}
 }
 
 AssetsPanel::AssetsPanel(EditorApplication &application)
@@ -343,6 +418,11 @@ void AssetsPanel::handleEntryInteraction(const EditorFileEntry &entry, bool clic
     }
 
     const ct::String ext = EditorFileSystem::extension(entry.path);
+    if (isScript(ext) && doubleClicked)
+    {
+        app().openScriptEditor(entry.path.c_str());
+        return;
+    }
     if (isPrefab(ext) && !doubleClicked)
     {
         app().previewPrefab(entry.path.c_str());
@@ -414,6 +494,11 @@ void AssetsPanel::drawNewScriptPopup()
     ImGui::TextDisabled("Creating in %s", mRoot.c_str());
     ImGui::SetNextItemWidth(220.0f);
     ImGui::InputText("Name", mNewScriptName, sizeof(mNewScriptName));
+    static const char *templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::Combo("Template", &mNewScriptTemplate, templates,
+                 static_cast<int>(sizeof(templates) / sizeof(templates[0])));
+    ImGui::TextDisabled("Scripts inherit ScriptComponent and receive self.node automatically.");
 
     ct::String fileName(mNewScriptName);
     fileName += ".py";
@@ -425,20 +510,13 @@ void AssetsPanel::drawNewScriptPopup()
     ImGui::BeginDisabled(mNewScriptName[0] == '\0' || exists);
     if (ImGui::Button("Create"))
     {
-        const ct::String templateSource(
-            "def ready(node):\n"
-            "    pass\n"
-            "\n"
-            "def update(node, dt):\n"
-            "    pass\n"
-            "\n"
-            "def on_event(node, name, value):\n"
-            "    pass\n");
+        const ct::String templateSource = makeScriptTemplate(mNewScriptName, mNewScriptTemplate);
         if (FileSystem::Instance().SaveTextFile(target.c_str(), templateSource))
         {
             mEntriesDirty = true;
             app().toasts().info("Script created");
             app().log(ct::String("Created script: ") + target);
+            app().openScriptEditor(target.c_str());
         }
         else
         {

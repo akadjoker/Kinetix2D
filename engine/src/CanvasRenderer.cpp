@@ -1,10 +1,13 @@
 #include "k2d/CanvasRenderer.h"
+#include "k2d/Profiler.h"
+#include "font_data.h"
 
 #include <glad/glad.h>
 
 
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace k2d
@@ -12,6 +15,10 @@ namespace k2d
 
     namespace
     {
+        static const int FONT_COLS = 16;
+        static const int FONT_ATLAS_W = 128;
+        static const int FONT_ATLAS_H = 48;
+
         static const char *VERTEX_SHADER_SOURCE = R"(#version 300 es
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec2 a_texcoord;
@@ -346,7 +353,7 @@ void main()
     CanvasRenderer::CanvasRenderer()
         : mConfig(), mStats(), mVertices(), mIndices(), mDrawCalls(),
           mCurrentTextureId(0), mProjection(1.0f), mOccluderEdges(),
-          mVAO(0), mVBO(0), mIBO(0), mProgram(0), mShadowProgram(0), mWhiteTexture(0),
+          mVAO(0), mVBO(0), mIBO(0), mProgram(0), mShadowProgram(0), mWhiteTexture(0), mFontTexture(0),
           mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
           mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1),
           mNormalMapLoc(-1), mHasNormalMapLoc(-1), mLightHeightLoc(-1), mDirectionalHeightLoc(-1),
@@ -381,6 +388,7 @@ void main()
             return false;
         SetupBuffers();
         SetupTexture();
+        SetupFontTexture();
         SetupShadowAtlas();
 
         glEnable(GL_BLEND);
@@ -426,6 +434,11 @@ void main()
         {
             glDeleteTextures(1, &mWhiteTexture);
             mWhiteTexture = 0;
+        }
+        if (mFontTexture)
+        {
+            glDeleteTextures(1, &mFontTexture);
+            mFontTexture = 0;
         }
         mVertices.clear();
         mIndices.clear();
@@ -490,6 +503,7 @@ void main()
                                    const DirectionalLight *directionalLights, size_t directionalLightCount,
                                    const Occluder *occluders, size_t occluderCount)
     {
+        ProfileScope profileScope("render.expand");
         mLights = lights;
         mLightCount = (int)lightCount;
         mDirectionalLights = directionalLights;
@@ -525,12 +539,21 @@ void main()
                 }
                 case RenderCommand::kPolygon:
                 {
-                    if (c.polygonPoints && c.polygonPointCount >= 3)
+                    const ct::Vector<Math::Vec2> *points = c.polygonPoints;
+                    if (!points && !c.ownedPolygonPoints.empty())
+                        points = &c.ownedPolygonPoints;
+                    if (points && points->size() >= 3)
                     {
                         Matrix2D m = item.xform * drawTransform;
                         EmitPolygon(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, m,
-                                   *c.polygonPoints, c.color, c.lightMask, c.texWidth, c.texHeight);
+                                   *points, c.color, c.lightMask, c.texWidth, c.texHeight);
                     }
+                    break;
+                }
+                case RenderCommand::kText:
+                {
+                    Matrix2D m = item.xform * drawTransform;
+                    EmitText(item.blendMode, m, c.x, c.y, c.width, c.text.c_str(), c.color, c.lightMask);
                     break;
                 }
                 default:
@@ -676,8 +699,45 @@ void main()
         mDrawCalls.back().indexCount += (points.size() / 3) * 3;
     }
 
+    void CanvasRenderer::EmitText(BlendMode blendMode, const Matrix2D &matrix, float x, float y, float size,
+                                  const char *text, const Color &color, unsigned int lightMask)
+    {
+        if (!text || !text[0] || size <= 0.0f || mFontTexture == 0)
+            return;
+
+        const float cellWidth = 8.0f / (float)FONT_ATLAS_W;
+        const float cellHeight = 8.0f / (float)FONT_ATLAS_H;
+        float penX = x;
+        float penY = y;
+        for (const char *character = text; *character; ++character)
+        {
+            if (*character == '\n')
+            {
+                penX = x;
+                penY += size;
+                continue;
+            }
+
+            unsigned char code = (unsigned char)*character;
+            if (code < 32 || code > 127)
+                code = '?';
+            if (code != ' ')
+            {
+                const int glyph = code - 32;
+                const float srcX = (float)(glyph % FONT_COLS) * 8.0f;
+                const float srcY = (float)(glyph / FONT_COLS) * 8.0f;
+                EmitQuad(blendMode, mFontTexture, 0, 0,
+                         matrix * Matrix2D::Translation(penX, penY), size, size,
+                         FONT_ATLAS_W, FONT_ATLAS_H, 0.0f, 0.0f,
+                         srcX, srcY, 8.0f, 8.0f, false, false, color, lightMask);
+            }
+            penX += size;
+        }
+    }
+
     void CanvasRenderer::Flush()
     {
+        ProfileScope profileScope("render.flush");
         if (mVertices.empty() || mDrawCalls.empty())
         {
             mVertices.clear();
@@ -965,6 +1025,41 @@ void main()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
+    void CanvasRenderer::SetupFontTexture()
+    {
+        unsigned char *atlas = (unsigned char *)std::malloc(FONT_ATLAS_W * FONT_ATLAS_H * 4);
+        if (!atlas)
+            return;
+        std::memset(atlas, 0, FONT_ATLAS_W * FONT_ATLAS_H * 4);
+
+        for (int glyph = 0; glyph < 96; ++glyph)
+        {
+            const int cellX = (glyph % FONT_COLS) * 8;
+            const int cellY = (glyph / FONT_COLS) * 8;
+            for (int row = 0; row < 8; ++row)
+            {
+                const unsigned char bits = kFont8x8[glyph][row];
+                for (int column = 0; column < 8; ++column)
+                {
+                    if (((bits >> column) & 1) == 0)
+                        continue;
+                    unsigned char *pixel = &atlas[((cellY + row) * FONT_ATLAS_W + cellX + column) * 4];
+                    pixel[0] = pixel[1] = pixel[2] = pixel[3] = 255;
+                }
+            }
+        }
+
+        glGenTextures(1, &mFontTexture);
+        glBindTexture(GL_TEXTURE_2D, mFontTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FONT_ATLAS_W, FONT_ATLAS_H, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, atlas);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        std::free(atlas);
+    }
+
     void CanvasRenderer::SetupShadowAtlas()
     {
         static const int textureSize = 2048;
@@ -1198,4 +1293,4 @@ void main()
         std::printf("============================\n");
     }
 
-} 
+}

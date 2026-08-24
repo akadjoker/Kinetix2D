@@ -25,6 +25,8 @@ class PhysicsWorld2D;
 namespace k2d::editor
 {
 
+class ScriptEditorPanel;
+
 class EditorApplication
 {
 public:
@@ -99,6 +101,7 @@ public:
     bool saveScene(const char *path);
     bool newProject(const char *rootDirectory, const char *name);
     bool openProject(const char *projectFile);
+    void openScriptEditor(const char *path);
     void openFileDialog(FileDialogPurpose purpose, ImGuiFileDialog::Mode mode,
                         const ct::String &startDirectory, const ct::String &initialName = ct::String());
 
@@ -111,6 +114,9 @@ private:
     void drawStatusBar();
     void createDefaultDockLayout(unsigned int dockspaceId);
     void newScene();
+    void createShapesExampleScene();
+    void createPhysicsExampleScene();
+    void createBunnymarkExampleScene();
     ct::Json snapshotScene();
     void restoreScene(const ct::Json &snapshot, uint64_t selectedId, bool hadSelection);
     void handleShortcuts();
@@ -119,6 +125,7 @@ private:
     void startPlay();
     void stopPlay();
     void stepPlay();
+    void runStandalone();
     void tickEditPreview(GameObject &object, float deltaTime);
     void restartEditPreview(GameObject &object);
 
@@ -132,6 +139,7 @@ private:
     EditorToasts mToasts;
     CommandStack mCommands;
     ct::Vector<ct::Unique<EditorPanel>> mPanels;
+    ScriptEditorPanel *mScriptEditor = nullptr;
     ct::String mConsoleText;
     ct::String mCurrentScenePath;
     ct::String mPreviewPrefabPath;
@@ -144,6 +152,7 @@ private:
     bool mDefaultLayoutPending = true;
     bool mLayoutResetRequested = false;
     bool mDefaultFocusPending = false;
+    bool mProfilerOpen = false;
     bool mTransactionActive = false;
     ct::String mTransactionLabel;
     SceneChange mTransactionBefore;

@@ -32,6 +32,12 @@ namespace k2d
         bool recompile(const char *path);
         std::size_t refreshChangedFiles();
 
+        // Detailed VM timers are opt-in because they instrument every script
+        // callback. Call submitProfilerSamples once after update/render.
+        void setVmProfiling(bool enabled);
+        bool vmProfiling() const;
+        void submitProfilerSamples();
+
         struct Impl;
         Impl &impl() { return *mImpl; }
 

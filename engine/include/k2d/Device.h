@@ -18,7 +18,7 @@ namespace k2d
         Device(const Device &) = delete;
         Device &operator=(const Device &) = delete;
 
-        bool Init(const char *title, int width, int height, bool vsync = true);
+        bool Init(const char *title, int width, int height, bool vsync = true, bool enableUi = true);
         void Focus();
         void Shutdown();
 
@@ -29,6 +29,7 @@ namespace k2d
         int Height() const { return mHeight; }
         bool WasResized() const { return mResized; }
         float DeltaTime() const { return mDeltaTime; }
+        float FPS() const { return mFps; }
         static double TimeSeconds();
 
         Input &GetInput() { return mInput; }
@@ -46,6 +47,25 @@ namespace k2d
         void CaptureGifFrame();
         bool IsGifCapturing() const { return mGifCapturing; }
 
+        // Preferred camelCase API. PascalCase names above remain compatible.
+        bool init(const char *title, int width, int height, bool vsync = true, bool enableUi = true)
+        { return Init(title, width, height, vsync, enableUi); }
+        void focus() { Focus(); }
+        void shutdown() { Shutdown(); }
+        bool pollEvents() { return PollEvents(); }
+        void swap() { Swap(); }
+        int width() const { return Width(); }
+        int height() const { return Height(); }
+        bool wasResized() const { return WasResized(); }
+        float deltaTime() const { return DeltaTime(); }
+        float fps() const { return FPS(); }
+        Input &input() { return GetInput(); }
+        const Input &input() const { return GetInput(); }
+        void beginUI() { BeginUI(); }
+        void endUI() { EndUI(); }
+        bool imguiWantsMouse() const { return ImGuiWantsMouse(); }
+        bool imguiWantsKeyboard() const { return ImGuiWantsKeyboard(); }
+
     private:
         SDL_Window *mWindow;
         void *mGLContext;
@@ -55,8 +75,12 @@ namespace k2d
         bool mResized;
         unsigned long long mLastCounter;
         float mDeltaTime;
+        float mFps;
+        float mFpsAccumulator;
+        unsigned int mFpsFrames;
         bool mImGuiWantsMouse;
         bool mImGuiWantsKeyboard;
+        bool mUiInitialized;
 
         bool mGifCapturing;
         int mGifFrameRate;

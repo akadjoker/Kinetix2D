@@ -8,6 +8,7 @@ namespace
 {
     int gUpdates = 0;
     int gLateUpdates = 0;
+    int gSpawnedUpdates = 0;
 
     class CounterScript : public k2d::ScriptComponent
     {
@@ -22,6 +23,32 @@ namespace
         {
             ++gLateUpdates;
         }
+    };
+
+    class SpawnedCounterScript : public k2d::ScriptComponent
+    {
+    protected:
+        void onUpdate(float) override { ++gSpawnedUpdates; }
+    };
+
+    class SpawnChildrenScript : public k2d::ScriptComponent
+    {
+    protected:
+        void onUpdate(float) override
+        {
+            if (mSpawned)
+                return;
+            mSpawned = true;
+            for (int i = 0; i < 100; ++i)
+            {
+                k2d::GameObject *child = owner()->scene()->createObject("spawned", owner());
+                if (child)
+                    child->addComponent<SpawnedCounterScript>();
+            }
+        }
+
+    private:
+        bool mSpawned = false;
     };
 
     bool Near(float a, float b)
@@ -91,18 +118,28 @@ int main()
                             first->childCount() == 0;
     bool reparent = reparented && reparentCycleRejected && reparentSelfRejected && reparentedToRoot;
 
+    k2d::Scene spawnScene;
+    k2d::GameObject *spawner = spawnScene.createObject("spawner");
+    spawner->addComponent<SpawnChildrenScript>();
+    gSpawnedUpdates = 0;
+    spawnScene.update(0.0f);
+    const bool spawnSnapshot = spawnScene.objectCount() == 101 && gSpawnedUpdates == 0;
+    spawnScene.update(0.0f);
+    const bool spawnedNextFrame = gSpawnedUpdates == 100;
+
     scene.clear();
     bool cleared = scene.objectCount() == 0 && scene.root().childCount() == 0;
 
     std::printf("scene: hierarchy=%s transform=%s lifecycle=%s activation=%s deferred=%s destroyed=%s "
-               "reorder=%s reparent=%s cleared=%s\n",
+               "reorder=%s reparent=%s spawn_snapshot=%s spawn_next_frame=%s cleared=%s\n",
                 hierarchy ? "pass" : "fail", transform ? "pass" : "fail",
                 lifecycle ? "pass" : "fail", hierarchyActivation ? "pass" : "fail",
                 deferred ? "pass" : "fail", destroyed ? "pass" : "fail",
                 reorder ? "pass" : "fail", reparent ? "pass" : "fail",
+                spawnSnapshot ? "pass" : "fail", spawnedNextFrame ? "pass" : "fail",
                 cleared ? "pass" : "fail");
     return hierarchy && transform && lifecycle && hierarchyActivation &&
-                   deferred && destroyed && reorder && reparent && cleared
+                   deferred && destroyed && reorder && reparent && spawnSnapshot && spawnedNextFrame && cleared
                ? 0
                : 1;
 }

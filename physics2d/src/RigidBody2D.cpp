@@ -19,11 +19,12 @@ namespace k2d
           mLinearDamping(0.0f), mAngularDamping(0.0f), mGravityScale(1.0f), mFixedRotation(false),
           mBullet(false), mPendingVelocity(0.0f, 0.0f), mPendingAngularVelocity(0.0f),
           mHasPendingVelocity(false), mHasPendingAngularVelocity(false), mNeedsRebuild(false),
-          mColliderCount(0)
+          mColliderCount(0), mBodyIndex(InvalidWorldIndex), mPendingIndex(InvalidWorldIndex)
     {
         if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
         {
             mWorld = world;
+            mPendingIndex = world->mPending.size();
             world->mPending.push_back(this);
         }
     }

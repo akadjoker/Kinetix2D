@@ -662,6 +662,7 @@ namespace k2d
 
             data.set("viewportWidth", ct::Json((double)cameraComponent.viewportWidth()));
             data.set("viewportHeight", ct::Json((double)cameraComponent.viewportHeight()));
+            data.set("renderPriority", ct::Json((int64_t)cameraComponent.renderPriority()));
             data.set("position", WriteVec2(camera.position));
             data.set("rotationDegrees", ct::Json((double)camera.rotationDegrees));
             data.set("zoom", WriteVec2(camera.zoom));
@@ -682,6 +683,7 @@ namespace k2d
             CameraComponent &cameraComponent = static_cast<CameraComponent &>(component);
             cameraComponent.setViewport((float)data["viewportWidth"].as_double(0.0),
                                          (float)data["viewportHeight"].as_double(0.0));
+            cameraComponent.setRenderPriority((int)data["renderPriority"].as_int(0));
 
             Camera2D &camera = cameraComponent.camera();
             camera.position = ReadVec2(data["position"]);

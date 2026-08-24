@@ -5,7 +5,8 @@ namespace k2d
 
     Component::Component(ComponentType type, uint8_t events)
         : mOwner(nullptr), mNextSibling(nullptr), mType(type), mLocalId(0), mEvents(events),
-          mActive(true), mStarted(false)
+          mActive(true), mStarted(false), mSceneAllIndex(InvalidSceneListIndex),
+          mSceneLateIndex(InvalidSceneListIndex), mSceneRenderIndex(InvalidSceneListIndex)
     {
     }
 

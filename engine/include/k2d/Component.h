@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
+#include <limits>
 
 namespace k2d
 {
@@ -87,6 +89,10 @@ namespace k2d
         uint8_t mEvents;
         bool mActive;
         bool mStarted;
+        static constexpr std::size_t InvalidSceneListIndex = (std::numeric_limits<std::size_t>::max)();
+        std::size_t mSceneAllIndex;
+        std::size_t mSceneLateIndex;
+        std::size_t mSceneRenderIndex;
     };
 
 }
