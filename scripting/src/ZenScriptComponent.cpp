@@ -674,19 +674,35 @@ namespace k2d
             {
                 char small[16];
                 const char *path = valueToCString(vm, args[0], small, sizeof(small));
-                FileBuffer buffer;
-                if (FileSystem::Instance().LoadFile(path, buffer, true))
+                ct::String key(path);
+                ZenRuntime::Impl::CachedPrefab *prefab = state ? state->prefabs.find(key) : nullptr;
+                if (!prefab)
                 {
-                    ct::Json::Error err;
-                    const ct::Json json = ct::Json::parse(buffer.Text(), &err);
-                    if (!err)
+                    FileBuffer buffer;
+                    if (FileSystem::Instance().LoadFile(path, buffer, true))
                     {
-                        preloadPrefabTextures(json);
-                        spawned = Serializer::ReadObject(*node->scene(), json, nullptr, gZenAssets);
-                        if (spawned && nargs >= 3)
-                            spawned->setPosition(Math::Vec2((float)zen::to_number(args[1]),
-                                                            (float)zen::to_number(args[2])));
+                        ct::Json::Error err;
+                        ct::Json json = ct::Json::parse(buffer.Text(), &err);
+                        if (!err)
+                        {
+                            ZenRuntime::Impl::CachedPrefab cached;
+                            cached.data = ct::detail::move(json);
+                            state->prefabs.put(key, ct::detail::move(cached));
+                            prefab = state->prefabs.find(key);
+                        }
                     }
+                }
+                if (prefab)
+                {
+                    if (gZenAssets && !prefab->texturesPreloaded)
+                    {
+                        preloadPrefabTextures(prefab->data);
+                        prefab->texturesPreloaded = true;
+                    }
+                    spawned = Serializer::ReadObject(*node->scene(), prefab->data, nullptr, gZenAssets);
+                    if (spawned && nargs >= 3)
+                        spawned->setPosition(Math::Vec2((float)zen::to_number(args[1]),
+                                                        (float)zen::to_number(args[2])));
                 }
             }
             args[0] = (spawned && state) ? state->instanceFor(state->nodeClass, spawned) : zen::val_nil();

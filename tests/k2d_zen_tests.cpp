@@ -591,6 +591,26 @@ static bool testExampleScripts()
     k2d::ZenScriptComponent *bunnymarkBunnyScript = bunnymarkBunny->addComponent<k2d::ZenScriptComponent>();
     ok = ok && bunnymarkBunnyScript->loadFile("../assets/scripts/bunnymark_bunny.py");
 
+    k2d::GameObject *fireworksDirector = scene.createObject("fireworks_director");
+    k2d::ZenScriptComponent *fireworksDirectorScript = fireworksDirector->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && fireworksDirectorScript->loadFile("../assets/scripts/fireworks_director.py");
+
+    k2d::GameObject *fireworkRocket = scene.createObject("firework_rocket");
+    k2d::ZenScriptComponent *fireworkRocketScript = fireworkRocket->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && fireworkRocketScript->loadFile("../assets/scripts/firework_rocket.py");
+
+    k2d::GameObject *fireworkSpark = scene.createObject("firework_spark");
+    k2d::ZenScriptComponent *fireworkSparkScript = fireworkSpark->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && fireworkSparkScript->loadFile("../assets/scripts/firework_spark.py");
+
+    k2d::GameObject *fireworkTrail = scene.createObject("firework_trail");
+    k2d::ZenScriptComponent *fireworkTrailScript = fireworkTrail->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && fireworkTrailScript->loadFile("../assets/scripts/firework_trail.py");
+
+    k2d::GameObject *fireworkExplosion = scene.createObject("firework_explosion");
+    k2d::ZenScriptComponent *fireworkExplosionScript = fireworkExplosion->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && fireworkExplosionScript->loadFile("../assets/scripts/firework_explosion.py");
+
     scene.update(0.016f);
     k2d::DispatchZenScriptEvents(scene.root());
     ok = ok && k2d::ZenBlackboard::has("spawned") && k2d::ZenBlackboard::has("score");

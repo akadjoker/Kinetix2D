@@ -50,6 +50,7 @@ namespace k2d
         // the pointers, so clear the cache before destroying Impl.
         mImpl->clearClasses();
         mImpl->instances.clear();
+        mImpl->prefabs.clear();
         mImpl->liveInstances.clear();
         delete mImpl;
     }
@@ -118,6 +119,7 @@ namespace k2d
     {
         mImpl->clearClasses();
         mImpl->instances.clear();
+        mImpl->prefabs.clear();
         ++mGeneration;
     }
 

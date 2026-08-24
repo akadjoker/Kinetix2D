@@ -8,6 +8,7 @@
 
 #include <ct/string.hpp>
 #include <ct/hashmap.hpp>
+#include <ct/json.hpp>
 #include <ct/vector.hpp>
 
 #include <cstddef>
@@ -49,6 +50,12 @@ namespace k2d
             zen::Value value = zen::val_nil();
         };
 
+        struct CachedPrefab
+        {
+            ct::Json data;
+            bool texturesPreloaded = false;
+        };
+
         zen::VM vm;
         zen::ObjClass *scriptComponentClass = nullptr;
         zen::ObjClass *nodeClass = nullptr;
@@ -59,6 +66,7 @@ namespace k2d
 
         ct::Vector<ZenScriptClass *> classes;
         ct::HashMap<void *, CachedInstance> instances;
+        ct::HashMap<ct::String, CachedPrefab> prefabs;
         ct::Vector<zen::Value *> liveInstances;
 
         int executing = 0;
