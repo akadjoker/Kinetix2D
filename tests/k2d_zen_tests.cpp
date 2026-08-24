@@ -399,6 +399,7 @@ static bool testNetAndHttpModulesImport()
     k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource("import net\n"
                                  "import http\n"
+                                 "import json\n"
                                  "\n"
                                  "class Importer:\n"
                                  "    def __init__(self, node):\n"
@@ -406,13 +407,15 @@ static bool testNetAndHttpModulesImport()
                                  "\n"
                                  "    def on_start(self):\n"
                                  "        set_flag(\"net\", net != None)\n"
-                                 "        set_flag(\"http\", http != None)\n",
+                                 "        set_flag(\"http\", http != None)\n"
+                                 "        set_flag(\"json\", json != None)\n",
                                  "modules");
 
     scene.update(0.016f);
 
     ok = ok && k2d::ZenBlackboard::getBool("net", false);
     ok = ok && k2d::ZenBlackboard::getBool("http", false);
+    ok = ok && k2d::ZenBlackboard::getBool("json", false);
 
     k2d::ZenBlackboard::clear();
     return ok;

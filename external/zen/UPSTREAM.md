@@ -30,9 +30,12 @@ keeps and registers both.
 
 Note that shipping a `builtin_*.cpp` is not the same as exposing it. The VM only
 answers `import <name>` for modules passed to `register_lib`, and
-`scripting/src/ZenScriptComponent.cpp` currently registers `base` (as globals),
-`math`, `time`, `net` and `http`. `io`, `json`, `os`, `path` and `struct` are
-compiled in but unregistered, so scripts cannot import them yet.
+`scripting/src/ZenScriptComponent.cpp` registers `base` (as globals), `math`,
+`time`, `json`, `net` and `http`.
+
+`io`, `os`, `path` and `struct` are compiled in and left unregistered on purpose
+— see the note in `scripting/README.md`. They build, so registering one later
+costs a single line and no rebuild of the copy.
 
 ## Changes carried here
 

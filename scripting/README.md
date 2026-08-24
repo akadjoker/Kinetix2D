@@ -245,5 +245,10 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
   reachable at load time.
 - An override whose field disappears from the `.py` is kept but flagged in the Inspector, so a
   rename does not silently drop tuning.
-- `import math`, `import time`, `import net` and `import http` are available; `print` goes
-  to the editor Console. Other libzen modules ship in the build but are not registered yet.
+- `import math`, `import time`, `import json`, `import net` and `import http` are available;
+  `print` goes to the editor Console.
+- `io`, `os`, `path` and `struct` ship compiled in libzen but are **deliberately not
+  registered**, so `import os` fails. Registering one is a single `vm.register_lib` call in
+  `ZenScriptComponent.cpp`, but it is a decision, not an oversight: `io`, `os` and `path` hand
+  game scripts the filesystem and the process, which is a wide door to open for content that a
+  scene file can drag in. Register them when a game actually needs them.
