@@ -312,6 +312,17 @@ namespace zen
         ObjString *class_field_table_[kMaxClassFields]; /* indexed by field order */
         int class_field_count_;
 
+        /* Values a class body gave its fields ("class A:" then "speed = 5.0").
+        ** Held until the body closes so they can be emitted after the run of
+        ** OP_CLASSFIELD that registers the names. */
+        struct ClassFieldDefault
+        {
+            int field_index;
+            int const_index; /* slot in the enclosing function's constant pool */
+        };
+        ClassFieldDefault class_field_defaults_[kMaxClassFields];
+        int class_field_default_count_;
+
         /* Per-class field registry — saved after each class is compiled.
         ** Allows subclasses to inherit parent field indices. */
         struct ClassFieldRegistry
@@ -325,6 +336,9 @@ namespace zen
 
         int lookup_class_field(ObjString *name) const;
         int add_class_field(ObjString *name);
+        /* Reads one literal as the value of a class body field and puts it in
+        ** the constant pool. False if what follows is not a literal. */
+        bool class_field_literal(int &out_const_index);
         bool is_current_class_instance(int reg) const; /* true if reg is self or typed param */
         void save_class_fields(Token class_name);
         bool inherit_class_fields(Token parent_name);

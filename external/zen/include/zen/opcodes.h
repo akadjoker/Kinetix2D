@@ -155,6 +155,12 @@ namespace zen
 
         /* --- Modules --- */
         OP_IMPORT,     /* R[A] = import(constants[Bx]); module as ObjMap */
+
+        /* as_class(R[A]).field_defaults[B] = K[C] — the value a class body
+        ** assignment gave a field, copied into every new instance. Added
+        ** last on purpose: the opcode numbering is part of the bytecode
+        ** format, so existing ones must keep their values. */
+        OP_CLASSFIELDDEF,
     };
 
 /* Encode/Decode — ABC format */

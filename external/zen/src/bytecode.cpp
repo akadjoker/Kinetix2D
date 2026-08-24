@@ -502,6 +502,15 @@ namespace
                 return false;
         }
 
+        /* minor 2: the values a class body gave its fields. */
+        if (!w.write_i32(klass->field_defaults ? klass->num_field_defaults : 0))
+            return false;
+        for (int32_t i = 0; klass->field_defaults && i < klass->num_field_defaults; i++)
+        {
+            if (!write_value(w, klass->field_defaults[i], strip_debug, stats, err, err_len))
+                return false;
+        }
+
         if (!write_methods(w, klass, strip_debug, stats, err, err_len) ||
             !w.write_i32(klass->vtable_size))
             return false;
@@ -980,6 +989,32 @@ namespace
             {
                 if (!read_string(vm, r, &klass->field_names[i], err, err_len))
                     return nullptr;
+            }
+        }
+
+        /* minor 2 onwards: the values a class body gave its fields. Files
+        ** written before that simply have none, and every field starts on
+        ** None as it always did. */
+        if (minor >= 2)
+        {
+            int32_t num_defaults = 0;
+            if (!r.read_i32(&num_defaults))
+            {
+                set_error(err, err_len, "truncated class field defaults");
+                return nullptr;
+            }
+            if (num_defaults > 0)
+            {
+                klass->field_defaults =
+                    (Value *)zen_alloc(gc, sizeof(Value) * (size_t)num_defaults);
+                klass->num_field_defaults = num_defaults;
+                for (int32_t i = 0; i < num_defaults; i++)
+                    klass->field_defaults[i] = val_nil();
+                for (int32_t i = 0; i < num_defaults; i++)
+                {
+                    if (!read_value(vm, r, minor, &klass->field_defaults[i], err, err_len))
+                        return nullptr;
+                }
             }
         }
 

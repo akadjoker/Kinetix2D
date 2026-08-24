@@ -1345,6 +1345,8 @@ namespace zen
         cls->methods = nullptr; /* init before new_map to survive stress GC */
         cls->num_fields = 0;
         cls->field_names = nullptr;
+        cls->field_defaults = nullptr;
+        cls->num_field_defaults = 0;
         cls->vtable = nullptr;
         cls->vtable_size = 0;
         for (int i = 0; i < kOperatorSlotCount; i++)
@@ -1398,8 +1400,13 @@ namespace zen
             {
                 inst->fields = (Value *)zen_alloc(gc, sizeof(Value) * nf);
             }
+            /* A field the class body gave a value starts on that value, the
+            ** rest on None. This is what makes "class A:" with "speed = 5.0"
+            ** work without a constructor, and it runs before __init__ so a
+            ** constructor can still overwrite whatever it wants. */
+            const int nd = klass->field_defaults ? klass->num_field_defaults : 0;
             for (int i = 0; i < nf; i++)
-                inst->fields[i] = val_nil();
+                inst->fields[i] = i < nd ? klass->field_defaults[i] : val_nil();
         }
         else
         {
@@ -1589,6 +1596,11 @@ namespace zen
             for (int32_t i = 0; i < cls->num_fields; i++)
                 if (cls->field_names[i])
                     gc_mark_obj(gc, (Obj *)cls->field_names[i]);
+            /* A class body default can be a string, and the class is its
+            ** only holder until an instance copies it. */
+            if (cls->field_defaults)
+                for (int32_t i = 0; i < cls->num_field_defaults; i++)
+                    gc_mark_value(gc, cls->field_defaults[i]);
             /* Mark vtable entries */
             for (int32_t i = 0; i < cls->vtable_size; i++)
                 if (cls->vtable[i].type == VAL_OBJ)
@@ -1820,6 +1832,8 @@ namespace zen
             ObjClass *cls = (ObjClass *)obj;
             if (cls->field_names)
                 zen_free(gc, cls->field_names, sizeof(ObjString *) * cls->num_fields);
+            if (cls->field_defaults)
+                zen_free(gc, cls->field_defaults, sizeof(Value) * cls->num_field_defaults);
             if (cls->vtable)
                 zen_free(gc, cls->vtable, sizeof(Value) * cls->vtable_size);
             break;

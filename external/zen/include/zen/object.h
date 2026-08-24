@@ -530,6 +530,12 @@ namespace zen
         ObjMap *methods;                          /* nome → ObjFunc/ObjNative */
         int32_t num_fields;                       /* quantos fields declarados */
         ObjString **field_names;                  /* nomes dos fields (para init) */
+        /* Valor inicial por field, vindo de uma atribuição no corpo da classe.
+        ** Tem contagem própria porque num_fields cresce noutros sítios
+        ** (OP_SETFIELD, ClassBuilder::field): os que ficam de fora deste
+        ** array começam em None, como sempre. */
+        Value *field_defaults;
+        int32_t num_field_defaults;
         Value *vtable;                            /* flat array indexed by selector slot */
         int32_t vtable_size;                      /* allocated slots in vtable */
         Value operator_slots[kOperatorSlotCount]; /* fixed slots for __add__, __str__, ... */

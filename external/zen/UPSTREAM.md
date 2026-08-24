@@ -8,7 +8,7 @@ see `scripting/README.md`). This is a copy, not a submodule — unlike
 | | |
 |---|---|
 | Upstream repo | `https://github.com/akadjoker/zenpy` — directory `libzen/` |
-| Commit | `cfea55225009e891ec82474ef1646b0375865d45` (`cfea552`), branch `physics-box2d` |
+| Commit | `a284b7c895da356883805b45b22c89f42c61a6a4` (`a284b7c`), branch `physics-box2d` |
 | Date | 2026-08-24 |
 | Mirror | `https://github.com/akadjoker/zenpy_lib` — same files, standalone repo |
 | License | zlib, see `LICENSE` |
@@ -36,6 +36,8 @@ compiled in but unregistered, so scripts cannot import them yet.
 
 ## Changes carried here
 
+`sync.sh` and `UPSTREAM.md` — this file and the copy script, not upstream.
+
 `zen_host_output.h` / `zen_host_output.cpp` — not upstream. A writer hook that
 `print()` and error output go through, so the editor can route them into its
 Console instead of stdout. `CMakeLists.txt` force-includes the header
@@ -51,7 +53,16 @@ first, then copied outwards:
 zenpy/libzen  ->  zenpy_lib  ->  Kinetix2D external/zen
 ```
 
-To check what has drifted, and to update the table above afterwards:
+`sync.sh` does the copy, taking the whole of upstream's `include/` and `src/`, keeping the two
+files this repo owns and skipping the module left out above. It prints the upstream commit for
+the table:
+
+```sh
+external/zen/sync.sh              # assumes zenpy sits next to Kinetix2D
+external/zen/sync.sh /path/to/zenpy
+```
+
+To check what has drifted without copying:
 
 ```sh
 diff -rq external/zen/include <zenpy>/libzen/include   # expect only zen_host_output.h

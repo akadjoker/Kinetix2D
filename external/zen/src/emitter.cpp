@@ -71,10 +71,14 @@ namespace zen
 
     int Emitter::add_constant(Value val)
     {
-        /* Deduplica ints/floats simples (strings já são internadas) */
+        /* Deduplica ints/floats simples (strings já são internadas).
+        ** O tipo tem de bater certo: values_equal() é a semântica do operador
+        ** '==', que compara int e float numericamente (3 == 3.0), e reusar o
+        ** slot de um 3.0 para um 3 devolvia um float onde o código escreveu
+        ** um int. Identidade de constante é mais estrita do que igualdade. */
         for (int i = 0; i < func_->const_count; i++)
         {
-            if (values_equal(func_->constants[i], val))
+            if (func_->constants[i].type == val.type && values_equal(func_->constants[i], val))
                 return i;
         }
         if (func_->const_count >= func_->const_capacity)

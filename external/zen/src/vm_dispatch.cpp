@@ -632,6 +632,7 @@ namespace zen
             &&lbl_OP_ASSERT,
             &&lbl_OP_HALT,
             &&lbl_OP_IMPORT,
+            &&lbl_OP_CLASSFIELDDEF,
         };
 
 #define DISPATCH() goto *dispatch_table[ZEN_OP(*ip)]
@@ -3581,7 +3582,24 @@ namespace zen
                 parent = as_class(R[c]);
             }
             ObjClass *klass = new_class(&gc_, name, parent);
+            /* Into the register first: the allocation below can trigger a
+            ** collection, and until the class is in a register nothing roots
+            ** it - it would be swept and its memory handed to the next
+            ** object allocated. */
             R[ZEN_A(i)] = val_obj((Obj *)klass);
+            /* Flatten the parent's field defaults into the subclass, the way
+            ** the vtable is flattened: the compiler gives a subclass the
+            ** parent's field indices, so a straight copy lines up, and the
+            ** subclass's own OP_CLASSFIELDDEF then overwrites what it
+            ** redeclares and extends the array for what it adds. */
+            if (parent && parent->field_defaults && parent->num_field_defaults > 0)
+            {
+                const int32_t n = parent->num_field_defaults;
+                klass->field_defaults = (Value *)zen_alloc(&gc_, sizeof(Value) * (size_t)n);
+                for (int32_t fi = 0; fi < n; fi++)
+                    klass->field_defaults[fi] = parent->field_defaults[fi];
+                klass->num_field_defaults = n;
+            }
             NEXT();
         }
         CASE(OP_NEWINSTANCE)
@@ -3649,6 +3667,31 @@ namespace zen
                 klass->num_fields = new_n;
             }
             klass->field_names[field_idx] = fname;
+            NEXT();
+        }
+
+        CASE(OP_CLASSFIELDDEF)
+        {
+            /* as_class(R[A]).field_defaults[B] = K[C] — the value a class
+            ** body assignment gave a field. Emitted right after the
+            ** OP_CLASSFIELD run that registered the names, so the field
+            ** index is already valid here. */
+            uint32_t i = *ip;
+            ObjClass *klass = as_class(R[ZEN_A(i)]);
+            int field_idx = ZEN_B(i);
+            if (field_idx >= klass->num_field_defaults)
+            {
+                int old_n = klass->num_field_defaults;
+                int new_n = field_idx + 1;
+                klass->field_defaults = (Value *)zen_realloc(
+                    &gc_, klass->field_defaults,
+                    sizeof(Value) * old_n,
+                    sizeof(Value) * new_n);
+                for (int fi = old_n; fi < new_n; fi++)
+                    klass->field_defaults[fi] = val_nil();
+                klass->num_field_defaults = new_n;
+            }
+            klass->field_defaults[field_idx] = K[ZEN_C(i)];
             NEXT();
         }
 

@@ -40,6 +40,7 @@ namespace zen
         class_has_parent_ = false;
         pending_decorator_count_ = 0;
         class_field_count_ = 0;
+        class_field_default_count_ = 0;
         class_registry_count_ = 0;
 
         lexer_.init(source, filename);
@@ -398,6 +399,64 @@ namespace zen
         if (class_field_count_ >= kMaxClassFields) return -1;
         class_field_table_[class_field_count_] = name;
         return class_field_count_++;
+    }
+
+    bool Compiler::class_field_literal(int &out_const_index)
+    {
+        bool negate = false;
+        if (match(TOK_MINUS))
+            negate = true;
+
+        if (match(TOK_INT))
+        {
+            int64_t v = strtoll(previous_.start, nullptr, 0);
+            out_const_index = state_->emitter.add_constant(val_int(negate ? -v : v));
+            return true;
+        }
+        if (match(TOK_FLOAT))
+        {
+            double v = strtod(previous_.start, nullptr);
+            out_const_index = state_->emitter.add_constant(val_float(negate ? -v : v));
+            return true;
+        }
+        if (negate)
+            return false; /* "-" followed by something that is not a number */
+
+        if (match(TOK_STRING))
+        {
+            /* Same quote handling as string_literal(): single or triple. */
+            const char *str = previous_.start + 1;
+            int len = previous_.length - 2;
+            if (previous_.length >= 6 && previous_.start[0] == previous_.start[1] &&
+                previous_.start[1] == previous_.start[2])
+            {
+                str = previous_.start + 3;
+                len = previous_.length - 6;
+            }
+            out_const_index = state_->emitter.add_escaped_string_constant(str, len);
+            if (state_->emitter.has_escape_error())
+            {
+                error(state_->emitter.escape_error());
+                state_->emitter.clear_escape_error();
+            }
+            return true;
+        }
+        if (match(TOK_TRUE))
+        {
+            out_const_index = state_->emitter.add_constant(val_bool(true));
+            return true;
+        }
+        if (match(TOK_FALSE))
+        {
+            out_const_index = state_->emitter.add_constant(val_bool(false));
+            return true;
+        }
+        if (match(TOK_NONE))
+        {
+            out_const_index = state_->emitter.add_constant(val_nil());
+            return true;
+        }
+        return false;
     }
 
     /* Returns true when `reg` holds a known instance of the current class.

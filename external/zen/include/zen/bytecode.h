@@ -10,7 +10,8 @@ namespace zen
 
     static constexpr uint8_t ZEN_BYTECODE_MAGIC[5] = {'Z', 'E', 'N', 'B', 'C'};
     static constexpr uint16_t ZEN_BYTECODE_VERSION_MAJOR = 2;
-    static constexpr uint16_t ZEN_BYTECODE_VERSION_MINOR = 1;
+    /* minor 2: class field defaults (a class body's "name = literal"). */
+    static constexpr uint16_t ZEN_BYTECODE_VERSION_MINOR = 2;
 
     struct BytecodeStats
     {

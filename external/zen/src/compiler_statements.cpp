@@ -438,6 +438,12 @@ namespace zen
         else
             class_field_count_ = 0;
 
+        /* The values are this class body's own - a subclass inherits the
+        ** parent's field NAMES above, and the parent's values come with the
+        ** parent class at runtime. */
+        const int prev_field_default_count = class_field_default_count_;
+        class_field_default_count_ = 0;
+
         ObjString *class_name = token_string(name);
         int name_ki = state_->emitter.add_constant(val_obj((Obj *)class_name));
         int c_operand = (parent_reg >= 0) ? parent_reg : 255;
@@ -661,6 +667,39 @@ namespace zen
             {
                 match(TOK_NEWLINE);
             }
+            else if (check(TOK_IDENTIFIER))
+            {
+                /* Field declaration: "name = <literal>". Declaring a value on
+                ** the class means an instance starts with it, so a script
+                ** does not have to write a constructor just to give a field
+                ** a starting value. Only literals: the class body is not a
+                ** place to run code. */
+                advance();
+                Token field_name = previous_;
+                consume(TOK_EQ, "Expected '=' after field name in class body.");
+
+                int literal_ki = -1;
+                if (!class_field_literal(literal_ki))
+                {
+                    error("A class body field must be a number, string, True, False or None.");
+                    while (!check(TOK_NEWLINE) && !check(TOK_DEDENT) && !check(TOK_EOF))
+                        advance();
+                    match(TOK_NEWLINE);
+                    continue;
+                }
+
+                const int field_idx = add_class_field(token_string(field_name));
+                if (field_idx < 0)
+                    error("Too many fields in class body.");
+                else if (class_field_default_count_ < kMaxClassFields)
+                {
+                    class_field_defaults_[class_field_default_count_].field_index = field_idx;
+                    class_field_defaults_[class_field_default_count_].const_index = literal_ki;
+                    class_field_default_count_++;
+                }
+
+                match(TOK_NEWLINE);
+            }
             else
             {
                 error("Expected method definition in class body.");
@@ -679,6 +718,17 @@ namespace zen
             if (name_ki <= 255 && fi <= 255)
                 state_->emitter.emit_abc(OP_CLASSFIELD, class_reg, fi, name_ki, previous_.line);
         }
+
+        /* Then the values the class body gave them, after every name is
+        ** registered so the field index is already valid at runtime. */
+        for (int di = 0; di < class_field_default_count_; di++)
+        {
+            const ClassFieldDefault &def = class_field_defaults_[di];
+            if (def.const_index <= 255 && def.field_index <= 255)
+                state_->emitter.emit_abc(OP_CLASSFIELDDEF, class_reg, def.field_index,
+                                         def.const_index, previous_.line);
+        }
+        class_field_default_count_ = prev_field_default_count;
 
         free_reg(class_reg);
 

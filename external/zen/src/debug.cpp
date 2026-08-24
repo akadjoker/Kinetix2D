@@ -615,6 +615,11 @@ namespace zen
                 printf("R[%d].field[%d] = K[%d]", a, b, c);
             break;
         }
+        case OP_CLASSFIELDDEF:
+        {
+            printf("R[%d].field_default[%d] = K[%d]", a, b, c);
+            break;
+        }
 
         /* === String/Misc === */
         case OP_CONCAT:
