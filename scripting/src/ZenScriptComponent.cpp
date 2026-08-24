@@ -758,6 +758,8 @@ namespace k2d
         vm.open_lib_globals(&zen::zen_lib_base);
         vm.register_lib(&zen::zen_lib_math);
         vm.register_lib(&zen::zen_lib_time);
+        vm.register_lib(&zen::zen_lib_net);
+        vm.register_lib(&zen::zen_lib_http);
 
         vm.def_global("__k2d", zen::val_ptr(this));
 

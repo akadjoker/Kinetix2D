@@ -178,4 +178,5 @@ Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, 
   reachable at load time.
 - An override whose field disappears from the `.py` is kept but flagged in the Inspector, so a
   rename does not silently drop tuning.
-- `import math` and `import time` are available; `print` goes to the editor Console.
+- `import math`, `import time`, `import net` and `import http` are available; `print` goes
+  to the editor Console. Other libzen modules ship in the build but are not registered yet.

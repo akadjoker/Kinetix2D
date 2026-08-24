@@ -390,6 +390,34 @@ static bool testHotReload()
     return ok;
 }
 
+static bool testNetAndHttpModulesImport()
+{
+    k2d::ZenBlackboard::clear();
+
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("importer");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("import net\n"
+                                 "import http\n"
+                                 "\n"
+                                 "class Importer:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "\n"
+                                 "    def on_start(self):\n"
+                                 "        set_flag(\"net\", net != None)\n"
+                                 "        set_flag(\"http\", http != None)\n",
+                                 "modules");
+
+    scene.update(0.016f);
+
+    ok = ok && k2d::ZenBlackboard::getBool("net", false);
+    ok = ok && k2d::ZenBlackboard::getBool("http", false);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testExampleScripts()
 {
     k2d::Scene scene;
@@ -446,18 +474,19 @@ int main()
     const bool gate = testScriptsGate();
     const bool channel = testBlackboardAndEvents();
     const bool hotReload = testHotReload();
+    const bool modules = testNetAndHttpModulesImport();
     const bool examples = testExampleScripts();
 
     std::printf("zen: basics=%s hierarchy=%s components=%s input=%s destroy=%s serialization=%s "
-                "spawn_math=%s gate=%s channel=%s hot_reload=%s examples=%s\n",
+                "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s\n",
                 basics ? "pass" : "fail", hierarchy ? "pass" : "fail",
                 components ? "pass" : "fail", inputOk ? "pass" : "fail",
                 destroy ? "pass" : "fail", serialization ? "pass" : "fail",
                 spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
                 channel ? "pass" : "fail", hotReload ? "pass" : "fail",
-                examples ? "pass" : "fail");
+                modules ? "pass" : "fail", examples ? "pass" : "fail");
     return basics && hierarchy && components && inputOk && destroy && serialization &&
-                   spawnMath && gate && channel && hotReload && examples
+                   spawnMath && gate && channel && hotReload && modules && examples
                ? 0
                : 1;
 }
