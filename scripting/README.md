@@ -93,6 +93,32 @@ Component handles return `None` when the component is missing.
 - **Animation**: `play(clip)`, `stop()`, `is_playing()`, `current()`
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
 
+## Prefabs
+
+A prefab carries its Zen Script like any other component: the `.py` path and the property
+overrides travel inside the `.k2dprefab`, so every instance comes back wired and tuned. One
+compile serves the whole flock — 50 balls off the same prefab still cost a single compile, and
+each instance can then be retuned on its own.
+
+```cpp
+Prefab prefab;
+prefab.Load("assets/prefabs/ball.k2dprefab");
+GameObject *ball = prefab.Instantiate(scene);      // script attached, overrides applied
+```
+
+From a script, `spawn()` does the same thing:
+
+```python
+bullet = self.node.spawn("assets/prefabs/bullet.k2dprefab", self.node.get_x(), self.node.get_y())
+```
+
+When the spawned prefab uses a `.py` that has not been compiled yet, the compile cannot happen
+right there — the VM is in the middle of running your script, and `VM::run` reuses the main
+fiber, so compiling on top of it would corrupt the caller. The component takes the path and
+compiles on the next frame instead; `loaded()` is false and `pendingLoad()` is true in between,
+and the object starts running one frame later. Prefabs whose script is already in the cache —
+the normal case, after the first spawn — start on the same frame.
+
 ## Talking to other scripts and to C++
 
 Two mechanisms, both global to the running scene.

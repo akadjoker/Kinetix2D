@@ -45,6 +45,8 @@ namespace k2d
         ct::Vector<CachedInstance> instances;
         ct::Vector<zen::Value *> liveInstances;
 
+        int executing = 0;
+
         int selectorInit = -1;
         int selectorStart = -1;
         int selectorUpdate = -1;

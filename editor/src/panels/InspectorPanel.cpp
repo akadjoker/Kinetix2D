@@ -812,6 +812,8 @@ void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
 
     if (script.loaded())
         ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), "Loaded");
+    else if (script.pendingLoad())
+        ImGui::TextColored(ImVec4(0.85f, 0.8f, 0.4f, 1.0f), "Compiles on the next frame");
     else if (hasPath)
         ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.3f, 1.0f), "Failed to load - check the console output");
     else

@@ -88,6 +88,10 @@ add_executable(k2d_zen_props_tests k2d_zen_props_tests.cpp)
 target_link_libraries(k2d_zen_props_tests PRIVATE k2d_zen)
 target_compile_features(k2d_zen_props_tests PRIVATE cxx_std_17)
 
+add_executable(k2d_zen_prefab_tests k2d_zen_prefab_tests.cpp)
+target_link_libraries(k2d_zen_prefab_tests PRIVATE k2d_zen)
+target_compile_features(k2d_zen_prefab_tests PRIVATE cxx_std_17)
+
 add_executable(k2d_pixmap_tests k2d_pixmap_tests.cpp)
 target_link_libraries(k2d_pixmap_tests PRIVATE k2d)
 

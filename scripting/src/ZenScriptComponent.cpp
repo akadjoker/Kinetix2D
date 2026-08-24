@@ -149,8 +149,23 @@ namespace k2d
         zen::Value instance = zen::val_nil();
         unsigned int generation = 0;
         bool loaded = false;
+        bool pending = false;
         bool started = false;
     };
+
+    namespace
+    {
+        struct RunningScript
+        {
+            RunningScript() { ++ZenRuntime::instance().impl().executing; }
+            ~RunningScript() { --ZenRuntime::instance().impl().executing; }
+        };
+
+        bool scriptRunning()
+        {
+            return ZenRuntime::instance().impl().executing > 0;
+        }
+    }
 
     namespace
     {
@@ -863,7 +878,10 @@ namespace k2d
             zen::ObjInstance *inst = zen::as_instance(mState->instance);
             if (inst && inst->klass && mState->scriptClass->slotDestroy < inst->klass->vtable_size &&
                 !zen::is_nil(inst->klass->vtable[mState->scriptClass->slotDestroy]))
+            {
+                RunningScript running;
                 impl.vm.invoke(mState->instance, mState->scriptClass->slotDestroy, nullptr, 0);
+            }
         }
         mState->instance = zen::val_nil();
         mState->started = false;
@@ -891,6 +909,18 @@ namespace k2d
             mState->scriptClass = cached;
             mState->generation = runtime.generation();
             mState->loaded = true;
+            mState->pending = false;
+            return true;
+        }
+
+        if (scriptRunning())
+        {
+            destroyInstance();
+            mScriptPath = path;
+            mSourceTimestamp = fileTimestamp(path);
+            mState->scriptClass = nullptr;
+            mState->loaded = false;
+            mState->pending = true;
             return true;
         }
 
@@ -911,6 +941,7 @@ namespace k2d
         destroyInstance();
         mState->scriptClass = nullptr;
         mState->loaded = false;
+        mState->pending = false;
 
         ZenScriptClass compiled;
         if (!impl.compileClass(source, path, compiled))
@@ -929,6 +960,15 @@ namespace k2d
     bool ZenScriptComponent::ensureInstance()
     {
         ZenRuntime &runtime = ZenRuntime::instance();
+
+        if (mState->pending)
+        {
+            if (scriptRunning())
+                return false;
+            mState->pending = false;
+            if (!loadFile(mScriptPath.c_str()))
+                return false;
+        }
 
         if (mState->generation != runtime.generation())
         {
@@ -961,6 +1001,7 @@ namespace k2d
             if (mState->scriptClass->slotInit >= 0)
             {
                 zen::Value args[1] = {mState->self};
+                RunningScript running;
                 impl.vm.invoke(mState->instance, mState->scriptClass->slotInit, args, 1);
             }
             applyOverrides();
@@ -971,7 +1012,7 @@ namespace k2d
 
     bool ZenScriptComponent::callEvent(const char *event, double value)
     {
-        if (!mState->loaded || !ensureInstance() || !event)
+        if ((!mState->loaded && !mState->pending) || !ensureInstance() || !event)
             return false;
 
         ZenScriptClass *scriptClass = mState->scriptClass;
@@ -986,17 +1027,19 @@ namespace k2d
 
         zen::Value args[2] = {zen::val_obj((zen::Obj *)impl.vm.make_string(event)),
                               zen::val_float(value)};
+        RunningScript running;
         impl.vm.invoke(mState->instance, scriptClass->slotEvent, args, 2);
         return !impl.vm.had_error();
     }
 
     bool ZenScriptComponent::callFunction(const char *name, double value)
     {
-        if (!mState->loaded || !ensureInstance() || !name)
+        if ((!mState->loaded && !mState->pending) || !ensureInstance() || !name)
             return false;
 
         ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
         zen::Value args[1] = {zen::val_float(value)};
+        RunningScript running;
         impl.vm.invoke(mState->instance, name, args, 1);
         return !impl.vm.had_error();
     }
@@ -1037,6 +1080,11 @@ namespace k2d
     bool ZenScriptComponent::loaded() const
     {
         return mState->loaded;
+    }
+
+    bool ZenScriptComponent::pendingLoad() const
+    {
+        return mState->pending;
     }
 
     std::size_t ZenScriptComponent::declaredPropertyCount() const
@@ -1235,7 +1283,7 @@ namespace k2d
 
     void ZenScriptComponent::onUpdate(float deltaTime)
     {
-        if (!gZenScriptsEnabled || !mState->loaded || !owner())
+        if (!gZenScriptsEnabled || (!mState->loaded && !mState->pending) || !owner())
             return;
         if (!ensureInstance())
             return;
@@ -1251,13 +1299,17 @@ namespace k2d
             mState->started = true;
             if (scriptClass->slotStart >= 0 && scriptClass->slotStart < inst->klass->vtable_size &&
                 !zen::is_nil(inst->klass->vtable[scriptClass->slotStart]))
+            {
+                RunningScript running;
                 impl.vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
+            }
         }
 
         if (scriptClass->slotUpdate >= 0 && scriptClass->slotUpdate < inst->klass->vtable_size &&
             !zen::is_nil(inst->klass->vtable[scriptClass->slotUpdate]))
         {
             zen::Value dt = zen::val_float(deltaTime);
+            RunningScript running;
             impl.vm.invoke(mState->instance, scriptClass->slotUpdate, &dt, 1);
         }
     }

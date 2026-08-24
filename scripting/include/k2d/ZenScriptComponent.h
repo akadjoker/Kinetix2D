@@ -40,6 +40,7 @@ namespace k2d
         bool loadSource(const char *source, const char *scriptName = "script");
         bool loadFile(const char *path);
         bool loaded() const;
+        bool pendingLoad() const;
         const ct::String &scriptPath() const { return mScriptPath; }
 
         bool callEvent(const char *event, double value = 0.0);
