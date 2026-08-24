@@ -44,6 +44,7 @@ namespace k2d
         const ct::String &scriptPath() const { return mScriptPath; }
 
         bool callEvent(const char *event, double value = 0.0);
+        bool callCollision(GameObject *other, bool began);
         bool callFunction(const char *name, double value = 0.0);
         bool hasFunction(const char *name) const;
 
@@ -89,7 +90,10 @@ namespace k2d
     class Assets;
     class GameObject;
 
+    class PhysicsWorld2D;
+
     void DispatchZenScriptEvents(GameObject &root);
+    void RouteZenScriptCollisions(PhysicsWorld2D &world);
     void BroadcastZenScriptEvent(GameObject &root, const char *event, double value = 0.0);
 
     void SetZenScriptsEnabled(bool enabled);

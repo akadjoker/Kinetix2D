@@ -363,6 +363,7 @@ void EditorApplication::startPlay()
     delete mPhysicsWorld;
     mPhysicsWorld = new PhysicsWorld2D();
     applyPhysicsSettings();
+    RouteZenScriptCollisions(*mPhysicsWorld);
     mPhysicsWorld->build(mRuntimeScene.root());
 
     SetZenScriptsEnabled(true);

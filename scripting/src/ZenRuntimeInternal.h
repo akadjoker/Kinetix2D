@@ -22,6 +22,7 @@ namespace k2d
         int slotUpdate = -1;
         int slotDestroy = -1;
         int slotEvent = -1;
+        int slotCollision = -1;
         long long timestamp = 0;
         ct::Vector<ZenScriptProperty> properties;
     };
@@ -52,6 +53,7 @@ namespace k2d
         int selectorUpdate = -1;
         int selectorDestroy = -1;
         int selectorEvent = -1;
+        int selectorCollision = -1;
 
         void initialize();
         bool compileClass(const char *source, const char *path, ZenScriptClass &out);

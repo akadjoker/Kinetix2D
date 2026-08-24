@@ -136,6 +136,7 @@ namespace k2d
             selectorUpdate = vm.intern_selector("on_update", 9);
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
+            selectorCollision = vm.intern_selector("on_collision", 12);
         }
 
         zen::ObjClass *klass = zen::as_class(found);
@@ -151,6 +152,7 @@ namespace k2d
         out.slotUpdate = slotIfPresent(selectorUpdate);
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
+        out.slotCollision = slotIfPresent(selectorCollision);
         return true;
     }
 

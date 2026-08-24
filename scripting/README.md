@@ -85,13 +85,50 @@ script->declaredPropertyCount();                   // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_sprite()`, `get_animation()`, `get_particle()` |
+| Components | `get_sprite()`, `get_animation()`, `get_particle()`, `get_body()` |
 
 Component handles return `None` when the component is missing.
 
 - **Sprite**: `set_color(r, g, b, a)`, `set_flip(x, y)`, `set_size(w, h)`
 - **Animation**: `play(clip)`, `stop()`, `is_playing()`, `current()`
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
+- **Body**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
+  `set_angular_velocity(deg)`, `apply_force(x, y)`, `apply_impulse(x, y)`, `apply_torque(t)`,
+  `get_gravity_scale()`, `set_gravity_scale(s)`, `set_type("static"/"kinematic"/"dynamic")`,
+  `is_awake()`, `wake()`
+
+## Physics
+
+`get_body()` returns `None` unless the object has a Rigid Body component, and the body only
+exists while playing. Impulses divide by mass, so a 40x40 box at density 1 has mass 1600 and
+`apply_impulse(0, -8000)` changes its velocity by 5 units per second, not 8000.
+
+```python
+def on_update(self, dt):
+    body = self.node.get_body()
+    if key_pressed("space"):
+        body.apply_impulse(0, -160000)
+```
+
+**Contacts** reach `on_collision`, on the scripts of the object that was touched:
+
+```python
+def on_collision(self, other, began):   # began is True on enter, False on exit
+    if began and other.get_name() == "spike":
+        emit("player_hurt", 1)
+```
+
+Sensors report through the same hook without blocking, so a trigger volume is a collider with
+Sensor ticked plus an `on_collision`.
+
+**Queries** work on the running world:
+
+```python
+hit, hx, hy = raycast(x, y, dx, dy, distance)   # hit is a Node or None
+node = body_at(x, y)                            # what is under this point
+set_gravity(0, 0)                               # retune the live world
+gx, gy = get_gravity()
+```
 
 ## Prefabs
 
@@ -156,6 +193,7 @@ SetZenScriptInput(&device.GetInput());
 SetZenScriptAssets(&assets);
 SetZenScriptOutput(fn, user);        // route print() into your console
 SetZenScriptsEnabled(true);          // scripts idle until this is on
+RouteZenScriptCollisions(world);     // makes on_collision fire
 // each frame, after scene.update():
 DispatchZenScriptEvents(scene.root());
 ```

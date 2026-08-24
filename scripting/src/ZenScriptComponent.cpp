@@ -1,4 +1,7 @@
 #include "k2d/ZenScriptComponent.h"
+
+#include "k2d/PhysicsWorld2D.h"
+#include "k2d/RigidBody2D.h"
 #include "k2d/ZenRuntime.h"
 #include "ZenRuntimeInternal.h"
 
@@ -478,6 +481,187 @@ namespace k2d
             return 2;
         }
 
+        int natRaycast(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            GameObject *hit = nullptr;
+            Math::Vec2 point(0.0f, 0.0f);
+            if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
+            {
+                if (nargs >= 5)
+                {
+                    const Math::Vec2 origin((float)zen::to_number(args[0]),
+                                            (float)zen::to_number(args[1]));
+                    const Math::Vec2 direction((float)zen::to_number(args[2]),
+                                               (float)zen::to_number(args[3]));
+                    hit = world->raycast(origin, direction, (float)zen::to_number(args[4]), &point);
+                }
+            }
+            args[0] = (hit && state) ? state->instanceFor(state->nodeClass, hit) : zen::val_nil();
+            args[1] = zen::val_float(point.x);
+            args[2] = zen::val_float(point.y);
+            return 3;
+        }
+
+        int natBodyAt(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            GameObject *found = nullptr;
+            if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
+                if (nargs >= 2)
+                    found = world->objectAtPoint(Math::Vec2((float)zen::to_number(args[0]),
+                                                            (float)zen::to_number(args[1])));
+            args[0] = (found && state) ? state->instanceFor(state->nodeClass, found)
+                                       : zen::val_nil();
+            return 1;
+        }
+
+        int natSetGravity(zen::VM *, zen::Value *args, int nargs)
+        {
+            if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
+                if (nargs >= 2)
+                    world->setGravity(Math::Vec2((float)zen::to_number(args[0]),
+                                                 (float)zen::to_number(args[1])));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natGetGravity(zen::VM *, zen::Value *args, int)
+        {
+            PhysicsWorld2D *world = PhysicsWorld2D::Active();
+            const Math::Vec2 gravity = world ? world->gravity() : Math::Vec2(0.0f, 0.0f);
+            args[0] = zen::val_float(gravity.x);
+            args[1] = zen::val_float(gravity.y);
+            return 2;
+        }
+
+        RigidBody2D *bodyFromSelf(zen::Value *args)
+        {
+            return zen::zen_instance_data<RigidBody2D>(args[-1]);
+        }
+
+        int natNodeGetBody(zen::VM *vm, zen::Value *args, int)
+        {
+            GameObject *node = nodeFromSelf(args);
+            ZenRuntime::Impl *state = stateFromVM(vm);
+            RigidBody2D *body = node ? node->getComponent<RigidBody2D>() : nullptr;
+            args[0] = (body && state) ? state->instanceFor(state->bodyClass, body) : zen::val_nil();
+            return 1;
+        }
+
+        int natBodyGetVelocity(zen::VM *, zen::Value *args, int)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            const Math::Vec2 velocity = body ? body->velocity() : Math::Vec2(0.0f, 0.0f);
+            args[0] = zen::val_float(velocity.x);
+            args[1] = zen::val_float(velocity.y);
+            return 2;
+        }
+
+        int natBodySetVelocity(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 2)
+                body->setVelocity(Math::Vec2((float)zen::to_number(args[0]),
+                                             (float)zen::to_number(args[1])));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyGetAngularVelocity(zen::VM *, zen::Value *args, int)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            args[0] = zen::val_float(body ? body->angularVelocity() : 0.0);
+            return 1;
+        }
+
+        int natBodySetAngularVelocity(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 1)
+                body->setAngularVelocity((float)zen::to_number(args[0]));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyApplyForce(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 2)
+                body->applyForce(Math::Vec2((float)zen::to_number(args[0]),
+                                            (float)zen::to_number(args[1])));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyApplyImpulse(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 2)
+                body->applyImpulse(Math::Vec2((float)zen::to_number(args[0]),
+                                              (float)zen::to_number(args[1])));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyApplyTorque(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 1)
+                body->applyTorque((float)zen::to_number(args[0]));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodySetGravityScale(zen::VM *, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 1)
+                body->setGravityScale((float)zen::to_number(args[0]));
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyGetGravityScale(zen::VM *, zen::Value *args, int)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            args[0] = zen::val_float(body ? body->gravityScale() : 0.0);
+            return 1;
+        }
+
+        int natBodyWake(zen::VM *, zen::Value *args, int)
+        {
+            if (RigidBody2D *body = bodyFromSelf(args))
+                body->wake();
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodySetType(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            if (body && nargs >= 1)
+            {
+                char small[16];
+                const char *name = valueToCString(vm, args[0], small, sizeof(small));
+                if (std::strcmp(name, "static") == 0)
+                    body->setBodyType(kx::BodyType::Static);
+                else if (std::strcmp(name, "kinematic") == 0)
+                    body->setBodyType(kx::BodyType::Kinematic);
+                else
+                    body->setBodyType(kx::BodyType::Dynamic);
+            }
+            args[0] = zen::val_nil();
+            return 1;
+        }
+
+        int natBodyIsAwake(zen::VM *, zen::Value *args, int)
+        {
+            RigidBody2D *body = bodyFromSelf(args);
+            args[0] = zen::val_bool(body && body->body() && body->body()->IsAwake());
+            return 1;
+        }
+
         int natNodeGetSprite(zen::VM *vm, zen::Value *args, int)
         {
             GameObject *node = nodeFromSelf(args);
@@ -793,6 +977,7 @@ namespace k2d
         node.method("angle_to", &natNodeAngleTo, 2);
         node.method("look_at", &natNodeLookAt, 2);
         node.method("move_toward", &natNodeMoveToward, 3);
+        node.method("get_body", &natNodeGetBody, 0);
         node.method("get_sprite", &natNodeGetSprite, 0);
         node.method("get_animation", &natNodeGetAnimation, 0);
         node.method("get_particle", &natNodeGetParticle, 0);
@@ -813,6 +998,22 @@ namespace k2d
         animation.method("current", &natAnimationCurrent, 0);
         animation.persistent(true).constructable(false);
         animationClass = animation.end();
+
+        auto body = vm.def_class("Body");
+        body.method("get_velocity", &natBodyGetVelocity, 0);
+        body.method("set_velocity", &natBodySetVelocity, 2);
+        body.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
+        body.method("set_angular_velocity", &natBodySetAngularVelocity, 1);
+        body.method("apply_force", &natBodyApplyForce, 2);
+        body.method("apply_impulse", &natBodyApplyImpulse, 2);
+        body.method("apply_torque", &natBodyApplyTorque, 1);
+        body.method("get_gravity_scale", &natBodyGetGravityScale, 0);
+        body.method("set_gravity_scale", &natBodySetGravityScale, 1);
+        body.method("set_type", &natBodySetType, 1);
+        body.method("is_awake", &natBodyIsAwake, 0);
+        body.method("wake", &natBodyWake, 0);
+        body.persistent(true).constructable(false);
+        bodyClass = body.end();
 
         auto particle = vm.def_class("Particle");
         particle.method("start", &natParticleStart, 0);
@@ -840,6 +1041,11 @@ namespace k2d
         vm.def_native("mouse_x", &natMouseX, 0);
         vm.def_native("mouse_y", &natMouseY, 0);
         vm.def_native("wheel_y", &natWheelY, 0);
+
+        vm.def_native("raycast", &natRaycast, -1);
+        vm.def_native("body_at", &natBodyAt, 2);
+        vm.def_native("set_gravity", &natSetGravity, 2);
+        vm.def_native("get_gravity", &natGetGravity, 0);
     }
 
     ZenScriptComponent::ZenScriptComponent()
@@ -1032,6 +1238,46 @@ namespace k2d
         RunningScript running;
         impl.vm.invoke(mState->instance, scriptClass->slotEvent, args, 2);
         return !impl.vm.had_error();
+    }
+
+    bool ZenScriptComponent::callCollision(GameObject *other, bool began)
+    {
+        if ((!mState->loaded && !mState->pending) || !ensureInstance())
+            return false;
+
+        ZenScriptClass *scriptClass = mState->scriptClass;
+        if (!scriptClass || scriptClass->slotCollision < 0)
+            return false;
+
+        ZenRuntime::Impl &impl = ZenRuntime::instance().impl();
+        zen::ObjInstance *inst = zen::as_instance(mState->instance);
+        if (!inst || !inst->klass || scriptClass->slotCollision >= inst->klass->vtable_size ||
+            zen::is_nil(inst->klass->vtable[scriptClass->slotCollision]))
+            return false;
+
+        zen::Value args[2] = {other ? impl.instanceFor(impl.nodeClass, other) : zen::val_nil(),
+                              zen::val_bool(began)};
+        RunningScript running;
+        impl.vm.invoke(mState->instance, scriptClass->slotCollision, args, 2);
+        return !impl.vm.had_error();
+    }
+
+    namespace
+    {
+        void routeCollision(const CollisionInfo &info, void *)
+        {
+            if (!gZenScriptsEnabled || !info.self)
+                return;
+            const size_t count = info.self->componentCount<ZenScriptComponent>();
+            for (size_t i = 0; i < count; ++i)
+                if (ZenScriptComponent *script = info.self->getComponentAt<ZenScriptComponent>(i))
+                    script->callCollision(info.other, info.began);
+        }
+    }
+
+    void RouteZenScriptCollisions(PhysicsWorld2D &world)
+    {
+        world.setCollisionCallback(&routeCollision, nullptr);
     }
 
     bool ZenScriptComponent::callFunction(const char *name, double value)
