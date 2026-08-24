@@ -53,8 +53,23 @@ namespace k2d
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+        // A 1280x720 runner on a smaller desktop gets centered with part of
+        // the window off-screen. Clamp only the initial size; the window stays
+        // resizable and the game continues to use its actual drawable size.
+        int initialWidth = width;
+        int initialHeight = height;
+        SDL_Rect usableBounds{};
+        if (SDL_GetDisplayUsableBounds(0, &usableBounds) == 0)
+        {
+            const int margin = 48;
+            if (usableBounds.w > margin)
+                initialWidth = initialWidth < usableBounds.w - margin ? initialWidth : usableBounds.w - margin;
+            if (usableBounds.h > margin)
+                initialHeight = initialHeight < usableBounds.h - margin ? initialHeight : usableBounds.h - margin;
+        }
+
         mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                    width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+                                    initialWidth, initialHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
         if (!mWindow)
         {
             std::printf("SDL_CreateWindow failed: %s\n", SDL_GetError());
