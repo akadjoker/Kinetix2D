@@ -260,10 +260,14 @@ void AssetsPanel::drawToolbar()
         mEntriesDirty = true;
     ImGui::SameLine();
     if (ImGui::Button(ICON_MDI_FILE_PLUS))
-        ImGui::OpenPopup("New Script");
+        requestNewScript(mRoot);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("New Zen script (.py) in this folder");
-    drawNewScriptPopup();
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_FOLDER_PLUS))
+        requestNewFolder(mRoot);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("New folder in this directory");
     ImGui::SameLine();
     if (ImGui::Button(ICON_MDI_VIEW_GRID))
         mViewMode = ViewMode::Grid;
@@ -484,20 +488,50 @@ void AssetsPanel::generateBumpMap(const EditorFileEntry& entry)
 
 void AssetsPanel::drawEntryContextMenu(const EditorFileEntry& entry)
 {
-    if (entry.directory)
-        return;
-    const ct::String ext = EditorFileSystem::extension(entry.path);
-    if (!isImage(ext))
-        return;
-
     if (ImGui::BeginPopupContextItem())
     {
-        if (ImGui::MenuItem(ICON_MDI_CONTENT_CUT " Open in Image Editor"))
-            app().openImageEditor(entry.path.c_str());
-        if (ImGui::MenuItem(ICON_MDI_TEXTURE " Generate Bump Map"))
-            generateBumpMap(entry);
+        if (entry.directory)
+        {
+            if (ImGui::MenuItem(ICON_MDI_FOLDER_OPEN " Open"))
+                navigateTo(entry.path);
+            drawCreationMenu(entry.path);
+        }
+        else
+        {
+            const ct::String ext = EditorFileSystem::extension(entry.path);
+            if (isScript(ext) && ImGui::MenuItem(ICON_MDI_CODE_BRACES " Open Script"))
+                app().openScriptEditor(entry.path.c_str());
+            if (isImage(ext))
+            {
+                if (ImGui::MenuItem(ICON_MDI_CONTENT_CUT " Open in Image Editor"))
+                    app().openImageEditor(entry.path.c_str());
+                if (ImGui::MenuItem(ICON_MDI_TEXTURE " Generate Bump Map"))
+                    generateBumpMap(entry);
+            }
+        }
         ImGui::EndPopup();
     }
+}
+
+void AssetsPanel::drawCreationMenu(const ct::String& directory)
+{
+    ImGui::Separator();
+    if (ImGui::MenuItem(ICON_MDI_FOLDER_PLUS " Create Folder"))
+        requestNewFolder(directory);
+    if (ImGui::MenuItem(ICON_MDI_FILE_PLUS " Create Zen Script"))
+        requestNewScript(directory);
+}
+
+void AssetsPanel::requestNewScript(const ct::String& directory)
+{
+    mCreateDirectory = directory;
+    ImGui::OpenPopup("New Script");
+}
+
+void AssetsPanel::requestNewFolder(const ct::String& directory)
+{
+    mCreateDirectory = directory;
+    ImGui::OpenPopup("New Folder");
 }
 
 void AssetsPanel::drawNewScriptPopup()
@@ -505,7 +539,8 @@ void AssetsPanel::drawNewScriptPopup()
     if (!ImGui::BeginPopup("New Script"))
         return;
 
-    ImGui::TextDisabled("Creating in %s", mRoot.c_str());
+    const ct::String& directory = mCreateDirectory.empty() ? mRoot : mCreateDirectory;
+    ImGui::TextDisabled("Creating in %s", directory.c_str());
     ImGui::SetNextItemWidth(220.0f);
     ImGui::InputText("Name", mNewScriptName, sizeof(mNewScriptName));
     static const char* templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
@@ -516,7 +551,7 @@ void AssetsPanel::drawNewScriptPopup()
 
     ct::String fileName(mNewScriptName);
     fileName += ".py";
-    const ct::String target = EditorFileSystem::join(mRoot, fileName.c_str());
+    const ct::String target = EditorFileSystem::join(directory, fileName.c_str());
     const bool exists = EditorFileSystem::exists(target);
     if (exists)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s already exists", fileName.c_str());
@@ -535,6 +570,43 @@ void AssetsPanel::drawNewScriptPopup()
         else
         {
             app().toasts().error("Could not create script");
+        }
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+        ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
+void AssetsPanel::drawNewFolderPopup()
+{
+    if (!ImGui::BeginPopup("New Folder"))
+        return;
+
+    const ct::String& directory = mCreateDirectory.empty() ? mRoot : mCreateDirectory;
+    ImGui::TextDisabled("Creating in %s", directory.c_str());
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::InputText("Name", mNewFolderName, sizeof(mNewFolderName));
+
+    const ct::String target = EditorFileSystem::join(directory, mNewFolderName);
+    const bool exists = EditorFileSystem::exists(target);
+    if (exists)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s already exists", mNewFolderName);
+
+    ImGui::BeginDisabled(mNewFolderName[0] == '\0' || exists);
+    if (ImGui::Button("Create"))
+    {
+        if (EditorFileSystem::makeDirectory(target))
+        {
+            mEntriesDirty = true;
+            app().toasts().info("Folder created");
+            app().log(ct::String("Created folder: ") + target);
+        }
+        else
+        {
+            app().toasts().error("Could not create folder");
         }
         ImGui::CloseCurrentPopup();
     }
@@ -667,7 +739,16 @@ void AssetsPanel::drawContents()
         drawGrid();
     else
         drawList();
+    if (ImGui::BeginPopupContextWindow("Assets Context", ImGuiPopupFlags_MouseButtonRight |
+                                                            ImGuiPopupFlags_NoOpenOverItems))
+    {
+        drawCreationMenu(mRoot);
+        ImGui::EndPopup();
+    }
     ImGui::EndChild();
+
+    drawNewScriptPopup();
+    drawNewFolderPopup();
 }
 
 } // namespace k2d::editor

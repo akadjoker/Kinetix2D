@@ -9,19 +9,21 @@ PROJECT="${1:-}"
 RUN=0
 PORT=8080
 REBUILD=0
+SCENE=""
 shift || true
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --run) RUN=1 ;;
         --rebuild) REBUILD=1 ;;
         --port) PORT="$2"; shift ;;
+        --scene) SCENE="$2"; shift ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
     shift
 done
 
 if [[ -z "$PROJECT" || ! -f "$PROJECT/project.k2dproj" ]]; then
-    echo "Usage: tools/export_web.sh <project-directory> [--run] [--rebuild] [--port N]" >&2
+    echo "Usage: tools/export_web.sh <project-directory> [--scene path] [--run] [--rebuild] [--port N]" >&2
     exit 1
 fi
 if [[ ! -f "$EMSDK_DIR/emsdk_env.sh" ]]; then
@@ -65,14 +67,22 @@ data = json.load(open(p, encoding='utf8'))
 print(data.get('name') or fallback)
 PY
  )"
+if [[ -z "$SCENE" ]]; then
 scene="$(python3 - "$PROJECT/project.k2dproj" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1], encoding='utf8'))
 print(data.get('startupScene') or '')
 PY
 )"
+else
+    scene="$SCENE"
+fi
 if [[ -z "$scene" ]]; then
-    echo "project.k2dproj has no startupScene" >&2
+    echo "No scene was selected and project.k2dproj has no startupScene" >&2
+    exit 1
+fi
+if [[ "$scene" == /* || "$scene" == *\\* || "$scene" == .. || "$scene" == ../* || "$scene" == */../* || ! -f "$PROJECT/$scene" ]]; then
+    echo "Scene must be an existing path inside the project: $scene" >&2
     exit 1
 fi
 python3 - "$OUT/index.html" "$title" "$scene" <<'PY'

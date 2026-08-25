@@ -553,13 +553,21 @@ void EditorApplication::exportWeb(bool runAfterExport)
         mToasts.error("Open a project before exporting for Web");
         return;
     }
-    if (mProject.startupScene().empty())
+    ct::String sceneRelative = relativeToRoot(mCurrentScenePath, mProject.root());
+    if (sceneRelative.empty())
+        sceneRelative = mProject.startupScene();
+    if (sceneRelative.empty())
     {
-        mToasts.error("Set a startup scene before exporting for Web");
+        mToasts.error("Save a scene inside the project before exporting for Web");
         return;
     }
     if (!mCurrentScenePath.empty() && !saveScene(mCurrentScenePath.c_str()))
         return;
+    if (!EditorFileSystem::exists(EditorFileSystem::join(mProject.root(), sceneRelative.c_str())))
+    {
+        mToasts.error("The Web scene must be inside the project folder");
+        return;
+    }
 
 #if defined(__unix__) || defined(__APPLE__)
     const std::filesystem::path binPath = FileSystem::Instance().BasePath();
@@ -581,9 +589,11 @@ void EditorApplication::exportWeb(bool runAfterExport)
     if (pid == 0)
     {
         if (runAfterExport)
-            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--run", static_cast<char*>(nullptr));
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
+                  "--run", static_cast<char*>(nullptr));
         else
-            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), static_cast<char*>(nullptr));
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
+                  static_cast<char*>(nullptr));
         _exit(127);
     }
     if (pid < 0)
@@ -591,8 +601,10 @@ void EditorApplication::exportWeb(bool runAfterExport)
         mToasts.error("Could not start Web export");
         return;
     }
-    log(runAfterExport ? "Run Web: export and local server started" : "Export Web: task started");
-    mToasts.info(runAfterExport ? "Building Web game and opening browser" : "Building Web export");
+    ct::String message(runAfterExport ? "Run Web: exporting current scene: " : "Export Web: exporting current scene: ");
+    message += sceneRelative;
+    log(message);
+    mToasts.info(runAfterExport ? "Building current scene for Web" : "Exporting current scene for Web");
 #else
     (void)runAfterExport;
     mToasts.error("Web export launch is not implemented on this platform");

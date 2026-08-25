@@ -58,7 +58,11 @@ private:
     void handleEntryInteraction(const EditorFileEntry &entry, bool clicked, bool doubleClicked);
     void drawEntryContextMenu(const EditorFileEntry &entry);
     void generateBumpMap(const EditorFileEntry &entry);
+    void drawCreationMenu(const ct::String &directory);
     void drawNewScriptPopup();
+    void drawNewFolderPopup();
+    void requestNewScript(const ct::String &directory);
+    void requestNewFolder(const ct::String &directory);
 
     void navigateTo(const ct::String &directory);
     void refreshEntries();
@@ -78,8 +82,10 @@ private:
     float mSidebarWidth = 180.0f;
 
     ct::HashMap<ct::String, Texture *> mThumbnailCache;
+    ct::String mCreateDirectory;
     char mNewScriptName[64] = "new_script";
     int mNewScriptTemplate = 0;
+    char mNewFolderName[64] = "new_folder";
 };
 
 }
