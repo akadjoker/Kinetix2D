@@ -1,16 +1,22 @@
 cmake_minimum_required(VERSION 3.16)
 
 find_package(SDL2 REQUIRED)
-if(ANDROID)
-    # zlib is part of the Android NDK system libraries.
-    set(K2D_ZLIB_LIBRARY z)
-elseif(EMSCRIPTEN)
-    # Pull zlib from Emscripten's port instead of looking for a host library.
-    set(K2D_ZLIB_LINK_OPTION "-sUSE_ZLIB=1")
-else()
-    find_package(ZLIB REQUIRED)
-    set(K2D_ZLIB_LIBRARY ZLIB::ZLIB)
-endif()
+
+# The pack format needs deflate, but it must not add a platform zlib
+# dependency. Miniz is built as a static, amalgamated single-header library.
+include(FetchContent)
+set(AMALGAMATE_SOURCES ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    k2d_miniz
+    URL https://codeload.github.com/richgel999/miniz/tar.gz/77d0dce8627735138c51770d1799a1ef48f2117d
+    URL_HASH SHA256=baa14349e7c5efb4a493a03af7d2f29d0ef45d87d488567fe5360edb33f8b7ba
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(k2d_miniz)
 
 # WebGL 2 and Android already provide the GLES3 entry points. Desktop still
 # needs glad to resolve them from SDL's GL context at runtime.
@@ -187,10 +193,8 @@ endif()
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
 
-target_link_libraries(k2d PUBLIC mathc k2d_miniaudio ${K2D_ZLIB_LIBRARY})
-if(EMSCRIPTEN)
-    target_link_options(k2d PUBLIC ${K2D_ZLIB_LINK_OPTION})
-endif()
+target_link_libraries(k2d PUBLIC mathc k2d_miniaudio)
+target_link_libraries(k2d PRIVATE miniz)
 if(K2D_NATIVE_GLES3)
     if(ANDROID)
         target_link_libraries(k2d PUBLIC GLESv3)

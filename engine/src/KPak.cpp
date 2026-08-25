@@ -1,6 +1,6 @@
 #include "k2d/KPak.h"
 
-#include <zlib.h>
+#include <miniz.h>
 
 #include <algorithm>
 #include <array>
@@ -190,7 +190,7 @@ void entryNonce(unsigned char nonce[NonceSize], std::uint32_t index)
 
 std::uint32_t keyChecksum(const unsigned char key[KeySize])
 {
-    return static_cast<std::uint32_t>(crc32(0L, key, KeySize));
+    return static_cast<std::uint32_t>(mz_crc32(0, key, KeySize));
 }
 } // namespace
 
@@ -342,8 +342,8 @@ bool KPak::Read(const char* path, std::vector<unsigned char>& out) const
     if ((entry.flags & EntryDeflated) != 0)
     {
         out.resize(entry.rawSize);
-        uLongf rawSize = static_cast<uLongf>(out.size());
-        if (uncompress(out.data(), &rawSize, stored.data(), static_cast<uLong>(stored.size())) != Z_OK ||
+        mz_ulong rawSize = static_cast<mz_ulong>(out.size());
+        if (mz_uncompress(out.data(), &rawSize, stored.data(), static_cast<mz_ulong>(stored.size())) != MZ_OK ||
             rawSize != out.size())
         {
             out.clear();
@@ -354,7 +354,7 @@ bool KPak::Read(const char* path, std::vector<unsigned char>& out) const
     {
         out = std::move(stored);
     }
-    if (out.size() != entry.rawSize || static_cast<std::uint32_t>(crc32(0L, out.data(), out.size())) != entry.crc)
+    if (out.size() != entry.rawSize || static_cast<std::uint32_t>(mz_crc32(0, out.data(), out.size())) != entry.crc)
     {
         out.clear();
         return false;
@@ -427,16 +427,16 @@ bool KPakWriter::AddData(const char* archivePath, const void* data, std::size_t 
     Pending pending;
     pending.name = name;
     pending.rawSize = static_cast<std::uint32_t>(size);
-    pending.crc = static_cast<std::uint32_t>(crc32(0L, static_cast<const Bytef*>(data), static_cast<uInt>(size)));
+    pending.crc = static_cast<std::uint32_t>(mz_crc32(0, static_cast<const unsigned char*>(data), size));
     pending.stored.resize(size);
     if (size > 0)
         std::memcpy(pending.stored.data(), data, size);
     if (mCompressionLevel > 0 && size > 0)
     {
-        std::vector<unsigned char> compressed(compressBound(static_cast<uLong>(size)));
-        uLongf compressedSize = static_cast<uLongf>(compressed.size());
-        if (compress2(compressed.data(), &compressedSize, pending.stored.data(), static_cast<uLong>(size),
-                      mCompressionLevel) == Z_OK &&
+        std::vector<unsigned char> compressed(mz_compressBound(static_cast<mz_ulong>(size)));
+        mz_ulong compressedSize = static_cast<mz_ulong>(compressed.size());
+        if (mz_compress2(compressed.data(), &compressedSize, pending.stored.data(), static_cast<mz_ulong>(size),
+                         mCompressionLevel) == MZ_OK &&
             compressedSize < size)
         {
             compressed.resize(compressedSize);
