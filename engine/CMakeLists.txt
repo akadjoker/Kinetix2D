@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-find_package(SDL2 REQUIRED)
-
 # The pack format needs deflate, but it must not add a platform zlib
 # dependency. Miniz is built as a static, amalgamated single-header library.
 include(FetchContent)

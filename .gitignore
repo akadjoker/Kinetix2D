@@ -1,5 +1,6 @@
 build/
 build-*/
+.k2d-tools/
 bin/
 bin-sanitize/
 

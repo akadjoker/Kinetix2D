@@ -1,283 +1,83 @@
-# Kinetix2D - 2D Physics Engine + Rendering
+# Kinetix2D
 
-**Kinetix2D** is a high-performance 2D physics engine with an integrated rendering system, built for desktop, web (WebGL2), and mobile platforms. It combines a faithful physics simulation (collision detection + sequential impulse solver) with a lean 2D graphics layer.
+Kinetix2D is a C++ 2D engine with an editor, runner, Chipmunk2D-based physics, and ZenScript scripting.
 
-## Architecture
+## Build
 
-### Two-Layer Design
+CMake, a C++ compiler, and the SDL2 development libraries are required.
 
-- **`kx` (Physics Library)**: Zero dependencies beyond GLM and `ct` (custom containers). Headless, portable to any platform.
-  - Collision detection (Circle, Polygon, Edge shapes; SAT + GJK-inspired algorithms)
-  - Dynamic, Kinematic, and Static bodies
-  - 6 joint types: Distance, Wheel, Revolute, Gear, Mouse
-  - Broad/narrow phase with optional dynamic tree (AABB broadphase)
-  - Deterministic, reproducible results
-  
-- **`k2d` (Engine Layer)**: Rendering, input, file I/O, scene management
-  - Batch renderer (GLES 3.0 / WebGL2 compatible)
-  - SDL2 window + input handling
-  - Immediate-mode text rendering
-  - Scene/component system (GameObject hierarchy, prefab-like structure)
-  - ImGui integration for debug panels
-  - Screenshot (PNG) and frame capture (for GIF conversion)
+~~~sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+~~~
 
-### Portability
+On Windows, if SDL2 is provided through vcpkg:
 
-- **Desktop**: Native GLES 3.0 via glad (Mesa/ANGLE)
-- **Web**: Emscripten + WebGL2 (`-sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2`)
-- **Mobile**: Native GLES 3.0
- 
+~~~sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+cmake --build build --parallel
+~~~
 
-## Building
+## Local Windows cross-build
 
-### Prerequisites
-
-- CMake 3.16+
-- SDL2 development headers
-- C++14 compiler (GCC 7+ / Clang 5+)
-- GLM (fetched automatically)
-- `ct` (containers library, path in physics/CMakeLists.txt)
-
-### Build
-
-```bash
-cmake -S . -B build
-cmake --build build -j
-./build/bin/physics_demo
-```
-
-### Run Tests
-
-```bash
-./build/bin/kx_fidelity          # 75,000 collision regression tests
-./build/bin/kx_collision_tests   # 29 edge-case unit tests
-./build/bin/kx_solver_tests      # 55 dynamics + constraints tests
-./build/bin/kx_broadphase_tests  # Broadphase correctness
-./build/bin/kx_imageshape_tests  # Sprite silhouette tracing
-```
-
-All tests exit 0 on success.
-
-## Continuous releases
-
-GitHub Actions builds `k2d_editor`, `k2d_runner` and `k2d_pack` for Linux
-and Windows. Pushes and pull requests to `master` publish downloadable CI
-artifacts; pushing a version tag publishes both ZIPs as a GitHub Release.
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-## Asset packages (`.kpak`)
-
-`k2d_pack` builds an indexed asset package. Files stay compressed on disk and
-only the requested asset is decoded; a package can also be encrypted with a
-project key.
-
-```bash
-# Store all files under assets/ by their path relative to assets/.
-./bin/k2d_pack -o game.kpak -k "project-key" assets
-
-# Inspect a package.
-./bin/k2d_pack -t game.kpak -k "project-key"
-```
-
-Mount it before loading a scene or any assets. Mounted entries take precedence
-over loose files and work with `Assets`, audio, shaders, JSON, TMX and scripts.
-
-```cpp
-k2d::FileSystem::Instance().MountPack("game.kpak", "project-key");
-```
-
-## API Reference
-
-### Physics (kx namespace)
-
-#### World
-```cpp
-kx::World world(glm::vec2(0, 800));  // gravity
-
-// Create bodies
-kx::Body *box = world.CreateBox(pos, halfWidth, halfHeight, density);
-kx::Body *circle = world.CreateCircle(pos, radius, density);
-kx::Body *body = world.CreateBody(kx::BodyType::Dynamic, pos, angle);
-
-// Compose shapes
-body->AddBox(halfW, halfH, localPos, density);
-body->AddCircle(localPos, radius, density);
-body->AddPolygon(points, count, density);  // convex hull
-body->AddEdge(p1, p2);
-body->AddMesh(outline, count, density);    // auto-triangulates concave
-body->AddFromImage(pixels, w, h, bpp, threshold, density);
-
-// Joints
-auto *joint = new kx::MouseJoint(body, targetPos, frequency, damping);
-world.AddJoint(joint);
-
-auto *wheel = new kx::WheelJoint(chassis, wheel, anchor, axis);
-wheel->SetSpring(4.0f, 0.7f);
-wheel->SetMotor(true, speed, maxTorque);
-world.AddJoint(wheel);
-
-// Step simulation
-world.Step(dt);
-
-// Query
-kx::Body *hit = world.BodyAtPoint(mousePos);
-const ct::Vector<kx::ContactInfo> &contacts = world.Contacts();
-
-// Debug draw
-BatchDebugDraw debug(batch);
-kx::Draw(world, debug, kx::DebugDrawShapes | kx::DebugDrawContacts);
-```
-
-#### Body Properties
-```cpp
-body->SetVelocity(v);
-body->SetAngularVelocity(w);
-body->SetPosition(p);
-body->SetAngle(angle);
-
-body->SetFriction(0.3f);
-body->SetRestitution(0.5f);
-
-// Collision filtering (bitmask groups)
-kx::Filter filter{category, mask, group};
-body->SetFilter(filter);
-
-// Query geometry
-glm::vec2 pos = body->Position();
-float angle = body->Angle();
-kx::Mass mass = body->Mass();
-```
-
-### Rendering (k2d namespace)
-
-#### Batch Renderer (Immediate Mode)
-```cpp
-batch.BeginFrame();
-
-batch.SetColor(255, 128, 0, 255);
-batch.DrawRect(x, y, w, h, filled);
-batch.DrawCircle(cx, cy, radius, segments);
-batch.DrawLine(x1, y1, x2, y2);
-batch.DrawPolyline(points, count);
-batch.DrawText(x, y, fontSize, "Hello");
-
-batch.PushMatrix();
-batch.Translate(x, y);
-batch.Rotate(angle);
-batch.Scale(sx, sy);
-batch.DrawTexture(texture, matrix);
-batch.PopMatrix();
-
-batch.EndFrame();
-```
-
-#### Scene/Component System
-```cpp
-k2d::Scene scene;
-
-k2d::GameObject *obj = scene.createObject();
-obj->setLocalPosition(glm::vec2(100, 200));
-
-auto *sprite = obj->addComponent<k2d::SpriteComponent>();
-sprite->setTexture(texture);
-sprite->setColor(glm::vec4(1,0.5,0,1));
-
-auto *script = obj->addComponent<k2d::ScriptComponent>();
-
-scene.update(dt);
-scene.render(batch);
-```
-
-#### Water material
-
-Assign a small normal map to a sprite, enable **Water Effect** in the Inspector,
-and adjust its two flow vectors. The renderer samples that one normal map twice,
-so the surface moves without a second texture allocation. Water is serialized with
-the scene; it is intended for standalone/tiled textures (or padded atlas regions).
-
-#### Screenshot & Frame Capture
-```cpp
-// F9: Save PNG screenshot
-device.CaptureScreenshot();  // → screenshot_0001.png
-
-// F10: Toggle PNG frame capture
-device.StartGifCapture(60);  // 60 fps
-// ... run simulation ...
-device.StopGifCapture();     // → capture_0001/frame_0001.png, etc
-
-// Convert frames to GIF:
-// ffmpeg -i capture_0001/frame_%04d.png -c:v libx264 output.gif
-```
-
- 
-
-## Features
-
-### Collision & Constraints
-- **Shapes**: Circle, Polygon (convex), Edge (line segment), multi-shape bodies
-- **Algorithms**: Separating Axis Theorem (SAT), Sutherland-Hodgman clipping
-- **Manifolds**: Up to 2 contact points per pair, persistent feature ID
-- **Broadphase**: O(n²) brute-force OR O(n log n) AABB dynamic tree (togglable)
-
-### Dynamics
-- **Sequential Impulse Solver** (Box2D style): accumulated impulses, warm starting
-- **Restitution** (bounciness): per-body + contact-level
-- **Friction**: dynamic + static, sqrt mixing rule
-- **Gravity**: global + per-body forces
-- **Sleep**: (TODO) sleeping threshold for inactive bodies
-
-### Joints (6 types)
-1. **MouseJoint**: Soft constraint, cursor-to-body pulling
-2. **DistanceJoint**: Rigid rod or spring between two points
-3. **WheelJoint**: Spring suspension + motor (vehicles)
-4. **RevoluteJoint**: Pin rotation with motor + angle limits
-5. **GearJoint**: Gear ratio coupling (two revolutes)
-6. (Future) PrismaticJoint, PulleyJoint, ConstantVolumeJoint
-
-### Multi-Shape Bodies
-- Each body holds up to 32 shapes (fixed array, no per-body heap allocation)
-- Shapes in body-local coordinates
-- Mass & inertia computed via parallel-axis theorem
-- Collision filtering per-shape
-
-### Image → Collision Shapes
-- **Marching squares** outline tracing (Chipmunk-derived)
-- **Polyline simplification** (angle-tolerance vertex reduction)
-- **Concave polygon support**: auto-triangulates via internal sweep-line CDT (kx::tri)
-- **Multi-blob support**: disjoint silhouettes become separate bodies
-
-## References
-
-**Physics**: No invented algorithms - faithful ports from proven libraries:
-- Collision: `/media/projectos/projects/cpp/vibecoding/fisica/phys` (user's Box2D-style reference)
-- Solver: Box2D-Lite (sequential impulse, contact warm-starting)
-- Joints: `/media/projectos/projects/cpp/fisica/box2d/src/dynamics/` (MouseJoint, WheelJoint, RevoluteJoint, etc.)
-- Triangulation: kx::tri — port of poly2tri sweep-line CDT (self-contained, no external dep)
-- Image tracing: Chipmunk2D (cpMarch marching-squares, cpPolyline simplification)
-
-**Rendering**: Immediate-mode batch renderer (GLES 3.0 subset for WebGL2 compat)
-- Shaders: inline `#version 300 es` GLSL
-- Transform stack: push/pop matrix with multiply semantics
-- No retained-mode scene graph - caller drives draw order
-
-## Rules
-
-1. **C++14 only**
-2. **No `std::` containers** - use `ct::Vector`, `ct::HashMap`, `ct::Pool`, `ct::String`
-3. **No smart pointers** - raw pointers, explicit ownership
-4. **No comments** in code (except closing namespace braces)
-5. **Allman braces** (opening brace on new line)
-6. **Single source of truth**: 2D transforms = `k2d::Matrix2D` everywhere (physics + rendering)
-7. **No linked lists** - arrays + handles + object pools
+Linux developers can validate the Windows build before pushing. Keep a portable, Linux-hosted MinGW-w64 SDK outside Git at `.k2d-tools/mingw64/`; its `bin/` directory must contain `x86_64-w64-mingw32-g++`.
 
+~~~sh
+# Fast platform check: builds Zen only, with no SDL2 dependency.
+./tools/dev/build-windows-mingw.sh zen
 
+# Full engine build. vcpkg is cloned and bootstrapped under .k2d-tools/vcpkg.
+./tools/dev/build-windows-mingw.sh
+~~~
 
+The toolchain, vcpkg checkout, downloaded ports, and build output stay in ignored local folders. No system-wide package installation is needed.
 
+Executables are written to `bin/`:
+
+~~~sh
+./bin/k2d_editor
+./bin/k2d_runner assets/senes/scene.k2dscene
+~~~
+
+## Layout
+
+- `engine/` — core systems, rendering, audio, input, assets, and serialization.
+- `physics/` and `physics2d/` — shapes, queries, and Chipmunk2D integration.
+- `scripting/` — the ZenScript VM and engine bindings.
+- `editor/` — the scene editor and content tools.
+- `runner/` — runs a project or scene.
+- `tools/k2d_pack/` — asset package builder.
+- `assets/` — sample assets and scenes.
+
+Editor and language documentation live in `editor/README.md` and `scripting/README.md`.
+
+## Asset packages
+
+`k2d_pack` creates a `.kpak` package from a directory. The runtime mounts it through `FileSystem` and reads assets using the same logical paths as loose files.
+
+~~~sh
+./bin/k2d_pack assets game.kpak
+./bin/k2d_pack assets game.kpak --key my-key
+~~~
+
+Compression uses miniz, built statically by CMake. zlib is not required on the host system.
+
+## Tests
+
+~~~sh
+./bin/k2d_kpak_tests
+./bin/k2d_zen_tests
+./bin/k2d_serializer_tests
+~~~
+
+## CI and releases
+
+The workflow in `.github/workflows/release.yml` builds the editor, runner, packer, and tests on Linux and Windows. Each run uploads the binaries as artifacts. A `v*` tag also creates a release with the packages.
+
+## Credits
+
+The project integrates or references SDL2, Chipmunk2D, GLAD, miniz, Box2D, and the Zen libraries.
 
 ## License
 
-MIT
+See [LICENSE](LICENSE).
