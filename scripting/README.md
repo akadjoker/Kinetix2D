@@ -447,6 +447,8 @@ and preload the project scripts in a deterministic order before loading its firs
 `tools/export_web.sh <project> --scene scenes/level_01.k2dscene` exports that scene explicitly;
 without `--scene`, it uses `startupScene`. The editor's **Project → Export Web** and **Run Web**
 actions automatically use the currently open, saved scene when it belongs to the project.
+The same export pipeline runs on Windows through `tools\\export_web.bat`; activate Emscripten first
+(`emsdk_env.bat`) and use `K2D_SOURCE_ROOT` when the source tree is not beside the launcher.
 
 Use `k2d_webserver <export-directory> [port]` to test an exported build locally. It binds only to
 `127.0.0.1`, sets the WebAssembly MIME type, and serves static export files without exposing paths

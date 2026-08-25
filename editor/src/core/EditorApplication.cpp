@@ -51,6 +51,13 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
@@ -99,10 +106,15 @@ ct::String relativeToRoot(const ct::String& absolute, const ct::String& root)
     return absolute.substr(start, absolute.size() - start);
 }
 
-std::filesystem::path findEditorTool(const char* name)
+std::filesystem::path findEditorTool(const char* name, const char* overrideVariable = nullptr)
 {
+    if (overrideVariable)
+        if (const char* configured = std::getenv(overrideVariable))
+            if (configured[0] && std::filesystem::exists(configured))
+                return std::filesystem::path(configured);
+
     std::filesystem::path directory = FileSystem::Instance().BasePath();
-    for (int level = 0; level < 4 && !directory.empty(); ++level)
+    while (!directory.empty())
     {
         const std::filesystem::path besideExecutable = directory / name;
         if (std::filesystem::exists(besideExecutable))
@@ -119,6 +131,22 @@ std::filesystem::path findEditorTool(const char* name)
     }
     return std::filesystem::path();
 }
+
+#if defined(_WIN32)
+std::string quoteWindowsArgument(const std::string& value)
+{
+    std::string quoted("\"");
+    for (const char c : value)
+    {
+        if (c == '\"')
+            quoted += "\\\"";
+        else
+            quoted += c;
+    }
+    quoted += "\"";
+    return quoted;
+}
+#endif
 } // namespace
 
 EditorApplication::~EditorApplication() = default;
@@ -591,7 +619,7 @@ void EditorApplication::exportWeb(bool runAfterExport)
     }
 
 #if defined(__unix__) || defined(__APPLE__)
-    const std::filesystem::path exporter = findEditorTool("export_web.sh");
+    const std::filesystem::path exporter = findEditorTool("export_web.sh", "K2D_WEB_EXPORTER");
     if (!std::filesystem::exists(exporter))
     {
         ct::String message("Web exporter was not found: ");
@@ -619,6 +647,40 @@ void EditorApplication::exportWeb(bool runAfterExport)
     ct::String message(runAfterExport ? "Run Web: exporting current scene: " : "Export Web: exporting current scene: ");
     message += sceneRelative;
     log(message);
+    mToasts.info(runAfterExport ? "Building current scene for Web" : "Exporting current scene for Web");
+#elif defined(_WIN32)
+    const std::filesystem::path exporter = findEditorTool("export_web.bat", "K2D_WEB_EXPORTER");
+    if (!std::filesystem::exists(exporter))
+    {
+        mToasts.error("Web exporter batch file was not found");
+        return;
+    }
+    const char* commandProcessor = std::getenv("COMSPEC");
+    if (!commandProcessor || !commandProcessor[0])
+        commandProcessor = "cmd.exe";
+    std::string command = quoteWindowsArgument(commandProcessor);
+    command += " /d /s /c \"";
+    command += quoteWindowsArgument(exporter.string());
+    command += " ";
+    command += quoteWindowsArgument(mProject.root().c_str());
+    command += " --scene ";
+    command += quoteWindowsArgument(sceneRelative.c_str());
+    if (runAfterExport)
+        command += " --run";
+    command += "\"";
+    std::vector<char> mutableCommand(command.begin(), command.end());
+    mutableCommand.push_back('\0');
+    STARTUPINFOA startup = {};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process = {};
+    if (!CreateProcessA(commandProcessor, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                        &startup, &process))
+    {
+        mToasts.error("Could not start Web export");
+        return;
+    }
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
     mToasts.info(runAfterExport ? "Building current scene for Web" : "Exporting current scene for Web");
 #else
     (void)runAfterExport;
