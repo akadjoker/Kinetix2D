@@ -1,6 +1,6 @@
 # Kinetix2D
 
-Kinetix2D is a C++ 2D engine with an editor, runner, Chipmunk2D-based physics, and ZenScript scripting.
+Kinetix2D is a C++ 2D engine with an editor, runner, native 2D physics, and ZenScript scripting.
 
 ## Build
 
@@ -42,7 +42,8 @@ Executables are written to `bin/`:
 ## Layout
 
 - `engine/` — core systems, rendering, audio, input, assets, and serialization.
-- `physics/` and `physics2d/` — shapes, queries, and Chipmunk2D integration.
+- `physics/` — the native `kx` collision and physics library: shapes, queries, contacts, and joints.
+- `physics2d/` — scene components and serialization that expose `kx` physics to game objects.
 - `scripting/` — the ZenScript VM and engine bindings.
 - `editor/` — the scene editor and content tools.
 - `runner/` — runs a project or scene.
@@ -76,7 +77,9 @@ The workflow in `.github/workflows/release.yml` builds the editor, runner, packe
 
 ## Credits
 
-The project integrates or references SDL2, Chipmunk2D, GLAD, miniz, Box2D, and the Zen libraries.
+The project uses SDL2, GLAD, miniz, the native `kx` physics library, and the Zen libraries. Some
+`kx` algorithms are adaptations of published Box2D techniques, with their original notices retained
+in source files where applicable.
 
 ## License
 
