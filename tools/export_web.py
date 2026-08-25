@@ -6,10 +6,11 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
-import webbrowser
+import time
 
 
 def tool_path(root: Path, name: str) -> Path:
@@ -43,6 +44,28 @@ def file_packager() -> list[str]:
     if native_tool.is_file():
         return [str(native_tool)]
     raise RuntimeError("Emscripten file_packager was not found next to emcc.")
+
+
+def wait_for_server(server: subprocess.Popen, port: int) -> None:
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline:
+        if server.poll() is not None:
+            raise RuntimeError("The local Web server stopped before it was ready.")
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.15):
+                return
+        except OSError:
+            time.sleep(0.05)
+    raise RuntimeError(f"The local Web server did not open port {port}.")
+
+
+def open_default_browser(url: str) -> None:
+    if os.name == "nt":
+        os.startfile(url)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", url])
+    else:
+        subprocess.Popen(["xdg-open", url])
 
 
 def main() -> int:
@@ -108,8 +131,11 @@ def main() -> int:
 
     if args.run:
         server = subprocess.Popen([str(tool_path(root, "k2d_webserver")), str(output), str(args.port)])
-        webbrowser.open(f"http://127.0.0.1:{args.port}/")
         try:
+            url = f"http://127.0.0.1:{args.port}/"
+            wait_for_server(server, args.port)
+            open_default_browser(url)
+            print(f"Opened default browser: {url}")
             return server.wait()
         except KeyboardInterrupt:
             server.terminate()
