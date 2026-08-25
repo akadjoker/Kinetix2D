@@ -96,7 +96,14 @@ For deeper references, see [editor documentation](editor/README.md) and [ZenScri
 
 Every pull request and merge to `master` builds the editor, runner, packer, and KPAK tests on Linux and Windows. These runs validate the change and upload temporary artifacts; they never publish a release.
 
-To publish a release, create and push an annotated `vX.Y.Z` tag, then open **Actions → CI → Run workflow** and enter that tag in **release_tag**. The workflow builds that exact tag and publishes the Linux and Windows ZIPs to GitHub Releases.
+To publish a release, tag the exact commit you want to ship and push that tag. A `vX.Y.Z` tag runs the same Linux and Windows build against that immutable commit, then publishes both ZIPs to GitHub Releases:
+
+~~~sh
+git tag -a v0.2.0 <commit> -m "Kinetix2D v0.2.0"
+git push origin v0.2.0
+~~~
+
+Use **Actions → CI → Run workflow** with `release_tag` only when you need to rebuild or republish an existing version tag.
 
 ## Status
 
