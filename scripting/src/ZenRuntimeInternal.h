@@ -62,7 +62,7 @@ struct ZenRuntime::Impl
     zen::ObjClass* animationClass = nullptr;
     zen::ObjClass* cameraClass = nullptr;
     zen::ObjClass* particleClass = nullptr;
-    zen::ObjClass* bodyClass = nullptr;
+    zen::ObjClass* rigidBodyClass = nullptr;
     zen::ObjClass* buttonClass = nullptr;
     zen::ObjClass* checkBoxClass = nullptr;
     zen::ObjClass* sliderClass = nullptr;

@@ -154,9 +154,14 @@ script->declaredPropertyCount(); // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_sprite()`, `get_animation()`, `get_camera()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
+| Components | `get_component<RigidBody>()`, `get_component<Sprite>()`, `get_component<Animation>()`, `get_component<Camera>()`, `get_component<Particle>()`, `get_component<Button>()`, `get_component<CheckBox>()`, `get_component<Slider>()`; plus `get_sprite()`, `get_animation()`, `get_camera()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
 
 Component handles return `None` when the component is missing.
+
+`get_component<T>()` is the generic form of the component accessors. `T` must be one of the
+component handle classes listed above. A node owns its transform directly, so use the node's
+transform methods (`get_position()`, `set_position()`, and so on) instead of
+`get_component<Transform>()`.
 
 - **Sprite**: `set_color(r, g, b, a)`, `set_flip(x, y)`, `set_size(w, h)`,
   `set_water_enabled(b)`, `set_water_flow(ax, ay, bx, by)`, `set_water_strength(value)`.
@@ -167,7 +172,7 @@ Component handles return `None` when the component is missing.
   `clear_trauma()`, `start_zoom_punch(amount, duration)`, `stop_zoom_punch()`,
   `is_shaking()`. Shake amplitudes are screen pixels and never alter the camera's saved offset.
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
-- **Body**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
+- **RigidBody**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
   `set_angular_velocity(deg)`, `apply_force(x, y)`, `apply_impulse(x, y)`, `apply_torque(t)`,
   `get_gravity_scale()`, `set_gravity_scale(s)`, `set_type("static"/"kinematic"/"dynamic")`,
   `is_awake()`, `wake()`

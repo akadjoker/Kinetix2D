@@ -223,6 +223,54 @@ static bool testComponents()
     return ok;
 }
 
+static bool testGenericAngleBracketCalls()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("generic_holder");
+    object->addComponent<k2d::SpriteComponent>();
+    object->addComponent<k2d::Animation2D>();
+    object->addComponent<k2d::CameraComponent>();
+    object->addComponent<k2d::ParticleComponent>();
+    object->addComponent<k2d::UiButton>();
+    object->addComponent<k2d::UiCheckBox>();
+    object->addComponent<k2d::UiSlider>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "def generic_type<T>(value):\n"
+        "    return T\n"
+        "\n"
+        "class GenericCalls(ScriptComponent):\n"
+        "    def get_type<T>(self):\n"
+        "        return T\n"
+        "    def on_start(self):\n"
+        "        set_flag(\"sprite\", self.node.get_component<Sprite>() != None)\n"
+        "        set_flag(\"animation\", self.node.get_component<Animation>() != None)\n"
+        "        set_flag(\"camera\", self.node.get_component<Camera>() != None)\n"
+        "        set_flag(\"particle\", self.node.get_component<Particle>() != None)\n"
+        "        set_flag(\"button\", self.node.get_component<Button>() != None)\n"
+        "        set_flag(\"checkbox\", self.node.get_component<CheckBox>() != None)\n"
+        "        set_flag(\"slider\", self.node.get_component<Slider>() != None)\n"
+        "        set_flag(\"missing_body\", self.node.get_component<RigidBody>() == None)\n"
+        "        set_flag(\"free_generic\", generic_type<Sprite>(0) == Sprite)\n"
+        "        set_flag(\"method_generic\", self.get_type<Animation>() == Animation)\n"
+        "        set_flag(\"less_than\", 1 < 2)\n"
+        "        set_flag(\"greater_than\", 3 > 2)\n",
+        "generic_angle_brackets");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    const char* flags[] = {"sprite", "animation", "camera", "particle", "button", "checkbox",
+                           "slider", "missing_body", "free_generic", "method_generic", "less_than",
+                           "greater_than"};
+    for (const char* flag : flags)
+        ok = ok && k2d::ZenBlackboard::getBool(flag, false);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testInput()
 {
     k2d::Input input;
@@ -824,6 +872,7 @@ int main()
     const bool bunnymark = testBunnymarkSpawn();
     const bool hierarchy = testHierarchy();
     const bool components = testComponents();
+    const bool genericAngleBrackets = testGenericAngleBracketCalls();
     const bool inputOk = testInput();
     const bool fadeVirtualInput = testFadeAndVirtualInput();
     const bool audioApi = testAudioApi();
@@ -840,17 +889,17 @@ int main()
     const bool ui = testUiSerializationAndInput();
 
     std::printf(
-        "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s "
-        "fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
+        "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
+        "generic_angle_brackets=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
         "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
-        components ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
+        components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
         audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
         destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
         ui ? "pass" : "fail");
-    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components &&
+    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
                         inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
                         serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();

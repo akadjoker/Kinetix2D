@@ -811,7 +811,7 @@ int natNodeGetBody(zen::VM* vm, zen::Value* args, int)
     GameObject* node = nodeFromSelf(args);
     ZenRuntime::Impl* state = stateFromVM(vm);
     RigidBody2D* body = node ? node->getComponent<RigidBody2D>() : nullptr;
-    args[0] = (body && state) ? state->instanceFor(state->bodyClass, body) : zen::val_nil();
+    args[0] = (body && state) ? state->instanceFor(state->rigidBodyClass, body) : zen::val_nil();
     return 1;
 }
 
@@ -1148,6 +1148,67 @@ int natNodeGetSlider(zen::VM* vm, zen::Value* args, int)
     ZenRuntime::Impl* state = stateFromVM(vm);
     UiSlider* slider = node ? node->getComponent<UiSlider>() : nullptr;
     args[0] = (slider && state) ? state->instanceFor(state->sliderClass, slider) : zen::val_nil();
+    return 1;
+}
+
+/* Generic component lookup.  The Zen compiler lowers
+** node.get_component<RigidBody>() to node.get_component(RigidBody), so the first
+** native argument is the requested host class. */
+int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    {
+        args[0] = zen::val_nil();
+        return 1;
+    }
+
+    zen::ObjClass* requested = zen::as_class(args[0]);
+    if (requested == state->rigidBodyClass)
+    {
+        RigidBody2D* component = node->getComponent<RigidBody2D>();
+        args[0] = component ? state->instanceFor(state->rigidBodyClass, component) : zen::val_nil();
+    }
+    else if (requested == state->spriteClass)
+    {
+        SpriteComponent* component = node->getComponent<SpriteComponent>();
+        args[0] = component ? state->instanceFor(state->spriteClass, component) : zen::val_nil();
+    }
+    else if (requested == state->animationClass)
+    {
+        Animation2D* component = node->getComponent<Animation2D>();
+        args[0] = component ? state->instanceFor(state->animationClass, component) : zen::val_nil();
+    }
+    else if (requested == state->cameraClass)
+    {
+        CameraComponent* component = node->getComponent<CameraComponent>();
+        args[0] = component ? state->instanceFor(state->cameraClass, component) : zen::val_nil();
+    }
+    else if (requested == state->particleClass)
+    {
+        ParticleComponent* component = node->getComponent<ParticleComponent>();
+        args[0] = component ? state->instanceFor(state->particleClass, component) : zen::val_nil();
+    }
+    else if (requested == state->buttonClass)
+    {
+        UiButton* component = node->getComponent<UiButton>();
+        args[0] = component ? state->instanceFor(state->buttonClass, component) : zen::val_nil();
+    }
+    else if (requested == state->checkBoxClass)
+    {
+        UiCheckBox* component = node->getComponent<UiCheckBox>();
+        args[0] = component ? state->instanceFor(state->checkBoxClass, component) : zen::val_nil();
+    }
+    else if (requested == state->sliderClass)
+    {
+        UiSlider* component = node->getComponent<UiSlider>();
+        args[0] = component ? state->instanceFor(state->sliderClass, component) : zen::val_nil();
+    }
+    else
+    {
+        args[0] = zen::val_nil();
+    }
     return 1;
 }
 
@@ -2076,6 +2137,7 @@ void ZenRuntime::Impl::initialize()
     node.method("get_button", &natNodeGetButton, 0);
     node.method("get_checkbox", &natNodeGetCheckBox, 0);
     node.method("get_slider", &natNodeGetSlider, 0);
+    node.method("get_component", &natNodeGetComponent, 1);
     node.persistent(true).constructable(false);
     nodeClass = node.end();
 
@@ -2109,21 +2171,23 @@ void ZenRuntime::Impl::initialize()
     camera.persistent(true).constructable(false);
     cameraClass = camera.end();
 
-    auto body = vm.def_class("Body");
-    body.method("get_velocity", &natBodyGetVelocity, 0);
-    body.method("set_velocity", &natBodySetVelocity, 2);
-    body.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
-    body.method("set_angular_velocity", &natBodySetAngularVelocity, 1);
-    body.method("apply_force", &natBodyApplyForce, 2);
-    body.method("apply_impulse", &natBodyApplyImpulse, 2);
-    body.method("apply_torque", &natBodyApplyTorque, 1);
-    body.method("get_gravity_scale", &natBodyGetGravityScale, 0);
-    body.method("set_gravity_scale", &natBodySetGravityScale, 1);
-    body.method("set_type", &natBodySetType, 1);
-    body.method("is_awake", &natBodyIsAwake, 0);
-    body.method("wake", &natBodyWake, 0);
-    body.persistent(true).constructable(false);
-    bodyClass = body.end();
+    auto rigidBody = vm.def_class("RigidBody");
+    rigidBody.method("get_velocity", &natBodyGetVelocity, 0);
+    rigidBody.method("set_velocity", &natBodySetVelocity, 2);
+    rigidBody.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
+    rigidBody.method("set_angular_velocity", &natBodySetAngularVelocity, 1);
+    rigidBody.method("apply_force", &natBodyApplyForce, 2);
+    rigidBody.method("apply_impulse", &natBodyApplyImpulse, 2);
+    rigidBody.method("apply_torque", &natBodyApplyTorque, 1);
+    rigidBody.method("get_gravity_scale", &natBodyGetGravityScale, 0);
+    rigidBody.method("set_gravity_scale", &natBodySetGravityScale, 1);
+    rigidBody.method("set_type", &natBodySetType, 1);
+    rigidBody.method("is_awake", &natBodyIsAwake, 0);
+    rigidBody.method("wake", &natBodyWake, 0);
+    rigidBody.persistent(true).constructable(false);
+    rigidBodyClass = rigidBody.end();
+    /* Keep Body as a source-compatible alias for older scripts. */
+    vm.def_global("Body", zen::val_obj((zen::Obj*)rigidBodyClass));
 
     auto particle = vm.def_class("Particle");
     particle.method("start", &natParticleStart, 0);

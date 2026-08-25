@@ -36,6 +36,17 @@ namespace zen
         /* Infix — keep parsing while the next operator binds tighter */
         for (;;)
         {
+            /* Generic call: fn<Type>(args).  Only treat '<' as generic syntax
+            ** when its complete shape is <Identifier[, Identifier]*>(.  This
+            ** keeps ordinary comparisons such as `a < b` unchanged. */
+            if (current_.type == TOK_LT && generic_call_ahead())
+            {
+                reg = generic_call_expr(reg, dest);
+                if (had_error_)
+                    return reg;
+                continue;
+            }
+
             int infix_prec = get_precedence(current_.type);
 
             /* Special case: 'if' on a new line is a statement, not ternary operator */
@@ -873,9 +884,37 @@ namespace zen
         return result;
     }
 
-    int Compiler::argument_list(int base)
+    int Compiler::generic_call_expr(int callee, int dest)
     {
-        int nargs = 0;
+        /* OP_CALL overwrites R[base] with the return value, just like a
+        ** normal call. */
+        int base = callee;
+        int saved_next = state_->next_reg;
+        if (base < saved_next)
+        {
+            base = alloc_reg();
+            emit_move(base, callee);
+        }
+
+        int nargs = generic_argument_list(base);
+        state_->emitter.emit_abc(OP_CALL, base, nargs, 1, previous_.line);
+
+        state_->next_reg = base + 1;
+        if (state_->next_reg > state_->max_reg)
+            state_->max_reg = state_->next_reg;
+
+        if (dest >= 0 && dest != base)
+        {
+            emit_move(dest, base);
+            free_reg(base);
+            return dest;
+        }
+        return base;
+    }
+
+    int Compiler::argument_list(int base, int initial_nargs)
+    {
+        int nargs = initial_nargs;
         bool has_spread = false;
         if (!check(TOK_RPAREN))
         {
@@ -908,6 +947,73 @@ namespace zen
         if (has_spread)
             nargs |= 0x80;
         return nargs;
+    }
+
+    /* Parse <T, U>(args) after a callee.  Generic values are normal runtime
+    ** values (usually classes), placed before the explicit arguments. */
+    int Compiler::generic_argument_list(int base)
+    {
+        consume(TOK_LT, "Expected '<' before generic arguments.");
+
+        int nargs = 0;
+        do
+        {
+            consume(TOK_IDENTIFIER, "Expected generic type name.");
+            Token type_name = previous_;
+
+            int arg_reg = base + 1 + nargs;
+            if (arg_reg >= kMaxRegisters)
+            {
+                error("Too many generic arguments.");
+                return nargs;
+            }
+            while (state_->next_reg <= arg_reg)
+                alloc_reg();
+
+            int type_reg = named_variable(type_name, arg_reg, false);
+            if (type_reg != arg_reg)
+                emit_move(arg_reg, type_reg);
+            nargs++;
+        } while (match(TOK_COMMA));
+
+        consume(TOK_GT, "Expected '>' after generic arguments.");
+        consume(TOK_LPAREN, "Expected '(' after generic arguments.");
+
+        int total_nargs = argument_list(base, nargs);
+        consume(TOK_RPAREN, "Expected ')' after arguments.");
+        return total_nargs;
+    }
+
+    bool Compiler::generic_call_ahead()
+    {
+        if (!check(TOK_LT))
+            return false;
+
+        LexerState saved = lexer_.save_state();
+        Token token = lexer_.next_token();
+        if (token.type != TOK_IDENTIFIER)
+        {
+            lexer_.restore_state(saved);
+            return false;
+        }
+
+        for (;;)
+        {
+            token = lexer_.next_token();
+            if (token.type != TOK_COMMA)
+                break;
+            token = lexer_.next_token();
+            if (token.type != TOK_IDENTIFIER)
+            {
+                lexer_.restore_state(saved);
+                return false;
+            }
+        }
+
+        bool is_generic_call = token.type == TOK_GT &&
+                               lexer_.next_token().type == TOK_LPAREN;
+        lexer_.restore_state(saved);
+        return is_generic_call;
     }
 
     /* =========================================================
@@ -976,7 +1082,7 @@ namespace zen
                     return reg;
                 }
                 /* Method call: self.method(args) — fall through to normal path */
-                if (!check(TOK_LPAREN))
+                if (!check(TOK_LPAREN) && !generic_call_ahead())
                 {
                     /* Read field */
                     state_->emitter.emit_abc(OP_GETFIELD_IDX, reg, obj, fidx, field.line);
@@ -1000,17 +1106,25 @@ namespace zen
         }
 
         /* Method call: obj.method(args) */
-        if (check(TOK_LPAREN))
+        if (check(TOK_LPAREN) || generic_call_ahead())
         {
-            advance(); /* consume '(' */
             /* We need a contiguous [receiver, arg1, arg2, ...] block.
             ** The return value lands in R[base], so if obj is a local we
             ** must copy it to a fresh register to avoid clobbering the local. */
             int base = alloc_reg();
             if (base != obj)
                 emit_move(base, obj);
-            int nargs = argument_list(base);
-            consume(TOK_RPAREN, "Expected ')' after arguments.");
+            int nargs;
+            if (check(TOK_LPAREN))
+            {
+                advance(); /* consume '(' */
+                nargs = argument_list(base);
+                consume(TOK_RPAREN, "Expected ')' after arguments.");
+            }
+            else
+            {
+                nargs = generic_argument_list(base);
+            }
 
             /* 2-word instruction: OP_INVOKE + name constant */
             int sel = vm_->intern_selector(field.start, field.length);
