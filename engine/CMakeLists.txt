@@ -45,6 +45,39 @@ add_custom_command(
 )
 add_custom_target(k2d_default_ui_theme_asset DEPENDS "${K2D_DEFAULT_UI_THEME_HEADER}")
 
+# The compact virtual-pad atlas contains only the four circular controls used
+# at runtime, keeping the decoded texture at 512x512 instead of 1024x1024.
+set(K2D_DEFAULT_VIRTUAL_PAD_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/k2d_default_virtual_pad_png.h")
+add_custom_command(
+    OUTPUT "${K2D_DEFAULT_VIRTUAL_PAD_HEADER}"
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT="${CMAKE_SOURCE_DIR}/assets/gamepad_circles.png"
+        -DOUTPUT="${K2D_DEFAULT_VIRTUAL_PAD_HEADER}"
+        -DVARIABLE=kDefaultVirtualPadPng
+        -P "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    DEPENDS
+        "${CMAKE_SOURCE_DIR}/assets/gamepad_circles.png"
+        "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    COMMENT "Embedding Kinetix2D default virtual pad"
+)
+add_custom_target(k2d_default_virtual_pad_asset DEPENDS "${K2D_DEFAULT_VIRTUAL_PAD_HEADER}")
+
+# miniaudio is compiled in exactly one C translation unit. Keeping it as C is
+# required for the Emscripten Web Audio callbacks to retain their C symbols.
+add_library(k2d_miniaudio STATIC src/audio/miniaudio_impl.c)
+target_include_directories(k2d_miniaudio PRIVATE src/audio)
+set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES LANGUAGE C COMPILE_OPTIONS "-w")
+if(UNIX AND NOT APPLE)
+    target_link_libraries(k2d_miniaudio PUBLIC pthread dl m)
+endif()
+if(APPLE)
+    target_link_libraries(k2d_miniaudio PUBLIC
+        "-framework CoreFoundation" "-framework CoreAudio" "-framework AudioToolbox" "-framework AudioUnit")
+endif()
+if(ANDROID)
+    target_link_libraries(k2d_miniaudio PUBLIC aaudio OpenSLES log)
+endif()
+
 if(TARGET SDL2::SDL2)
     target_link_libraries(imgui PUBLIC SDL2::SDL2)
 else()
@@ -58,8 +91,12 @@ endif()
 
 add_library(k2d STATIC
     src/Input.cpp
+    src/InputActionMap.cpp
+    src/AudioEngine.cpp
+    src/AudioPlayer.cpp
     src/FileBuffer.cpp
     src/FileSystem.cpp
+    src/UserData.cpp
     src/Device.cpp
     src/Shader.cpp
     src/Texture.cpp
@@ -72,6 +109,7 @@ add_library(k2d STATIC
     src/Animation2D.cpp
     src/Material2D.cpp
     src/CanvasRenderer.cpp
+    src/RenderState.cpp
     src/RenderQueue.cpp
     src/Component.cpp
     src/GameObject.cpp
@@ -81,14 +119,18 @@ add_library(k2d STATIC
     src/ParticleComponent.cpp
     src/LightOccluder2D.cpp
     src/Scene.cpp
+    src/SceneManager.cpp
     src/SpriteComponent.cpp
     src/SpriteBatch.cpp
+    src/SpriteAtlas.cpp
     src/Polygon2D.cpp
     src/Line2D.cpp
     src/CircleShape.cpp
     src/RectShape.cpp
+    src/CapsuleShape.cpp
     src/NinePatchComponent.cpp
     src/ScreenFade.cpp
+    src/VirtualPad.cpp
     src/SceneDebug.cpp
     src/CanvasLayer.cpp
     src/AStarGrid2D.cpp
@@ -111,9 +153,9 @@ target_include_directories(k2d PUBLIC
 )
 
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
-add_dependencies(k2d k2d_default_ui_theme_asset)
+add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
 
-target_link_libraries(k2d PUBLIC glad mathc)
+target_link_libraries(k2d PUBLIC glad mathc k2d_miniaudio)
 target_link_libraries(k2d PRIVATE imgui)
 
 if(TARGET SDL2::SDL2)

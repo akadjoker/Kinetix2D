@@ -1,0 +1,77 @@
+{
+  "texture": "/media/projectos/projects/cpp/Kinetix2D/assets/Gunner_Red_Death.png",
+  "regions": [
+    {
+      "id": "Gunner_Red_Death_001",
+      "rect": [
+        12.0,
+        7.0,
+        29.0,
+        32.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_002",
+      "rect": [
+        62.0,
+        9.0,
+        29.0,
+        30.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_003",
+      "rect": [
+        155.0,
+        10.0,
+        29.0,
+        29.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_004",
+      "rect": [
+        111.0,
+        12.0,
+        26.0,
+        27.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_005",
+      "rect": [
+        198.0,
+        16.0,
+        30.0,
+        23.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_006",
+      "rect": [
+        292.0,
+        25.0,
+        35.0,
+        15.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_007",
+      "rect": [
+        244.0,
+        26.0,
+        35.0,
+        14.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Death_008",
+      "rect": [
+        340.0,
+        26.0,
+        35.0,
+        14.0
+      ]
+    }
+  ]
+}

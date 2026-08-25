@@ -10,6 +10,7 @@
 #include <k2d/Assets.h>
 #include <k2d/Device.h>
 #include <k2d/Scene.h>
+#include <k2d/UserData.h>
 
 #include <ct/ptr.hpp>
 #include <ct/string.hpp>
@@ -135,6 +136,7 @@ private:
     Scene mRuntimeScene;
     EditorSelection mSelection;
     EditorSettings mSettings;
+    UserData mUserData;
     Project mProject;
     EditorToasts mToasts;
     CommandStack mCommands;

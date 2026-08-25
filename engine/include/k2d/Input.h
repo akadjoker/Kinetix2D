@@ -26,6 +26,9 @@ namespace k2d
         void OnMouseMove(float x, float y);
         void OnWheel(float y);
         void OnTouch(long long id, float x, float y, bool down, bool up);
+        // Synthesized input is kept independent from physical keyboard state,
+        // allowing touch controls to share the same game actions safely.
+        void SetVirtualKey(int scancode, bool down);
 
         bool KeyDown(int scancode) const;
         bool KeyPressed(int scancode) const;
@@ -48,6 +51,7 @@ namespace k2d
         void onMouseMove(float x, float y) { OnMouseMove(x, y); }
         void onWheel(float y) { OnWheel(y); }
         void onTouch(long long id, float x, float y, bool down, bool up) { OnTouch(id, x, y, down, up); }
+        void setVirtualKey(int scancode, bool down) { SetVirtualKey(scancode, down); }
         bool keyDown(int scancode) const { return KeyDown(scancode); }
         bool keyPressed(int scancode) const { return KeyPressed(scancode); }
         bool keyReleased(int scancode) const { return KeyReleased(scancode); }
@@ -64,6 +68,9 @@ namespace k2d
         bool mKeys[MAX_KEYS];
         bool mKeysPressed[MAX_KEYS];
         bool mKeysReleased[MAX_KEYS];
+        bool mVirtualKeys[MAX_KEYS];
+        bool mVirtualKeysPressed[MAX_KEYS];
+        bool mVirtualKeysReleased[MAX_KEYS];
         bool mButtons[MAX_BUTTONS];
         bool mButtonsPressed[MAX_BUTTONS];
         bool mButtonsReleased[MAX_BUTTONS];

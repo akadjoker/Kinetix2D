@@ -164,6 +164,12 @@ void SettingsPanel::drawViewport()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Tick particles and animations while editing");
 
+    float gridSize[2] = {app().settings().viewportGridSize.x, app().settings().viewportGridSize.y};
+    if (ImGui::DragFloat2("Scene Grid Size", gridSize, 1.0f, 1.0f, 4096.0f))
+        app().settings().viewportGridSize = Math::Vec2(gridSize[0], gridSize[1]);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Grid and snap spacing in world pixels for the Scene panel");
+
     ImGui::Checkbox("Script Hot Reload", &app().settings().scriptHotReload);
 }
 

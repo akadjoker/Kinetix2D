@@ -27,9 +27,15 @@ namespace k2d
 
         int Width() const { return mWidth; }
         int Height() const { return mHeight; }
+        // Framebuffer pixels can differ from window coordinates on HiDPI
+        // desktops. Rendering code that talks directly to GL needs these.
+        int DrawableWidth() const { return mDrawableWidth; }
+        int DrawableHeight() const { return mDrawableHeight; }
         bool WasResized() const { return mResized; }
         float DeltaTime() const { return mDeltaTime; }
         float FPS() const { return mFps; }
+        int DisplayIndex() const;
+        bool SetDisplayIndex(int displayIndex);
         static double TimeSeconds();
 
         Input &GetInput() { return mInput; }
@@ -56,9 +62,13 @@ namespace k2d
         void swap() { Swap(); }
         int width() const { return Width(); }
         int height() const { return Height(); }
+        int drawableWidth() const { return DrawableWidth(); }
+        int drawableHeight() const { return DrawableHeight(); }
         bool wasResized() const { return WasResized(); }
         float deltaTime() const { return DeltaTime(); }
         float fps() const { return FPS(); }
+        int displayIndex() const { return DisplayIndex(); }
+        bool setDisplayIndex(int displayIndex) { return SetDisplayIndex(displayIndex); }
         Input &input() { return GetInput(); }
         const Input &input() const { return GetInput(); }
         void beginUI() { BeginUI(); }
@@ -72,6 +82,8 @@ namespace k2d
         Input mInput;
         int mWidth;
         int mHeight;
+        int mDrawableWidth;
+        int mDrawableHeight;
         bool mResized;
         unsigned long long mLastCounter;
         float mDeltaTime;

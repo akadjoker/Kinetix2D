@@ -5,8 +5,10 @@
 #include "panels/HierarchyPanel.h"
 
 #include <k2d/Animation2D.h>
+#include <k2d/AudioPlayer.h>
 #include <k2d/CameraComponent.h>
 #include <k2d/CircleShape.h>
+#include <k2d/CapsuleShape.h>
 #include <k2d/Component.h>
 #include <k2d/DirectionalLight2D.h>
 #include <k2d/GameObject.h>
@@ -58,7 +60,7 @@ const char *componentName(ComponentType type)
     static const char *names[] = {
         "Sprite", "Script", "Camera", "TileMap", "SpriteBatch", "Polygon2D",
         "Animation2D", "Light2D", "LightOccluder2D", "Line2D", "NinePatch",
-        "Particle", "RigidBody2D", "Collider2D", "CircleShape", "RectShape", "UiCanvas",
+        "Particle", "AudioPlayer", "RigidBody2D", "Collider2D", "CircleShape", "RectShape", "CapsuleShape", "UiCanvas",
         "UiPanel", "UiLabel", "UiButton", "UiCheckBox", "UiSlider"
     };
     const unsigned int index = static_cast<unsigned int>(type);
@@ -102,12 +104,14 @@ const char *componentDescription(const Component &component)
     case ComponentType::LinePath: return "Draws a line or closed outline through editable points.";
     case ComponentType::CircleShape: return "Draws a circle; this is visual only, not a physics collider.";
     case ComponentType::RectShape: return "Draws a rectangle; this is visual only, not a physics collider.";
+    case ComponentType::CapsuleShape: return "Draws a filled or outlined capsule; this is visual only, not a physics collider.";
     case ComponentType::NinePatch: return "Draws a scalable UI-style panel with protected borders.";
     case ComponentType::SpriteBatch: return "Draws many sprites efficiently from one component.";
     case ComponentType::Animation: return "Plays frame-based sprite animation clips.";
     case ComponentType::Script: return "Runs a Zen script. ScriptComponent scripts receive self.node.";
     case ComponentType::RigidBody: return "Gives this object a simulated physics body during Play.";
     case ComponentType::Particle: return "Emits and simulates particle effects.";
+    case ComponentType::AudioPlayer: return "Plays an audio file as SFX or music during Play.";
     case ComponentType::Light: return "Adds point or directional lighting to the scene.";
     case ComponentType::Occluder: return "Blocks shadows cast by 2D lights.";
     case ComponentType::Camera: return "Controls the Game view projection and can follow another object.";
@@ -457,6 +461,13 @@ void drawTileMapProperties(EditorApplication &app, TileMapComponent &tileMap)
     if (dragIntProperty(app, "Atlas Tiles X", atlasTilesX, 1.0f, "Change TileMap Atlas Width", 1, 4096))
         tileMap.setAtlasTilesX(atlasTilesX);
 
+    Math::Vec2 atlasPadding = tileMap.atlasPadding();
+    if (dragVec2(app, "Atlas Padding", atlasPadding, 0.5f, "Set TileMap Atlas Padding"))
+        tileMap.setAtlasPadding(atlasPadding.x, atlasPadding.y);
+    Math::Vec2 atlasGap = tileMap.atlasGap();
+    if (dragVec2(app, "Atlas Gap", atlasGap, 0.5f, "Set TileMap Atlas Gap"))
+        tileMap.setAtlasGap(atlasGap.x, atlasGap.y);
+
     bool hasCull = tileMap.hasCullRect();
     if (ImGui::Checkbox("Cull Rect", &hasCull))
     {
@@ -480,7 +491,7 @@ void drawTileMapProperties(EditorApplication &app, TileMapComponent &tileMap)
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set TileMap Blend Mode", [&] { tileMap.setBlendMode(blendMode); });
 
-    ImGui::TextDisabled("Painting individual tiles is not available in the Inspector yet.");
+    ImGui::TextDisabled("Use the Tile Painter panel to paint tiles and collision cells.");
 }
 
 void drawPolygonProperties(EditorApplication &app, Polygon2D &polygon)
@@ -606,6 +617,69 @@ void drawRectShapeProperties(EditorApplication &app, RectShape &shape)
     BlendMode blendMode = shape.blendMode();
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set Rect Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
+}
+
+void drawCapsuleShapeProperties(EditorApplication &app, CapsuleShape &shape)
+{
+    Math::Vec2 size = shape.size();
+    if (dragVec2(app, "Size", size, 0.5f, "Resize Capsule Shape"))
+        shape.setSize(size);
+
+    int segments = shape.segments();
+    if (dragIntProperty(app, "Segments", segments, 1.0f, "Set Capsule Shape Segments", 3, 512))
+        shape.setSegments(segments);
+
+    ShapeRenderMode mode = shape.mode();
+    if (shapeModeCombo(mode))
+        applyInstant(app, "Set Capsule Shape Mode", [&] { shape.setMode(mode); });
+    if (mode == ShapeRenderMode::Line)
+    {
+        float width = shape.lineWidth();
+        if (dragFloatProperty(app, "Line Width", width, 0.25f, "Set Capsule Shape Line Width", 0.01f, 4096.0f))
+            shape.setLineWidth(width);
+    }
+
+    Color color = shape.color();
+    if (colorEdit(app, "Color", color, "Recolor Capsule Shape"))
+    {
+        unsigned char r, g, b, a;
+        colorToBytes(color, r, g, b, a);
+        shape.setColor(r, g, b, a);
+    }
+    BlendMode blendMode = shape.blendMode();
+    if (blendModeCombo(blendMode))
+        applyInstant(app, "Set Capsule Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
+}
+
+void drawAudioPlayerProperties(EditorApplication &app, AudioPlayer &player)
+{
+    char source[512];
+    std::snprintf(source, sizeof(source), "%s", player.source());
+    if (ImGui::InputText("Source", source, sizeof(source)))
+        applyInstant(app, "Set Audio Source", [&] { player.setSource(source); });
+
+    bool music = player.music();
+    if (ImGui::Checkbox("Music", &music))
+        applyInstant(app, "Set Audio Player Type", [&] { player.setMusic(music); });
+    bool autoplay = player.autoplay();
+    if (ImGui::Checkbox("Autoplay", &autoplay))
+        applyInstant(app, "Set Audio Player Autoplay", [&] { player.setAutoplay(autoplay); });
+    bool loop = player.loop();
+    if (ImGui::Checkbox("Loop", &loop))
+        applyInstant(app, "Set Audio Player Loop", [&] { player.setLoop(loop); });
+
+    float volume = player.volume();
+    if (dragFloatProperty(app, "Volume", volume, 0.01f, "Set Audio Player Volume", 0.0f, 4.0f))
+        player.setVolume(volume);
+    if (!music)
+    {
+        float pitch = player.pitch();
+        if (dragFloatProperty(app, "Pitch", pitch, 0.01f, "Set Audio Player Pitch", 0.01f, 4.0f))
+            player.setPitch(pitch);
+        float pan = player.pan();
+        if (dragFloatProperty(app, "Pan", pan, 0.01f, "Set Audio Player Pan", -1.0f, 1.0f))
+            player.setPan(pan);
+    }
 }
 
 void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePatch)
@@ -1249,29 +1323,46 @@ void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
 void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
 {
     static const char *modeNames[] = {"One Shot", "Loop", "Ping Pong"};
+    GameObject *owner = anim.owner();
+    if (!owner || !owner->getComponent<SpriteComponent>())
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.35f, 1.0f),
+                           "Animation2D requires a Sprite Renderer to display frames.");
+        if (ImGui::Button("Add Sprite Renderer"))
+            applyInstant(app, "Add Sprite Renderer", [&]
+            {
+                if (owner && !owner->getComponent<SpriteComponent>())
+                    owner->addComponent<SpriteComponent>();
+            });
+    }
     int mode = static_cast<int>(anim.mode());
     if (ImGui::Combo("Mode", &mode, modeNames, 3))
         applyInstant(app, "Set Animation Mode", [&] { anim.setMode(static_cast<AnimationMode>(mode)); });
 
-    if (ImGui::Button(anim.playing() ? "Stop" : "Play"))
+    if (ImGui::Button(anim.playing() ? "Stop Preview" : "Preview in Scene"))
     {
         applyInstant(app, anim.playing() ? "Stop Animation" : "Play Animation", [&]
         {
             if (anim.playing())
                 anim.stop();
             else
+            {
+                app.settings().viewportLivePreview = true;
                 anim.play();
+            }
         });
     }
     ImGui::SameLine();
     ImGui::Text("Frame %d / %d", anim.frame(), anim.frameCount());
+    ImGui::TextDisabled("Edit the sprite library, clips and timeline in Window > Animator.");
+    return;
 
     ImGui::Text("%d clip(s)%s%s", static_cast<int>(anim.clipCount()),
                anim.currentClip() ? ", current: " : "", anim.currentClip() ? anim.currentClip() : "");
     ct::String clipToDelete;
     for (size_t i = 0; i < anim.clipCount(); ++i)
     {
-        const AnimationClip *clip = anim.clipAt(i);
+        AnimationClip *clip = anim.clipAt(i);
         if (!clip)
             continue;
         ImGui::PushID(static_cast<int>(i));
@@ -1285,11 +1376,102 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 applyInstant(app, "Change Animation Clip", [&] { anim.play(clip->name.c_str()); });
 
             const ct::String clipName = clip->name;
+            const bool individualFrames = !clip->frames.empty() ||
+                                          (!clip->texture && clip->frameWidth == 0 &&
+                                           clip->frameHeight == 0 && clip->frameCount == 0);
+            if (individualFrames)
+            {
+                float fps = clip->framesPerSecond;
+                if (dragFloatProperty(app, "FPS", fps, 0.5f, "Edit Animation Clip", 0.0f, 240.0f))
+                    clip->framesPerSecond = fps;
+                int modeIdx = static_cast<int>(clip->mode);
+                if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
+                    applyInstant(app, "Set Animation Clip Mode", [&]
+                    {
+                        AnimationClip *editable = anim.clipAt(i);
+                        if (editable)
+                            editable->mode = static_cast<AnimationMode>(modeIdx);
+                    });
+
+                ImGui::SeparatorText("Frames");
+                ImGui::Button("Drop a Sprite Editor region here", ImVec2(-1.0f, 28.0f));
+                if (ImGui::BeginDragDropTarget())
+                {
+                    if (const ImGuiPayload *payload =
+                            ImGui::AcceptDragDropPayload(kSpriteRegionDragDropPayload))
+                    {
+                        const auto *data = static_cast<const SpriteRegionDragDropData *>(payload->Data);
+                        const Math::Vec4 rect(data->x, data->y, data->width, data->height);
+                        applyInstant(app, "Add Sprite Editor Frame", [&]
+                        {
+                            anim.addFrame(clipName.c_str(), data->texture, rect, data->texturePath);
+                            app.settings().viewportLivePreview = true;
+                            anim.play(clipName.c_str());
+                        });
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                ImGui::TextDisabled("Drag named regions from Sprite Editor to build this clip.");
+                size_t frameToDelete = static_cast<size_t>(-1);
+                for (size_t frameIndex = 0; frameIndex < clip->frames.size(); ++frameIndex)
+                {
+                    const AnimationFrame &frame = clip->frames[frameIndex];
+                    ImGui::PushID(static_cast<int>(frameIndex));
+                    ImGui::Text("Frame %d", static_cast<int>(frameIndex) + 1);
+                    Texture *frameTexture = frame.texture;
+                    Texture *droppedFrameTexture = nullptr;
+                    if (textureField(app, "Texture", frameTexture, droppedFrameTexture))
+                    {
+                        applyInstant(app, "Set Animation Frame Texture", [&]
+                        {
+                            anim.setFrame(clipName.c_str(), frameIndex, droppedFrameTexture, frame.rect,
+                                          app.assets().FindTextureName(droppedFrameTexture));
+                        });
+                    }
+                    Math::Vec4 rect = frame.rect;
+                    if (dragVec4(app, "Rect (0 = image)", rect, 0.5f, "Edit Animation Frame"))
+                        anim.setFrame(clipName.c_str(), frameIndex, frameTexture, rect);
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ICON_MDI_DELETE))
+                        frameToDelete = frameIndex;
+                    ImGui::PopID();
+                }
+                if (frameToDelete != static_cast<size_t>(-1))
+                    applyInstant(app, "Delete Animation Frame", [&]
+                    { anim.removeFrame(clipName.c_str(), frameToDelete); });
+
+                static Texture *newFrameTexture = nullptr;
+                static Math::Vec4 newFrameRect(0.0f);
+                ImGui::SeparatorText("Add Frame");
+                Texture *droppedNewFrameTexture = nullptr;
+                if (textureField(app, "Frame Texture", newFrameTexture, droppedNewFrameTexture))
+                    newFrameTexture = droppedNewFrameTexture;
+                ImGui::DragFloat4("Frame Rect (0 = image)", &newFrameRect.x, 0.5f);
+                if (ImGui::Button(ICON_MDI_PLUS " Add Frame"))
+                {
+                    applyInstant(app, "Add Animation Frame", [&]
+                    {
+                        anim.addFrame(clipName.c_str(), newFrameTexture, newFrameRect);
+                        app.settings().viewportLivePreview = true;
+                        anim.play(clipName.c_str());
+                    });
+                    newFrameTexture = nullptr;
+                    newFrameRect = Math::Vec4(0.0f);
+                }
+                if (ImGui::Button(ICON_MDI_DELETE " Delete Clip"))
+                    clipToDelete = clipName;
+                ImGui::Unindent();
+                ImGui::TreePop();
+                ImGui::PopID();
+                continue;
+            }
             const bool wasPlaying = clip->playing;
             Texture *clipTexture = clip->texture;
             int fw = clip->frameWidth;
             int fh = clip->frameHeight;
             int fc = clip->frameCount;
+            Math::Vec2 atlasPadding = clip->atlasPadding;
+            Math::Vec2 atlasGap = clip->atlasGap;
             float fps = clip->framesPerSecond;
             int modeIdx = static_cast<int>(clip->mode);
 
@@ -1297,6 +1479,7 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
             {
                 anim.addClip(clipName.c_str(), clipTexture, fw, fh, fc, fps,
                             static_cast<AnimationMode>(modeIdx));
+                anim.setClipAtlasLayout(clipName.c_str(), atlasPadding, atlasGap);
                 if (isCurrent && wasPlaying)
                     anim.play(clipName.c_str());
             };
@@ -1313,10 +1496,17 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 updateClip();
             if (dragIntProperty(app, "Frame Count", fc, 1.0f, "Edit Animation Clip", 1, 4096))
                 updateClip();
+            if (dragVec2(app, "Atlas Padding", atlasPadding, 0.5f, "Edit Animation Clip"))
+                updateClip();
+            if (dragVec2(app, "Atlas Gap", atlasGap, 0.5f, "Edit Animation Clip"))
+                updateClip();
             if (dragFloatProperty(app, "FPS", fps, 0.5f, "Edit Animation Clip", 0.0f, 240.0f))
                 updateClip();
             if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
                 applyInstant(app, "Set Animation Clip Mode", updateClip);
+            if (ImGui::Button("Use Individual Frames"))
+                applyInstant(app, "Convert Animation Clip to Frames", [&]
+                { anim.addFrame(clipName.c_str(), clipTexture, Math::Vec4(0.0f)); });
             if (ImGui::Button(ICON_MDI_DELETE " Delete Clip"))
                 clipToDelete = clipName;
             ImGui::Unindent();
@@ -1328,40 +1518,31 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
         applyInstant(app, "Delete Animation Clip", [&] { anim.removeClip(clipToDelete.c_str()); });
 
     static char clipName[64] = "default";
-    static int frameWidth = 32;
-    static int frameHeight = 32;
-    static int frameCount = 1;
     static float framesPerSecond = 10.0f;
     static int clipMode = 1;
-    static Texture *clipTexture = nullptr;
 
     if (ImGui::TreeNodeEx("##newClip", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth |
                           ImGuiTreeNodeFlags_DefaultOpen, ICON_MDI_PLAYLIST_PLUS " New Clip"))
     {
         ImGui::Indent();
         ImGui::InputText("Name", clipName, sizeof(clipName));
-        Texture *droppedClipTexture = nullptr;
-        if (textureField(app, "Texture", clipTexture, droppedClipTexture))
-            clipTexture = droppedClipTexture;
-        ImGui::InputInt("Frame Width", &frameWidth);
-        ImGui::InputInt("Frame Height", &frameHeight);
-        ImGui::InputInt("Frame Count", &frameCount);
         ImGui::DragFloat("FPS", &framesPerSecond, 0.5f, 0.0f, 240.0f);
         ImGui::Combo("Mode", &clipMode, modeNames, 3);
 
-        const bool valid = clipName[0] != '\0' && frameWidth > 0 && frameHeight > 0 && frameCount > 0;
+        const bool valid = clipName[0] != '\0';
         ImGui::BeginDisabled(!valid);
         if (ImGui::Button("Add Clip"))
         {
             applyInstant(app, "Add Animation Clip", [&]
             {
-                anim.addClip(clipName, clipTexture, frameWidth, frameHeight, frameCount, framesPerSecond,
+                anim.addClip(clipName, nullptr, 0, 0, 0, framesPerSecond,
                             static_cast<AnimationMode>(clipMode));
                 anim.play(clipName);
             });
-            clipTexture = nullptr;
         }
         ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::TextDisabled("Then drag regions from Sprite Editor into its Frames area.");
         ImGui::Unindent();
         ImGui::TreePop();
     }
@@ -1734,6 +1915,12 @@ void drawComponentProperties(EditorApplication &app, Component &component)
     case ComponentType::RectShape:
         drawRectShapeProperties(app, static_cast<RectShape &>(component));
         break;
+    case ComponentType::CapsuleShape:
+        drawCapsuleShapeProperties(app, static_cast<CapsuleShape &>(component));
+        break;
+    case ComponentType::AudioPlayer:
+        drawAudioPlayerProperties(app, static_cast<AudioPlayer &>(component));
+        break;
     case ComponentType::NinePatch:
         drawNinePatchProperties(app, static_cast<NinePatchComponent &>(component));
         break;
@@ -1872,15 +2059,8 @@ void InspectorPanel::drawContents()
     }
 
     Math::Vec2 position = object->position();
-    float positionValues[2] = {position.x, position.y};
-    before = app().beginChange();
-    const bool positionChanged = ImGui::DragFloat2("Position", positionValues, 0.25f);
-    if (ImGui::IsItemActivated())
-        app().beginTransaction("Move GameObject", before);
-    if (positionChanged)
-        object->setPosition(Math::Vec2(positionValues[0], positionValues[1]));
-    if (ImGui::IsItemDeactivatedAfterEdit())
-        app().commitTransaction();
+    if (dragVec2(app(), "Position", position, 0.25f, "Move GameObject"))
+        object->setPosition(position);
     ImGui::SameLine(0.0f, 8.0f);
     if (ImGui::Button(ICON_MDI_RESTORE "##resetPosition", ImVec2(26.0f, 0.0f)))
         applyInstant(app(), "Reset Position", [&] { object->setPosition(Math::Vec2(0.0f, 0.0f)); });
@@ -2079,6 +2259,18 @@ void InspectorPanel::drawContents()
             object->addComponent<RectShape>();
             app().commitChange("Add Rect Shape Component", addBefore);
         }
+        if (componentMenuItem("Capsule Shape", "Draw a visual filled or outlined capsule."))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<CapsuleShape>();
+            app().commitChange("Add Capsule Shape Component", addBefore);
+        }
+        if (componentMenuItem("Audio Player", "Play an SFX or music asset during Play."))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<AudioPlayer>();
+            app().commitChange("Add Audio Player Component", addBefore);
+        }
         if (componentMenuItem("SpriteBatch", "Draw many sprites efficiently."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
@@ -2089,7 +2281,7 @@ void InspectorPanel::drawContents()
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
             Animation2D *anim = object->addComponent<Animation2D>();
-            anim->addClip("default", placeholderSpriteTexture(app()), 32, 32, 1, 10.0f, AnimationMode::Loop);
+            anim->addClip("default", nullptr, 0, 0, 0, 10.0f, AnimationMode::Loop);
             anim->play("default");
             app().commitChange("Add Animation2D Component", addBefore);
         }

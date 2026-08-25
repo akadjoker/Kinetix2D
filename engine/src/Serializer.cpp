@@ -9,6 +9,7 @@
 #include "k2d/Line2D.h"
 #include "k2d/CircleShape.h"
 #include "k2d/RectShape.h"
+#include "k2d/CapsuleShape.h"
 #include "k2d/NinePatchComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/Animation2D.h"
@@ -17,6 +18,7 @@
 #include "k2d/LightOccluder2D.h"
 #include "k2d/CameraComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/AudioPlayer.h"
 #include "k2d/UiControls.h"
 
 #include <cmath>
@@ -196,6 +198,8 @@ namespace k2d
             data.set("columns", ct::Json(tileMap.columns()));
             data.set("rows", ct::Json(tileMap.rows()));
             data.set("atlasTilesX", ct::Json(tileMap.atlasTilesX()));
+            data.set("atlasPadding", WriteVec2(tileMap.atlasPadding()));
+            data.set("atlasGap", WriteVec2(tileMap.atlasGap()));
 
             ct::Json cells = ct::Json::array();
             cells.reserve((size_t)(tileMap.columns() * tileMap.rows()));
@@ -203,6 +207,12 @@ namespace k2d
                 for (int x = 0; x < tileMap.columns(); ++x)
                     cells.push_back(ct::Json(tileMap.getTile(x, y)));
             data.set("cells", cells);
+
+            ct::Json collision = ct::Json::array();
+            for (int y = 0; y < tileMap.rows(); ++y)
+                for (int x = 0; x < tileMap.columns(); ++x)
+                    collision.push_back(ct::Json(tileMap.hasCollision(x, y)));
+            data.set("collision", collision);
 
             if (tileMap.hasCullRect())
                 data.set("cullRect", WriteVec4(tileMap.cullRect()));
@@ -223,6 +233,10 @@ namespace k2d
             const int rows = (int)data["rows"].as_int(0);
             tileMap.setMapSize(columns, rows);
             tileMap.setAtlasTilesX((int)data["atlasTilesX"].as_int(1));
+            const Math::Vec2 atlasPadding = ReadVec2(data["atlasPadding"]);
+            const Math::Vec2 atlasGap = ReadVec2(data["atlasGap"]);
+            tileMap.setAtlasPadding(atlasPadding.x, atlasPadding.y);
+            tileMap.setAtlasGap(atlasGap.x, atlasGap.y);
 
             const ct::Json &cells = data["cells"];
             if (cells.is_array())
@@ -231,6 +245,15 @@ namespace k2d
                 for (int y = 0; y < rows && index < cells.size(); ++y)
                     for (int x = 0; x < columns && index < cells.size(); ++x, ++index)
                         tileMap.setTile(x, y, (int)cells[index].as_int(0));
+            }
+
+            const ct::Json &collision = data["collision"];
+            if (collision.is_array())
+            {
+                size_t index = 0;
+                for (int y = 0; y < rows && index < collision.size(); ++y)
+                    for (int x = 0; x < columns && index < collision.size(); ++x, ++index)
+                        tileMap.setCollision(x, y, collision[index].as_bool(false));
             }
 
             if (const ct::Json *rect = data.find("cullRect"))
@@ -244,6 +267,35 @@ namespace k2d
         Component *CreatePolygon(GameObject &owner)
         {
             return owner.addComponent<Polygon2D>();
+        }
+
+        Component *CreateAudioPlayer(GameObject &owner)
+        {
+            return owner.addComponent<AudioPlayer>();
+        }
+
+        void WriteAudioPlayer(const Component &component, ct::Json &data, Assets *)
+        {
+            const AudioPlayer &player = static_cast<const AudioPlayer &>(component);
+            data.set("source", ct::Json(player.source()));
+            data.set("music", ct::Json(player.music()));
+            data.set("autoplay", ct::Json(player.autoplay()));
+            data.set("loop", ct::Json(player.loop()));
+            data.set("volume", ct::Json((double)player.volume()));
+            data.set("pitch", ct::Json((double)player.pitch()));
+            data.set("pan", ct::Json((double)player.pan()));
+        }
+
+        void ReadAudioPlayer(Component &component, const ct::Json &data, Assets *)
+        {
+            AudioPlayer &player = static_cast<AudioPlayer &>(component);
+            player.setSource(data["source"].as_cstr(""));
+            player.setMusic(data["music"].as_bool(false));
+            player.setAutoplay(data["autoplay"].as_bool(false));
+            player.setLoop(data["loop"].as_bool(false));
+            player.setVolume((float)data["volume"].as_double(1.0));
+            player.setPitch((float)data["pitch"].as_double(1.0));
+            player.setPan((float)data["pan"].as_double(0.0));
         }
 
         void WritePolygon(const Component &component, ct::Json &data, Assets *assets)
@@ -383,6 +435,35 @@ namespace k2d
         {
             RectShape &shape = static_cast<RectShape &>(component);
             shape.setSize(ReadVec2(data["size"], Math::Vec2(64.0f, 64.0f)));
+            shape.setMode((ShapeRenderMode)data["mode"].as_int((int)ShapeRenderMode::Fill));
+            shape.setLineWidth((float)data["lineWidth"].as_double(2.0));
+            unsigned char r, g, b, a;
+            ReadPackedColorBytes(data["color"], r, g, b, a);
+            shape.setColor(r, g, b, a);
+            shape.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+        }
+
+        Component *CreateCapsuleShape(GameObject &owner)
+        {
+            return owner.addComponent<CapsuleShape>();
+        }
+
+        void WriteCapsuleShape(const Component &component, ct::Json &data, Assets *)
+        {
+            const CapsuleShape &shape = static_cast<const CapsuleShape &>(component);
+            data.set("size", WriteVec2(shape.size()));
+            data.set("segments", ct::Json(shape.segments()));
+            data.set("mode", ct::Json((int)shape.mode()));
+            data.set("lineWidth", ct::Json((double)shape.lineWidth()));
+            data.set("color", WritePackedColor(shape.color().Packed()));
+            data.set("blendMode", ct::Json((int)shape.blendMode()));
+        }
+
+        void ReadCapsuleShape(Component &component, const ct::Json &data, Assets *)
+        {
+            CapsuleShape &shape = static_cast<CapsuleShape &>(component);
+            shape.setSize(ReadVec2(data["size"], Math::Vec2(128.0f, 64.0f)));
+            shape.setSegments((int)data["segments"].as_int(16));
             shape.setMode((ShapeRenderMode)data["mode"].as_int((int)ShapeRenderMode::Fill));
             shape.setLineWidth((float)data["lineWidth"].as_double(2.0));
             unsigned char r, g, b, a;
@@ -603,8 +684,28 @@ namespace k2d
                 clipJson.set("frameWidth", ct::Json(clip->frameWidth));
                 clipJson.set("frameHeight", ct::Json(clip->frameHeight));
                 clipJson.set("frameCount", ct::Json(clip->frameCount));
+                clipJson.set("atlasPadding", WriteVec2(clip->atlasPadding));
+                clipJson.set("atlasGap", WriteVec2(clip->atlasGap));
                 clipJson.set("framesPerSecond", ct::Json((double)clip->framesPerSecond));
                 clipJson.set("mode", ct::Json((int)clip->mode));
+                if (!clip->frames.empty())
+                {
+                    ct::Json frames = ct::Json::array();
+                    for (size_t frameIndex = 0; frameIndex < clip->frames.size(); ++frameIndex)
+                    {
+                        const AnimationFrame &frame = clip->frames[frameIndex];
+                        ct::Json frameJson = ct::Json::object();
+                        if (!frame.texturePath.empty())
+                            frameJson.set("texture", ct::Json(frame.texturePath.c_str()));
+                        else if (assets)
+                            if (const char *frameTexture = assets->FindTextureName(frame.texture))
+                                frameJson.set("texture", ct::Json(frameTexture));
+                        frameJson.set("rect", WriteVec4(frame.rect));
+                        frameJson.set("offset", WriteVec2(frame.offset));
+                        frames.push_back(frameJson);
+                    }
+                    clipJson.set("frames", frames);
+                }
                 clips.push_back(clipJson);
             }
             data.set("clips", clips);
@@ -631,6 +732,34 @@ namespace k2d
                                  (int)clip["frameCount"].as_int(0),
                                  (float)clip["framesPerSecond"].as_double(0.0),
                                  (AnimationMode)clip["mode"].as_int((int)AnimationMode::Loop));
+                    anim.setClipAtlasLayout(clip["name"].as_cstr(""), ReadVec2(clip["atlasPadding"]),
+                                            ReadVec2(clip["atlasGap"]));
+
+                    const ct::Json &frames = clip["frames"];
+                    if (frames.is_array())
+                    {
+                        for (size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex)
+                        {
+                            const ct::Json &frame = frames[frameIndex];
+                            Texture *frameTexture = nullptr;
+                            const char *frameTexturePath = "";
+                            if (const ct::Json *frameTextureName = frame.find("texture"))
+                            {
+                                frameTexturePath = frameTextureName->as_cstr("");
+                                if (assets)
+                                {
+                                    frameTexture = assets->GetTexture(frameTexturePath);
+                                    if (!frameTexture && frameTexturePath[0])
+                                        frameTexture = assets->LoadTexture(frameTexturePath, frameTexturePath, true, false);
+                                }
+                            }
+                            const char *clipName = clip["name"].as_cstr("");
+                            anim.addFrame(clipName, frameTexture, ReadVec4(frame["rect"]), frameTexturePath);
+                            const size_t frameCount = anim.frameCount(clipName);
+                            if (frameCount > 0)
+                                anim.setFrameOffset(clipName, frameCount - 1, ReadVec2(frame["offset"]));
+                        }
+                    }
                 }
             }
 
@@ -916,7 +1045,9 @@ namespace k2d
                 {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
                 {ComponentType::CircleShape, "CircleShape", &CreateCircleShape, &WriteCircleShape, &ReadCircleShape, nullptr},
                 {ComponentType::RectShape, "RectShape", &CreateRectShape, &WriteRectShape, &ReadRectShape, nullptr},
+                {ComponentType::CapsuleShape, "CapsuleShape", &CreateCapsuleShape, &WriteCapsuleShape, &ReadCapsuleShape, nullptr},
                 {ComponentType::NinePatch, "NinePatch", &CreateNinePatch, &WriteNinePatch, &ReadNinePatch, nullptr},
+                {ComponentType::AudioPlayer, "AudioPlayer", &CreateAudioPlayer, &WriteAudioPlayer, &ReadAudioPlayer, nullptr},
                 {ComponentType::SpriteBatch, "SpriteBatch", &CreateSpriteBatch, &WriteSpriteBatch, &ReadSpriteBatch, nullptr},
                 {ComponentType::Animation, "Animation2D", &CreateAnimation, &WriteAnimation, &ReadAnimation, nullptr},
                 {ComponentType::Light, "Light2D", &CreatePointLight, &WritePointLight, &ReadPointLight, &IsPointLight},

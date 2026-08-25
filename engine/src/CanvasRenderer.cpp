@@ -322,29 +322,29 @@ void main()
             a = (packed >> 24) & 0xFF;
         }
 
-        static void ApplyBlend(BlendMode mode)
+        static void ApplyBlend(RenderState &state, BlendMode mode)
         {
             switch (mode)
             {
             case BLEND_MIX:
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                state.SetBlendEquation(GL_FUNC_ADD);
+                state.SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                 break;
             case BLEND_ADD:
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                state.SetBlendEquation(GL_FUNC_ADD);
+                state.SetBlendFunc(GL_SRC_ALPHA, GL_ONE);
                 break;
             case BLEND_SUB:
-                glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                state.SetBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+                state.SetBlendFunc(GL_SRC_ALPHA, GL_ONE);
                 break;
             case BLEND_MUL:
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFunc(GL_DST_COLOR, GL_ZERO);
+                state.SetBlendEquation(GL_FUNC_ADD);
+                state.SetBlendFunc(GL_DST_COLOR, GL_ZERO);
                 break;
             default:
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                state.SetBlendEquation(GL_FUNC_ADD);
+                state.SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                 break;
             }
         }
@@ -513,6 +513,10 @@ void main()
 
         FlattenOccluderEdges();
         RenderShadowAtlas();
+        // Shadow rendering and external UI passes may alter GL state directly.
+        // Start the canvas pass with an unknown state, then cache it for every
+        // draw call and across capacity-triggered Flush() calls.
+        mState.Invalidate();
 
         for (size_t i = 0; i < count; ++i)
         {
@@ -747,11 +751,11 @@ void main()
             return;
         }
 
-        glBindVertexArray(mVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+        mState.BindVertexArray(mVAO);
+        mState.BindArrayBuffer(mVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0,
                         (GLsizeiptr)(mVertices.size() * sizeof(Vertex)), mVertices.data());
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+        mState.BindElementArrayBuffer(mIBO);
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0,
                         (GLsizeiptr)(mIndices.size() * sizeof(unsigned short)), mIndices.data());
 
@@ -770,7 +774,7 @@ void main()
 
     void CanvasRenderer::ApplyDrawCalls()
     {
-        glUseProgram(mProgram);
+        mState.UseProgram(mProgram);
         glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, mProjection.Data());
         glUniform1i(mShadowAtlasLoc, 1);
         glUniform1i(mHasLightTextureLoc, mDefaultLightTexture != 0 ? 1 : 0);
@@ -872,48 +876,41 @@ void main()
         glUniform1iv(mShadowFlagsLoc, 8, flags);
         glUniform1iv(mShadowFilterLoc, 8, filters);
         glUniform4fv(mShadowColorLoc, 8, scolor);
-        glBindVertexArray(mVAO);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, mShadowAtlas);
+        mState.BindVertexArray(mVAO);
+        mState.BindTexture2D(1, mShadowAtlas);
         if (mDefaultLightTexture != 0)
-        {
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, mDefaultLightTexture);
-        }
-        glActiveTexture(GL_TEXTURE0);
+            mState.BindTexture2D(2, mDefaultLightTexture);
 
         size_t indexOffset = 0;
 
-        GLuint activeProgram = mProgram;
         for (size_t i = 0; i < mDrawCalls.size(); ++i)
         {
             const DrawCall &call = mDrawCalls[i];
 
-            glEnable(GL_BLEND);
-            ApplyBlend(call.blendMode);
+            mState.SetBlendEnabled(true);
+            ApplyBlend(mState, call.blendMode);
 
             GLuint wantProgram = (call.program != 0) ? call.program : mProgram;
-            if (wantProgram != activeProgram)
+            if (wantProgram != mProgram)
             {
-                glUseProgram(wantProgram);
-                activeProgram = wantProgram;
+                mState.UseProgram(wantProgram);
                 GLint mvpLoc = glGetUniformLocation(wantProgram, "u_mvp");
                 if (mvpLoc >= 0)
                     glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mProjection.Data());
             }
+            else
+            {
+                mState.UseProgram(mProgram);
+            }
 
             GLuint tex = (call.textureId != 0) ? call.textureId : mWhiteTexture;
-            glBindTexture(GL_TEXTURE_2D, tex);
+            mState.BindTexture2D(0, tex);
 
             if (wantProgram == mProgram)
             {
                 glUniform1i(mHasNormalMapLoc, call.normalTextureId != 0 ? 1 : 0);
                 if (call.normalTextureId != 0)
-                {
-                    glActiveTexture(GL_TEXTURE3);
-                    glBindTexture(GL_TEXTURE_2D, call.normalTextureId);
-                    glActiveTexture(GL_TEXTURE0);
-                }
+                    mState.BindTexture2D(3, call.normalTextureId);
             }
 
             size_t indexCount = call.indexCount;

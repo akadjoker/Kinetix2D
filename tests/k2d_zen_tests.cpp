@@ -1,16 +1,22 @@
 #include <k2d/Animation2D.h>
+#include <k2d/AudioEngine.h>
+#include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
 #include <k2d/Input.h>
+#include <k2d/InputActionMap.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
+#include <k2d/SceneManager.h>
+#include <k2d/ScreenFade.h>
 #include <k2d/Serializer.h>
 #include <k2d/SpriteComponent.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
+#include <k2d/VirtualPad.h>
 
 #include <chrono>
 #include <cmath>
@@ -235,6 +241,111 @@ static bool testInput()
 
     ok = ok && nearEqual(object->position().x, 120.0f) && nearEqual(object->position().y, 240.0f);
     k2d::SetZenScriptInput(nullptr);
+    return ok;
+}
+
+static bool testFadeAndVirtualInput()
+{
+    k2d::Input input;
+    input.SetVirtualKey(44, true);
+    bool ok = input.KeyDown(44) && input.KeyPressed(44);
+    k2d::InputActionMap actions;
+    actions.Bind("jump", 44);
+    ok = ok && actions.Down(input, "jump") && actions.Pressed(input, "jump");
+    input.NewFrame();
+    ok = ok && input.KeyDown(44) && !input.KeyPressed(44);
+    input.SetVirtualKey(44, false);
+    ok = ok && !input.KeyDown(44) && input.KeyReleased(44);
+    ok = ok && actions.Released(input, "jump");
+
+    k2d::ScreenFade fade;
+    fade.FadeOut(2.0f);
+    fade.Update(0.5f);
+    ok = ok && fade.IsFading() && nearEqual(fade.Alpha(), 0.25f) && nearEqual(fade.Progress(), 0.25f);
+    fade.FadeIn(1.0f);
+    fade.Update(1.0f);
+    ok = ok && !fade.IsFading() && fade.IsClear();
+
+    k2d::VirtualPad pad;
+    pad.SetEnabled(true);
+    pad.SetKeyBindings(10, 11, 12, 13, 14, 15);
+    input.OnTouch(1, 32.0f, 411.0f, true, false);
+    input.OnTouch(2, 911.0f, 411.0f, true, false);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && input.KeyDown(10) && input.KeyDown(14) && pad.PrimaryDown();
+    input.OnTouch(1, -200.0f, 411.0f, false, false);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && input.KeyDown(10) && input.KeyDown(14);
+    input.OnTouch(1, 32.0f, 411.0f, false, true);
+    input.OnTouch(2, 911.0f, 411.0f, false, true);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && !input.KeyDown(10) && !input.KeyDown(14);
+
+    input.OnMouseMove(32.0f, 411.0f);
+    input.OnMouseButton(0, true);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && input.KeyDown(10);
+    input.OnMouseMove(-200.0f, 411.0f);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && input.KeyDown(10);
+    input.OnMouseButton(0, false);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && !input.KeyDown(10);
+    return ok;
+}
+
+static bool testAudioApi()
+{
+    k2d::AudioEngine audio;
+    audio.SetMasterVolume(0.5f);
+    audio.SetSfxVolume(0.25f);
+    audio.SetMusicVolume(0.75f);
+    bool ok = !audio.Ready() && nearEqual(audio.MasterVolume(), 0.5f) &&
+              nearEqual(audio.SfxVolume(), 0.25f) && nearEqual(audio.MusicVolume(), 0.75f);
+    ok = ok && audio.LoadSound("missing_audio_file.ogg") == 0 &&
+         audio.LoadMusic("missing_audio_file.ogg") == 0 && audio.Play(1) == 0 &&
+         audio.PlayMusic(1) == 0 && !audio.Stop(1) && !audio.Pause(1) && !audio.Resume(1);
+    const unsigned char encodedAudio[] = {0x52, 0x49, 0x46, 0x46};
+    const k2d::AudioEngine::SoundId memorySfx = audio.LoadSoundMemory(encodedAudio, sizeof(encodedAudio));
+    const k2d::AudioEngine::SoundId memoryMusic = audio.LoadMusicMemory(encodedAudio, sizeof(encodedAudio));
+    ok = ok && memorySfx > 0 && memoryMusic > 0 && audio.Unload(memorySfx) && audio.Unload(memoryMusic);
+
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("audio_script");
+    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && script->loadSource(
+        "class AudioScript(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        audio_set_master_volume(0.5)\n"
+        "        audio_set_sfx_volume(0.25)\n"
+        "        audio_set_music_volume(0.75)\n"
+        "        set_number(\"audio_missing\", audio_load(\"missing_audio_file.ogg\"))\n"
+        "        set_flag(\"audio_playing\", audio_playing(0))\n",
+        "audio_api");
+    scene.update(0.016f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("audio_missing"), 0.0f) &&
+         !k2d::ZenBlackboard::getBool("audio_playing", true) &&
+         nearEqual(k2d::GetAudio().MasterVolume(), 0.5f) &&
+         nearEqual(k2d::GetAudio().SfxVolume(), 0.25f) &&
+         nearEqual(k2d::GetAudio().MusicVolume(), 0.75f);
+    k2d::GetAudio().SetMasterVolume(1.0f);
+    k2d::GetAudio().SetSfxVolume(1.0f);
+    k2d::GetAudio().SetMusicVolume(1.0f);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testSceneManager()
+{
+    k2d::Assets assets;
+    k2d::Scene scene;
+    k2d::SceneManager manager;
+    k2d::GameObject *root = manager.Load(scene, assets, "assets/senes/ui_controls.k2dscene");
+    bool ok = root && root->name() == ct::String("UI Controls Example") &&
+              root->getComponent<k2d::UiCanvas>() != nullptr && scene.find("Settings Panel") != nullptr;
+    manager.Request("assets/senes/ui_controls.k2dscene");
+    ok = ok && manager.HasRequest() && manager.ApplyRequest(scene, assets) != nullptr && !manager.HasRequest();
     return ok;
 }
 
@@ -694,6 +805,9 @@ int main()
     const bool hierarchy = testHierarchy();
     const bool components = testComponents();
     const bool inputOk = testInput();
+    const bool fadeVirtualInput = testFadeAndVirtualInput();
+    const bool audioApi = testAudioApi();
+    const bool sceneManager = testSceneManager();
     const bool gameViewportInput = testGameViewportMouseInput();
     const bool destroy = testDestroy();
     const bool serialization = testSerialization();
@@ -705,15 +819,15 @@ int main()
     const bool examples = testExampleScripts();
     const bool ui = testUiSerializationAndInput();
 
-    std::printf("zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s game_viewport_input=%s destroy=%s serialization=%s "
+    std::printf("zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
                 "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
                 basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail", objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
-                components ? "pass" : "fail", inputOk ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
+                components ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail", audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
                 destroy ? "pass" : "fail", serialization ? "pass" : "fail",
                 spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
                 channel ? "pass" : "fail", hotReload ? "pass" : "fail",
                 modules ? "pass" : "fail", examples ? "pass" : "fail", ui ? "pass" : "fail");
-    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && inputOk && gameViewportInput && destroy && serialization &&
+    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy && serialization &&
                         spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();
     return passed ? 0 : 1;

@@ -9,13 +9,15 @@
 namespace k2d
 {
     AnimationClip::AnimationClip()
-        : name(), texture(nullptr), frameWidth(0), frameHeight(0), frameCount(0), frame(0),
+        : name(), texture(nullptr), frameWidth(0), frameHeight(0), frameCount(0),
+          atlasPadding(0.0f), atlasGap(0.0f), frame(0),
           direction(1), framesPerSecond(0.0f), accumulator(0.0f), playing(false), mode(AnimationMode::Loop) {}
 
     AnimationClip::AnimationClip(const char *clipName, Texture *clipTexture, int width, int height,
                                  int count, float fps, AnimationMode clipMode)
         : name(clipName), texture(clipTexture), frameWidth(width > 0 ? width : 0),
-          frameHeight(height > 0 ? height : 0), frameCount(count > 0 ? count : 0), frame(0),
+          frameHeight(height > 0 ? height : 0), frameCount(count > 0 ? count : 0),
+          atlasPadding(0.0f), atlasGap(0.0f), frame(0),
           direction(1), framesPerSecond(fps > 0.0f ? fps : 0.0f), accumulator(0.0f),
           playing(false), mode(clipMode) {}
 
@@ -33,6 +35,9 @@ namespace k2d
             clip->frameCount = frameCount > 0 ? frameCount : 0;
             clip->framesPerSecond = fps > 0.0f ? fps : 0.0f;
             clip->mode = mode;
+            clip->frames.clear();
+            clip->atlasPadding = Math::Vec2(0.0f);
+            clip->atlasGap = Math::Vec2(0.0f);
             clip->frame = 0;
             clip->direction = 1;
             clip->accumulator = 0.0f;
@@ -67,6 +72,104 @@ namespace k2d
         return false;
     }
 
+    int Animation2D::actualFrameCount(const AnimationClip &clip)
+    {
+        return clip.frames.empty() ? clip.frameCount : static_cast<int>(clip.frames.size());
+    }
+
+    bool Animation2D::addFrame(const char *clipName, Texture *texture, const Math::Vec4 &rect,
+                               const char *texturePath)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip)
+            return false;
+        if (clip->frames.empty())
+        {
+            clip->frameWidth = 0;
+            clip->frameHeight = 0;
+            clip->frameCount = 0;
+            // Explicit-frame clips own their texture reference per frame.
+            clip->texture = nullptr;
+        }
+        AnimationFrame frame;
+        frame.texture = texture;
+        frame.texturePath = texturePath ? texturePath : "";
+        frame.rect = rect;
+        clip->frames.push_back(frame);
+        clip->frameCount = static_cast<int>(clip->frames.size());
+        if (clip->frame >= clip->frameCount)
+            clip->frame = clip->frameCount - 1;
+        applyFrame();
+        return true;
+    }
+
+    bool Animation2D::setFrame(const char *clipName, size_t index, Texture *texture, const Math::Vec4 &rect,
+                               const char *texturePath)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->frames.size())
+            return false;
+        clip->frames[index].texture = texture;
+        if (texturePath)
+            clip->frames[index].texturePath = texturePath;
+        clip->frames[index].rect = rect;
+        if (clip == activeClip() && static_cast<size_t>(clip->frame) == index)
+            applyFrame();
+        return true;
+    }
+
+    bool Animation2D::setFrameOffset(const char *clipName, size_t index, const Math::Vec2 &offset)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->frames.size())
+            return false;
+        clip->frames[index].offset = offset;
+        if (clip == activeClip() && static_cast<size_t>(clip->frame) == index)
+            applyFrame();
+        return true;
+    }
+
+    bool Animation2D::removeFrame(const char *clipName, size_t index)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->frames.size())
+            return false;
+        clip->frames.erase(clip->frames.begin() + index);
+        clip->frameCount = static_cast<int>(clip->frames.size());
+        if (clip->frame >= clip->frameCount)
+            clip->frame = clip->frameCount > 0 ? clip->frameCount - 1 : 0;
+        if (clip->frames.empty())
+            clip->playing = false;
+        applyFrame();
+        return true;
+    }
+
+    bool Animation2D::setClipAtlasLayout(const char *clipName, const Math::Vec2 &padding,
+                                          const Math::Vec2 &gap)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip)
+            return false;
+        clip->atlasPadding.x = padding.x > 0.0f ? padding.x : 0.0f;
+        clip->atlasPadding.y = padding.y > 0.0f ? padding.y : 0.0f;
+        clip->atlasGap.x = gap.x > 0.0f ? gap.x : 0.0f;
+        clip->atlasGap.y = gap.y > 0.0f ? gap.y : 0.0f;
+        applyFrame();
+        return true;
+    }
+
+    size_t Animation2D::frameCount(const char *clipName) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip ? (clip->frames.empty() ? 0u : clip->frames.size()) : 0u;
+    }
+
+    const AnimationFrame *Animation2D::frameAt(const char *clipName, size_t index) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip && index < clip->frames.size() ? &clip->frames[index] : nullptr;
+    }
+
     bool Animation2D::play(const char *name)
     {
         AnimationClip *clip = findClip(name);
@@ -78,7 +181,7 @@ namespace k2d
         clip->frame = 0;
         clip->direction = 1;
         clip->accumulator = 0.0f;
-        clip->playing = clip->frameCount > 0 && clip->framesPerSecond > 0.0f;
+        clip->playing = actualFrameCount(*clip) > 0 && clip->framesPerSecond > 0.0f;
         applyFrame();
         return true;
     }
@@ -113,7 +216,7 @@ namespace k2d
     {
         AnimationClip *clip = activeClip();
         if (clip)
-            clip->playing = clip->frameCount > 0 && clip->framesPerSecond > 0.0f;
+            clip->playing = actualFrameCount(*clip) > 0 && clip->framesPerSecond > 0.0f;
     }
 
     void Animation2D::stop()
@@ -139,13 +242,14 @@ namespace k2d
         AnimationClip *clip = activeClip();
         if (!clip)
             return;
-        clip->frame = clip->frameCount <= 0 ? 0 : frame < 0 ? 0 : frame >= clip->frameCount ? clip->frameCount - 1 : frame;
+        const int count = actualFrameCount(*clip);
+        clip->frame = count <= 0 ? 0 : frame < 0 ? 0 : frame >= count ? count - 1 : frame;
         applyFrame();
     }
 
     Texture *Animation2D::texture() const { const AnimationClip *c = activeClip(); return c ? c->texture : nullptr; }
     int Animation2D::frame() const { const AnimationClip *c = activeClip(); return c ? c->frame : 0; }
-    int Animation2D::frameCount() const { const AnimationClip *c = activeClip(); return c ? c->frameCount : 0; }
+    int Animation2D::frameCount() const { const AnimationClip *c = activeClip(); return c ? actualFrameCount(*c) : 0; }
     float Animation2D::framesPerSecond() const { const AnimationClip *c = activeClip(); return c ? c->framesPerSecond : 0.0f; }
     bool Animation2D::playing() const { const AnimationClip *c = activeClip(); return c && c->playing; }
 
@@ -157,29 +261,30 @@ namespace k2d
     void Animation2D::Advance(float deltaTime)
     {
         AnimationClip *clip = activeClip();
-        if (!clip || !clip->playing || clip->frameCount <= 0 || clip->framesPerSecond <= 0.0f || deltaTime <= 0.0f)
+        if (!clip || !clip->playing || actualFrameCount(*clip) <= 0 || clip->framesPerSecond <= 0.0f || deltaTime <= 0.0f)
             return;
+        const int frameCount = actualFrameCount(*clip);
         clip->accumulator += deltaTime * clip->framesPerSecond;
         while (clip->accumulator >= 1.0f)
         {
             clip->accumulator -= 1.0f;
             if (clip->mode == AnimationMode::PingPong)
             {
-                if (clip->frameCount > 1)
+                if (frameCount > 1)
                 {
                     clip->frame += clip->direction;
-                    if (clip->frame >= clip->frameCount - 1) { clip->frame = clip->frameCount - 1; clip->direction = -1; }
+                    if (clip->frame >= frameCount - 1) { clip->frame = frameCount - 1; clip->direction = -1; }
                     else if (clip->frame <= 0) { clip->frame = 0; clip->direction = 1; }
                 }
             }
             else
             {
                 ++clip->frame;
-                if (clip->frame >= clip->frameCount)
+                if (clip->frame >= frameCount)
                 {
                     if (clip->mode == AnimationMode::Loop)
                         clip->frame = 0;
-                    else { clip->frame = clip->frameCount - 1; clip->playing = false; }
+                    else { clip->frame = frameCount - 1; clip->playing = false; }
                 }
             }
         }
@@ -189,17 +294,42 @@ namespace k2d
     void Animation2D::applyFrame()
     {
         AnimationClip *clip = activeClip();
-        if (!clip || !clip->texture || clip->frameWidth <= 0 || clip->frameHeight <= 0 || clip->frameCount <= 0 || !owner())
+        if (!clip || actualFrameCount(*clip) <= 0 || !owner())
             return;
         SpriteComponent *sprite = owner()->getComponent<SpriteComponent>();
         if (!sprite)
             return;
-        const int columns = clip->texture->Width() / clip->frameWidth;
+        if (!clip->frames.empty())
+        {
+            const AnimationFrame &frame = clip->frames[clip->frame];
+            Texture *texture = frame.texture;
+            const Math::Vec4 &rect = frame.rect;
+            if (!texture)
+                return;
+            sprite->setTexture(texture);
+            sprite->setRenderOffset(frame.offset);
+            if (rect.z > 0.0f && rect.w > 0.0f)
+            {
+                sprite->setSize(Math::Vec2(rect.z, rect.w));
+                sprite->setSourceRect(rect.x, rect.y, rect.z, rect.w);
+            }
+            else
+            {
+                sprite->setSize(Math::Vec2((float)texture->Width(), (float)texture->Height()));
+                sprite->clearSourceRect();
+            }
+            return;
+        }
+        if (!clip->texture || clip->frameWidth <= 0 || clip->frameHeight <= 0)
+            return;
+        const int columns = (int)((clip->texture->Width() - clip->atlasPadding.x * 2.0f + clip->atlasGap.x) /
+                                  (clip->frameWidth + clip->atlasGap.x));
         if (columns <= 0)
             return;
-        int x = (clip->frame % columns) * clip->frameWidth;
-        int y = (clip->frame / columns) * clip->frameHeight;
+        int x = (int)(clip->atlasPadding.x + (clip->frame % columns) * (clip->frameWidth + clip->atlasGap.x));
+        int y = (int)(clip->atlasPadding.y + (clip->frame / columns) * (clip->frameHeight + clip->atlasGap.y));
         sprite->setTexture(clip->texture);
+        sprite->setRenderOffset(Math::Vec2(0.0f));
         sprite->setSize(Math::Vec2((float)clip->frameWidth, (float)clip->frameHeight));
         sprite->setSourceRect((float)x, (float)y, (float)clip->frameWidth, (float)clip->frameHeight);
     }

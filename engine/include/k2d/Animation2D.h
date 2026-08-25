@@ -4,6 +4,7 @@
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
+#include <mathc.h>
 
 namespace k2d
 {
@@ -17,6 +18,18 @@ namespace k2d
         PingPong
     };
 
+    // A frame can be a rectangle from an atlas or a complete, independent image.
+    // A zero-sized rect means the whole texture.
+    struct AnimationFrame
+    {
+        Texture *texture = nullptr;
+        // Kept with the frame so a scene can restore it even when the editor
+        // has not kept the texture pointer in its transient asset cache.
+        ct::String texturePath;
+        Math::Vec4 rect = Math::Vec4(0.0f);
+        Math::Vec2 offset = Math::Vec2(0.0f);
+    };
+
     struct AnimationClip
     {
         ct::String name;
@@ -24,12 +37,15 @@ namespace k2d
         int frameWidth;
         int frameHeight;
         int frameCount;
+        Math::Vec2 atlasPadding;
+        Math::Vec2 atlasGap;
         int frame;
         int direction;
         float framesPerSecond;
         float accumulator;
         bool playing;
         AnimationMode mode;
+        ct::Vector<AnimationFrame> frames;
 
         AnimationClip();
         AnimationClip(const char *clipName, Texture *clipTexture, int width, int height,
@@ -47,14 +63,27 @@ namespace k2d
                      int frameCount, float framesPerSecond,
                      AnimationMode mode = AnimationMode::Loop);
         bool removeClip(const char *name);
+        bool addFrame(const char *clipName, Texture *texture, const Math::Vec4 &rect = Math::Vec4(0.0f),
+                      const char *texturePath = nullptr);
+        bool setFrame(const char *clipName, size_t index, Texture *texture, const Math::Vec4 &rect,
+                      const char *texturePath = nullptr);
+        bool setFrameOffset(const char *clipName, size_t index, const Math::Vec2 &offset);
+        bool removeFrame(const char *clipName, size_t index);
+        bool setClipAtlasLayout(const char *clipName, const Math::Vec2 &padding, const Math::Vec2 &gap);
         bool play(const char *name);
         const char *currentClip() const;
         size_t clipCount() const { return mClips.size(); }
 
+        AnimationClip *clipAt(size_t index)
+        {
+            return index < mClips.size() ? &mClips[index] : nullptr;
+        }
         const AnimationClip *clipAt(size_t index) const
         {
             return index < mClips.size() ? &mClips[index] : nullptr;
         }
+        size_t frameCount(const char *clipName) const;
+        const AnimationFrame *frameAt(const char *clipName, size_t index) const;
 
         void setSpriteSheet(Texture *texture, int frameWidth, int frameHeight,
                             int frameCount, float framesPerSecond);
@@ -79,6 +108,7 @@ namespace k2d
         void onUpdate(float deltaTime) override;
 
     private:
+        static int actualFrameCount(const AnimationClip &clip);
         void applyFrame();
 
         AnimationClip *activeClip();

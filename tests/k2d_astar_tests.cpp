@@ -129,6 +129,23 @@ namespace
         return path.size() > 5; 
     }
 
+    bool TestTileMapPaintedCollisionForcesDetour()
+    {
+        k2d::TileMapComponent map;
+        map.setCellSize(16.0f, 16.0f);
+        map.setMapSize(5, 5);
+        for (int y = 0; y <= 3; ++y)
+            map.setCollision(2, y, true);
+
+        k2d::AStarGrid2D grid;
+        map.buildPathfindingGrid(grid);
+        grid.SetDiagonalMode(k2d::AStarGrid2D::DiagonalMode::Never);
+        ct::Vector<k2d::IVec2> path;
+        const bool ok = grid.GetIdPath({0, 2}, {4, 2}, path);
+        return ok && grid.IsSolid(2, 0) && grid.IsSolid(2, 3) && !grid.IsSolid(2, 4) &&
+               path.size() > 5;
+    }
+
     bool TestTileMapGridPositionsMatchCellSize()
     {
         k2d::TileMapComponent map;
@@ -234,6 +251,7 @@ int main()
 
     bool tileMapBlankWalkable = TestTileMapBlankCellsAreWalkable();
     bool tileMapWallDetour = TestTileMapWallTileForcesDetour();
+    bool tileMapPaintedCollision = TestTileMapPaintedCollisionForcesDetour();
     bool tileMapPositions = TestTileMapGridPositionsMatchCellSize();
 
     bool directDiagonal = TestPointGraphDirectDiagonal();
@@ -248,8 +266,9 @@ int main()
                 wallDetour ? "pass" : "fail", unreachablePartial ? "pass" : "fail",
                 onlyIfNoObstacles ? "pass" : "fail");
     std::printf("TileMapComponent->AStarGrid2D: blank_walkable=%s wall_tile_detour=%s "
-                "grid_positions=%s\n",
+                "painted_collision=%s grid_positions=%s\n",
                 tileMapBlankWalkable ? "pass" : "fail", tileMapWallDetour ? "pass" : "fail",
+                tileMapPaintedCollision ? "pass" : "fail",
                 tileMapPositions ? "pass" : "fail");
     std::printf("AStar2D: direct_diagonal=%s detour_no_shortcut=%s disabled_detour=%s "
                 "closest_point=%s partial_isolated=%s\n",
@@ -258,7 +277,7 @@ int main()
                 partialIsolated ? "pass" : "fail");
 
     bool allPass = diagAlways && diagNever && wallDetour && unreachablePartial &&
-                   onlyIfNoObstacles && tileMapBlankWalkable && tileMapWallDetour &&
+                   onlyIfNoObstacles && tileMapBlankWalkable && tileMapWallDetour && tileMapPaintedCollision &&
                    tileMapPositions && directDiagonal && detourNoShortcut &&
                    disabledDetour && closestPoint && partialIsolated;
     return allPass ? 0 : 1;

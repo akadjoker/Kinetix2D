@@ -43,6 +43,7 @@ namespace k2d
     TileMapComponent::TileMapComponent()
         : Component(Type, ComponentEventRender), mTexture(nullptr),
           mCellW(32.0f), mCellH(32.0f), mColumns(0), mRows(0), mAtlasTilesX(1),
+          mAtlasPaddingX(0.0f), mAtlasPaddingY(0.0f), mAtlasGapX(0.0f), mAtlasGapY(0.0f),
           mCullX(0.0f), mCullY(0.0f), mCullW(0.0f), mCullH(0.0f), mCullEnabled(false),
           mBlendMode(BLEND_MIX)
     {
@@ -61,9 +62,24 @@ namespace k2d
 
     void TileMapComponent::setMapSize(int columns, int rows)
     {
+        columns = columns > 0 ? columns : 0;
+        rows = rows > 0 ? rows : 0;
+        ct::Vector<int> cells;
+        ct::Vector<unsigned char> collision;
+        cells.resize(columns * rows, 0);
+        collision.resize(columns * rows, 0);
+        const int copyColumns = columns < mColumns ? columns : mColumns;
+        const int copyRows = rows < mRows ? rows : mRows;
+        for (int y = 0; y < copyRows; ++y)
+            for (int x = 0; x < copyColumns; ++x)
+            {
+                cells[y * columns + x] = mCells[y * mColumns + x];
+                collision[y * columns + x] = mCollision[y * mColumns + x];
+            }
         mColumns = columns;
         mRows = rows;
-        mCells.resize(columns * rows, 0);
+        mCells = ct::detail::move(cells);
+        mCollision = ct::detail::move(collision);
     }
 
     void TileMapComponent::setAtlasTilesX(int tilesX)
@@ -71,11 +87,30 @@ namespace k2d
         mAtlasTilesX = tilesX > 0 ? tilesX : 1;
     }
 
+    void TileMapComponent::setAtlasPadding(float x, float y)
+    {
+        mAtlasPaddingX = x > 0.0f ? x : 0.0f;
+        mAtlasPaddingY = y > 0.0f ? y : 0.0f;
+    }
+
+    void TileMapComponent::setAtlasGap(float x, float y)
+    {
+        mAtlasGapX = x > 0.0f ? x : 0.0f;
+        mAtlasGapY = y > 0.0f ? y : 0.0f;
+    }
+
     void TileMapComponent::setTile(int x, int y, int atlasTileId)
     {
         if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
             return;
         mCells[y * mColumns + x] = atlasTileId;
+    }
+
+    void TileMapComponent::setCollision(int x, int y, bool solid)
+    {
+        if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
+            return;
+        mCollision[y * mColumns + x] = solid ? 1 : 0;
     }
 
     bool TileMapComponent::loadTMX(Assets &assets, const char *tmxPath, const char *textureName)
@@ -145,7 +180,11 @@ namespace k2d
         setTexture(texture);
         setCellSize((float)cellW, (float)cellH);
         setMapSize(columns, rows);
-        setAtlasTilesX(atlasW / cellW);
+        const int margin = tmxInt(tilesetTag, "margin", 0);
+        const int spacing = tmxInt(tilesetTag, "spacing", 0);
+        setAtlasPadding((float)margin, (float)margin);
+        setAtlasGap((float)spacing, (float)spacing);
+        setAtlasTilesX((atlasW - margin * 2 + spacing) / (cellW + spacing));
 
         const std::string csv = xml.substr(dataStart + xml.substr(dataStart).find('>') + 1,
                                             dataEnd - (dataStart + xml.substr(dataStart).find('>') + 1));
@@ -176,6 +215,19 @@ namespace k2d
         return mCells[y * mColumns + x];
     }
 
+    bool TileMapComponent::hasCollision(int x, int y) const
+    {
+        if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
+            return false;
+        return mCollision[y * mColumns + x] != 0;
+    }
+
+    void TileMapComponent::clearCollision()
+    {
+        for (size_t i = 0; i < mCollision.size(); ++i)
+            mCollision[i] = 0;
+    }
+
     void TileMapComponent::setCullRect(float x, float y, float width, float height)
     {
         mCullX = x;
@@ -196,22 +248,22 @@ namespace k2d
         grid.SetSize(mColumns, mRows);
         grid.SetCellSize(mCellW, mCellH);
 
-        if (!solidTileIds || solidTileIdCount <= 0)
-            return;
-
         for (int y = 0; y < mRows; ++y)
         {
             for (int x = 0; x < mColumns; ++x)
             {
-                int cell = mCells[y * mColumns + x];
-                for (int i = 0; i < solidTileIdCount; ++i)
+                bool solid = hasCollision(x, y);
+                if (!solid)
                 {
-                    if (solidTileIds[i] == cell)
-                    {
-                        grid.SetSolid(x, y, true);
-                        break;
-                    }
+                    int cell = mCells[y * mColumns + x];
+                    for (int i = 0; solidTileIds && i < solidTileIdCount; ++i)
+                        if (solidTileIds[i] == cell)
+                        {
+                            solid = true;
+                            break;
+                        }
                 }
+                grid.SetSolid(x, y, solid);
             }
         }
     }
@@ -263,8 +315,8 @@ namespace k2d
 
                 RenderCommand rect = RenderCommand::MakeRect(mTexture->Id(),
                                                              x * mCellW, y * mCellH, mCellW, mCellH);
-                rect.srcX = tx * mCellW;
-                rect.srcY = ty * mCellH;
+                rect.srcX = mAtlasPaddingX + tx * (mCellW + mAtlasGapX);
+                rect.srcY = mAtlasPaddingY + ty * (mCellH + mAtlasGapY);
                 rect.srcW = mCellW;
                 rect.srcH = mCellH;
                 rect.texWidth = atlasW;

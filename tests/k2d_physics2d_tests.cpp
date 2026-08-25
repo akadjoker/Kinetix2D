@@ -10,6 +10,7 @@
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
+#include <k2d/TileMapComponent.h>
 
 #include <cmath>
 #include <cstdio>
@@ -55,6 +56,29 @@ static bool testBoxFallsAndRests()
 
     std::printf("  falls: bodies=%d y=%.1f (expected ~%.1f)\n", (int)world.bodyCount(),
                 box->position().y, expectedRest);
+    return ok;
+}
+
+static bool testPaintedTileMapCollision()
+{
+    k2d::Scene scene;
+    k2d::GameObject *mapObject = scene.createObject("tile floor");
+    mapObject->setPosition(Math::Vec2(0.0f, 200.0f));
+    k2d::TileMapComponent *map = mapObject->addComponent<k2d::TileMapComponent>();
+    map->setCellSize(16.0f, 16.0f);
+    map->setMapSize(5, 5);
+    map->setCollision(0, 0, true);
+
+    k2d::GameObject *box = makeBox(scene, "box", Math::Vec2(8.0f, 0.0f), Math::Vec2(16.0f, 16.0f),
+                                   kx::BodyType::Dynamic);
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    for (int i = 0; i < 180; ++i)
+        world.step(1.0f / 60.0f);
+
+    const bool ok = world.bodyCount() == 2 && nearEqual(box->position().y, 192.0f, 2.0f) &&
+                    world.objectAtPoint(Math::Vec2(8.0f, 208.0f)) == mapObject;
+    std::printf("  tilemap: bodies=%d y=%.1f\n", (int)world.bodyCount(), box->position().y);
     return ok;
 }
 
@@ -631,6 +655,7 @@ static bool testSerializerRoundTrip()
 int main()
 {
     const bool falls = testBoxFallsAndRests();
+    const bool tileMap = testPaintedTileMapCollision();
     const bool contacts = testContactCallbackFires();
     const bool sensor = testSensorReportsWithoutBlocking();
     const bool queries = testRaycastAndQueries();
@@ -650,11 +675,11 @@ int main()
     const bool compound = testCompoundBodyKeepsShapesApart();
     const bool serialized = testSerializerRoundTrip();
 
-    std::printf("physics2d: falls=%s contacts=%s sensor=%s queries=%s static_follow=%s "
+    std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s\n",
-                falls ? "pass" : "fail", contacts ? "pass" : "fail", sensor ? "pass" : "fail",
+                falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail", sensor ? "pass" : "fail",
                 queries ? "pass" : "fail", staticFollow ? "pass" : "fail",
                 velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail",
@@ -663,7 +688,7 @@ int main()
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail",
                 chain ? "pass" : "fail", compound ? "pass" : "fail",
                 serialized ? "pass" : "fail");
-    return falls && contacts && sensor && queries && staticFollow && velocity && deterministic &&
+    return falls && tileMap && contacts && sensor && queries && staticFollow && velocity && deterministic &&
                    destroy && lateSpawn && colliderChange && liveType && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized
                ? 0

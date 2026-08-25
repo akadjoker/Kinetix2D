@@ -6,18 +6,23 @@
 #include "ZenRuntimeInternal.h"
 
 #include "k2d/Animation2D.h"
+#include "k2d/AudioEngine.h"
 #include "k2d/Assets.h"
 #include "k2d/Camera2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
 #include "k2d/Input.h"
+#include "k2d/InputActionMap.h"
 #include "k2d/ParticleComponent.h"
 #include "k2d/RenderQueue.h"
 #include "k2d/Scene.h"
+#include "k2d/ScreenFade.h"
+#include "k2d/SceneManager.h"
 #include "k2d/Serializer.h"
 #include "k2d/SpriteComponent.h"
 #include "k2d/UiControls.h"
+#include "k2d/UserData.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -41,6 +46,7 @@ namespace k2d
     {
         Input *gZenInput = nullptr;
         Assets *gZenAssets = nullptr;
+        UserData *gZenUserData = nullptr;
         struct ZenGameViewport
         {
             float x = 0.0f;
@@ -1253,6 +1259,148 @@ namespace k2d
             return 1;
         }
 
+        int natUserDataGetInt(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const int fallback = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
+            args[0] = zen::val_int(gZenUserData ? gZenUserData->getInt(key, fallback) : fallback);
+            return 1;
+        }
+
+        int natUserDataSetInt(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            if (gZenUserData && nargs >= 2)
+                gZenUserData->setInt(valueToCString(vm, args[0], small, sizeof(small)),
+                                     (int)zen::to_integer(args[1]));
+            return 0;
+        }
+
+        int natUserDataGetFloat(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const float fallback = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+            args[0] = zen::val_float(gZenUserData ? gZenUserData->getFloat(key, fallback) : fallback);
+            return 1;
+        }
+
+        int natUserDataSetFloat(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            if (gZenUserData && nargs >= 2)
+                gZenUserData->setFloat(valueToCString(vm, args[0], small, sizeof(small)),
+                                       (float)zen::to_number(args[1]));
+            return 0;
+        }
+
+        int natUserDataGetString(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            char smallFallback[64];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const char *fallback = nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+            const char *value = gZenUserData ? gZenUserData->getString(key, fallback) : fallback;
+            args[0] = zen::val_obj((zen::Obj *)vm->make_string(value));
+            return 1;
+        }
+
+        int natUserDataSetString(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            char smallValue[64];
+            if (gZenUserData && nargs >= 2)
+                gZenUserData->setString(valueToCString(vm, args[0], small, sizeof(small)),
+                                         valueToCString(vm, args[1], smallValue, sizeof(smallValue)));
+            return 0;
+        }
+
+        int natUserDataGetBool(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const bool fallback = nargs >= 2 && zen::is_truthy(args[1]);
+            args[0] = zen::val_bool(gZenUserData ? gZenUserData->getBool(key, fallback) : fallback);
+            return 1;
+        }
+
+        int natUserDataSetBool(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            if (gZenUserData && nargs >= 2)
+                gZenUserData->setBool(valueToCString(vm, args[0], small, sizeof(small)),
+                                      zen::is_truthy(args[1]));
+            return 0;
+        }
+
+        int natUserDataHas(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_bool(gZenUserData && gZenUserData->has(key));
+            return 1;
+        }
+
+        int natUserDataDelete(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            if (gZenUserData && nargs >= 1)
+                gZenUserData->erase(valueToCString(vm, args[0], small, sizeof(small)));
+            return 0;
+        }
+
+        int natUserDataClear(zen::VM *, zen::Value *, int)
+        {
+            if (gZenUserData)
+                gZenUserData->clear();
+            return 0;
+        }
+
+        int natUserDataLoad(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const bool loaded = gZenUserData &&
+                                (nargs >= 1 ? gZenUserData->load(valueToCString(vm, args[0], small, sizeof(small)))
+                                             : gZenUserData->load());
+            args[0] = zen::val_bool(loaded);
+            return 1;
+        }
+
+        int natUserDataSave(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const bool saved = gZenUserData &&
+                               (nargs >= 1 ? gZenUserData->save(valueToCString(vm, args[0], small, sizeof(small)))
+                                            : gZenUserData->save());
+            args[0] = zen::val_bool(saved);
+            return 1;
+        }
+
+        int natUserDataReadText(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            char smallFallback[64];
+            const char *fileName = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            const char *fallback = nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+            ct::String text = fallback;
+            if (gZenUserData)
+                gZenUserData->readText(fileName, text);
+            args[0] = zen::val_obj((zen::Obj *)vm->make_string(text.c_str()));
+            return 1;
+        }
+
+        int natUserDataWriteText(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            char smallText[64];
+            const bool saved = gZenUserData && nargs >= 2 &&
+                               gZenUserData->writeText(valueToCString(vm, args[0], small, sizeof(small)),
+                                                        ct::String(valueToCString(vm, args[1], smallText, sizeof(smallText))));
+            args[0] = zen::val_bool(saved);
+            return 1;
+        }
+
         int natEmit(zen::VM *vm, zen::Value *args, int nargs)
         {
             char small[16];
@@ -1284,6 +1432,156 @@ namespace k2d
             const int code = nargs >= 1 ? scancodeFor(valueToCString(vm, args[0], small, sizeof(small))) : -1;
             args[0] = zen::val_bool(gZenInput && code >= 0 && gZenInput->KeyReleased(code));
             return 1;
+        }
+
+        int natActionDown(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_bool(gZenInput && GetInputActions().Down(*gZenInput, action));
+            return 1;
+        }
+
+        int natActionPressed(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_bool(gZenInput && GetInputActions().Pressed(*gZenInput, action));
+            return 1;
+        }
+
+        int natActionReleased(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[64];
+            const char *action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_bool(gZenInput && GetInputActions().Released(*gZenInput, action));
+            return 1;
+        }
+
+        int natFadeIn(zen::VM *, zen::Value *args, int nargs)
+        {
+            FadeIn(nargs >= 1 ? static_cast<float>(zen::to_number(args[0])) : 0.0f);
+            return 0;
+        }
+
+        int natFadeOut(zen::VM *, zen::Value *args, int nargs)
+        {
+            FadeOut(nargs >= 1 ? static_cast<float>(zen::to_number(args[0])) : 0.0f);
+            return 0;
+        }
+
+        int natIsFading(zen::VM *vm, zen::Value *args, int)
+        {
+            args[0] = zen::val_bool(IsFading());
+            return 1;
+        }
+
+        int natFadeProgress(zen::VM *vm, zen::Value *args, int)
+        {
+            args[0] = zen::val_float(FadeProgress());
+            return 1;
+        }
+
+        int natLoadScene(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[256];
+            const char *path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            if (path[0])
+                GetSceneManager().Request(path);
+            return 0;
+        }
+
+        int natAudioLoad(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[256];
+            const char *path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_int(GetAudio().LoadSound(path));
+            return 1;
+        }
+
+        int natAudioLoadMusic(zen::VM *vm, zen::Value *args, int nargs)
+        {
+            char small[256];
+            const char *path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+            args[0] = zen::val_int(GetAudio().LoadMusic(path));
+            return 1;
+        }
+
+        int natAudioPlay(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::SoundId sound = nargs >= 1 ? (AudioEngine::SoundId)zen::to_integer(args[0]) : 0;
+            const float volume = nargs >= 2 ? (float)zen::to_number(args[1]) : 1.0f;
+            const float pitch = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
+            const float pan = nargs >= 4 ? (float)zen::to_number(args[3]) : 0.0f;
+            args[0] = zen::val_int(GetAudio().Play(sound, volume, pitch, pan));
+            return 1;
+        }
+
+        int natAudioPlayMusic(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::SoundId sound = nargs >= 1 ? (AudioEngine::SoundId)zen::to_integer(args[0]) : 0;
+            const bool loop = nargs < 2 || zen::to_integer(args[1]) != 0;
+            const float volume = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
+            args[0] = zen::val_int(GetAudio().PlayMusic(sound, loop, volume));
+            return 1;
+        }
+
+        int natAudioStop(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+            args[0] = zen::val_bool(GetAudio().Stop(voice));
+            return 1;
+        }
+
+        int natAudioPause(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+            args[0] = zen::val_bool(GetAudio().Pause(voice));
+            return 1;
+        }
+
+        int natAudioResume(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+            args[0] = zen::val_bool(GetAudio().Resume(voice));
+            return 1;
+        }
+
+        int natAudioPlaying(zen::VM *, zen::Value *args, int nargs)
+        {
+            const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+            args[0] = zen::val_bool(GetAudio().IsPlaying(voice));
+            return 1;
+        }
+
+        int natAudioStopAll(zen::VM *, zen::Value *, int)
+        {
+            GetAudio().StopAll();
+            return 0;
+        }
+
+        int natAudioStopMusic(zen::VM *, zen::Value *, int)
+        {
+            GetAudio().StopMusic();
+            return 0;
+        }
+
+        int natAudioSetMasterVolume(zen::VM *, zen::Value *args, int nargs)
+        {
+            GetAudio().SetMasterVolume(nargs >= 1 ? (float)zen::to_number(args[0]) : 1.0f);
+            return 0;
+        }
+
+        int natAudioSetSfxVolume(zen::VM *, zen::Value *args, int nargs)
+        {
+            GetAudio().SetSfxVolume(nargs >= 1 ? (float)zen::to_number(args[0]) : 1.0f);
+            return 0;
+        }
+
+        int natAudioSetMusicVolume(zen::VM *, zen::Value *args, int nargs)
+        {
+            GetAudio().SetMusicVolume(nargs >= 1 ? (float)zen::to_number(args[0]) : 1.0f);
+            return 0;
         }
 
         int natMouseDown(zen::VM *, zen::Value *args, int nargs)
@@ -1539,11 +1837,47 @@ namespace k2d
         vm.def_native("get_flag", &natGetFlag, -1);
         vm.def_native("set_flag", &natSetFlag, 2);
         vm.def_native("has_key", &natHasKey, 1);
+        vm.def_native("user_data_get_int", &natUserDataGetInt, -1);
+        vm.def_native("user_data_set_int", &natUserDataSetInt, 2);
+        vm.def_native("user_data_get_float", &natUserDataGetFloat, -1);
+        vm.def_native("user_data_set_float", &natUserDataSetFloat, 2);
+        vm.def_native("user_data_get_string", &natUserDataGetString, -1);
+        vm.def_native("user_data_set_string", &natUserDataSetString, 2);
+        vm.def_native("user_data_get_bool", &natUserDataGetBool, -1);
+        vm.def_native("user_data_set_bool", &natUserDataSetBool, 2);
+        vm.def_native("user_data_has", &natUserDataHas, 1);
+        vm.def_native("user_data_delete", &natUserDataDelete, 1);
+        vm.def_native("user_data_clear", &natUserDataClear, 0);
+        vm.def_native("user_data_load", &natUserDataLoad, -1);
+        vm.def_native("user_data_save", &natUserDataSave, -1);
+        vm.def_native("user_data_read_text", &natUserDataReadText, -1);
+        vm.def_native("user_data_write_text", &natUserDataWriteText, 2);
         vm.def_native("emit", &natEmit, -1);
 
         vm.def_native("key_down", &natKeyDown, 1);
         vm.def_native("key_pressed", &natKeyPressed, 1);
         vm.def_native("key_released", &natKeyReleased, 1);
+        vm.def_native("action_down", &natActionDown, 1);
+        vm.def_native("action_pressed", &natActionPressed, 1);
+        vm.def_native("action_released", &natActionReleased, 1);
+        vm.def_native("fade_in", &natFadeIn, 1);
+        vm.def_native("fade_out", &natFadeOut, 1);
+        vm.def_native("is_fading", &natIsFading, 0);
+        vm.def_native("fade_progress", &natFadeProgress, 0);
+        vm.def_native("load_scene", &natLoadScene, 1);
+        vm.def_native("audio_load", &natAudioLoad, 1);
+        vm.def_native("audio_load_music", &natAudioLoadMusic, 1);
+        vm.def_native("audio_play", &natAudioPlay, -1);
+        vm.def_native("audio_play_music", &natAudioPlayMusic, -1);
+        vm.def_native("audio_stop", &natAudioStop, 1);
+        vm.def_native("audio_pause", &natAudioPause, 1);
+        vm.def_native("audio_resume", &natAudioResume, 1);
+        vm.def_native("audio_playing", &natAudioPlaying, 1);
+        vm.def_native("audio_stop_all", &natAudioStopAll, 0);
+        vm.def_native("audio_stop_music", &natAudioStopMusic, 0);
+        vm.def_native("audio_set_master_volume", &natAudioSetMasterVolume, 1);
+        vm.def_native("audio_set_sfx_volume", &natAudioSetSfxVolume, 1);
+        vm.def_native("audio_set_music_volume", &natAudioSetMusicVolume, 1);
         vm.def_native("mouse_down", &natMouseDown, 1);
         vm.def_native("mouse_pressed", &natMousePressed, 1);
         vm.def_native("mouse_x", &natMouseX, 0);
@@ -2389,6 +2723,11 @@ namespace k2d
     void SetZenScriptAssets(Assets *assets)
     {
         gZenAssets = assets;
+    }
+
+    void SetZenScriptUserData(UserData *userData)
+    {
+        gZenUserData = userData;
     }
 
     void SetZenScriptOutput(void (*fn)(const char *text, bool isError, void *user), void *user)

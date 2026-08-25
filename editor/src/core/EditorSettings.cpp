@@ -47,6 +47,8 @@ bool EditorSettings::load(const char *path)
             recentProjectPaths.push_back(ct::String(recent[i].as_cstr("")));
 
     themeIndex = static_cast<int>(root["themeIndex"].as_int(0));
+    windowDisplayIndex = static_cast<int>(root["windowDisplayIndex"].as_int(0));
+    if (windowDisplayIndex < 0) windowDisplayIndex = 0;
     assetsDirectory = root["assetsDirectory"].as_cstr("");
 
     viewportPan = readVec2(root["viewportPan"], Math::Vec2(0.0f, 0.0f));
@@ -54,6 +56,9 @@ bool EditorSettings::load(const char *path)
     viewportTool = static_cast<int>(root["viewportTool"].as_int(0));
     viewportSnap = root["viewportSnap"].as_bool(false);
     viewportShowGrid = root["viewportShowGrid"].as_bool(true);
+    viewportGridSize = readVec2(root["viewportGridSize"], Math::Vec2(32.0f, 32.0f));
+    if (viewportGridSize.x < 1.0f) viewportGridSize.x = 1.0f;
+    if (viewportGridSize.y < 1.0f) viewportGridSize.y = 1.0f;
     viewportLivePreview = root["viewportLivePreview"].as_bool(true);
     scriptHotReload = root["scriptHotReload"].as_bool(true);
     showColliders = root["showColliders"].as_bool(true);
@@ -71,12 +76,14 @@ bool EditorSettings::save(const char *path) const
         recent.push_back(recentProjectPaths[i]);
     root.set("recentProjectPaths", recent);
     root.set("themeIndex", themeIndex);
+    root.set("windowDisplayIndex", windowDisplayIndex);
     root.set("assetsDirectory", assetsDirectory);
     root.set("viewportPan", writeVec2(viewportPan));
     root.set("viewportZoom", viewportZoom);
     root.set("viewportTool", viewportTool);
     root.set("viewportSnap", viewportSnap);
     root.set("viewportShowGrid", viewportShowGrid);
+    root.set("viewportGridSize", writeVec2(viewportGridSize));
     root.set("viewportLivePreview", viewportLivePreview);
     root.set("scriptHotReload", scriptHotReload);
     root.set("showColliders", showColliders);

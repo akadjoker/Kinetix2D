@@ -43,8 +43,11 @@ private:
     int mTool = 0;
     bool mSnap = false;
     bool mShowGrid = true;
+    Math::Vec2 mGridSize = Math::Vec2(32.0f, 32.0f);
     bool mLivePreview = true;
     int mGizmoAxis = -1;
+    Math::Vec2 mGizmoStartPosition = Math::Vec2(0.0f);
+    ImVec2 mGizmoStartMouse = ImVec2(0.0f, 0.0f);
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

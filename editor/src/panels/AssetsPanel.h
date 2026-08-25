@@ -7,6 +7,8 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
+#include <cstring>
+
 namespace k2d
 {
 class Texture;
@@ -17,7 +19,20 @@ namespace k2d::editor
 
 constexpr const char *kPrefabDragDropPayload = "K2D_PREFAB_FILE";
 constexpr const char *kTextureDragDropPayload = "K2D_TEXTURE_FILE";
+constexpr const char *kSpriteRegionDragDropPayload = "K2D_SPRITE_REGION";
 constexpr const char *kScriptDragDropPayload = "K2D_SCRIPT_FILE";
+
+// Editor-only transfer data.  A region is copied into an Animation2D frame;
+// the scene never depends on the Sprite Editor panel being open afterwards.
+struct SpriteRegionDragDropData
+{
+    Texture *texture = nullptr;
+    char texturePath[512] = {};
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
 
 class AssetsPanel final : public EditorPanel
 {

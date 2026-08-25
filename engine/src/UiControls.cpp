@@ -19,6 +19,31 @@ namespace k2d
         UiViewport gUiViewport;
         constexpr int kUiZBase = (std::numeric_limits<int>::max)() - 100000;
 
+        // Regions in the embedded assets/menu.png default UI atlas.
+        constexpr float kPanelX = 2.0f, kPanelY = 2.0f, kPanelW = 72.0f, kPanelH = 72.0f;
+        constexpr float kButtonX = 79.0f, kButtonY = 2.0f, kButtonW = 44.0f, kButtonH = 44.0f;
+        constexpr float kCheckOffX = 79.0f, kCheckOffY = 2.0f;
+        constexpr float kCheckOnX = 79.0f, kCheckOnY = 47.0f, kCheckW = 44.0f, kCheckH = 44.0f;
+        constexpr float kSliderTrackX = 3.0f, kSliderTrackY = 82.0f, kSliderTrackW = 71.0f, kSliderTrackH = 5.0f;
+        constexpr float kSliderKnobX = 6.0f, kSliderKnobY = 150.0f, kSliderKnobW = 9.0f, kSliderKnobH = 23.0f;
+
+        float MeasureUiText(const ct::String &text, float glyphSize)
+        {
+            float widest = 0.0f;
+            float width = 0.0f;
+            for (const char *character = text.c_str(); *character; ++character)
+            {
+                if (*character == '\n')
+                {
+                    widest = widest > width ? widest : width;
+                    width = 0.0f;
+                }
+                else
+                    width += glyphSize;
+            }
+            return widest > width ? widest : width;
+        }
+
     }
 
     void SetUiInput(Input *input) { gUiInput = input; }
@@ -111,13 +136,27 @@ namespace k2d
         const UiViewport &viewport = GetUiViewport();
         if (Scene *scene = owner()->scene())
             if (CameraComponent *camera = scene->activeCamera())
+            {
                 item.xform = camera->camera().CameraXform(viewport.width, viewport.height);
+                return item;
+            }
+
+        // The runner's fallback projection is also camera based, so UI must
+        // cancel its view transform even when the scene has no CameraComponent.
+        Camera2D defaultCamera;
+        item.xform = defaultCamera.CameraXform(viewport.width, viewport.height);
         return item;
     }
 
     void UiControl::addSolidRect(RenderItem &item, float x, float y, float width, float height, const Color &color) const
     {
         RenderCommand command = RenderCommand::MakeRect(0, x, y, width, height);
+        // UI rect coordinates are their top-left corner. RenderCommand's
+        // generic default pivot is centered, which displaces every box by
+        // half of its own size while text (whose pivot is top-left) remains
+        // correctly placed.
+        command.pivotX = 0.0f;
+        command.pivotY = 0.0f;
         command.color = color;
         item.commands.push_back(command);
     }
@@ -128,6 +167,8 @@ namespace k2d
         if (!gUiThemeTexture)
             return;
         RenderCommand command = RenderCommand::MakeRect(gUiThemeTexture->Id(), x, y, width, height);
+        command.pivotX = 0.0f;
+        command.pivotY = 0.0f;
         command.srcX = srcX;
         command.srcY = srcY;
         command.srcW = srcWidth;
@@ -159,7 +200,10 @@ namespace k2d
     {
         const Math::Vec4 r = rect();
         RenderItem &item = beginUiItem(queue);
-        addSolidRect(item, r.x, r.y, r.z, r.w, mColor);
+        if (gUiThemeTexture)
+            addThemeRect(item, r.x, r.y, r.z, r.w, kPanelX, kPanelY, kPanelW, kPanelH, mColor);
+        else
+            addSolidRect(item, r.x, r.y, r.z, r.w, mColor);
     }
 
     UiLabel::UiLabel() : UiControl(Type, false), mText("Label"), mFontSize(16.0f), mColor(Color::White()) {}
@@ -179,10 +223,13 @@ namespace k2d
         const Color base = pressed() ? Color(0.18f, 0.42f, 0.72f) : hovered() ? Color(0.25f, 0.55f, 0.90f) : Color(0.20f, 0.46f, 0.78f);
         RenderItem &item = beginUiItem(queue);
         if (gUiThemeTexture)
-            addThemeRect(item, r.x, r.y, r.z, r.w, 79.0f, 0.0f, 45.0f, 44.0f, base);
+            addThemeRect(item, r.x, r.y, r.z, r.w, kButtonX, kButtonY, kButtonW, kButtonH, base);
         else
             addSolidRect(item, r.x, r.y, r.z, r.w, base);
-        addText(item, r.x + 8.0f, r.y + (r.w - 16.0f) * 0.5f, 16.0f, mText, Color::White());
+        constexpr float textSize = 16.0f;
+        const float textWidth = MeasureUiText(mText, textSize);
+        const float textX = r.z > textWidth ? r.x + (r.z - textWidth) * 0.5f : r.x + 8.0f;
+        addText(item, textX, r.y + (r.w - textSize) * 0.5f, textSize, mText, Color::White());
     }
 
     UiCheckBox::UiCheckBox() : UiControl(Type, true), mText("CheckBox"), mChecked(false), mChanged(false) {}
@@ -195,10 +242,21 @@ namespace k2d
     {
         const Math::Vec4 r = rect();
         const float side = r.w < 22.0f ? r.w : 22.0f;
+        const float top = r.y + (r.w - side) * 0.5f;
         RenderItem &item = beginUiItem(queue);
-        addSolidRect(item, r.x, r.y + (r.w - side) * 0.5f, side, side, Color(0.18f, 0.22f, 0.30f));
-        if (mChecked)
-            addSolidRect(item, r.x + 5.0f, r.y + (r.w - side) * 0.5f + 5.0f, side - 10.0f, side - 10.0f, Color(0.26f, 0.75f, 0.45f));
+        if (gUiThemeTexture)
+        {
+            const Color tint = mChecked ? Color(0.35f, 0.78f, 0.50f) : Color(0.72f, 0.80f, 0.93f);
+            addThemeRect(item, r.x, top, side, side,
+                         mChecked ? kCheckOnX : kCheckOffX, mChecked ? kCheckOnY : kCheckOffY,
+                         kCheckW, kCheckH, tint);
+        }
+        else
+        {
+            addSolidRect(item, r.x, top, side, side, Color(0.18f, 0.22f, 0.30f));
+            if (mChecked)
+                addSolidRect(item, r.x + 5.0f, top + 5.0f, side - 10.0f, side - 10.0f, Color(0.26f, 0.75f, 0.45f));
+        }
         addText(item, r.x + side + 8.0f, r.y + (r.w - 16.0f) * 0.5f, 16.0f, mText, Color::White());
     }
 
@@ -227,10 +285,26 @@ namespace k2d
     {
         const Math::Vec4 r = rect();
         const float t = (mValue - mMinimum) / (mMaximum - mMinimum);
-        const float knobX = r.x + t * (r.z - 14.0f);
         RenderItem &item = beginUiItem(queue);
-        addSolidRect(item, r.x, r.y + r.w * 0.5f - 3.0f, r.z, 6.0f, Color(0.16f, 0.20f, 0.27f));
-        addSolidRect(item, r.x, r.y + r.w * 0.5f - 3.0f, t * r.z, 6.0f, Color(0.24f, 0.58f, 0.93f));
-        addSolidRect(item, knobX, r.y + r.w * 0.5f - 9.0f, 14.0f, 18.0f, hovered() ? Color(0.85f, 0.90f, 1.0f) : Color(0.70f, 0.78f, 0.92f));
+        if (gUiThemeTexture)
+        {
+            const float trackY = r.y + r.w * 0.5f - kSliderTrackH * 0.5f;
+            const float knobX = r.x + t * (r.z - kSliderKnobW);
+            const float knobY = r.y + (r.w - kSliderKnobH) * 0.5f;
+            addThemeRect(item, r.x, trackY, r.z, kSliderTrackH,
+                         kSliderTrackX, kSliderTrackY, kSliderTrackW, kSliderTrackH, Color(0.20f, 0.26f, 0.36f));
+            addThemeRect(item, r.x, trackY, t * r.z, kSliderTrackH,
+                         kSliderTrackX, kSliderTrackY, kSliderTrackW, kSliderTrackH, Color(0.24f, 0.58f, 0.93f));
+            addThemeRect(item, knobX, knobY, kSliderKnobW, kSliderKnobH,
+                         kSliderKnobX, kSliderKnobY, kSliderKnobW, kSliderKnobH,
+                         hovered() ? Color(0.85f, 0.90f, 1.0f) : Color(0.70f, 0.78f, 0.92f));
+        }
+        else
+        {
+            const float knobX = r.x + t * (r.z - 14.0f);
+            addSolidRect(item, r.x, r.y + r.w * 0.5f - 3.0f, r.z, 6.0f, Color(0.16f, 0.20f, 0.27f));
+            addSolidRect(item, r.x, r.y + r.w * 0.5f - 3.0f, t * r.z, 6.0f, Color(0.24f, 0.58f, 0.93f));
+            addSolidRect(item, knobX, r.y + r.w * 0.5f - 9.0f, 14.0f, 18.0f, hovered() ? Color(0.85f, 0.90f, 1.0f) : Color(0.70f, 0.78f, 0.92f));
+        }
     }
 }

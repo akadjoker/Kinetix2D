@@ -28,6 +28,8 @@ namespace k2d
 
         const Math::Vec2 &pivot() const;
         void setPivot(const Math::Vec2 &pivot);
+        void setRenderOffset(const Math::Vec2 &offset) { mRenderOffset = offset; }
+        const Math::Vec2 &renderOffset() const { return mRenderOffset; }
 
         void setColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
 
@@ -55,6 +57,7 @@ namespace k2d
     private:
         Material2D mMaterial;
         Math::Vec2 mSize;
+        Math::Vec2 mRenderOffset;
         bool mYSort;
     };
 

@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cmath>
+#include <cstring>
 
 namespace
 {
@@ -118,6 +119,28 @@ namespace
                copy->childCount() == 0 && copy->getComponent<k2d::SpriteComponent>() == nullptr;
     }
 
+    bool TestAnimationFramePathRoundTrip()
+    {
+        k2d::Scene srcScene;
+        k2d::GameObject *root = srcScene.createObject("Animated");
+        k2d::Animation2D *animation = root->addComponent<k2d::Animation2D>();
+        animation->addClip("run", nullptr, 0, 0, 0, 12.0f, k2d::AnimationMode::Loop);
+        animation->addFrame("run", nullptr, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f),
+                            "sprites/player.png");
+
+        const ct::Json written = k2d::Serializer::WriteObject(*root);
+        const ct::Json &frame = written["components"][0]["data"]["clips"][0]["frames"][0];
+        if (ct::String(frame["texture"].as_cstr("")) != ct::String("sprites/player.png"))
+            return false;
+
+        k2d::Scene dstScene;
+        k2d::GameObject *copy = k2d::Serializer::ReadObject(dstScene, written);
+        k2d::Animation2D *copyAnimation = copy ? copy->getComponent<k2d::Animation2D>() : nullptr;
+        const k2d::AnimationFrame *copyFrame = copyAnimation ? copyAnimation->frameAt("run", 0) : nullptr;
+        return copyFrame && copyFrame->texturePath == "sprites/player.png" &&
+               NearVec4(copyFrame->rect, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f));
+    }
+
     class DummyScript : public k2d::ScriptComponent
     {
     public:
@@ -148,8 +171,11 @@ namespace
         map->setCellSize(16.0f, 24.0f);
         map->setMapSize(3, 2);
         map->setAtlasTilesX(5);
+        map->setAtlasPadding(2.0f, 3.0f);
+        map->setAtlasGap(1.0f, 2.0f);
         map->setTile(0, 0, 3);
         map->setTile(2, 1, 7);
+        map->setCollision(1, 0, true);
         map->setCullRect(10.0f, 20.0f, 100.0f, 80.0f);
         map->setBlendMode(k2d::BLEND_ADD);
 
@@ -163,8 +189,11 @@ namespace
         bool ok = Near(copyMap->cellWidth(), 16.0f) && Near(copyMap->cellHeight(), 24.0f);
         ok = ok && copyMap->columns() == 3 && copyMap->rows() == 2;
         ok = ok && copyMap->atlasTilesX() == 5;
+        ok = ok && NearVec2(copyMap->atlasPadding(), {2.0f, 3.0f}) &&
+             NearVec2(copyMap->atlasGap(), {1.0f, 2.0f});
         ok = ok && copyMap->getTile(0, 0) == 3 && copyMap->getTile(2, 1) == 7 &&
              copyMap->getTile(1, 0) == 0; 
+        ok = ok && copyMap->hasCollision(1, 0) && !copyMap->hasCollision(2, 1);
         ok = ok && copyMap->hasCullRect();
         ok = ok && NearVec4(copyMap->cullRect(), {10.0f, 20.0f, 100.0f, 80.0f});
         ok = ok && copyMap->blendMode() == k2d::BLEND_ADD;
@@ -241,20 +270,47 @@ namespace
         rect->setColor(90, 80, 70, 60);
         rect->setBlendMode(k2d::BLEND_MUL);
 
+        k2d::CapsuleShape *capsule = root->addComponent<k2d::CapsuleShape>();
+        capsule->setSize({140.0f, 48.0f});
+        capsule->setSegments(12);
+        capsule->setMode(k2d::ShapeRenderMode::Line);
+        capsule->setLineWidth(4.0f);
+        capsule->setColor(30, 60, 90, 120);
+        capsule->setBlendMode(k2d::BLEND_ADD);
+
+        k2d::AudioPlayer *audio = root->addComponent<k2d::AudioPlayer>();
+        audio->setSource("audio/test.ogg");
+        audio->setMusic(true);
+        audio->setAutoplay(true);
+        audio->setLoop(true);
+        audio->setVolume(0.6f);
+
         ct::Json written = k2d::Serializer::WriteObject(*root);
         k2d::Scene dstScene;
         k2d::GameObject *copy = k2d::Serializer::ReadObject(dstScene, written);
         k2d::CircleShape *copyCircle = copy ? copy->getComponent<k2d::CircleShape>() : nullptr;
         k2d::RectShape *copyRect = copy ? copy->getComponent<k2d::RectShape>() : nullptr;
-        if (!copyCircle || !copyRect)
+        k2d::CapsuleShape *copyCapsule = copy ? copy->getComponent<k2d::CapsuleShape>() : nullptr;
+        k2d::AudioPlayer *copyAudio = copy ? copy->getComponent<k2d::AudioPlayer>() : nullptr;
+        if (!copyCircle || !copyRect || !copyCapsule || !copyAudio)
             return false;
+
+        k2d::CapsuleShape verticalCapsule;
+        verticalCapsule.setSize({48.0f, 140.0f});
+        verticalCapsule.setSegments(10);
 
         return Near(copyCircle->radius(), 26.0f) && copyCircle->segments() == 18 &&
                copyCircle->mode() == k2d::ShapeRenderMode::Line &&
                Near(copyCircle->lineWidth(), 3.5f) && copyCircle->color() == circle->color() &&
                copyCircle->blendMode() == k2d::BLEND_ADD && NearVec2(copyRect->size(), {90.0f, 40.0f}) &&
                copyRect->mode() == k2d::ShapeRenderMode::Line && Near(copyRect->lineWidth(), 5.0f) &&
-               copyRect->color() == rect->color() && copyRect->blendMode() == k2d::BLEND_MUL;
+               copyRect->color() == rect->color() && copyRect->blendMode() == k2d::BLEND_MUL &&
+               NearVec2(copyCapsule->size(), {140.0f, 48.0f}) && copyCapsule->segments() == 12 &&
+               copyCapsule->mode() == k2d::ShapeRenderMode::Line && Near(copyCapsule->lineWidth(), 4.0f) &&
+               copyCapsule->color() == capsule->color() && copyCapsule->blendMode() == k2d::BLEND_ADD &&
+               copyCapsule->valid() && verticalCapsule.valid() &&
+               std::strcmp(copyAudio->source(), "audio/test.ogg") == 0 && copyAudio->music() &&
+               copyAudio->autoplay() && copyAudio->loop() && Near(copyAudio->volume(), 0.6f);
     }
 
     bool TestNinePatchRoundTrip()
@@ -315,6 +371,11 @@ namespace
         k2d::Animation2D *anim = root->addComponent<k2d::Animation2D>();
         anim->addClip("idle", nullptr, 16, 16, 4, 6.0f, k2d::AnimationMode::Loop);
         anim->addClip("run", nullptr, 20, 16, 8, 12.0f, k2d::AnimationMode::PingPong);
+        anim->setClipAtlasLayout("run", Math::Vec2(2.0f, 3.0f), Math::Vec2(1.0f, 2.0f));
+        anim->addClip("effect", nullptr, 1, 1, 1, 8.0f, k2d::AnimationMode::OneShot);
+        anim->addFrame("effect", nullptr, Math::Vec4(2.0f, 4.0f, 10.0f, 12.0f));
+        anim->addFrame("effect", nullptr, Math::Vec4(14.0f, 4.0f, 10.0f, 12.0f));
+        anim->setFrameOffset("effect", 1, Math::Vec2(3.0f, -2.0f));
         anim->play("run");
 
         ct::Json written = k2d::Serializer::WriteObject(*root);
@@ -324,11 +385,18 @@ namespace
         if (!copyAnim)
             return false;
 
-        bool ok = copyAnim->clipCount() == 2;
+        bool ok = copyAnim->clipCount() == 3;
         ok = ok && ct::String(copyAnim->currentClip()) == ct::String("run");
         ok = ok && copyAnim->frameCount() == 8 && Near(copyAnim->framesPerSecond(), 12.0f) &&
              copyAnim->mode() == k2d::AnimationMode::PingPong;
+        const k2d::AnimationClip *run = copyAnim->clipAt(1);
+        ok = ok && run && NearVec2(run->atlasPadding, {2.0f, 3.0f}) &&
+             NearVec2(run->atlasGap, {1.0f, 2.0f});
         ok = ok && copyAnim->playing() == anim->playing();
+        const k2d::AnimationFrame *effectFrame = copyAnim->frameAt("effect", 1);
+        ok = ok && copyAnim->frameCount("effect") == 2 && effectFrame &&
+             NearVec4(effectFrame->rect, {14.0f, 4.0f, 10.0f, 12.0f}) &&
+             NearVec2(effectFrame->offset, {3.0f, -2.0f});
         return ok;
     }
 
@@ -498,12 +566,14 @@ namespace
         ok = ok && NearVec4(p.atlasBounds, {0.0f, 0.0f, 8.0f, 8.0f});
         return ok;
     }
+
 }
 
 int main()
 {
     bool roundTrip = TestRoundTripThroughText();
     bool defaults = TestDefaultsRoundTrip();
+    bool animationFramePath = TestAnimationFramePathRoundTrip();
     bool unregistered = TestUnregisteredTypeIsSkipped();
     bool tileMap = TestTileMapRoundTrip();
     bool polygonLine = TestPolygonAndLineRoundTrip();
@@ -516,8 +586,9 @@ int main()
     bool camera = TestCameraRoundTrip();
     bool particle = TestParticleComponentRoundTrip();
 
-    std::printf("Serializer: round_trip=%s defaults=%s unregistered_skipped=%s\n",
+    std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s unregistered_skipped=%s\n",
                 roundTrip ? "pass" : "fail", defaults ? "pass" : "fail",
+                animationFramePath ? "pass" : "fail",
                 unregistered ? "pass" : "fail");
     std::printf("Serializer components: tilemap=%s polygon_line=%s primitive_shapes=%s ninepatch=%s spritebatch=%s "
                 "animation=%s light_disambiguation=%s occluder=%s camera=%s particle=%s\n",
@@ -526,7 +597,7 @@ int main()
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail",
                 camera ? "pass" : "fail", particle ? "pass" : "fail");
 
-    return (roundTrip && defaults && unregistered && tileMap && polygonLine && primitiveShapes && ninePatch &&
+    return (roundTrip && defaults && animationFramePath && unregistered && tileMap && polygonLine && primitiveShapes && ninePatch &&
             spriteBatch && animation && lightDisambiguation && occluder && camera && particle)
                ? 0
                : 1;

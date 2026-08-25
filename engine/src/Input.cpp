@@ -11,6 +11,9 @@ namespace k2d
             mKeys[i] = false;
             mKeysPressed[i] = false;
             mKeysReleased[i] = false;
+            mVirtualKeys[i] = false;
+            mVirtualKeysPressed[i] = false;
+            mVirtualKeysReleased[i] = false;
         }
         for (int i = 0; i < MAX_BUTTONS; ++i)
         {
@@ -33,6 +36,8 @@ namespace k2d
         {
             mKeysPressed[i] = false;
             mKeysReleased[i] = false;
+            mVirtualKeysPressed[i] = false;
+            mVirtualKeysReleased[i] = false;
         }
         for (int i = 0; i < MAX_BUTTONS; ++i)
         {
@@ -61,7 +66,7 @@ namespace k2d
         else
         {
             mKeys[scancode] = false;
-            mKeysReleased[scancode] = true;
+            mKeysReleased[scancode] = !mVirtualKeys[scancode];
         }
     }
 
@@ -144,25 +149,37 @@ namespace k2d
         }
     }
 
+    void Input::SetVirtualKey(int scancode, bool down)
+    {
+        if (scancode < 0 || scancode >= MAX_KEYS || mVirtualKeys[scancode] == down)
+            return;
+
+        mVirtualKeys[scancode] = down;
+        if (down)
+            mVirtualKeysPressed[scancode] = true;
+        else if (!mKeys[scancode])
+            mVirtualKeysReleased[scancode] = true;
+    }
+
     bool Input::KeyDown(int scancode) const
     {
         if (scancode < 0 || scancode >= MAX_KEYS)
             return false;
-        return mKeys[scancode];
+        return mKeys[scancode] || mVirtualKeys[scancode];
     }
 
     bool Input::KeyPressed(int scancode) const
     {
         if (scancode < 0 || scancode >= MAX_KEYS)
             return false;
-        return mKeysPressed[scancode];
+        return mKeysPressed[scancode] || mVirtualKeysPressed[scancode];
     }
 
     bool Input::KeyReleased(int scancode) const
     {
         if (scancode < 0 || scancode >= MAX_KEYS)
             return false;
-        return mKeysReleased[scancode];
+        return mKeysReleased[scancode] || mVirtualKeysReleased[scancode];
     }
 
     bool Input::MouseDown(int button) const

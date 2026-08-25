@@ -24,6 +24,7 @@ add_executable(k2d_editor
     src/core/EditorToasts.cpp
     src/core/Project.cpp
     src/panels/AssetsPanel.cpp
+    src/panels/AnimatorPanel.cpp
     src/panels/ConsolePanel.cpp
     src/panels/GamePanel.cpp
     src/panels/HierarchyPanel.cpp
@@ -32,8 +33,10 @@ add_executable(k2d_editor
     src/panels/PrefabsPanel.cpp
     src/panels/ScriptsPanel.cpp
     src/panels/SettingsPanel.cpp
+    src/panels/SpriteEditorPanel.cpp
     src/panels/SceneViewportPanel.cpp
     src/panels/ScriptEditorPanel.cpp
+    src/panels/TileMapPanel.cpp
 )
 
 target_include_directories(k2d_editor PRIVATE

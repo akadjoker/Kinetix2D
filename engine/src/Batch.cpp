@@ -265,30 +265,7 @@ void main()
 
     void BatchRenderer::SetBlendMode(BlendMode mode)
     {
-        if (mCurrentBlendMode != mode)
-        {
-            mCurrentBlendMode = mode;
-            switch (mode)
-            {
-            case BLEND_ALPHA:
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                break;
-            case BLEND_ADDITIVE:
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-                break;
-            case BLEND_MULTIPLIED:
-                glBlendFunc(GL_DST_COLOR, GL_ZERO);
-                break;
-            case BLEND_ADD_COLORS:
-                glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
-                break;
-            case BLEND_SUBTRACT_COLORS:
-                glBlendFunc(GL_SRC_COLOR, GL_ONE_MINUS_DST_COLOR);
-                break;
-            default:
-                break;
-            }
-        }
+        mCurrentBlendMode = mode;
     }
 
     void BatchRenderer::SetTexcoord(float u, float v)
@@ -580,6 +557,7 @@ void main()
             mDrawCalls.back().depthTest != mDepthTestEnabled ||
             mDrawCalls.back().depthWrite != mDepthWriteEnabled ||
             mDrawCalls.back().blend != mBlendEnabled ||
+            mDrawCalls.back().blendMode != mCurrentBlendMode ||
             mDrawCalls.back().cullFace != mCullFaceEnabled)
         {
             DrawCall call;
@@ -590,6 +568,7 @@ void main()
             call.depthTest = mDepthTestEnabled;
             call.depthWrite = mDepthWriteEnabled;
             call.blend = mBlendEnabled;
+            call.blendMode = mCurrentBlendMode;
             call.cullFace = mCullFaceEnabled;
             mDrawCalls.push_back(call);
         }
@@ -1480,12 +1459,15 @@ void main()
             return;
 
         ProfileScope profileScope("batch.flush");
+        // BatchRenderer shares a GL context with Canvas/ImGui, so only cache
+        // state within this flush unless it controls every pass itself.
+        mState.Invalidate();
 
-        glBindVertexArray(mVAO);
+        mState.BindVertexArray(mVAO);
 
         {
             ProfileScope uploadScope("batch.upload");
-            glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+            mState.BindArrayBuffer(mVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0,
                             (GLsizeiptr)(mVertices.size() * sizeof(Vertex)), mVertices.data());
         }
@@ -1512,7 +1494,7 @@ void main()
 
         if (!mIndices.empty())
         {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+            mState.BindElementArrayBuffer(mIBO);
             glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0,
                             (GLsizeiptr)(mIndices.size() * sizeof(unsigned short)), mIndices.data());
         }
@@ -1537,10 +1519,9 @@ void main()
 
     void BatchRenderer::ApplyDrawCalls()
     {
-        glUseProgram(mProgram);
+        mState.UseProgram(mProgram);
         glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, mProjection.Data());
-        glBindVertexArray(mVAO);
-        glActiveTexture(GL_TEXTURE0);
+        mState.BindVertexArray(mVAO);
 
         size_t vertexOffset = 0;
 
@@ -1548,27 +1529,26 @@ void main()
         {
             const DrawCall &call = mDrawCalls[i];
 
-            if (call.depthTest)
-                glEnable(GL_DEPTH_TEST);
-            else
-                glDisable(GL_DEPTH_TEST);
-            glDepthMask(call.depthWrite ? GL_TRUE : GL_FALSE);
-            if (call.cullFace)
-                glEnable(GL_CULL_FACE);
-            else
-                glDisable(GL_CULL_FACE);
+            mState.SetDepthTestEnabled(call.depthTest);
+            mState.SetDepthWriteEnabled(call.depthWrite);
+            mState.SetCullFaceEnabled(call.cullFace);
+            mState.SetBlendEnabled(call.blend);
             if (call.blend)
             {
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            }
-            else
-            {
-                glDisable(GL_BLEND);
+                mState.SetBlendEquation(GL_FUNC_ADD);
+                switch (call.blendMode)
+                {
+                case BLEND_ADDITIVE: mState.SetBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
+                case BLEND_MULTIPLIED: mState.SetBlendFunc(GL_DST_COLOR, GL_ZERO); break;
+                case BLEND_ADD_COLORS: mState.SetBlendFunc(GL_SRC_COLOR, GL_DST_COLOR); break;
+                case BLEND_SUBTRACT_COLORS: mState.SetBlendFunc(GL_SRC_COLOR, GL_ONE_MINUS_DST_COLOR); break;
+                case BLEND_ALPHA:
+                default: mState.SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+                }
             }
 
             GLuint tex = (call.textureId != 0) ? call.textureId : mWhiteTexture;
-            glBindTexture(GL_TEXTURE_2D, tex);
+            mState.BindTexture2D(0, tex);
 
             if (call.mode == MODE_LINES)
             {

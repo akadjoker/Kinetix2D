@@ -62,6 +62,7 @@ SceneViewportPanel::SceneViewportPanel(EditorApplication &application)
     mTool = settings.viewportTool;
     mSnap = settings.viewportSnap;
     mShowGrid = settings.viewportShowGrid;
+    mGridSize = settings.viewportGridSize;
     mLivePreview = settings.viewportLivePreview;
 
     mCanvasInitialized = mCanvas.Init();
@@ -188,8 +189,8 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
                 Math::Vec2 world = screenToWorld(ImGui::GetMousePos(), origin);
                 if (mSnap)
                 {
-                    world.x = roundf(world.x / 32.0f) * 32.0f;
-                    world.y = roundf(world.y / 32.0f) * 32.0f;
+                    world.x = roundf(world.x / mGridSize.x) * mGridSize.x;
+                    world.y = roundf(world.y / mGridSize.y) * mGridSize.y;
                 }
                 created->setPosition(world);
                 app().selection().select(created);
@@ -208,19 +209,22 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
 
 void SceneViewportPanel::drawGrid(ImDrawList &drawList, const ImVec2 &min, const ImVec2 &max) const
 {
-    const float step = 32.0f * mZoom;
-    if (step < 6.0f)
+    const float stepX = mGridSize.x * mZoom;
+    const float stepY = mGridSize.y * mZoom;
+    if (stepX < 6.0f && stepY < 6.0f)
         return;
-    float x = fmodf(min.x + mPan.x, step);
+    float x = fmodf(min.x + mPan.x, stepX);
     if (x < 0.0f)
-        x += step;
-    for (; min.x + x < max.x; x += step)
-        drawList.AddLine(ImVec2(min.x + x, min.y), ImVec2(min.x + x, max.y), IM_COL32(47, 52, 62, 150));
-    float y = fmodf(min.y + mPan.y, step);
+        x += stepX;
+    if (stepX >= 6.0f)
+        for (; min.x + x < max.x; x += stepX)
+            drawList.AddLine(ImVec2(min.x + x, min.y), ImVec2(min.x + x, max.y), IM_COL32(47, 52, 62, 150));
+    float y = fmodf(min.y + mPan.y, stepY);
     if (y < 0.0f)
-        y += step;
-    for (; min.y + y < max.y; y += step)
-        drawList.AddLine(ImVec2(min.x, min.y + y), ImVec2(max.x, min.y + y), IM_COL32(47, 52, 62, 150));
+        y += stepY;
+    if (stepY >= 6.0f)
+        for (; min.y + y < max.y; y += stepY)
+            drawList.AddLine(ImVec2(min.x, min.y + y), ImVec2(max.x, min.y + y), IM_COL32(47, 52, 62, 150));
 }
 
 void SceneViewportPanel::drawObject(ImDrawList &drawList, GameObject &object, const ImVec2 &origin)
@@ -427,6 +431,7 @@ void SceneViewportPanel::drawContents()
     app().settings().viewportTool = mTool;
     app().settings().viewportSnap = mSnap;
     app().settings().viewportShowGrid = mShowGrid;
+    mGridSize = app().settings().viewportGridSize;
     app().settings().viewportLivePreview = mLivePreview;
 
     const char *toolIcons[] = {
@@ -449,7 +454,7 @@ void SceneViewportPanel::drawContents()
         ImGui::PopID();
     }
     toolbarDivider();
-    if (toolbarIcon("snap", ICON_MDI_MAGNET, "Snap to 32 pixel grid", mSnap))
+    if (toolbarIcon("snap", ICON_MDI_MAGNET, "Snap to the Scene grid", mSnap))
     {
         mSnap = !mSnap;
         app().log(mSnap ? "Snap enabled" : "Snap disabled");
@@ -530,6 +535,8 @@ void SceneViewportPanel::drawContents()
         if (hitAxis != -1)
         {
             mGizmoAxis = hitAxis;
+            mGizmoStartPosition = selected->position();
+            mGizmoStartMouse = ImGui::GetIO().MousePos;
             const char *label = mTool == 1 ? "Move GameObject" : mTool == 2 ? "Rotate GameObject" : "Scale GameObject";
             app().beginTransaction(label, app().beginChange());
         }
@@ -558,15 +565,19 @@ void SceneViewportPanel::drawContents()
         const ImVec2 delta = ImGui::GetIO().MouseDelta;
         if (mTool == 1)
         {
-            Math::Vec2 position = selected->position();
+            const ImVec2 totalDelta(ImGui::GetIO().MousePos.x - mGizmoStartMouse.x,
+                                    ImGui::GetIO().MousePos.y - mGizmoStartMouse.y);
+            Math::Vec2 position = mGizmoStartPosition;
             if (mGizmoAxis == 0 || mGizmoAxis == 2)
-                position.x += delta.x / mZoom;
+                position.x += totalDelta.x / mZoom;
             if (mGizmoAxis == 1 || mGizmoAxis == 2)
-                position.y += delta.y / mZoom;
+                position.y += totalDelta.y / mZoom;
             if (mSnap)
             {
-                position.x = roundf(position.x / 32.0f) * 32.0f;
-                position.y = roundf(position.y / 32.0f) * 32.0f;
+                if ((mGizmoAxis == 0 || mGizmoAxis == 2) && mGridSize.x > 0.0f)
+                    position.x = roundf(position.x / mGridSize.x) * mGridSize.x;
+                if ((mGizmoAxis == 1 || mGizmoAxis == 2) && mGridSize.y > 0.0f)
+                    position.y = roundf(position.y / mGridSize.y) * mGridSize.y;
             }
             selected->setPosition(position);
         }

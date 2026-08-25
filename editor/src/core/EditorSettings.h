@@ -21,6 +21,7 @@ public:
     ct::Vector<ct::String> recentProjectPaths;
 
     int themeIndex = 0;
+    int windowDisplayIndex = 0;
 
     ct::String assetsDirectory;
 
@@ -29,6 +30,7 @@ public:
     int viewportTool = 0;
     bool viewportSnap = false;
     bool viewportShowGrid = true;
+    Math::Vec2 viewportGridSize = Math::Vec2(32.0f, 32.0f);
     bool viewportLivePreview = true;
     bool scriptHotReload = true;
     bool showColliders = true;

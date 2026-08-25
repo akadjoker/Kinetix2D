@@ -91,6 +91,7 @@ namespace k2d
 
     class Assets;
     class GameObject;
+    class UserData;
 
     class PhysicsWorld2D;
 
@@ -109,6 +110,8 @@ namespace k2d
     void SetZenScriptFrameStats(float deltaTime, float fps);
     void SetZenScriptProfilerVisible(bool visible);
     void SetZenScriptAssets(Assets *assets);
+    // Supplies the SDL-backed persistent data store used by user_data_* script APIs.
+    void SetZenScriptUserData(UserData *userData);
     void SetZenScriptOutput(void (*fn)(const char *text, bool isError, void *user), void *user);
     void RegisterZenScriptSerializer();
 

@@ -28,9 +28,16 @@ namespace k2d
         void setMapSize(int columns, int rows);
         void setAtlasTilesX(int tilesX);
         int atlasTilesX() const { return mAtlasTilesX; }
+        void setAtlasPadding(float x, float y);
+        Math::Vec2 atlasPadding() const { return Math::Vec2(mAtlasPaddingX, mAtlasPaddingY); }
+        void setAtlasGap(float x, float y);
+        Math::Vec2 atlasGap() const { return Math::Vec2(mAtlasGapX, mAtlasGapY); }
         void setTile(int x, int y, int atlasTileId);
+        void setCollision(int x, int y, bool solid);
         bool loadTMX(Assets &assets, const char *tmxPath, const char *textureName = "tmx_tiles");
         int getTile(int x, int y) const;
+        bool hasCollision(int x, int y) const;
+        void clearCollision();
         void setCullRect(float x, float y, float width, float height);
         void clearCullRect();
         bool hasCullRect() const { return mCullEnabled; }
@@ -55,7 +62,12 @@ namespace k2d
         int mColumns;
         int mRows;
         int mAtlasTilesX;
+        float mAtlasPaddingX;
+        float mAtlasPaddingY;
+        float mAtlasGapX;
+        float mAtlasGapY;
         ct::Vector<int> mCells;
+        ct::Vector<unsigned char> mCollision;
         float mCullX;
         float mCullY;
         float mCullW;

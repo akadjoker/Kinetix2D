@@ -4,6 +4,7 @@
 #include "EditorPanel.h"
 #include "EditorTheme.h"
 #include "panels/AssetsPanel.h"
+#include "panels/AnimatorPanel.h"
 #include "panels/ConsolePanel.h"
 #include "panels/GamePanel.h"
 #include "panels/HierarchyPanel.h"
@@ -14,6 +15,8 @@
 #include "panels/SettingsPanel.h"
 #include "panels/SceneViewportPanel.h"
 #include "panels/ScriptEditorPanel.h"
+#include "panels/SpriteEditorPanel.h"
+#include "panels/TileMapPanel.h"
 #include "widgets/EditorToolbar.h"
 
 #include <glad/glad.h>
@@ -21,15 +24,18 @@
 #include <imgui_internal.h>
 #include <IconsMaterialDesignIcons.h>
 #include <k2d/Animation2D.h>
+#include <k2d/AudioEngine.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/CircleShape.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
+#include <k2d/InputActionMap.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Profiler.h>
 #include <k2d/ProfilerUI.h>
 #include <k2d/RectShape.h>
+#include <k2d/ScreenFade.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Serializer.h>
 #include <k2d/Physics2DSerializer.h>
@@ -38,6 +44,8 @@
 #include <k2d/ZenRuntime.h>
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
+
+#include <SDL.h>
 
 #include <cmath>
 #include <cstdio>
@@ -60,7 +68,21 @@ Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
                       static_cast<float>(value[1].as_double(fallback.y)));
 }
 
-constexpr const char *kSettingsPath = "k2d_editor_settings.json";
+void configureDefaultInputActions()
+{
+    InputActionMap &actions = GetInputActions();
+    actions.Clear();
+    actions.Bind("move_forward", SDL_SCANCODE_W);
+    actions.Bind("move_forward", SDL_SCANCODE_UP);
+    actions.Bind("move_backward", SDL_SCANCODE_S);
+    actions.Bind("move_backward", SDL_SCANCODE_DOWN);
+    actions.Bind("turn_left", SDL_SCANCODE_A);
+    actions.Bind("turn_left", SDL_SCANCODE_LEFT);
+    actions.Bind("turn_right", SDL_SCANCODE_D);
+    actions.Bind("turn_right", SDL_SCANCODE_RIGHT);
+    actions.Bind("primary", SDL_SCANCODE_SPACE);
+    actions.Bind("secondary", SDL_SCANCODE_LCTRL);
+}
 
 ct::String relativeToRoot(const ct::String &absolute, const ct::String &root)
 {
@@ -83,6 +105,10 @@ bool EditorApplication::initialize()
 {
     if (!mDevice.Init("Kinetix2D Editor", 1600, 900, true))
         return false;
+    if (!mUserData.open("Kinetix2D", "Editor"))
+        log("Could not open the persistent editor data folder");
+    else
+        mUserData.load();
 
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -94,10 +120,14 @@ bool EditorApplication::initialize()
 
     RegisterZenScriptSerializer();
     RegisterPhysics2DSerializers();
+    configureDefaultInputActions();
     SetZenScriptInput(&mDevice.GetInput());
     SetUiInput(&mDevice.GetInput());
+    if (!GetAudio().Init())
+        log("Audio unavailable; preview will run without sound");
     SetUiThemeTexture(UiTheme::DefaultTexture(mAssets));
     SetZenScriptAssets(&mAssets);
+    SetZenScriptUserData(&mUserData);
     SetZenScriptOutput([](const char *text, bool isError, void *user)
     {
         EditorApplication &self = *static_cast<EditorApplication *>(user);
@@ -119,6 +149,7 @@ bool EditorApplication::initialize()
     }, this);
 
     loadSettings();
+    mDevice.SetDisplayIndex(mSettings.windowDisplayIndex);
     createPanels();
     particlePlaceholderTexture();
     bool opened = false;
@@ -154,6 +185,7 @@ int EditorApplication::run()
     {
         Profiler::Get().beginFrame();
         running = mDevice.PollEvents();
+        GetAudio().Update();
 
         if (mPlaying && !mPaused)
         {
@@ -174,6 +206,7 @@ int EditorApplication::run()
                 }
             }
             SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
+            GetScreenFade().Update(mDevice.DeltaTime());
             mRuntimeScene.update(mDevice.DeltaTime());
             if (mPhysicsWorld)
                 mPhysicsWorld->step(mDevice.DeltaTime());
@@ -213,22 +246,28 @@ void EditorApplication::shutdown()
 {
     if (!mInitialized)
         return;
+    mSettings.windowDisplayIndex = mDevice.DisplayIndex();
     saveSettings();
+    mUserData.save();
     mPanels.clear();
     mSelection.clear();
+    SetZenScriptUserData(nullptr);
+    GetAudio().Shutdown();
     mDevice.Shutdown();
     mInitialized = false;
 }
 
 void EditorApplication::loadSettings()
 {
-    if (!mSettings.load(kSettingsPath))
+    const ct::String path = mUserData.filePath("editor_settings.json");
+    if (path.empty() || !mSettings.load(path.c_str()))
         log("No saved editor settings found - using defaults");
 }
 
 void EditorApplication::saveSettings()
 {
-    if (!mSettings.save(kSettingsPath))
+    const ct::String path = mUserData.filePath("editor_settings.json");
+    if (path.empty() || !mSettings.save(path.c_str()))
         log("Could not write editor settings");
 }
 
@@ -240,6 +279,9 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<SceneViewportPanel>(*this));
     mPanels.push_back(ct::make_unique<GamePanel>(*this));
     mPanels.push_back(ct::make_unique<ParticlePanel>(*this));
+    mPanels.push_back(ct::make_unique<TileMapPanel>(*this));
+    mPanels.push_back(ct::make_unique<SpriteEditorPanel>(*this));
+    mPanels.push_back(ct::make_unique<AnimatorPanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));
@@ -429,6 +471,8 @@ void EditorApplication::stopPlay()
     PhysicsWorld2D::SetActive(nullptr);
     mRuntimeScene.clear();
     ZenBlackboard::clear();
+    GetAudio().StopAll();
+    GetScreenFade().SetClear();
     mPlaying = false;
     mPaused = false;
     log("Stopped preview");
@@ -1231,6 +1275,8 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Scene", center);
     ImGui::DockBuilderDockWindow("Game", game);
     ImGui::DockBuilderDockWindow("Particles", game);
+    ImGui::DockBuilderDockWindow("Tile Painter", game);
+    ImGui::DockBuilderDockWindow("Sprite Editor", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Scripts", bottom);
     ImGui::DockBuilderDockWindow("Script Editor", center);

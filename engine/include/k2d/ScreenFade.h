@@ -4,6 +4,7 @@ namespace k2d
 {
 
     class BatchRenderer;
+    class CanvasRenderer;
 
     class ScreenFade
     {
@@ -22,8 +23,11 @@ namespace k2d
         void Update(float deltaTime);
 
         void Draw(BatchRenderer &batch, float screenWidth, float screenHeight) const;
+        // Draws above a CanvasRenderer scene. Call this after scene.render().
+        void Draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const;
 
         float Alpha() const { return mAlpha; }
+        float Progress() const { return mDuration > 0.0f ? (mElapsed >= mDuration ? 1.0f : mElapsed / mDuration) : 1.0f; }
         bool IsFading() const { return mDuration > 0.0f && mElapsed < mDuration; }
         bool IsOpaque() const { return mAlpha >= 1.0f; }
         bool IsClear() const { return mAlpha <= 0.0f; }
@@ -36,7 +40,9 @@ namespace k2d
         void setClear() { SetClear(); }
         void update(float deltaTime) { Update(deltaTime); }
         void draw(BatchRenderer &batch, float screenWidth, float screenHeight) const { Draw(batch, screenWidth, screenHeight); }
+        void draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const { Draw(canvas, screenWidth, screenHeight); }
         float alpha() const { return Alpha(); }
+        float progress() const { return Progress(); }
         bool isFading() const { return IsFading(); }
         bool isOpaque() const { return IsOpaque(); }
         bool isClear() const { return IsClear(); }
@@ -49,5 +55,18 @@ namespace k2d
         float mDuration;
         float mElapsed;
     };
+
+    // Process-wide fade used by the runner and scripting API. It is cleared
+    // automatically when a game session ends.
+    ScreenFade &GetScreenFade();
+    void FadeIn(float duration);
+    void FadeOut(float duration);
+    bool IsFading();
+    float FadeProgress();
+
+    inline void fade_in(float duration) { FadeIn(duration); }
+    inline void fade_out(float duration) { FadeOut(duration); }
+    inline bool is_fading() { return IsFading(); }
+    inline float fade_progress() { return FadeProgress(); }
 
 }

@@ -4,6 +4,7 @@
 #include <ct/vector.hpp>
 
 #include "Matrix2D.h"
+#include "RenderState.h"
 
 namespace k2d
 {
@@ -178,6 +179,7 @@ namespace k2d
             bool depthTest;
             bool depthWrite;
             bool blend;
+            BlendMode blendMode;
             bool cullFace;
         };
 
@@ -226,6 +228,7 @@ namespace k2d
         int mCurrentMode;
         bool mInBeginEnd;
         BlendMode mCurrentBlendMode;
+        RenderState mState;
 
         int mWindowWidth;
         int mWindowHeight;

@@ -9,7 +9,7 @@ namespace k2d
 {
 
     SpriteComponent::SpriteComponent(Texture *texture)
-        : Component(Type, ComponentEventRender), mMaterial(), mSize(0.0f, 0.0f), mYSort(false)
+        : Component(Type, ComponentEventRender), mMaterial(), mSize(0.0f, 0.0f), mRenderOffset(0.0f), mYSort(false)
     {
         setTexture(texture);
     }
@@ -81,7 +81,8 @@ namespace k2d
             item.y = owner()->globalPosition().y;
         item.xform = owner()->globalTransform();
 
-        RenderCommand rect = RenderCommand::MakeRect(mMaterial.texture()->Id(), 0.0f, 0.0f, mSize.x, mSize.y);
+        RenderCommand rect = RenderCommand::MakeRect(mMaterial.texture()->Id(), mRenderOffset.x, mRenderOffset.y,
+                                                      mSize.x, mSize.y);
         if (mMaterial.hasSourceRect())
         {
             rect.srcX = mMaterial.sourceRect().x;

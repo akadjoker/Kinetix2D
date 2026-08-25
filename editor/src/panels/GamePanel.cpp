@@ -6,6 +6,7 @@
 #include <k2d/GameObject.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/Scene.h>
+#include <k2d/ScreenFade.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
 
@@ -116,6 +117,7 @@ void GamePanel::renderScene(int width, int height)
             world->debugDraw(mCanvas, kx::DebugDrawShapes | kx::DebugDrawAABBs |
                                           kx::DebugDrawContacts | kx::DebugDrawJoints);
         }
+    GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -151,6 +153,9 @@ void GamePanel::drawContents()
     const int fboWidth = static_cast<int>(width);
     const int fboHeight = static_cast<int>(height);
     ensureFramebuffer(fboWidth, fboHeight);
+    // The scene renders into this framebuffer, so its screen-space UI must
+    // use its dimensions before the render queue is built.
+    SetUiViewport(position.x, position.y, width, height);
     renderScene(fboWidth, fboHeight);
 
     ImDrawList &drawList = *ImGui::GetWindowDrawList();
@@ -165,7 +170,6 @@ void GamePanel::drawContents()
                                IM_COL32(12, 14, 18, 255));
     }
     SetZenScriptGameViewport(position.x, position.y, width, height);
-    SetUiViewport(position.x, position.y, width, height);
     if (app().paused())
     {
         ImGui::SetCursorScreenPos(ImVec2(position.x + 8.0f, position.y + 8.0f));

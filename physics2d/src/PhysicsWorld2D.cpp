@@ -5,7 +5,10 @@
 #include "k2d/GameObject.h"
 #include "k2d/RenderQueue.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/TileMapComponent.h"
 #include "k2d/Profiler.h"
+
+#include <kx/tilemapcollider.h>
 
 #include <cmath>
 #include <limits>
@@ -195,6 +198,10 @@ namespace k2d
 
     void PhysicsWorld2D::clear()
     {
+        for (size_t i = 0; i < mTileMaps.size(); ++i)
+            delete mTileMaps[i];
+        mTileMaps.clear();
+
         for (size_t i = 0; i < mBodies.size(); ++i)
         {
             RigidBody2D *rigidBody = mBodies[i];
@@ -358,6 +365,14 @@ namespace k2d
 
     void PhysicsWorld2D::collect(GameObject &object)
     {
+        const size_t mapCount = object.componentCount<TileMapComponent>();
+        for (size_t i = 0; i < mapCount; ++i)
+        {
+            TileMapComponent *tileMap = object.getComponentAt<TileMapComponent>(i);
+            if (tileMap)
+                createTileMapCollider(object, *tileMap);
+        }
+
         const size_t count = object.componentCount<RigidBody2D>();
         for (size_t i = 0; i < count; ++i)
         {
@@ -369,6 +384,33 @@ namespace k2d
 
         for (size_t i = 0; i < object.childCount(); ++i)
             collect(*object.child(i));
+    }
+
+    void PhysicsWorld2D::createTileMapCollider(GameObject &object, TileMapComponent &tileMap)
+    {
+        if (tileMap.columns() <= 0 || tileMap.rows() <= 0)
+            return;
+
+        const Math::Vec2 scale = object.scale();
+        const float scaleX = std::fabs(scale.x) > 0.0001f ? std::fabs(scale.x) : 1.0f;
+        const float scaleY = std::fabs(scale.y) > 0.0001f ? std::fabs(scale.y) : 1.0f;
+        kx::TileMapCollider *collider = new kx::TileMapCollider(mWorld);
+        collider->SetMapSize(tileMap.columns(), tileMap.rows());
+        collider->SetCellSize(Math::Vec2(tileMap.cellWidth() * scaleX,
+                                         tileMap.cellHeight() * scaleY));
+        collider->SetOffset(object.globalPosition());
+        for (int y = 0; y < tileMap.rows(); ++y)
+            for (int x = 0; x < tileMap.columns(); ++x)
+                collider->SetSolid(x, y, tileMap.hasCollision(x, y));
+        collider->Rebuild();
+
+        const ct::Vector<kx::Body *> &bodies = collider->Bodies();
+        for (size_t i = 0; i < bodies.size(); ++i)
+        {
+            bodies[i]->SetUserData(&object);
+            bodies[i]->SetContactCallback(&PhysicsWorld2D::onContact, this);
+        }
+        mTileMaps.push_back(collider);
     }
 
     void PhysicsWorld2D::createBody(GameObject &object, RigidBody2D &rigidBody)

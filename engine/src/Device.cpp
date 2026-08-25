@@ -21,7 +21,7 @@ namespace k2d
 {
 
     Device::Device()
-        : mWindow(nullptr), mGLContext(nullptr), mWidth(0), mHeight(0),
+        : mWindow(nullptr), mGLContext(nullptr), mWidth(0), mHeight(0), mDrawableWidth(0), mDrawableHeight(0),
           mResized(false), mLastCounter(0), mDeltaTime(0.0f),
           mFps(0.0f), mFpsAccumulator(0.0f), mFpsFrames(0),
           mImGuiWantsMouse(false), mImGuiWantsKeyboard(false),
@@ -106,6 +106,8 @@ namespace k2d
         int drawableWidth = 0;
         int drawableHeight = 0;
         SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+        mDrawableWidth = drawableWidth;
+        mDrawableHeight = drawableHeight;
         glViewport(0, 0, drawableWidth, drawableHeight);
 
         mLastCounter = SDL_GetPerformanceCounter();
@@ -178,6 +180,29 @@ namespace k2d
         SDL_SetWindowInputFocus(mWindow);
     }
 
+    int Device::DisplayIndex() const
+    {
+        if (!mWindow)
+            return 0;
+        const int display = SDL_GetWindowDisplayIndex(mWindow);
+        return display >= 0 ? display : 0;
+    }
+
+    bool Device::SetDisplayIndex(int displayIndex)
+    {
+        if (!mWindow || displayIndex < 0 || displayIndex >= SDL_GetNumVideoDisplays())
+            return false;
+        SDL_Rect bounds{};
+        if (SDL_GetDisplayUsableBounds(displayIndex, &bounds) != 0)
+            return false;
+        int width = 0;
+        int height = 0;
+        SDL_GetWindowSize(mWindow, &width, &height);
+        SDL_SetWindowPosition(mWindow, bounds.x + (bounds.w - width) / 2,
+                              bounds.y + (bounds.h - height) / 2);
+        return true;
+    }
+
     bool Device::PollEvents()
     {
         mInput.NewFrame();
@@ -248,6 +273,8 @@ namespace k2d
                         int drawableWidth = 0;
                         int drawableHeight = 0;
                         SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+                        mDrawableWidth = drawableWidth;
+                        mDrawableHeight = drawableHeight;
                         glViewport(0, 0, drawableWidth, drawableHeight);
                     }
                 }
@@ -271,6 +298,8 @@ namespace k2d
         int drawableWidth = 0;
         int drawableHeight = 0;
         SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
+        mDrawableWidth = drawableWidth;
+        mDrawableHeight = drawableHeight;
         glViewport(0, 0, drawableWidth, drawableHeight);
 
         unsigned long long now = SDL_GetPerformanceCounter();

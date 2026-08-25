@@ -180,6 +180,28 @@ class Menu(ScriptComponent):
 `on_draw_ui()` remains the right tool for one-off HUD/debug drawing. Use retained UI controls
 when the editor needs to save layout and interaction state in the scene.
 
+## Audio
+
+Audio is initialized by the runner and editor. Load SFX and music through the same asset search
+paths used by textures; SFX can overlap, while starting music replaces the previous music voice.
+
+```python
+class AudioDemo(ScriptComponent):
+    def on_start(self):
+        self.click = audio_load("audio/click.ogg")
+        self.music = audio_load_music("audio/theme.ogg")
+        audio_play_music(self.music, True, 0.6)
+
+    def on_update(self, dt):
+        if key_pressed("space"):
+            audio_play(self.click, 0.8, 1.0, 0.0)
+```
+
+`audio_play(sound, volume=1, pitch=1, pan=0)` returns a voice ID. Use `audio_stop`,
+`audio_pause`, `audio_resume`, and `audio_playing` with that ID. `audio_stop_all`,
+`audio_stop_music`, `audio_set_master_volume`, `audio_set_sfx_volume`, and
+`audio_set_music_volume` control the engine-wide mixer.
+
 ## Physics
 
 `get_body()` returns `None` unless the object has a Rigid Body component, and the body only
@@ -252,6 +274,24 @@ set_flag("alive", True)       get_flag("alive", False)
 has_key("score")
 ```
 
+**Persistent user data** — values saved outside the project, in the writable
+per-user folder selected by SDL for the editor/runner. It is loaded automatically
+at startup; call `user_data_save()` after changing values:
+
+```python
+coins = user_data_get_int("coins", 0)
+user_data_set_int("coins", coins + 1)
+user_data_set_bool("music", True)
+user_data_save()
+```
+
+Available typed functions are `user_data_get/set_int`, `user_data_get/set_float`,
+`user_data_get/set_string`, and `user_data_get/set_bool`; `user_data_has`,
+`user_data_delete`, and `user_data_clear` manage keys. `user_data_load()` and
+`user_data_save()` use `settings.json` by default, or accept a safe file name
+such as `"profile_2.json"`. For separate text files use
+`user_data_read_text("notes.txt", "")` and `user_data_write_text("notes.txt", text)`.
+
 **Events** — fire-and-forget broadcast, delivered to every script's `on_event`:
 
 ```python
@@ -274,6 +314,7 @@ script->callFunction("reset");                   // call a named script function
 RegisterZenScriptSerializer();       // makes the component save/load with the scene
 SetZenScriptInput(&device.GetInput());
 SetZenScriptAssets(&assets);
+SetZenScriptUserData(&userData);     // optional: enables user_data_* in scripts
 SetZenScriptOutput(fn, user);        // route print() into your console
 SetZenScriptsEnabled(true);          // scripts idle until this is on
 RouteZenScriptCollisions(world);     // makes on_collision fire
@@ -286,6 +327,10 @@ DispatchZenScriptEvents(scene.root());
 `key_down(name)`, `key_pressed(name)`, `key_released(name)` take `"a".."z"`, `"0".."9"`,
 `"space"`, `"escape"`, `"enter"`, `"tab"`, `"backspace"`, arrows (`"left"`, `"right"`,
 `"up"`, `"down"`), and modifiers (`"lshift"`, `"rshift"`, `"lctrl"`, `"rctrl"`, `"lalt"`).
+For game actions, prefer `action_down(name)`, `action_pressed(name)`, and
+`action_released(name)`. The runner maps `move_forward`, `move_backward`, `turn_left`,
+`turn_right`, `primary`, and `secondary` to keyboard keys and their corresponding virtual-pad
+buttons by default. C++ games can add or replace bindings through `GetInputActions().Bind()`.
 
 Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, `wheel_y()`.
 `get_fps()` returns the engine's rolling half-second FPS measurement; it is stable enough for HUDs,
@@ -297,6 +342,12 @@ panels are ignored. `viewport_width()` and `viewport_height()` return the curren
 For world-space gameplay, use `wx, wy = mouse_world_position()` or
 `wx, wy = screen_to_world(x, y)`; both account for the active Camera2D. `world_view_rect()` returns
 `left, top, right, bottom` for the camera's current visible world area.
+
+## Scene transitions
+
+`load_scene(path)` schedules a scene replacement after the current frame; it is safe to call from
+an input callback or `on_update`. The scene is loaded using the normal asset paths and its physics
+world is rebuilt before the next update.
 
 ## Notes
 

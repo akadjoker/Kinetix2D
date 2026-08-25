@@ -2,6 +2,7 @@
 
 #include "k2d/CanvasTypes.h"
 #include "k2d/Color.h"
+#include "k2d/RenderState.h"
 
 #include <ct/vector.hpp>
 #include <mathc.h>
@@ -128,6 +129,7 @@ namespace k2d
         ct::Vector<DrawCall> mDrawCalls;
 
         unsigned int mCurrentTextureId;
+        RenderState mState;
         Math::Mat4 mProjection;
 
         ct::Vector<Math::Vec4> mOccluderEdges;

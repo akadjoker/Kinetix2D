@@ -1,20 +1,26 @@
 #include <k2d/Assets.h>
+#include <k2d/AudioEngine.h>
 #include <k2d/CameraComponent.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/Device.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
+#include <k2d/InputActionMap.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/PhysicsWorld2D.h>
 #include <k2d/Profiler.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
+#include <k2d/ScreenFade.h>
+#include <k2d/SceneManager.h>
 #include <k2d/Serializer.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
+#include <k2d/UserData.h>
+#include <k2d/VirtualPad.h>
 
 #include <glad/glad.h>
 #include <SDL.h>
@@ -113,6 +119,33 @@ PhysicsConfig loadPhysics(const char *projectPath)
     config.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(config.velocityIterations));
     config.treeBroadphase = physics["treeBroadphase"].as_bool(config.treeBroadphase);
     return config;
+}
+
+void configureVirtualPad(const ct::Json &sceneJson, k2d::VirtualPad &pad)
+{
+    const ct::Json &config = sceneJson["virtualPad"];
+    if (!config.is_object())
+        return;
+
+    pad.SetEnabled(config["enabled"].as_bool(pad.Enabled()));
+    pad.SetScale(static_cast<float>(config["scale"].as_double(1.0)));
+    pad.SetOpacity(static_cast<float>(config["opacity"].as_double(0.58)));
+}
+
+void configureDefaultInputActions()
+{
+    k2d::InputActionMap &actions = k2d::GetInputActions();
+    actions.Clear();
+    actions.Bind("move_forward", SDL_SCANCODE_W);
+    actions.Bind("move_forward", SDL_SCANCODE_UP);
+    actions.Bind("move_backward", SDL_SCANCODE_S);
+    actions.Bind("move_backward", SDL_SCANCODE_DOWN);
+    actions.Bind("turn_left", SDL_SCANCODE_A);
+    actions.Bind("turn_left", SDL_SCANCODE_LEFT);
+    actions.Bind("turn_right", SDL_SCANCODE_D);
+    actions.Bind("turn_right", SDL_SCANCODE_RIGHT);
+    actions.Bind("primary", SDL_SCANCODE_SPACE);
+    actions.Bind("secondary", SDL_SCANCODE_LCTRL);
 }
 
 void scriptOutput(const char *text, bool error, void *)
@@ -224,6 +257,13 @@ int main(int argc, char **argv)
     k2d::Device device;
     if (!device.Init("Kinetix2D Game", 1280, 720, true, false))
         return 1;
+    k2d::UserData userData;
+    const std::string projectName = projectRoot.filename().string();
+    if (userData.open("Kinetix2D", projectName.empty() ? "Runner" : projectName.c_str()))
+    {
+        userData.load();
+        device.SetDisplayIndex(userData.getInt("windowDisplayIndex", 0));
+    }
 
     int result = 0;
     {
@@ -249,8 +289,10 @@ int main(int argc, char **argv)
         k2d::SetZenScriptInput(&device.GetInput());
         k2d::SetUiInput(&device.GetInput());
         k2d::SetZenScriptAssets(&assets);
+        k2d::SetZenScriptUserData(&userData);
         k2d::SetZenScriptOutput(&scriptOutput, nullptr);
         k2d::SetZenScriptsEnabled(true);
+        configureDefaultInputActions();
         preloadTextures(sceneJson, assets);
         const ct::Json &rootJson = sceneJson["root"];
         if (!rootJson.is_object())
@@ -258,8 +300,11 @@ int main(int argc, char **argv)
             std::fprintf(stderr, "Invalid scene (missing root object): %s\n", argv[1]);
             result = 1;
         }
-        else
-            applyRoot(scene, rootJson, assets);
+        else if (!k2d::GetSceneManager().Load(scene, assets, argv[1]))
+        {
+            std::fprintf(stderr, "Could not load scene: %s\n", argv[1]);
+            result = 1;
+        }
 
         PhysicsConfig physicsConfig = loadPhysics(argc >= 3 ? argv[2] : nullptr);
         const ct::Json &scenePhysics = sceneJson["physics"];
@@ -282,6 +327,14 @@ int main(int argc, char **argv)
             else
             {
                 k2d::SetUiThemeTexture(k2d::UiTheme::DefaultTexture(assets));
+                if (!k2d::GetAudio().Init())
+                    std::fprintf(stderr, "Audio unavailable; continuing without sound\n");
+                k2d::VirtualPad virtualPad;
+                virtualPad.SetTexture(k2d::VirtualPad::DefaultTexture(assets));
+                virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
+                                          SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
+                                          SDL_SCANCODE_SPACE, SDL_SCANCODE_LCTRL);
+                configureVirtualPad(sceneJson, virtualPad);
                 bool profilerVisible = false;
                 while (device.PollEvents())
                 {
@@ -293,12 +346,24 @@ int main(int argc, char **argv)
                         k2d::ZenRuntime::instance().setVmProfiling(profilerVisible);
                     }
                     const float deltaTime = device.DeltaTime();
+                    k2d::GetScreenFade().Update(deltaTime);
+                    k2d::GetAudio().Update();
+                    virtualPad.Update(device.GetInput(), static_cast<float>(device.Width()),
+                                      static_cast<float>(device.Height()), deltaTime);
                     k2d::SetUiViewport(0.0f, 0.0f, static_cast<float>(device.Width()),
                                         static_cast<float>(device.Height()));
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
                     physics.step(deltaTime);
                     k2d::DispatchZenScriptEvents(scene.root());
+                    if (k2d::GetSceneManager().HasRequest())
+                    {
+                        physics.clear();
+                        if (k2d::GetSceneManager().ApplyRequest(scene, assets))
+                            physics.build(scene.root());
+                        else
+                            std::fprintf(stderr, "Could not load requested scene\n");
+                    }
 
                     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -322,10 +387,13 @@ int main(int argc, char **argv)
                     k2d::ZenRuntime::instance().submitProfilerSamples();
                     if (profilerVisible)
                         drawProfilerOverlay(canvas, width, height);
+                    virtualPad.Draw(canvas, width, height);
+                    k2d::GetScreenFade().Draw(canvas, width, height);
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
                 }
                 canvas.Shutdown();
+                k2d::GetAudio().Shutdown();
             }
         }
 
@@ -333,13 +401,17 @@ int main(int argc, char **argv)
         k2d::SetZenScriptGameCamera(nullptr);
         k2d::SetZenScriptGameViewport(0.0f, 0.0f, 0.0f, 0.0f);
         k2d::SetUiViewport(0.0f, 0.0f, 0.0f, 0.0f);
+        k2d::GetScreenFade().SetClear();
         k2d::SetZenScriptProfilerVisible(false);
         k2d::ZenRuntime::instance().setVmProfiling(false);
         k2d::SetZenScriptOutput(nullptr, nullptr);
+        k2d::SetZenScriptUserData(nullptr);
         k2d::SetZenScriptAssets(nullptr);
         k2d::SetZenScriptInput(nullptr);
         k2d::SetUiInput(nullptr);
     }
+    userData.setInt("windowDisplayIndex", device.DisplayIndex());
+    userData.save();
     device.Shutdown();
     return result;
 }

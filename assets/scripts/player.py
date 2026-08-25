@@ -1,8 +1,8 @@
-SPEED = 200
+ 
 
 class Player(ScriptComponent):
-    def __init__(self):
-        self.speed = SPEED
+    speed = 200
+    nome ="Luis"
 
     def on_update(self, dt):
         dx = 0

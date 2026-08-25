@@ -6,6 +6,11 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
+namespace kx
+{
+    class TileMapCollider;
+}
+
 namespace k2d
 {
 
@@ -13,6 +18,7 @@ namespace k2d
     class RigidBody2D;
     class Collider2D;
     class CanvasRenderer;
+    class TileMapComponent;
 
     struct CollisionInfo
     {
@@ -73,6 +79,7 @@ namespace k2d
 
     private:
         void collect(GameObject &object);
+        void createTileMapCollider(GameObject &object, TileMapComponent &tileMap);
         void createBody(GameObject &object, RigidBody2D &rigidBody);
         void attachColliders(GameObject &object, RigidBody2D &rigidBody);
         void drainPending();
@@ -86,6 +93,7 @@ namespace k2d
         kx::World mWorld;
         ct::Vector<RigidBody2D *> mBodies;
         ct::Vector<RigidBody2D *> mPending;
+        ct::Vector<kx::TileMapCollider *> mTileMaps;
         float mFixedStep;
         float mAccumulator;
         CollisionCallback mCallback;
