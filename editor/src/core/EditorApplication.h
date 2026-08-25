@@ -181,6 +181,8 @@ class EditorApplication
     void createShapesExampleScene();
     void createPhysicsExampleScene();
     void createBunnymarkExampleScene();
+    void requestScreenshot();
+    void toggleGifCapture();
     ct::Json snapshotScene();
     void restoreScene(const ct::Json& snapshot, uint64_t selectedId, bool hadSelection);
     void handleShortcuts();
@@ -219,6 +221,7 @@ class EditorApplication
     bool mLayoutResetRequested = false;
     bool mDefaultFocusPending = false;
     bool mProfilerOpen = false;
+    bool mCaptureScreenshotPending = false;
     bool mTransactionActive = false;
     ct::String mTransactionLabel;
     SceneChange mTransactionBefore;
