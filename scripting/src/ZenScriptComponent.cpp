@@ -1,28 +1,49 @@
 #include "k2d/ZenScriptComponent.h"
 
 #include "k2d/PhysicsWorld2D.h"
+#include "k2d/BoxCollider2D.h"
+#include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
+#include "k2d/CircleCollider2D.h"
+#include "k2d/EdgeCollider2D.h"
+#include "k2d/PolygonCollider2D.h"
 #include "k2d/RigidBody2D.h"
 #include "k2d/ZenRuntime.h"
 #include "ZenRuntimeInternal.h"
 
 #include "k2d/Animation2D.h"
 #include "k2d/AudioEngine.h"
+#include "k2d/AudioPlayer.h"
 #include "k2d/Assets.h"
 #include "k2d/Camera2D.h"
 #include "k2d/CameraComponent.h"
+#include "k2d/CapsuleShape.h"
+#include "k2d/CircleShape.h"
+#include "k2d/DirectionalLight2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
 #include "k2d/Input.h"
 #include "k2d/InputActionMap.h"
+#include "k2d/Light2D.h"
+#include "k2d/LightOccluder2D.h"
+#include "k2d/Line2D.h"
+#include "k2d/MotionStreak2D.h"
+#include "k2d/MotionTween2D.h"
+#include "k2d/NavigationAgent2D.h"
+#include "k2d/NavigationRegion2D.h"
+#include "k2d/NinePatchComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/Polygon2D.h"
+#include "k2d/RectShape.h"
 #include "k2d/RenderQueue.h"
 #include "k2d/Scene.h"
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneManager.h"
 #include "k2d/Serializer.h"
 #include "k2d/SpriteComponent.h"
+#include "k2d/SpriteBatch.h"
+#include "k2d/TileMapComponent.h"
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
 
@@ -1151,6 +1172,204 @@ int natNodeGetSlider(zen::VM* vm, zen::Value* args, int)
     return 1;
 }
 
+Component* componentFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<Component>(args[-1]);
+}
+
+int natComponentIsActive(zen::VM*, zen::Value* args, int)
+{
+    Component* component = componentFromSelf(args);
+    args[0] = zen::val_bool(component && component->active());
+    return 1;
+}
+
+int natComponentSetActive(zen::VM*, zen::Value* args, int nargs)
+{
+    if (Component* component = componentFromSelf(args))
+        if (nargs >= 1)
+            component->setActive(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natCharacterGetVelocity(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = componentFromSelf(args) ?
+        static_cast<CharacterBody2D*>(componentFromSelf(args)) : nullptr;
+    const Math::Vec2 velocity = character ? character->velocity() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(velocity.x);
+    args[1] = zen::val_float(velocity.y);
+    return 2;
+}
+
+int natCharacterSetVelocity(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 2)
+        character->setVelocity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natCharacterGetSafeMargin(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_float(character ? character->safeMargin() : 0.0f);
+    return 1;
+}
+
+int natCharacterSetSafeMargin(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 1)
+        character->setSafeMargin((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCharacterGetMaxSlides(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(character ? character->maxSlides() : 0);
+    return 1;
+}
+
+int natCharacterSetMaxSlides(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 1)
+        character->setMaxSlides((int)zen::to_integer(args[0]));
+    return 0;
+}
+
+int natCharacterIsOnFloor(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnFloor());
+    return 1;
+}
+
+int natCharacterIsOnWall(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnWall());
+    return 1;
+}
+
+int natCharacterIsOnCeiling(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnCeiling());
+    return 1;
+}
+
+int natColliderGetOffset(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    const Math::Vec2 offset = collider ? collider->offset() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(offset.x);
+    args[1] = zen::val_float(offset.y);
+    return 2;
+}
+
+int natColliderSetOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 2)
+        collider->setOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natColliderIsSensor(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(collider && collider->isSensor());
+    return 1;
+}
+
+int natColliderSetSensor(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 1)
+        collider->setSensor(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natColliderGetFilter(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(collider ? collider->category() : 0);
+    args[1] = zen::val_int(collider ? collider->mask() : 0);
+    return 2;
+}
+
+int natColliderSetFilter(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 2)
+        collider->setFilter((uint16_t)zen::to_integer(args[0]), (uint16_t)zen::to_integer(args[1]));
+    return 0;
+}
+
+int natColliderShapeCount(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(collider ? collider->shapeCount() : 0);
+    return 1;
+}
+
+int natColliderAttached(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(collider && collider->attached());
+    return 1;
+}
+
+int natUiPanelSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    UiPanel* panel = static_cast<UiPanel*>(componentFromSelf(args));
+    if (panel && nargs >= 3)
+    {
+        const unsigned char r = (unsigned char)zen::to_integer(args[0]);
+        const unsigned char g = (unsigned char)zen::to_integer(args[1]);
+        const unsigned char b = (unsigned char)zen::to_integer(args[2]);
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        panel->setColor(Color(r, g, b, a));
+    }
+    return 0;
+}
+
+int natUiLabelSetText(zen::VM* vm, zen::Value* args, int nargs)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    if (label && nargs >= 1)
+    {
+        char small[256];
+        label->setText(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natUiLabelGetText(zen::VM* vm, zen::Value* args, int)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(label ? label->text().c_str() : ""));
+    return 1;
+}
+
+int natUiLabelSetFontSize(zen::VM*, zen::Value* args, int nargs)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    if (label && nargs >= 1)
+        label->setFontSize((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natUiLabelGetFontSize(zen::VM*, zen::Value* args, int)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    args[0] = zen::val_float(label ? label->fontSize() : 0.0f);
+    return 1;
+}
+
 /* Generic component lookup.  The Zen compiler lowers
 ** node.get_component<RigidBody>() to node.get_component(RigidBody), so the first
 ** native argument is the requested host class. */
@@ -1165,50 +1384,83 @@ int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
     }
 
     zen::ObjClass* requested = zen::as_class(args[0]);
-    if (requested == state->rigidBodyClass)
-    {
-        RigidBody2D* component = node->getComponent<RigidBody2D>();
-        args[0] = component ? state->instanceFor(state->rigidBodyClass, component) : zen::val_nil();
-    }
-    else if (requested == state->spriteClass)
-    {
-        SpriteComponent* component = node->getComponent<SpriteComponent>();
-        args[0] = component ? state->instanceFor(state->spriteClass, component) : zen::val_nil();
-    }
-    else if (requested == state->animationClass)
-    {
-        Animation2D* component = node->getComponent<Animation2D>();
-        args[0] = component ? state->instanceFor(state->animationClass, component) : zen::val_nil();
-    }
-    else if (requested == state->cameraClass)
-    {
-        CameraComponent* component = node->getComponent<CameraComponent>();
-        args[0] = component ? state->instanceFor(state->cameraClass, component) : zen::val_nil();
-    }
-    else if (requested == state->particleClass)
-    {
-        ParticleComponent* component = node->getComponent<ParticleComponent>();
-        args[0] = component ? state->instanceFor(state->particleClass, component) : zen::val_nil();
-    }
-    else if (requested == state->buttonClass)
-    {
-        UiButton* component = node->getComponent<UiButton>();
-        args[0] = component ? state->instanceFor(state->buttonClass, component) : zen::val_nil();
-    }
-    else if (requested == state->checkBoxClass)
-    {
-        UiCheckBox* component = node->getComponent<UiCheckBox>();
-        args[0] = component ? state->instanceFor(state->checkBoxClass, component) : zen::val_nil();
-    }
-    else if (requested == state->sliderClass)
-    {
-        UiSlider* component = node->getComponent<UiSlider>();
-        args[0] = component ? state->instanceFor(state->sliderClass, component) : zen::val_nil();
-    }
-    else
-    {
-        args[0] = zen::val_nil();
-    }
+    const char* name = requested->name ? requested->name->chars : "";
+    Component* component = nullptr;
+
+    if (!std::strcmp(name, "RigidBody") || !std::strcmp(name, "Body") || !std::strcmp(name, "RigidBody2D"))
+        component = node->getComponent<RigidBody2D>();
+    else if (!std::strcmp(name, "Sprite") || !std::strcmp(name, "SpriteComponent"))
+        component = node->getComponent<SpriteComponent>();
+    else if (!std::strcmp(name, "Animation") || !std::strcmp(name, "Animation2D"))
+        component = node->getComponent<Animation2D>();
+    else if (!std::strcmp(name, "Camera") || !std::strcmp(name, "CameraComponent"))
+        component = node->getComponent<CameraComponent>();
+    else if (!std::strcmp(name, "Particle") || !std::strcmp(name, "ParticleComponent"))
+        component = node->getComponent<ParticleComponent>();
+    else if (!std::strcmp(name, "ScriptComponent"))
+        component = node->getComponent<ZenScriptComponent>();
+    else if (!std::strcmp(name, "CharacterBody") || !std::strcmp(name, "CharacterBody2D"))
+        component = node->getComponent<CharacterBody2D>();
+    else if (!std::strcmp(name, "Collider") || !std::strcmp(name, "Collider2D"))
+        component = node->rawComponent(ComponentType::Collider);
+    else if (!std::strcmp(name, "BoxCollider") || !std::strcmp(name, "BoxCollider2D"))
+        component = node->getComponent<BoxCollider2D>();
+    else if (!std::strcmp(name, "CircleCollider") || !std::strcmp(name, "CircleCollider2D"))
+        component = node->getComponent<CircleCollider2D>();
+    else if (!std::strcmp(name, "EdgeCollider") || !std::strcmp(name, "EdgeCollider2D"))
+        component = node->getComponent<EdgeCollider2D>();
+    else if (!std::strcmp(name, "PolygonCollider") || !std::strcmp(name, "PolygonCollider2D"))
+        component = node->getComponent<PolygonCollider2D>();
+    else if (!std::strcmp(name, "ChainCollider") || !std::strcmp(name, "ChainCollider2D"))
+        component = node->getComponent<ChainCollider2D>();
+    else if (!std::strcmp(name, "TileMap") || !std::strcmp(name, "TileMapComponent"))
+        component = node->getComponent<TileMapComponent>();
+    else if (!std::strcmp(name, "SpriteBatch"))
+        component = node->getComponent<SpriteBatch>();
+    else if (!std::strcmp(name, "Polygon2D"))
+        component = node->getComponent<Polygon2D>();
+    else if (!std::strcmp(name, "Line2D"))
+        component = node->getComponent<Line2D>();
+    else if (!std::strcmp(name, "NinePatch") || !std::strcmp(name, "NinePatchComponent"))
+        component = node->getComponent<NinePatchComponent>();
+    else if (!std::strcmp(name, "Light"))
+        component = node->rawComponent(ComponentType::Light);
+    else if (!std::strcmp(name, "Light2D"))
+        component = node->getComponent<Light2D>();
+    else if (!std::strcmp(name, "DirectionalLight2D"))
+        component = node->getComponent<DirectionalLight2D>();
+    else if (!std::strcmp(name, "LightOccluder") || !std::strcmp(name, "LightOccluder2D"))
+        component = node->getComponent<LightOccluder2D>();
+    else if (!std::strcmp(name, "AudioPlayer"))
+        component = node->getComponent<AudioPlayer>();
+    else if (!std::strcmp(name, "CircleShape"))
+        component = node->getComponent<CircleShape>();
+    else if (!std::strcmp(name, "RectShape"))
+        component = node->getComponent<RectShape>();
+    else if (!std::strcmp(name, "CapsuleShape"))
+        component = node->getComponent<CapsuleShape>();
+    else if (!std::strcmp(name, "UiCanvas"))
+        component = node->getComponent<UiCanvas>();
+    else if (!std::strcmp(name, "Panel") || !std::strcmp(name, "UiPanel"))
+        component = node->getComponent<UiPanel>();
+    else if (!std::strcmp(name, "Label") || !std::strcmp(name, "UiLabel"))
+        component = node->getComponent<UiLabel>();
+    else if (!std::strcmp(name, "Button") || !std::strcmp(name, "UiButton"))
+        component = node->getComponent<UiButton>();
+    else if (!std::strcmp(name, "CheckBox") || !std::strcmp(name, "UiCheckBox"))
+        component = node->getComponent<UiCheckBox>();
+    else if (!std::strcmp(name, "Slider") || !std::strcmp(name, "UiSlider"))
+        component = node->getComponent<UiSlider>();
+    else if (!std::strcmp(name, "NavigationRegion") || !std::strcmp(name, "NavigationRegion2D"))
+        component = node->getComponent<NavigationRegion2D>();
+    else if (!std::strcmp(name, "NavigationAgent") || !std::strcmp(name, "NavigationAgent2D"))
+        component = node->getComponent<NavigationAgent2D>();
+    else if (!std::strcmp(name, "MotionTween") || !std::strcmp(name, "MotionTween2D"))
+        component = node->getComponent<MotionTween2D>();
+    else if (!std::strcmp(name, "MotionStreak") || !std::strcmp(name, "MotionStreak2D"))
+        component = node->getComponent<MotionStreak2D>();
+
+    args[0] = component ? state->instanceFor(requested, component) : zen::val_nil();
     return 1;
 }
 
@@ -2085,7 +2337,14 @@ void ZenRuntime::Impl::initialize()
     for (const KeyConstant& entry : keyConstants)
         vm.def_global(entry.name, zen::val_int(static_cast<int>(entry.key)));
 
+    auto component = vm.def_class("Component");
+    component.method("is_active", &natComponentIsActive, 0);
+    component.method("set_active", &natComponentSetActive, 1);
+    component.persistent(true).constructable(false);
+    component.end();
+
     auto scriptComponent = vm.def_class("ScriptComponent");
+    scriptComponent.parent("Component");
     // Set to the host GameObject by ZenScriptComponent before user __init__ runs.
     scriptComponent.field("node");
     scriptComponent.constructable(false);
@@ -2142,6 +2401,7 @@ void ZenRuntime::Impl::initialize()
     nodeClass = node.end();
 
     auto sprite = vm.def_class("Sprite");
+    sprite.parent("Component");
     sprite.method("set_color", &natSpriteSetColor, 4);
     sprite.method("set_flip", &natSpriteSetFlip, 2);
     sprite.method("set_size", &natSpriteSetSize, 2);
@@ -2152,6 +2412,7 @@ void ZenRuntime::Impl::initialize()
     spriteClass = sprite.end();
 
     auto animation = vm.def_class("Animation");
+    animation.parent("Component");
     animation.method("play", &natAnimationPlay, -1);
     animation.method("stop", &natAnimationStop, 0);
     animation.method("is_playing", &natAnimationIsPlaying, 0);
@@ -2160,6 +2421,7 @@ void ZenRuntime::Impl::initialize()
     animationClass = animation.end();
 
     auto camera = vm.def_class("Camera");
+    camera.parent("Component");
     camera.method("start_shake", &natCameraStartShake, 4);
     camera.method("stop_shake", &natCameraStopShake, 0);
     camera.method("add_trauma", &natCameraAddTrauma, 1);
@@ -2172,6 +2434,7 @@ void ZenRuntime::Impl::initialize()
     cameraClass = camera.end();
 
     auto rigidBody = vm.def_class("RigidBody");
+    rigidBody.parent("Component");
     rigidBody.method("get_velocity", &natBodyGetVelocity, 0);
     rigidBody.method("set_velocity", &natBodySetVelocity, 2);
     rigidBody.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
@@ -2190,6 +2453,7 @@ void ZenRuntime::Impl::initialize()
     vm.def_global("Body", zen::val_obj((zen::Obj*)rigidBodyClass));
 
     auto particle = vm.def_class("Particle");
+    particle.parent("Component");
     particle.method("start", &natParticleStart, 0);
     particle.method("stop", &natParticleStop, 0);
     particle.method("reset", &natParticleReset, 0);
@@ -2199,12 +2463,14 @@ void ZenRuntime::Impl::initialize()
     particleClass = particle.end();
 
     auto button = vm.def_class("Button");
+    button.parent("Component");
     button.method("clicked", &natButtonClicked, 0);
     button.method("set_text", &natButtonSetText, 1);
     button.persistent(true).constructable(false);
     buttonClass = button.end();
 
     auto checkBox = vm.def_class("CheckBox");
+    checkBox.parent("Component");
     checkBox.method("is_checked", &natCheckBoxGetChecked, 0);
     checkBox.method("set_checked", &natCheckBoxSetChecked, 1);
     checkBox.method("changed", &natCheckBoxChanged, 0);
@@ -2212,11 +2478,113 @@ void ZenRuntime::Impl::initialize()
     checkBoxClass = checkBox.end();
 
     auto slider = vm.def_class("Slider");
+    slider.parent("Component");
     slider.method("get_value", &natSliderGetValue, 0);
     slider.method("set_value", &natSliderSetValue, 1);
     slider.method("changed", &natSliderChanged, 0);
     slider.persistent(true).constructable(false);
     sliderClass = slider.end();
+
+    auto defineHandle = [&](const char* name, const char* parent = "Component") -> zen::ObjClass* {
+        auto handle = vm.def_class(name);
+        if (parent)
+            handle.parent(parent);
+        handle.persistent(true).constructable(false);
+        return handle.end();
+    };
+
+    auto characterBody = vm.def_class("CharacterBody");
+    characterBody.parent("Component");
+    characterBody.method("get_velocity", &natCharacterGetVelocity, 0);
+    characterBody.method("set_velocity", &natCharacterSetVelocity, 2);
+    characterBody.method("get_safe_margin", &natCharacterGetSafeMargin, 0);
+    characterBody.method("set_safe_margin", &natCharacterSetSafeMargin, 1);
+    characterBody.method("get_max_slides", &natCharacterGetMaxSlides, 0);
+    characterBody.method("set_max_slides", &natCharacterSetMaxSlides, 1);
+    characterBody.method("is_on_floor", &natCharacterIsOnFloor, 0);
+    characterBody.method("is_on_wall", &natCharacterIsOnWall, 0);
+    characterBody.method("is_on_ceiling", &natCharacterIsOnCeiling, 0);
+    characterBody.persistent(true).constructable(false);
+    zen::ObjClass* characterBodyClass = characterBody.end();
+
+    auto collider = vm.def_class("Collider");
+    collider.parent("Component");
+    collider.method("get_offset", &natColliderGetOffset, 0);
+    collider.method("set_offset", &natColliderSetOffset, 2);
+    collider.method("is_sensor", &natColliderIsSensor, 0);
+    collider.method("set_sensor", &natColliderSetSensor, 1);
+    collider.method("get_filter", &natColliderGetFilter, 0);
+    collider.method("set_filter", &natColliderSetFilter, 2);
+    collider.method("get_shape_count", &natColliderShapeCount, 0);
+    collider.method("is_attached", &natColliderAttached, 0);
+    collider.persistent(true).constructable(false);
+    zen::ObjClass* colliderClass = collider.end();
+
+    zen::ObjClass* boxColliderClass = defineHandle("BoxCollider", "Collider");
+    zen::ObjClass* circleColliderClass = defineHandle("CircleCollider", "Collider");
+    zen::ObjClass* edgeColliderClass = defineHandle("EdgeCollider", "Collider");
+    zen::ObjClass* polygonColliderClass = defineHandle("PolygonCollider", "Collider");
+    zen::ObjClass* chainColliderClass = defineHandle("ChainCollider", "Collider");
+    (void)characterBodyClass;
+    (void)colliderClass;
+    (void)boxColliderClass;
+    (void)circleColliderClass;
+    (void)edgeColliderClass;
+    (void)polygonColliderClass;
+    (void)chainColliderClass;
+
+    auto panel = vm.def_class("Panel");
+    panel.parent("Component");
+    panel.method("set_color", &natUiPanelSetColor, -1);
+    panel.persistent(true).constructable(false);
+    zen::ObjClass* panelClass = panel.end();
+
+    auto label = vm.def_class("Label");
+    label.parent("Component");
+    label.method("set_text", &natUiLabelSetText, 1);
+    label.method("get_text", &natUiLabelGetText, 0);
+    label.method("set_font_size", &natUiLabelSetFontSize, 1);
+    label.method("get_font_size", &natUiLabelGetFontSize, 0);
+    label.persistent(true).constructable(false);
+    zen::ObjClass* labelClass = label.end();
+
+    zen::ObjClass* tileMapClass = defineHandle("TileMap");
+    zen::ObjClass* spriteBatchClass = defineHandle("SpriteBatch");
+    zen::ObjClass* polygonClass = defineHandle("Polygon2D");
+    zen::ObjClass* lineClass = defineHandle("Line2D");
+    zen::ObjClass* ninePatchClass = defineHandle("NinePatch");
+    zen::ObjClass* lightClass = defineHandle("Light");
+    zen::ObjClass* light2DClass = defineHandle("Light2D");
+    zen::ObjClass* directionalLightClass = defineHandle("DirectionalLight2D");
+    zen::ObjClass* occluderClass = defineHandle("LightOccluder");
+    zen::ObjClass* audioPlayerClass = defineHandle("AudioPlayer");
+    zen::ObjClass* circleShapeClass = defineHandle("CircleShape");
+    zen::ObjClass* rectShapeClass = defineHandle("RectShape");
+    zen::ObjClass* capsuleShapeClass = defineHandle("CapsuleShape");
+    zen::ObjClass* canvasClass = defineHandle("UiCanvas");
+    zen::ObjClass* navigationRegionClass = defineHandle("NavigationRegion");
+    zen::ObjClass* navigationAgentClass = defineHandle("NavigationAgent");
+    zen::ObjClass* motionTweenClass = defineHandle("MotionTween");
+    zen::ObjClass* motionStreakClass = defineHandle("MotionStreak");
+    (void)canvasClass;
+
+    const struct Alias { const char* name; zen::ObjClass* klass; } aliases[] = {
+        {"RigidBody2D", rigidBodyClass}, {"SpriteComponent", spriteClass},
+        {"Animation2D", animationClass}, {"CameraComponent", cameraClass},
+        {"ParticleComponent", particleClass}, {"CharacterBody2D", characterBodyClass},
+        {"Collider2D", colliderClass}, {"BoxCollider2D", boxColliderClass},
+        {"CircleCollider2D", circleColliderClass}, {"EdgeCollider2D", edgeColliderClass},
+        {"PolygonCollider2D", polygonColliderClass}, {"ChainCollider2D", chainColliderClass},
+        {"TileMapComponent", tileMapClass}, {"NinePatchComponent", ninePatchClass},
+        {"LightOccluder2D", occluderClass},
+        {"UiPanel", panelClass}, {"UiLabel", labelClass},
+        {"UiButton", buttonClass}, {"UiCheckBox", checkBoxClass}, {"UiSlider", sliderClass},
+        {"NavigationRegion2D", navigationRegionClass}, {"NavigationAgent2D", navigationAgentClass},
+        {"MotionTween2D", motionTweenClass}, {"MotionStreak2D", motionStreakClass},
+    };
+    (void)light2DClass;
+    for (const Alias& alias : aliases)
+        vm.def_global(alias.name, zen::val_obj((zen::Obj*)alias.klass));
 
     vm.def_native("get_number", &natGetNumber, -1);
     vm.def_native("set_number", &natSetNumber, 2);

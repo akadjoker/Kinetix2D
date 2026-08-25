@@ -1,24 +1,48 @@
 #include <k2d/Animation2D.h>
+#include <k2d/AudioPlayer.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/CapsuleShape.h>
+#include <k2d/CircleShape.h>
+#include <k2d/DirectionalLight2D.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
 #include <k2d/Input.h>
 #include <k2d/InputActionMap.h>
 #include <k2d/ParticleComponent.h>
+#include <k2d/Polygon2D.h>
+#include <k2d/RectShape.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
 #include <k2d/SceneManager.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/Serializer.h>
 #include <k2d/SpriteComponent.h>
+#include <k2d/SpriteBatch.h>
+#include <k2d/TileMapComponent.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
 #include <k2d/UserData.h>
 #include <k2d/VirtualPad.h>
+#include <k2d/BoxCollider2D.h>
+#include <k2d/ChainCollider2D.h>
+#include <k2d/CharacterBody2D.h>
+#include <k2d/CircleCollider2D.h>
+#include <k2d/EdgeCollider2D.h>
+#include <k2d/Light2D.h>
+#include <k2d/LightOccluder2D.h>
+#include <k2d/Line2D.h>
+#include <k2d/MotionStreak2D.h>
+#include <k2d/MotionTween2D.h>
+#include <k2d/NavigationAgent2D.h>
+#include <k2d/NavigationRegion2D.h>
+#include <k2d/NinePatchComponent.h>
+#include <k2d/PhysicsWorld2D.h>
+#include <k2d/PolygonCollider2D.h>
+#include <k2d/RigidBody2D.h>
 
 #include <chrono>
 #include <cmath>
@@ -266,6 +290,113 @@ static bool testGenericAngleBracketCalls()
                            "greater_than"};
     for (const char* flag : flags)
         ok = ok && k2d::ZenBlackboard::getBool(flag, false);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testAllComponentHandles()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("all_components");
+    object->addComponent<k2d::SpriteComponent>();
+    object->addComponent<k2d::Animation2D>();
+    object->addComponent<k2d::CameraComponent>();
+    object->addComponent<k2d::ParticleComponent>();
+    object->addComponent<k2d::RigidBody2D>();
+    object->addComponent<k2d::CharacterBody2D>();
+    object->addComponent<k2d::BoxCollider2D>();
+    object->addComponent<k2d::CircleCollider2D>();
+    object->addComponent<k2d::EdgeCollider2D>();
+    object->addComponent<k2d::PolygonCollider2D>();
+    object->addComponent<k2d::ChainCollider2D>();
+    object->addComponent<k2d::TileMapComponent>();
+    object->addComponent<k2d::SpriteBatch>();
+    object->addComponent<k2d::Polygon2D>();
+    object->addComponent<k2d::Line2D>();
+    object->addComponent<k2d::NinePatchComponent>();
+    object->addComponent<k2d::Light2D>();
+    object->addComponent<k2d::DirectionalLight2D>();
+    object->addComponent<k2d::LightOccluder2D>();
+    object->addComponent<k2d::AudioPlayer>();
+    object->addComponent<k2d::CircleShape>();
+    object->addComponent<k2d::RectShape>();
+    object->addComponent<k2d::CapsuleShape>();
+    object->addComponent<k2d::UiCanvas>();
+    object->addComponent<k2d::UiPanel>();
+    object->addComponent<k2d::UiLabel>();
+    object->addComponent<k2d::UiButton>();
+    object->addComponent<k2d::UiCheckBox>();
+    object->addComponent<k2d::UiSlider>();
+    object->addComponent<k2d::NavigationRegion2D>();
+    object->addComponent<k2d::NavigationAgent2D>();
+    object->addComponent<k2d::MotionTween2D>();
+    object->addComponent<k2d::MotionStreak2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class AllComponents(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        self.check(\"script\", self.node.get_component<ScriptComponent>())\n"
+        "        self.check(\"sprite\", self.node.get_component<Sprite>())\n"
+        "        self.check(\"animation\", self.node.get_component<Animation>())\n"
+        "        self.check(\"camera\", self.node.get_component<Camera>())\n"
+        "        self.check(\"particle\", self.node.get_component<Particle>())\n"
+        "        self.check(\"rigid_body\", self.node.get_component<RigidBody>())\n"
+        "        self.check(\"character\", self.node.get_component<CharacterBody>())\n"
+        "        self.check(\"collider\", self.node.get_component<Collider>())\n"
+        "        self.check(\"box_collider\", self.node.get_component<BoxCollider>())\n"
+        "        self.check(\"circle_collider\", self.node.get_component<CircleCollider>())\n"
+        "        self.check(\"edge_collider\", self.node.get_component<EdgeCollider>())\n"
+        "        self.check(\"polygon_collider\", self.node.get_component<PolygonCollider>())\n"
+        "        self.check(\"chain_collider\", self.node.get_component<ChainCollider>())\n"
+        "        self.check(\"tile_map\", self.node.get_component<TileMap>())\n"
+        "        self.check(\"sprite_batch\", self.node.get_component<SpriteBatch>())\n"
+        "        self.check(\"polygon\", self.node.get_component<Polygon2D>())\n"
+        "        self.check(\"line\", self.node.get_component<Line2D>())\n"
+        "        self.check(\"nine_patch\", self.node.get_component<NinePatch>())\n"
+        "        self.check(\"light\", self.node.get_component<Light>())\n"
+        "        self.check(\"light_2d\", self.node.get_component<Light2D>())\n"
+        "        self.check(\"directional_light\", self.node.get_component<DirectionalLight2D>())\n"
+        "        self.check(\"occluder\", self.node.get_component<LightOccluder>())\n"
+        "        self.check(\"audio\", self.node.get_component<AudioPlayer>())\n"
+        "        self.check(\"circle_shape\", self.node.get_component<CircleShape>())\n"
+        "        self.check(\"rect_shape\", self.node.get_component<RectShape>())\n"
+        "        self.check(\"capsule_shape\", self.node.get_component<CapsuleShape>())\n"
+        "        self.check(\"canvas\", self.node.get_component<UiCanvas>())\n"
+        "        self.check(\"panel\", self.node.get_component<Panel>())\n"
+        "        self.check(\"label\", self.node.get_component<Label>())\n"
+        "        self.check(\"button\", self.node.get_component<Button>())\n"
+        "        self.check(\"checkbox\", self.node.get_component<CheckBox>())\n"
+        "        self.check(\"slider\", self.node.get_component<Slider>())\n"
+        "        self.check(\"navigation_region\", self.node.get_component<NavigationRegion>())\n"
+        "        self.check(\"navigation_agent\", self.node.get_component<NavigationAgent>())\n"
+        "        self.check(\"motion_tween\", self.node.get_component<MotionTween>())\n"
+        "        self.check(\"motion_streak\", self.node.get_component<MotionStreak>())\n"
+        "    def check(self, name, component):\n"
+        "        set_flag(name, component != None)\n"
+        "        if component != None:\n"
+        "            component.set_active(False)\n"
+        "            set_flag(name + \"_setter\", not component.is_active())\n"
+        "            component.set_active(True)\n",
+        "all_component_handles");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    const char* names[] = {"script", "sprite", "animation", "camera", "particle", "rigid_body", "character",
+                           "collider", "box_collider", "circle_collider", "edge_collider", "polygon_collider",
+                           "chain_collider", "tile_map", "sprite_batch", "polygon", "line", "nine_patch", "light",
+                           "light_2d", "directional_light", "occluder", "audio", "circle_shape", "rect_shape",
+                           "capsule_shape", "canvas", "panel", "label", "button", "checkbox", "slider",
+                           "navigation_region", "navigation_agent", "motion_tween", "motion_streak"};
+    for (const char* name : names)
+    {
+        ok = ok && k2d::ZenBlackboard::getBool(name, false);
+        char setter[64];
+        std::snprintf(setter, sizeof(setter), "%s_setter", name);
+        ok = ok && k2d::ZenBlackboard::getBool(setter, false);
+    }
 
     k2d::ZenBlackboard::clear();
     return ok;
@@ -873,6 +1004,7 @@ int main()
     const bool hierarchy = testHierarchy();
     const bool components = testComponents();
     const bool genericAngleBrackets = testGenericAngleBracketCalls();
+    const bool allComponentHandles = testAllComponentHandles();
     const bool inputOk = testInput();
     const bool fadeVirtualInput = testFadeAndVirtualInput();
     const bool audioApi = testAudioApi();
@@ -890,16 +1022,18 @@ int main()
 
     std::printf(
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
-        "generic_angle_brackets=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
+        "generic_angle_brackets=%s all_component_handles=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
         "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
-        components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
+        components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
+        inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
         audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
         destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
         ui ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
+                        allComponentHandles &&
                         inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
                         serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();

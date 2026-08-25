@@ -154,9 +154,14 @@ script->declaredPropertyCount(); // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_component<RigidBody>()`, `get_component<Sprite>()`, `get_component<Animation>()`, `get_component<Camera>()`, `get_component<Particle>()`, `get_component<Button>()`, `get_component<CheckBox>()`, `get_component<Slider>()`; plus `get_sprite()`, `get_animation()`, `get_camera()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
+| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, and `MotionStreak`; plus the legacy component getters |
 
 Component handles return `None` when the component is missing.
+
+Every component handle provides `is_active()` and `set_active(value)`. Components with
+component-specific script APIs expose those methods on the handle as well; for example,
+`CharacterBody` provides velocity and slide-state accessors, `Collider` provides offset,
+sensor and filter accessors, and `Panel`/`Label` provide their UI setters and getters.
 
 `get_component<T>()` is the generic form of the component accessors. `T` must be one of the
 component handle classes listed above. A node owns its transform directly, so use the node's
