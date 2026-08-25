@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 
 find_package(SDL2 REQUIRED)
+if(ANDROID)
+    # zlib is part of the Android NDK system libraries.
+    set(K2D_ZLIB_LIBRARY z)
+elseif(EMSCRIPTEN)
+    # Pull zlib from Emscripten's port instead of looking for a host library.
+    set(K2D_ZLIB_LINK_OPTION "-sUSE_ZLIB=1")
+else()
+    find_package(ZLIB REQUIRED)
+    set(K2D_ZLIB_LIBRARY ZLIB::ZLIB)
+endif()
 
 # WebGL 2 and Android already provide the GLES3 entry points. Desktop still
 # needs glad to resolve them from SDL's GL context at runtime.
@@ -107,6 +117,7 @@ add_library(k2d STATIC
     src/InputActionMap.cpp
     src/AudioEngine.cpp
     src/AudioPlayer.cpp
+    src/KPak.cpp
     src/FileBuffer.cpp
     src/FileSystem.cpp
     src/UserData.cpp
@@ -176,7 +187,10 @@ endif()
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
 
-target_link_libraries(k2d PUBLIC mathc k2d_miniaudio)
+target_link_libraries(k2d PUBLIC mathc k2d_miniaudio ${K2D_ZLIB_LIBRARY})
+if(EMSCRIPTEN)
+    target_link_options(k2d PUBLIC ${K2D_ZLIB_LINK_OPTION})
+endif()
 if(K2D_NATIVE_GLES3)
     if(ANDROID)
         target_link_libraries(k2d PUBLIC GLESv3)

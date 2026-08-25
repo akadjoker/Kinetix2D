@@ -31,12 +31,18 @@ add_subdirectory(external/math)
 add_subdirectory(external/zen)
 
 add_subdirectory(engine)
+add_subdirectory(tools)
 add_subdirectory(scripting)
 add_subdirectory(physics)
 add_subdirectory(physics2d)
 add_subdirectory(runner)
 #add_subdirectory(demo)
 add_subdirectory(editor)
+
+include(GNUInstallDirs)
+install(TARGETS k2d_editor k2d_runner k2d_pack RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY assets DESTINATION .)
+install(FILES README.md DESTINATION .)
 
 enable_testing()
 add_subdirectory(tests)

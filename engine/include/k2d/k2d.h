@@ -6,6 +6,7 @@
 #include "k2d/InputActionMap.h"
 #include "k2d/AudioEngine.h"
 #include "k2d/AudioPlayer.h"
+#include "k2d/KPak.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/UserData.h"

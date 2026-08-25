@@ -10,6 +10,7 @@
 #include "k2d/AudioEngine.h"
 #include "k2d/Assets.h"
 #include "k2d/Camera2D.h"
+#include "k2d/CameraComponent.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
@@ -158,37 +159,12 @@ void preloadPrefabTextures(const ct::Json& node)
     }
 }
 
-int scancodeFor(const char* name)
+int keyCode(zen::Value value)
 {
-    if (!name || !name[0])
+    if (!zen::is_int(value) && !zen::is_float(value))
         return -1;
-    if (!name[1])
-    {
-        const char c = name[0];
-        if (c >= 'a' && c <= 'z')
-            return 4 + (c - 'a');
-        if (c >= 'A' && c <= 'Z')
-            return 4 + (c - 'A');
-        if (c >= '1' && c <= '9')
-            return 30 + (c - '1');
-        if (c == '0')
-            return 39;
-        return -1;
-    }
-    struct Named
-    {
-        const char* name;
-        int code;
-    };
-    static const Named named[] = {
-        {"space", 44},   {"escape", 41}, {"enter", 40},  {"tab", 43},   {"backspace", 42},
-        {"right", 79},   {"left", 80},   {"down", 81},   {"up", 82},    {"lshift", 225},
-        {"rshift", 229}, {"lctrl", 224}, {"rctrl", 228}, {"lalt", 226},
-    };
-    for (size_t i = 0; i < sizeof(named) / sizeof(named[0]); ++i)
-        if (std::strcmp(named[i].name, name) == 0)
-            return named[i].code;
-    return -1;
+    const int code = static_cast<int>(zen::to_integer(value));
+    return code >= 0 && code < Input::MAX_KEYS ? code : -1;
 }
 
 const char* valueToCString(zen::VM* vm, zen::Value v, char* smallBuffer, size_t smallSize)
@@ -1063,6 +1039,82 @@ int natNodeGetAnimation(zen::VM* vm, zen::Value* args, int)
     return 1;
 }
 
+int natNodeGetCamera(zen::VM* vm, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    CameraComponent* camera = node ? node->getComponent<CameraComponent>() : nullptr;
+    args[0] = (camera && state) ? state->instanceFor(state->cameraClass, camera) : zen::val_nil();
+    return 1;
+}
+
+CameraComponent* cameraFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<CameraComponent>(args[-1]);
+}
+
+int natCameraStartShake(zen::VM*, zen::Value* args, int nargs)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        if (nargs >= 4)
+            component->camera().startShake((float)zen::to_number(args[0]), (float)zen::to_number(args[1]),
+                                           (float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+    return 0;
+}
+
+int natCameraStopShake(zen::VM*, zen::Value* args, int)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        component->camera().stopShake();
+    return 0;
+}
+
+int natCameraAddTrauma(zen::VM*, zen::Value* args, int nargs)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        if (nargs >= 1)
+            component->camera().addTrauma((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCameraSetTraumaProfile(zen::VM*, zen::Value* args, int nargs)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        if (nargs >= 4)
+            component->camera().setTraumaProfile((float)zen::to_number(args[0]), (float)zen::to_number(args[1]),
+                                                 (float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+    return 0;
+}
+
+int natCameraClearTrauma(zen::VM*, zen::Value* args, int)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        component->camera().clearTrauma();
+    return 0;
+}
+
+int natCameraStartZoomPunch(zen::VM*, zen::Value* args, int nargs)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        if (nargs >= 2)
+            component->camera().startZoomPunch((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natCameraStopZoomPunch(zen::VM*, zen::Value* args, int)
+{
+    if (CameraComponent* component = cameraFromSelf(args))
+        component->camera().stopZoomPunch();
+    return 0;
+}
+
+int natCameraIsShaking(zen::VM*, zen::Value* args, int)
+{
+    CameraComponent* component = cameraFromSelf(args);
+    args[0] = zen::val_bool(component && component->camera().isShaking());
+    return 1;
+}
+
 int natNodeGetParticle(zen::VM* vm, zen::Value* args, int)
 {
     GameObject* node = nodeFromSelf(args);
@@ -1510,24 +1562,24 @@ int natEmit(zen::VM* vm, zen::Value* args, int nargs)
 
 int natKeyDown(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const int code = nargs >= 1 ? scancodeFor(valueToCString(vm, args[0], small, sizeof(small))) : -1;
+    (void)vm;
+    const int code = nargs >= 1 ? keyCode(args[0]) : -1;
     args[0] = zen::val_bool(gZenInput && code >= 0 && gZenInput->KeyDown(code));
     return 1;
 }
 
 int natKeyPressed(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const int code = nargs >= 1 ? scancodeFor(valueToCString(vm, args[0], small, sizeof(small))) : -1;
+    (void)vm;
+    const int code = nargs >= 1 ? keyCode(args[0]) : -1;
     args[0] = zen::val_bool(gZenInput && code >= 0 && gZenInput->KeyPressed(code));
     return 1;
 }
 
 int natKeyReleased(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const int code = nargs >= 1 ? scancodeFor(valueToCString(vm, args[0], small, sizeof(small))) : -1;
+    (void)vm;
+    const int code = nargs >= 1 ? keyCode(args[0]) : -1;
     args[0] = zen::val_bool(gZenInput && code >= 0 && gZenInput->KeyReleased(code));
     return 1;
 }
@@ -1615,12 +1667,35 @@ int natAudioPlay(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
+int natAudioPlayAt(zen::VM*, zen::Value* args, int nargs)
+{
+    const AudioEngine::SoundId sound = nargs >= 1 ? (AudioEngine::SoundId)zen::to_integer(args[0]) : 0;
+    const float x = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    const float y = nargs >= 3 ? (float)zen::to_number(args[2]) : 0.0f;
+    const float volume = nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f;
+    const float pitch = nargs >= 5 ? (float)zen::to_number(args[4]) : 1.0f;
+    const float minDistance = nargs >= 6 ? (float)zen::to_number(args[5]) : 64.0f;
+    const float maxDistance = nargs >= 7 ? (float)zen::to_number(args[6]) : 1024.0f;
+    args[0] = zen::val_int(GetAudio().PlayAt(sound, Math::Vec2(x, y), volume, pitch, minDistance, maxDistance));
+    return 1;
+}
+
 int natAudioPlayMusic(zen::VM*, zen::Value* args, int nargs)
 {
     const AudioEngine::SoundId sound = nargs >= 1 ? (AudioEngine::SoundId)zen::to_integer(args[0]) : 0;
     const bool loop = nargs < 2 || zen::to_integer(args[1]) != 0;
     const float volume = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
     args[0] = zen::val_int(GetAudio().PlayMusic(sound, loop, volume));
+    return 1;
+}
+
+int natAudioCrossfadeMusic(zen::VM*, zen::Value* args, int nargs)
+{
+    const AudioEngine::SoundId sound = nargs >= 1 ? (AudioEngine::SoundId)zen::to_integer(args[0]) : 0;
+    const bool loop = nargs < 2 || zen::to_integer(args[1]) != 0;
+    const float volume = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
+    const float seconds = nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f;
+    args[0] = zen::val_int(GetAudio().CrossfadeMusic(sound, loop, volume, seconds));
     return 1;
 }
 
@@ -1652,6 +1727,31 @@ int natAudioPlaying(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
+int natAudioFadeIn(zen::VM*, zen::Value* args, int nargs)
+{
+    const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+    const float seconds = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    args[0] = zen::val_bool(GetAudio().FadeIn(voice, seconds));
+    return 1;
+}
+
+int natAudioFadeOut(zen::VM*, zen::Value* args, int nargs)
+{
+    const AudioEngine::VoiceId voice = nargs >= 1 ? (AudioEngine::VoiceId)zen::to_integer(args[0]) : 0;
+    const float seconds = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    const bool stopWhenDone = nargs < 3 || zen::to_integer(args[2]) != 0;
+    args[0] = zen::val_bool(GetAudio().FadeOut(voice, seconds, stopWhenDone));
+    return 1;
+}
+
+int natAudioSetListenerPosition(zen::VM*, zen::Value* args, int nargs)
+{
+    const float x = nargs >= 1 ? (float)zen::to_number(args[0]) : 0.0f;
+    const float y = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    args[0] = zen::val_bool(GetAudio().SetListenerPosition(Math::Vec2(x, y)));
+    return 1;
+}
+
 int natAudioStopAll(zen::VM*, zen::Value*, int)
 {
     GetAudio().StopAll();
@@ -1680,6 +1780,42 @@ int natAudioSetMusicVolume(zen::VM*, zen::Value* args, int nargs)
 {
     GetAudio().SetMusicVolume(nargs >= 1 ? (float)zen::to_number(args[0]) : 1.0f);
     return 0;
+}
+
+int natAudioSetMasterMuted(zen::VM*, zen::Value* args, int nargs)
+{
+    GetAudio().SetMasterMuted(nargs >= 1 && zen::to_integer(args[0]) != 0);
+    return 0;
+}
+
+int natAudioSetSfxMuted(zen::VM*, zen::Value* args, int nargs)
+{
+    GetAudio().SetSfxMuted(nargs >= 1 && zen::to_integer(args[0]) != 0);
+    return 0;
+}
+
+int natAudioSetMusicMuted(zen::VM*, zen::Value* args, int nargs)
+{
+    GetAudio().SetMusicMuted(nargs >= 1 && zen::to_integer(args[0]) != 0);
+    return 0;
+}
+
+int natAudioMasterMuted(zen::VM* vm, zen::Value* args, int)
+{
+    args[0] = zen::val_bool(GetAudio().MasterMuted());
+    return 1;
+}
+
+int natAudioSfxMuted(zen::VM* vm, zen::Value* args, int)
+{
+    args[0] = zen::val_bool(GetAudio().SfxMuted());
+    return 1;
+}
+
+int natAudioMusicMuted(zen::VM* vm, zen::Value* args, int)
+{
+    args[0] = zen::val_bool(GetAudio().MusicMuted());
+    return 1;
 }
 
 int natMouseDown(zen::VM*, zen::Value* args, int nargs)
@@ -1816,6 +1952,77 @@ void ZenRuntime::Impl::initialize()
     vm.register_lib(&zen::zen_lib_http);
 
     vm.def_global("__k2d", zen::val_ptr(this));
+    struct KeyConstant
+    {
+        const char* name;
+        Key key;
+    };
+    static const KeyConstant keyConstants[] = {
+        {"KEY_A", Key::A},
+        {"KEY_B", Key::B},
+        {"KEY_C", Key::C},
+        {"KEY_D", Key::D},
+        {"KEY_E", Key::E},
+        {"KEY_F", Key::F},
+        {"KEY_G", Key::G},
+        {"KEY_H", Key::H},
+        {"KEY_I", Key::I},
+        {"KEY_J", Key::J},
+        {"KEY_K", Key::K},
+        {"KEY_L", Key::L},
+        {"KEY_M", Key::M},
+        {"KEY_N", Key::N},
+        {"KEY_O", Key::O},
+        {"KEY_P", Key::P},
+        {"KEY_Q", Key::Q},
+        {"KEY_R", Key::R},
+        {"KEY_S", Key::S},
+        {"KEY_T", Key::T},
+        {"KEY_U", Key::U},
+        {"KEY_V", Key::V},
+        {"KEY_W", Key::W},
+        {"KEY_X", Key::X},
+        {"KEY_Y", Key::Y},
+        {"KEY_Z", Key::Z},
+        {"KEY_0", Key::Num0},
+        {"KEY_1", Key::Num1},
+        {"KEY_2", Key::Num2},
+        {"KEY_3", Key::Num3},
+        {"KEY_4", Key::Num4},
+        {"KEY_5", Key::Num5},
+        {"KEY_6", Key::Num6},
+        {"KEY_7", Key::Num7},
+        {"KEY_8", Key::Num8},
+        {"KEY_9", Key::Num9},
+        {"KEY_SPACE", Key::Space},
+        {"KEY_ENTER", Key::Enter},
+        {"KEY_ESCAPE", Key::Escape},
+        {"KEY_TAB", Key::Tab},
+        {"KEY_BACKSPACE", Key::Backspace},
+        {"KEY_LEFT", Key::Left},
+        {"KEY_RIGHT", Key::Right},
+        {"KEY_UP", Key::Up},
+        {"KEY_DOWN", Key::Down},
+        {"KEY_F1", Key::F1},
+        {"KEY_F2", Key::F2},
+        {"KEY_F3", Key::F3},
+        {"KEY_F4", Key::F4},
+        {"KEY_F5", Key::F5},
+        {"KEY_F6", Key::F6},
+        {"KEY_F7", Key::F7},
+        {"KEY_F8", Key::F8},
+        {"KEY_F9", Key::F9},
+        {"KEY_F10", Key::F10},
+        {"KEY_F11", Key::F11},
+        {"KEY_F12", Key::F12},
+        {"KEY_LEFT_CTRL", Key::LeftCtrl},
+        {"KEY_RIGHT_CTRL", Key::RightCtrl},
+        {"KEY_LEFT_SHIFT", Key::LeftShift},
+        {"KEY_RIGHT_SHIFT", Key::RightShift},
+        {"KEY_LEFT_ALT", Key::LeftAlt},
+    };
+    for (const KeyConstant& entry : keyConstants)
+        vm.def_global(entry.name, zen::val_int(static_cast<int>(entry.key)));
 
     auto scriptComponent = vm.def_class("ScriptComponent");
     // Set to the host GameObject by ZenScriptComponent before user __init__ runs.
@@ -1864,6 +2071,7 @@ void ZenRuntime::Impl::initialize()
     node.method("slide_collision", &natNodeSlideCollision, 1);
     node.method("get_sprite", &natNodeGetSprite, 0);
     node.method("get_animation", &natNodeGetAnimation, 0);
+    node.method("get_camera", &natNodeGetCamera, 0);
     node.method("get_particle", &natNodeGetParticle, 0);
     node.method("get_button", &natNodeGetButton, 0);
     node.method("get_checkbox", &natNodeGetCheckBox, 0);
@@ -1888,6 +2096,18 @@ void ZenRuntime::Impl::initialize()
     animation.method("current", &natAnimationCurrent, 0);
     animation.persistent(true).constructable(false);
     animationClass = animation.end();
+
+    auto camera = vm.def_class("Camera");
+    camera.method("start_shake", &natCameraStartShake, 4);
+    camera.method("stop_shake", &natCameraStopShake, 0);
+    camera.method("add_trauma", &natCameraAddTrauma, 1);
+    camera.method("set_trauma_profile", &natCameraSetTraumaProfile, 4);
+    camera.method("clear_trauma", &natCameraClearTrauma, 0);
+    camera.method("start_zoom_punch", &natCameraStartZoomPunch, 2);
+    camera.method("stop_zoom_punch", &natCameraStopZoomPunch, 0);
+    camera.method("is_shaking", &natCameraIsShaking, 0);
+    camera.persistent(true).constructable(false);
+    cameraClass = camera.end();
 
     auto body = vm.def_class("Body");
     body.method("get_velocity", &natBodyGetVelocity, 0);
@@ -1972,16 +2192,27 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("audio_load", &natAudioLoad, 1);
     vm.def_native("audio_load_music", &natAudioLoadMusic, 1);
     vm.def_native("audio_play", &natAudioPlay, -1);
+    vm.def_native("audio_play_at", &natAudioPlayAt, -1);
     vm.def_native("audio_play_music", &natAudioPlayMusic, -1);
+    vm.def_native("audio_crossfade_music", &natAudioCrossfadeMusic, -1);
     vm.def_native("audio_stop", &natAudioStop, 1);
     vm.def_native("audio_pause", &natAudioPause, 1);
     vm.def_native("audio_resume", &natAudioResume, 1);
     vm.def_native("audio_playing", &natAudioPlaying, 1);
+    vm.def_native("audio_fade_in", &natAudioFadeIn, 2);
+    vm.def_native("audio_fade_out", &natAudioFadeOut, -1);
     vm.def_native("audio_stop_all", &natAudioStopAll, 0);
     vm.def_native("audio_stop_music", &natAudioStopMusic, 0);
     vm.def_native("audio_set_master_volume", &natAudioSetMasterVolume, 1);
     vm.def_native("audio_set_sfx_volume", &natAudioSetSfxVolume, 1);
     vm.def_native("audio_set_music_volume", &natAudioSetMusicVolume, 1);
+    vm.def_native("audio_set_master_muted", &natAudioSetMasterMuted, 1);
+    vm.def_native("audio_set_sfx_muted", &natAudioSetSfxMuted, 1);
+    vm.def_native("audio_set_music_muted", &natAudioSetMusicMuted, 1);
+    vm.def_native("audio_master_muted", &natAudioMasterMuted, 0);
+    vm.def_native("audio_sfx_muted", &natAudioSfxMuted, 0);
+    vm.def_native("audio_music_muted", &natAudioMusicMuted, 0);
+    vm.def_native("audio_set_listener_position", &natAudioSetListenerPosition, 2);
     vm.def_native("mouse_down", &natMouseDown, 1);
     vm.def_native("mouse_pressed", &natMousePressed, 1);
     vm.def_native("mouse_x", &natMouseX, 0);

@@ -315,6 +315,10 @@ void WriteAudioPlayer(const Component& component, ct::Json& data, Assets*)
     data.set("volume", ct::Json((double)player.volume()));
     data.set("pitch", ct::Json((double)player.pitch()));
     data.set("pan", ct::Json((double)player.pan()));
+    data.set("spatial", ct::Json(player.spatial()));
+    data.set("minDistance", ct::Json((double)player.minDistance()));
+    data.set("maxDistance", ct::Json((double)player.maxDistance()));
+    data.set("rolloff", ct::Json((double)player.rolloff()));
 }
 
 void ReadAudioPlayer(Component& component, const ct::Json& data, Assets*)
@@ -327,6 +331,10 @@ void ReadAudioPlayer(Component& component, const ct::Json& data, Assets*)
     player.setVolume((float)data["volume"].as_double(1.0));
     player.setPitch((float)data["pitch"].as_double(1.0));
     player.setPan((float)data["pan"].as_double(0.0));
+    player.setSpatial(data["spatial"].as_bool(false));
+    player.setMinDistance((float)data["minDistance"].as_double(64.0));
+    player.setMaxDistance((float)data["maxDistance"].as_double(1024.0));
+    player.setRolloff((float)data["rolloff"].as_double(1.0));
 }
 
 void WritePolygon(const Component& component, ct::Json& data, Assets* assets)
@@ -994,6 +1002,9 @@ void WriteCamera(const Component& component, ct::Json& data, Assets*)
     data.set("deadZone", WriteVec4(camera.deadZone));
     data.set("targetEnabled", ct::Json(camera.targetEnabled));
     data.set("target", WriteVec2(camera.target));
+    data.set("traumaAmplitude", WriteVec2(Math::Vec2(camera.trauma.amplitudeX, camera.trauma.amplitudeY)));
+    data.set("traumaFrequency", ct::Json((double)camera.trauma.frequency));
+    data.set("traumaDecay", ct::Json((double)camera.trauma.decay));
     data.set("followTarget", ct::Json(cameraComponent.followTargetName().c_str()));
 }
 
@@ -1017,6 +1028,9 @@ void ReadCamera(Component& component, const ct::Json& data, Assets*)
     camera.deadZone = ReadVec4(data["deadZone"]);
     camera.targetEnabled = data["targetEnabled"].as_bool(false);
     camera.target = ReadVec2(data["target"]);
+    const Math::Vec2 traumaAmplitude = ReadVec2(data["traumaAmplitude"]);
+    camera.setTraumaProfile(traumaAmplitude.x, traumaAmplitude.y, (float)data["traumaFrequency"].as_double(24.0),
+                            (float)data["traumaDecay"].as_double(1.5));
     cameraComponent.setFollowTargetName(data["followTarget"].as_cstr(""));
 }
 

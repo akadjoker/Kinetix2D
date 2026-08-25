@@ -2,25 +2,29 @@ cmake_minimum_required(VERSION 3.16)
 
 set(PHYS_REF_DIR /media/projectos/projects/cpp/vibecoding/fisica/phys)
 
-add_executable(kx_fidelity
-    kx_fidelity.cpp
-    ${PHYS_REF_DIR}/src/collide.cpp
-    ${PHYS_REF_DIR}/src/shapes.cpp
-    ${PHYS_REF_DIR}/src/manifold.cpp
-    ${PHYS_REF_DIR}/src/math.cpp
-)
-target_include_directories(kx_fidelity PRIVATE ${PHYS_REF_DIR}/include)
-target_link_libraries(kx_fidelity PRIVATE kx)
+if(EXISTS "${PHYS_REF_DIR}/src/collide.cpp")
+    add_executable(kx_fidelity
+        kx_fidelity.cpp
+        ${PHYS_REF_DIR}/src/collide.cpp
+        ${PHYS_REF_DIR}/src/shapes.cpp
+        ${PHYS_REF_DIR}/src/manifold.cpp
+        ${PHYS_REF_DIR}/src/math.cpp
+    )
+    target_include_directories(kx_fidelity PRIVATE ${PHYS_REF_DIR}/include)
+    target_link_libraries(kx_fidelity PRIVATE kx)
 
-add_executable(kx_collision_tests
-    kx_collision_tests.cpp
-    ${PHYS_REF_DIR}/src/collide.cpp
-    ${PHYS_REF_DIR}/src/shapes.cpp
-    ${PHYS_REF_DIR}/src/manifold.cpp
-    ${PHYS_REF_DIR}/src/math.cpp
-)
-target_include_directories(kx_collision_tests PRIVATE ${PHYS_REF_DIR}/include)
-target_link_libraries(kx_collision_tests PRIVATE kx)
+    add_executable(kx_collision_tests
+        kx_collision_tests.cpp
+        ${PHYS_REF_DIR}/src/collide.cpp
+        ${PHYS_REF_DIR}/src/shapes.cpp
+        ${PHYS_REF_DIR}/src/manifold.cpp
+        ${PHYS_REF_DIR}/src/math.cpp
+    )
+    target_include_directories(kx_collision_tests PRIVATE ${PHYS_REF_DIR}/include)
+    target_link_libraries(kx_collision_tests PRIVATE kx)
+else()
+    message(STATUS "Skipping external fidelity tests: PHYS_REF_DIR is not available")
+endif()
 
 add_executable(kx_solver_tests kx_solver_tests.cpp)
 target_link_libraries(kx_solver_tests PRIVATE kx)
@@ -66,6 +70,9 @@ target_link_libraries(k2d_scene_tests PRIVATE k2d)
 
 add_executable(k2d_camera_tests k2d_camera_tests.cpp)
 target_link_libraries(k2d_camera_tests PRIVATE k2d)
+
+add_executable(k2d_kpak_tests k2d_kpak_tests.cpp)
+target_link_libraries(k2d_kpak_tests PRIVATE k2d)
 
 add_executable(k2d_material_tests k2d_material_tests.cpp)
 target_link_libraries(k2d_material_tests PRIVATE k2d)

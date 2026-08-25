@@ -1,19 +1,17 @@
- 
-
 class Player(ScriptComponent):
     speed = 200
-    nome ="Luis"
+    nome = "Luis"
 
     def on_update(self, dt):
         dx = 0
         dy = 0
-        if key_down("a") or key_down("left"):
+        if key_down(KEY_A) or key_down(KEY_LEFT):
             dx = dx - 1
-        if key_down("d") or key_down("right"):
+        if key_down(KEY_D) or key_down(KEY_RIGHT):
             dx = dx + 1
-        if key_down("w") or key_down("up"):
+        if key_down(KEY_W) or key_down(KEY_UP):
             dy = dy - 1
-        if key_down("s") or key_down("down"):
+        if key_down(KEY_S) or key_down(KEY_DOWN):
             dy = dy + 1
         self.node.translate(dx * self.speed * dt, dy * self.speed * dt)
 

@@ -2,6 +2,7 @@
 #include <k2d/AudioEngine.h>
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
+#include <k2d/CameraComponent.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
 #include <k2d/Input.h>
@@ -16,6 +17,7 @@
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
+#include <k2d/UserData.h>
 #include <k2d/VirtualPad.h>
 
 #include <chrono>
@@ -187,6 +189,8 @@ static bool testComponents()
     animation->addClip("idle", nullptr, 8, 8, 2, 5.0f, k2d::AnimationMode::Loop);
     k2d::ParticleComponent* particle = object->addComponent<k2d::ParticleComponent>();
     particle->system().SetCapacity(64);
+    k2d::CameraComponent* camera = object->addComponent<k2d::CameraComponent>();
+    camera->setViewport(640.0f, 360.0f);
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource("class Comp:\n"
@@ -200,6 +204,10 @@ static bool testComponents()
                                  "        s.set_water_enabled(True)\n"
                                  "        s.set_water_flow(0.1, 0.2, -0.05, 0.07)\n"
                                  "        s.set_water_strength(0.03)\n"
+                                 "        c = self.node.get_camera()\n"
+                                 "        c.set_trauma_profile(10, 6, 12, 2)\n"
+                                 "        c.add_trauma(1)\n"
+                                 "        c.start_zoom_punch(0.2, 0.3)\n"
                                  "        self.node.get_animation().play(\"idle\")\n"
                                  "        self.node.get_particle().burst(5)\n",
                                  "components");
@@ -209,6 +217,7 @@ static bool testComponents()
     ok = ok && nearEqual(sprite->size().x, 32.0f) && nearEqual(sprite->size().y, 16.0f);
     ok = ok && sprite->waterEnabled() && nearEqual(sprite->water().strength, 0.03f) &&
          nearEqual(sprite->water().flowA.x, 0.1f) && nearEqual(sprite->water().flowB.y, 0.07f);
+    ok = ok && camera->camera().traumaValue() > 0.0f && camera->camera().isZoomPunching();
     ok = ok && std::strcmp(animation->currentClip(), "idle") == 0;
     ok = ok && particle->system().ActiveCount() == 5;
     return ok;
@@ -230,9 +239,9 @@ static bool testInput()
                                  "    def __init__(self, node):\n"
                                  "        self.node = node\n"
                                  "    def on_update(self, dt):\n"
-                                 "        if key_down(\"space\") and mouse_down(0):\n"
+                                 "        if key_down(KEY_SPACE) and mouse_down(0):\n"
                                  "            self.node.set_position(mouse_x(), mouse_y())\n"
-                                 "        if key_down(\"escape\"):\n"
+                                 "        if key_down(KEY_ESCAPE):\n"
                                  "            self.node.set_position(-1, -1)\n",
                                  "input");
     scene.update(0.016f);
@@ -300,6 +309,19 @@ static bool testAudioApi()
     audio.SetMusicVolume(0.75f);
     bool ok = !audio.Ready() && nearEqual(audio.MasterVolume(), 0.5f) && nearEqual(audio.SfxVolume(), 0.25f) &&
               nearEqual(audio.MusicVolume(), 0.75f);
+    audio.SetMasterMuted(true);
+    audio.SetSfxMuted(true);
+    audio.SetMusicMuted(true);
+    ok = ok && audio.MasterMuted() && audio.SfxMuted() && audio.MusicMuted() &&
+         !audio.SetListenerPosition({10.0f, 20.0f}) && !audio.SetVoiceSpatial(1, true) && !audio.FadeIn(1, 0.2f) &&
+         !audio.FadeOut(1, 0.2f, true) && audio.CrossfadeMusic(1) == 0;
+    k2d::UserData settings;
+    audio.SaveSettings(settings);
+    k2d::AudioEngine restored;
+    restored.LoadSettings(settings);
+    ok = ok && nearEqual(restored.MasterVolume(), 0.5f) && nearEqual(restored.SfxVolume(), 0.25f) &&
+         nearEqual(restored.MusicVolume(), 0.75f) && restored.MasterMuted() && restored.SfxMuted() &&
+         restored.MusicMuted();
     ok = ok && audio.LoadSound("missing_audio_file.ogg") == 0 && audio.LoadMusic("missing_audio_file.ogg") == 0 &&
          audio.Play(1) == 0 && audio.PlayMusic(1) == 0 && !audio.Stop(1) && !audio.Pause(1) && !audio.Resume(1);
     const unsigned char encodedAudio[] = {0x52, 0x49, 0x46, 0x46};
@@ -316,6 +338,9 @@ static bool testAudioApi()
                                   "        audio_set_master_volume(0.5)\n"
                                   "        audio_set_sfx_volume(0.25)\n"
                                   "        audio_set_music_volume(0.75)\n"
+                                  "        audio_set_master_muted(True)\n"
+                                  "        audio_set_master_muted(False)\n"
+                                  "        audio_set_listener_position(10, 20)\n"
                                   "        set_number(\"audio_missing\", audio_load(\"missing_audio_file.ogg\"))\n"
                                   "        set_flag(\"audio_playing\", audio_playing(0))\n",
                                   "audio_api");

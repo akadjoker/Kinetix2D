@@ -58,6 +58,38 @@ cmake --build build -j
 
 All tests exit 0 on success.
 
+## Continuous releases
+
+GitHub Actions builds `k2d_editor`, `k2d_runner` and `k2d_pack` for Linux
+and Windows. Pushes and pull requests to `master` publish downloadable CI
+artifacts; pushing a version tag publishes both ZIPs as a GitHub Release.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+## Asset packages (`.kpak`)
+
+`k2d_pack` builds an indexed asset package. Files stay compressed on disk and
+only the requested asset is decoded; a package can also be encrypted with a
+project key.
+
+```bash
+# Store all files under assets/ by their path relative to assets/.
+./bin/k2d_pack -o game.kpak -k "project-key" assets
+
+# Inspect a package.
+./bin/k2d_pack -t game.kpak -k "project-key"
+```
+
+Mount it before loading a scene or any assets. Mounted entries take precedence
+over loose files and work with `Assets`, audio, shaders, JSON, TMX and scripts.
+
+```cpp
+k2d::FileSystem::Instance().MountPack("game.kpak", "project-key");
+```
+
 ## API Reference
 
 ### Physics (kx namespace)
@@ -234,7 +266,7 @@ device.StopGifCapture();     // → capture_0001/frame_0001.png, etc
 
 ## Rules
 
-1. **C++14 only** - no C++17 features
+1. **C++14 only**
 2. **No `std::` containers** - use `ct::Vector`, `ct::HashMap`, `ct::Pool`, `ct::String`
 3. **No smart pointers** - raw pointers, explicit ownership
 4. **No comments** in code (except closing namespace braces)
@@ -242,18 +274,10 @@ device.StopGifCapture();     // → capture_0001/frame_0001.png, etc
 6. **Single source of truth**: 2D transforms = `k2d::Matrix2D` everywhere (physics + rendering)
 7. **No linked lists** - arrays + handles + object pools
 
-## Performance
 
-On a modern machine (Ryzen 7 / RTX 3070):
-
-- **Collision detection**: ~2ms for 256 dynamic bodies (brute-force), ~0.5ms (tree)
-- **Solver**: ~4ms for 256 bodies, 8 velocity iterations
-- **Rendering**: 60 fps+ for 500 on-screen shapes (batched)
-- **Memory**: ~1.2 MB for 256 dynamic bodies (kx library only)
 
 
 
 ## License
 
 MIT
-

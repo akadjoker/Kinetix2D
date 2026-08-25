@@ -324,6 +324,8 @@ int main(int argc, char** argv)
                 k2d::SetUiThemeTexture(k2d::UiTheme::DefaultTexture(assets));
                 if (!k2d::GetAudio().Init())
                     std::fprintf(stderr, "Audio unavailable; continuing without sound\n");
+                else
+                    k2d::GetAudio().LoadSettings(userData);
                 k2d::VirtualPad virtualPad;
                 virtualPad.SetTexture(k2d::VirtualPad::DefaultTexture(assets));
                 virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
@@ -375,6 +377,7 @@ int main(int argc, char** argv)
                     if (k2d::CameraComponent* camera = scene.activeCamera())
                     {
                         camera->setViewport(width, height);
+                        k2d::GetAudio().SetListenerPosition(camera->camera().position);
                         canvas.SetProjection(camera->projection());
                         k2d::SetZenScriptGameCamera(&camera->camera());
                     }
@@ -394,6 +397,7 @@ int main(int argc, char** argv)
                     k2d::Profiler::Get().endFrame();
                 }
                 canvas.Shutdown();
+                k2d::GetAudio().SaveSettings(userData);
                 k2d::GetAudio().Shutdown();
             }
         }

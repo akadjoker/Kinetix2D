@@ -790,6 +790,22 @@ void drawAudioPlayerProperties(EditorApplication& app, AudioPlayer& player)
         float pan = player.pan();
         if (dragFloatProperty(app, "Pan", pan, 0.01f, "Set Audio Player Pan", -1.0f, 1.0f))
             player.setPan(pan);
+        bool spatial = player.spatial();
+        if (ImGui::Checkbox("Spatial 2D", &spatial))
+            applyInstant(app, "Toggle Spatial Audio", [&] { player.setSpatial(spatial); });
+        if (spatial)
+        {
+            float minDistance = player.minDistance();
+            if (dragFloatProperty(app, "Min Distance", minDistance, 1.0f, "Set Spatial Min Distance", 0.0f, 1000000.0f))
+                player.setMinDistance(minDistance);
+            float maxDistance = player.maxDistance();
+            if (dragFloatProperty(app, "Max Distance", maxDistance, 1.0f, "Set Spatial Max Distance", minDistance,
+                                  1000000.0f))
+                player.setMaxDistance(maxDistance);
+            float rolloff = player.rolloff();
+            if (dragFloatProperty(app, "Rolloff", rolloff, 0.01f, "Set Spatial Rolloff", 0.0f, 100.0f))
+                player.setRolloff(rolloff);
+        }
     }
 }
 
@@ -1012,6 +1028,38 @@ void drawCameraProperties(EditorApplication& app, CameraComponent& cameraCompone
     Math::Vec2 offset = camera.offset;
     if (dragVec2(app, "Offset", offset, 0.5f, "Offset Camera"))
         camera.offset = offset;
+
+    if (ImGui::CollapsingHeader("Screen Shake", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::TextDisabled("Runtime-only offset in screen pixels; it never changes Position or Offset.");
+        Math::Vec2 traumaAmplitude(camera.trauma.amplitudeX, camera.trauma.amplitudeY);
+        if (dragVec2(app, "Trauma Amplitude", traumaAmplitude, 0.25f, "Adjust Camera Trauma Amplitude"))
+            camera.setTraumaProfile(traumaAmplitude.x, traumaAmplitude.y, camera.trauma.frequency, camera.trauma.decay);
+        float traumaFrequency = camera.trauma.frequency;
+        if (dragFloatProperty(app, "Trauma Frequency", traumaFrequency, 0.25f, "Adjust Camera Trauma Frequency", 0.0f,
+                              240.0f))
+            camera.setTraumaProfile(camera.trauma.amplitudeX, camera.trauma.amplitudeY, traumaFrequency,
+                                    camera.trauma.decay);
+        float traumaDecay = camera.trauma.decay;
+        if (dragFloatProperty(app, "Trauma Decay", traumaDecay, 0.05f, "Adjust Camera Trauma Decay", 0.0f, 20.0f))
+            camera.setTraumaProfile(camera.trauma.amplitudeX, camera.trauma.amplitudeY, camera.trauma.frequency,
+                                    traumaDecay);
+
+        if (ImGui::Button("Preview Shake"))
+            camera.startShake(12.0f, 8.0f, 12.0f, 4.0f);
+        ImGui::SameLine();
+        if (ImGui::Button("Preview Trauma"))
+            camera.addTrauma(1.0f);
+        ImGui::SameLine();
+        if (ImGui::Button("Stop Shake"))
+        {
+            camera.stopShake();
+            camera.clearTrauma();
+            camera.stopZoomPunch();
+        }
+        ImGui::TextDisabled("Trauma %.2f%s", camera.traumaValue(),
+                            camera.isZoomPunching() ? "  |  zoom punch active" : "");
+    }
 
     bool limitEnabled = camera.limitEnabled;
     if (ImGui::Checkbox("Limit Enabled", &limitEnabled))

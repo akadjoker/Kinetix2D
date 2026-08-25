@@ -1,4 +1,4 @@
-# Zen Scripting
+#Zen Scripting
 
 Python-syntax scripting for Kinetix2D, powered by the vendored `libzen` VM (`external/zen`).
 
@@ -8,49 +8,58 @@ panel, and hit Play. Scripts do not run in edit mode.
 ## Script contract
 
 A script file defines **one class**. It is compiled **once per file**, no matter how many
-objects use it; each object gets its own cheap instance with its own state.
+objects use it;
+each object gets its own cheap instance with its own state
+    .
 
-```python
-class Bullet(ScriptComponent):
-    # self.node is assigned by the editor before this runs.
-    def __init__(self):          # called when the instance is created
-        self.speed = 400
+```python class Bullet(ScriptComponent)
+    :
+#self.node is assigned by the editor before this runs.
+      def __init__(self)
+    : #called when the instance is created self
+    .speed = 400
 
-    def on_start(self):          # called once, on the first frame
-        pass
+    def on_start(self)
+    : #called once,
+on the first frame pass
 
-    def on_update(self, dt):     # called every frame, dt in seconds
-        self.node.translate(self.speed * dt, 0)
+    def on_update(self, dt)
+    : #called every frame, dt in seconds self.node.translate(self.speed * dt, 0)
 
-    def on_draw(self):           # called every frame while the object is visible
-        pass
+                               def on_draw(self)
+    : #called every frame while the object is visible pass
 
-    def on_draw_ui(self):        # optional overlay pass, always above world sprites
-        pass
+      def on_draw_ui(self)
+    : #optional overlay pass,
+      always above world sprites pass
 
-    def on_destroy(self):        # called when the component goes away
-        pass
+          def on_destroy(self)
+    : #called when the component goes away pass
 
-    def on_event(self, name, value):   # called when a script or C++ emits an event
-        pass
+      def on_event(self, name, value)
+    : #called when a script or C++ emits an event pass
 ```
 
-`ScriptComponent` provides `self.node`, the GameObject hosting this script. `__init__` is
-optional. Instance fields (`self.speed`) are per object, so 500 bullets
-sharing one file each keep their own state. Module-level constants are shared.
+`ScriptComponent` provides `self.node`,
+      the GameObject hosting this script. `__init__` is optional.Instance fields(`self.speed`) are per object,
+      so 500 bullets sharing one file each keep their own state.Module - level constants are shared
+                                                                             .
 
-Older scripts are still supported: `class Bullet:` with
-`def __init__(self, node): self.node = node` keeps working.
+                                                                         Older scripts are still supported
+    : `class Bullet :` with
+`def __init__(self, node)
+    : self.node = node` keeps working.
 
-Cost: one compile per file (~0.2 ms), then ~0.0005 ms per spawned object.
+                  Cost : one compile per file(~0.2 ms),
+      then ~0.0005 ms per spawned object.
 
-## Drawing from scripts
+          ##Drawing from scripts
 
-Draw calls are global and can only be made inside `on_draw()` or `on_draw_ui()`.
-`on_draw()` renders in world order at the script owner's Z index. `on_draw_ui()` is an
-overlay pass after all world sprites, suited to HUD counters and text. Coordinates remain
-in world/screen coordinates defined by the active camera. `set_draw_color` uses normalized
-RGB(A) values from `0` to `1` and remains active until the next call to it.
+          Draw calls are global and can only be made inside `on_draw()` or `on_draw_ui()`.
+`on_draw()` renders in world order at the script owner's Z index. `on_draw_ui()` is an overlay pass after all world
+                                                                           sprites,
+      suited to HUD counters and text.Coordinates remain in world
+          / screen coordinates defined by the active camera. `set_draw_color` uses normalized RGB(A) values from `0` to `1` and remains active until the next call to it.
 
 ```python
 class DrawDemo(ScriptComponent):
@@ -131,8 +140,8 @@ From C++:
 script->setNumberOverride("speed", 500.0, true);   // true = keep it an integer
 script->setStringOverride("tag", "boss");
 script->setBoolOverride("armed", false);
-script->clearOverride("speed");                    // back to the script default
-script->declaredPropertyCount();                   // what the .py declares
+script->clearOverride("speed");  // back to the script default
+script->declaredPropertyCount(); // what the .py declares
 ```
 
 ## Node methods
@@ -145,7 +154,7 @@ script->declaredPropertyCount();                   // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_sprite()`, `get_animation()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
+| Components | `get_sprite()`, `get_animation()`, `get_camera()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
 
 Component handles return `None` when the component is missing.
 
@@ -153,6 +162,10 @@ Component handles return `None` when the component is missing.
   `set_water_enabled(b)`, `set_water_flow(ax, ay, bx, by)`, `set_water_strength(value)`.
   Water uses the sprite's normal map twice; assign one in the Inspector first.
 - **Animation**: `play(clip)`, `stop()`, `is_playing()`, `current()`
+- **Camera**: `start_shake(x, y, frequency, cycles)`, `stop_shake()`,
+  `set_trauma_profile(x, y, frequency, decay)`, `add_trauma(amount)`,
+  `clear_trauma()`, `start_zoom_punch(amount, duration)`, `stop_zoom_punch()`,
+  `is_shaking()`. Shake amplitudes are screen pixels and never alter the camera's saved offset.
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
 - **Body**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
   `set_angular_velocity(deg)`, `apply_force(x, y)`, `apply_impulse(x, y)`, `apply_torque(t)`,
@@ -185,7 +198,8 @@ when the editor needs to save layout and interaction state in the scene.
 ## Audio
 
 Audio is initialized by the runner and editor. Load SFX and music through the same asset search
-paths used by textures; SFX can overlap, while starting music replaces the previous music voice.
+paths used by textures;
+SFX can overlap, while starting music replaces the previous music voice.
 
 ```python
 class AudioDemo(ScriptComponent):
@@ -195,14 +209,21 @@ class AudioDemo(ScriptComponent):
         audio_play_music(self.music, True, 0.6)
 
     def on_update(self, dt):
-        if key_pressed("space"):
+        if key_pressed(KEY_SPACE):
             audio_play(self.click, 0.8, 1.0, 0.0)
 ```
 
 `audio_play(sound, volume=1, pitch=1, pan=0)` returns a voice ID. Use `audio_stop`,
 `audio_pause`, `audio_resume`, and `audio_playing` with that ID. `audio_stop_all`,
 `audio_stop_music`, `audio_set_master_volume`, `audio_set_sfx_volume`, and
-`audio_set_music_volume` control the engine-wide mixer.
+`audio_set_music_volume` control the engine-wide mixer. Volume and mute preferences are persisted
+by the runner/editor. `audio_set_master_muted`, `audio_set_sfx_muted`, and
+`audio_set_music_muted` retain their respective volume values.
+
+Use `audio_fade_in(voice, seconds)`, `audio_fade_out(voice, seconds, stop=True)`, or
+`audio_crossfade_music(music, loop=True, volume=1, seconds=1)` for transitions. For positional
+SFX, `audio_play_at(sound, x, y, volume=1, pitch=1, min_distance=64, max_distance=1024)` uses the
+active camera as its listener; `audio_set_listener_position(x, y)` overrides it when required.
 
 ## Physics
 
@@ -213,7 +234,7 @@ exists while playing. Impulses divide by mass, so a 40x40 box at density 1 has m
 ```python
 def on_update(self, dt):
     body = self.node.get_body()
-    if key_pressed("space"):
+    if key_pressed(KEY_SPACE):
         body.apply_impulse(0, -160000)
 ```
 
@@ -241,48 +262,55 @@ gx, gy = get_gravity()
 
 Add a `RigidBody2D`, one or more `Collider2D` components, and a `CharacterBody2D` to the
 same Node. `CharacterBody2D` sets that rigid body to **Kinematic** and uses the engine's
-Box2D-derived convex shape cast; it never moves the object one pixel at a time.
+Box2D-derived convex shape cast;
+it never moves the object one pixel at a time.
 
-Every placement or movement query reads the node's own colliders and their collision
-layers/masks. No shape or mask is passed from ZenPy.
+    Every placement or
+    movement query reads the node's own colliders and their collision layers / masks.No shape or
+    mask is passed from ZenPy
+        .
 
 ```python
-# Non-mutating GameMaker-style queries. Coordinates use this Node's position space.
-if self.node.place_free(next_x, next_y):
-    pass
-wall = self.node.place_meeting(next_x, next_y)  # Node or None
+#Non - mutating GameMaker - style queries.Coordinates use this Node's position space.
+    if self.node.place_free(next_x, next_y)
+    : pass wall = self.node.place_meeting(next_x, next_y) #Node or None
 
-# Moves until the first contact. A miss returns None, 0, 0, 0, 0.
-other, hit_x, hit_y, normal_x, normal_y = self.node.move_and_collide(dx, dy)
+#Moves until the first contact.A miss returns None, 0, 0, 0, 0.
+                  other,
+           hit_x, hit_y, normal_x, normal_y = self.node
+                                                  .move_and_collide(dx, dy)
 
-# Either set velocity separately (Godot-style)...
-self.node.set_character_velocity(vx, vy)
-hit, vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide()
+#Either set velocity separately(Godot - style)...
+                                                      self.node.set_character_velocity(vx, vy) hit,
+           vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide()
 
-# ...or set it as part of the call.
-hit, vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide(vx, vy)
+#... or set it as part of the call.
+                                                       hit,
+           vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide(vx, vy)
 
-# A slide can contain more than one impact.
-count = self.node.slide_collision_count()
-other, hit_x, hit_y, normal_x, normal_y = self.node.slide_collision(0)
+#A slide can contain more than one impact.
+                                                       count = self.node.slide_collision_count() other,
+           hit_x, hit_y, normal_x,
+           normal_y = self.node.slide_collision(0)
 ```
 
-`move_and_collide(dx, dy)` is the general primitive: it stops at the first obstacle and
-lets the script choose the response. `move_and_slide()` uses the component velocity and
-projects the remaining motion and velocity along every hit normal, up to `maxSlides`.
-It returns the updated velocity as multiple ZenPy values.
+`move_and_collide(dx, dy)` is the general primitive : it stops at the first obstacle
+                      and lets the script choose the response. `move_and_slide()` uses the component velocity
+                      and projects the remaining motion and velocity along every hit normal,
+           up to `maxSlides`.It returns the updated velocity as multiple ZenPy values
+               .
 
-## Prefabs
+           ##Prefabs
 
-A prefab carries its Zen Script like any other component: the `.py` path and the property
-overrides travel inside the `.k2dprefab`, so every instance comes back wired and tuned. One
-compile serves the whole flock — 50 balls off the same prefab still cost a single compile, and
-each instance can then be retuned on its own.
+           A prefab carries its Zen Script like any other component
+    : the `.py` path and the property overrides travel inside the `.k2dprefab`,
+           so every instance comes back wired and tuned
+               .One compile serves the whole flock — 50 balls off the same prefab still cost a single compile,
+           and each instance can then be retuned on its own.
 
-```cpp
-Prefab prefab;
+```cpp Prefab prefab;
 prefab.Load("assets/prefabs/ball.k2dprefab");
-GameObject *ball = prefab.Instantiate(scene);      // script attached, overrides applied
+GameObject* ball = prefab.Instantiate(scene); // script attached, overrides applied
 ```
 
 From a script, `spawn()` does the same thing:
@@ -294,15 +322,18 @@ bullet = self.node.spawn("assets/prefabs/bullet.k2dprefab", self.node.get_x(), s
 When the spawned prefab uses a `.py` that has not been compiled yet, the compile cannot happen
 right there — the VM is in the middle of running your script, and `VM::run` reuses the main
 fiber, so compiling on top of it would corrupt the caller. The component takes the path and
-compiles on the next frame instead; `loaded()` is false and `pendingLoad()` is true in between,
-and the object starts running one frame later. Prefabs whose script is already in the cache —
-the normal case, after the first spawn — start on the same frame.
+compiles on the next frame instead;
+`loaded()` is false and `pendingLoad()` is true in between,
+    and the object starts running one frame later.Prefabs whose script is already in the cache — the normal case,
+    after the first spawn — start on the same frame.
 
-## Talking to other scripts and to C++
+    ##Talking to other scripts and to C++
 
-Two mechanisms, both global to the running scene.
+    Two mechanisms,
+    both global to the running scene.
 
-**Blackboard** — shared key/value state:
+            ** Blackboard** — shared key
+        / value state:
 
 ```python
 set_number("score", 100)      get_number("score", 0)
@@ -313,7 +344,8 @@ has_key("score")
 
 **Persistent user data** — values saved outside the project, in the writable
 per-user folder selected by SDL for the editor/runner. It is loaded automatically
-at startup; call `user_data_save()` after changing values:
+at startup;
+call `user_data_save()` after changing values:
 
 ```python
 coins = user_data_get_int("coins", 0)
@@ -323,49 +355,51 @@ user_data_save()
 ```
 
 Available typed functions are `user_data_get/set_int`, `user_data_get/set_float`,
-`user_data_get/set_string`, and `user_data_get/set_bool`; `user_data_has`,
+`user_data_get/set_string`, and `user_data_get/set_bool`;
+`user_data_has`,
 `user_data_delete`, and `user_data_clear` manage keys. `user_data_load()` and
-`user_data_save()` use `settings.json` by default, or accept a safe file name
-such as `"profile_2.json"`. For separate text files use
+`user_data_save()` use `settings.json` by default, or accept a safe file name such as `"profile_2.json"`
+                                                                .For separate text files use
 `user_data_read_text("notes.txt", "")` and `user_data_write_text("notes.txt", text)`.
 
-**Events** — fire-and-forget broadcast, delivered to every script's `on_event`:
+                                                                    **Events ** — fire
+                                                            - and-forget broadcast,
+    delivered to every script's `on_event`:
 
-```python
-emit("enemy_killed", 10)
+```python emit("enemy_killed", 10)
 ```
 
-Events are queued and delivered once per frame, after `update`. From C++:
+    Events are queued and delivered once per frame,
+    after `update`.From C++ :
 
-```cpp
-ZenBlackboard::setNumber("hp", 75);              // scripts read it with get_number
-ZenBlackboard::emit("player_died");              // reaches every on_event
-BroadcastZenScriptEvent(scene.root(), "boss");   // immediate, skips the queue
-ZenBlackboard::setHostHandler(fn, user);         // C++ sees every emit() from scripts
-script->callFunction("reset");                   // call a named script function directly
+```cpp ZenBlackboard::setNumber("hp", 75);    // scripts read it with get_number
+ZenBlackboard::emit("player_died");            // reaches every on_event
+BroadcastZenScriptEvent(scene.root(), "boss"); // immediate, skips the queue
+ZenBlackboard::setHostHandler(fn, user);       // C++ sees every emit() from scripts
+script->callFunction("reset");                 // call a named script function directly
 ```
 
-## Host setup (already wired in the editor)
+    ##Host
+    setup(already wired in the editor)
 
-```cpp
-RegisterZenScriptSerializer();       // makes the component save/load with the scene
+```cpp RegisterZenScriptSerializer(); // makes the component save/load with the scene
 SetZenScriptInput(&device.GetInput());
 SetZenScriptAssets(&assets);
-SetZenScriptUserData(&userData);     // optional: enables user_data_* in scripts
-SetZenScriptOutput(fn, user);        // route print() into your console
-SetZenScriptsEnabled(true);          // scripts idle until this is on
-RouteZenScriptCollisions(world);     // makes on_collision fire
+SetZenScriptUserData(&userData); // optional: enables user_data_* in scripts
+SetZenScriptOutput(fn, user);    // route print() into your console
+SetZenScriptsEnabled(true);      // scripts idle until this is on
+RouteZenScriptCollisions(world); // makes on_collision fire
 // each frame, after scene.update():
 DispatchZenScriptEvents(scene.root());
 ```
 
 ## Input
 
-`key_down(name)`, `key_pressed(name)`, `key_released(name)` take `"a".."z"`, `"0".."9"`,
-`"space"`, `"escape"`, `"enter"`, `"tab"`, `"backspace"`, arrows (`"left"`, `"right"`,
-`"up"`, `"down"`), and modifiers (`"lshift"`, `"rshift"`, `"lctrl"`, `"rctrl"`, `"lalt"`).
-For game actions, prefer `action_down(name)`, `action_pressed(name)`, and
-`action_released(name)`. The runner maps `move_forward`, `move_backward`, `turn_left`,
+`key_down(key)`, `key_pressed(key)`, and `key_released(key)` take a numeric `KEY_*` constant, such
+as `KEY_A`, `KEY_SPACE`, `KEY_LEFT`, `KEY_F5`, or `KEY_LEFT_CTRL`. They do no string conversion in
+the VM. Direct keys are physical controls; use `action_down(name)`, `action_pressed(name)`, and
+`action_released(name)` for remappable gameplay actions.
+The runner maps `move_forward`, `move_backward`, `turn_left`,
 `turn_right`, `primary`, and `secondary` to keyboard keys and their corresponding virtual-pad
 buttons by default. C++ games can add or replace bindings through `GetInputActions().Bind()`.
 
@@ -391,21 +425,21 @@ world is rebuilt before the next update.
 - All scripts share one VM for the whole run. Module-level globals are therefore shared
   across scripts; keep per-object state in `self`, and use the blackboard for shared state.
 - `ZenRuntime::instance().reset()` drops every cached class and instance (call it when
-  tearing a game down); components re-instantiate themselves on the next frame.
-- Reloading is per script, not per component: `ReloadChangedZenScripts()` walks the compiled
-  classes, recompiles the files whose timestamp moved, and returns how many scripts it rebuilt.
-  It is an explicit operation, never a per-frame file watcher: press `F6` while playing in the
-  editor or in the standalone runner to request it.
-  Only the objects running a rebuilt script re-instantiate, so editing one `.py` mid-play does
-  not reset the state of every other script in the scene. A file that fails to compile keeps
-  the last good class running rather than taking the object down with it.
-- `ZenRuntime::instance().recompile(path)` forces one script to rebuild, which is what the
-  Inspector's Reload button does.
-- The script's file path and the property overrides are serialized, so the `.py` must be
-  reachable at load time.
-- An override whose field disappears from the `.py` is kept but flagged in the Inspector, so a
-  rename does not silently drop tuning.
-- `import math`, `import time`, `import json`, `import net` and `import http` are available;
+  tearing a game down);
+components re - instantiate themselves on the next frame.- Reloading is per script,
+    not per component : `ReloadChangedZenScripts()` walks the compiled classes,
+    recompiles the files whose timestamp moved, and returns how many scripts it rebuilt.It is an explicit operation,
+    never a per - frame file watcher : press `F6` while playing in the editor or
+        in the standalone runner to request it.Only the objects running a rebuilt script re - instantiate,
+    so editing one `.py` mid -
+        play does not reset the state of every other script in the scene
+            .A file that fails to compile keeps the last good class running rather than taking the object down with
+                it.- `ZenRuntime::instance().recompile(path)` forces one script to rebuild,
+    which is what the Inspector's Reload button does. -
+        The script's file path and the property overrides are serialized, so the `.py` must be reachable at load time.-
+        An override whose field disappears from the `.py` is kept but flagged in the Inspector,
+    so a rename does not silently drop tuning.- `import math`, `import time`, `import json`, `import net`
+        and `import http` are available;
   `print` goes to the editor Console.
 - `import json` currently runs libzen's own parser (`builtin_json.cpp`), which is a second JSON
   implementation next to `ct::Json` — the one the serializer, the scenes and the project file

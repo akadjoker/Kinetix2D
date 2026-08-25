@@ -299,6 +299,10 @@ bool TestPrimitiveShapeRoundTrip()
     audio->setAutoplay(true);
     audio->setLoop(true);
     audio->setVolume(0.6f);
+    audio->setSpatial(true);
+    audio->setMinDistance(80.0f);
+    audio->setMaxDistance(900.0f);
+    audio->setRolloff(2.0f);
 
     ct::Json written = k2d::Serializer::WriteObject(*root);
     k2d::Scene dstScene;
@@ -324,7 +328,9 @@ bool TestPrimitiveShapeRoundTrip()
            Near(copyCapsule->lineWidth(), 4.0f) && copyCapsule->color() == capsule->color() &&
            copyCapsule->blendMode() == k2d::BLEND_ADD && copyCapsule->valid() && verticalCapsule.valid() &&
            std::strcmp(copyAudio->source(), "audio/test.ogg") == 0 && copyAudio->music() && copyAudio->autoplay() &&
-           copyAudio->loop() && Near(copyAudio->volume(), 0.6f);
+           copyAudio->loop() && Near(copyAudio->volume(), 0.6f) && copyAudio->spatial() &&
+           Near(copyAudio->minDistance(), 80.0f) && Near(copyAudio->maxDistance(), 900.0f) &&
+           Near(copyAudio->rolloff(), 2.0f);
 }
 
 bool TestNinePatchRoundTrip()
@@ -480,6 +486,7 @@ bool TestCameraRoundTrip()
     cam->camera().setSmoothing(true, 8.0f);
     cam->camera().setDeadZonePixels(50.0f, 40.0f, 200.0f, 160.0f);
     cam->camera().setTarget(Math::Vec2(20.0f, -20.0f));
+    cam->camera().setTraumaProfile(18.0f, 12.0f, 20.0f, 2.5f);
 
     ct::Json written = k2d::Serializer::WriteObject(*root);
     k2d::Scene dstScene;
@@ -497,6 +504,8 @@ bool TestCameraRoundTrip()
     ok = ok && c.smoothingEnabled && Near(c.smoothingSpeed, 8.0f);
     ok = ok && c.deadZoneEnabled && NearVec4(c.deadZone, {50.0f, 40.0f, 200.0f, 160.0f});
     ok = ok && c.targetEnabled && NearVec2(c.target, {20.0f, -20.0f});
+    ok = ok && Near(c.trauma.amplitudeX, 18.0f) && Near(c.trauma.amplitudeY, 12.0f) &&
+         Near(c.trauma.frequency, 20.0f) && Near(c.trauma.decay, 2.5f);
     return ok;
 }
 

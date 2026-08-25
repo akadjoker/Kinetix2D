@@ -25,6 +25,7 @@
 #include <IconsMaterialDesignIcons.h>
 #include <k2d/Animation2D.h>
 #include <k2d/AudioEngine.h>
+#include <k2d/CameraComponent.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/CircleShape.h>
@@ -125,6 +126,8 @@ bool EditorApplication::initialize()
     SetUiInput(&mDevice.GetInput());
     if (!GetAudio().Init())
         log("Audio unavailable; preview will run without sound");
+    else
+        GetAudio().LoadSettings(mUserData);
     SetUiThemeTexture(UiTheme::DefaultTexture(mAssets));
     SetZenScriptAssets(&mAssets);
     SetZenScriptUserData(&mUserData);
@@ -194,6 +197,8 @@ int EditorApplication::run()
             SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
             GetScreenFade().Update(mDevice.DeltaTime());
             mRuntimeScene.update(mDevice.DeltaTime());
+            if (CameraComponent* camera = mRuntimeScene.activeCamera())
+                GetAudio().SetListenerPosition(camera->camera().position);
             if (mPhysicsWorld)
                 mPhysicsWorld->step(mDevice.DeltaTime());
             DispatchZenScriptEvents(mRuntimeScene.root());
@@ -234,6 +239,7 @@ void EditorApplication::shutdown()
         return;
     mSettings.windowDisplayIndex = mDevice.DisplayIndex();
     saveSettings();
+    GetAudio().SaveSettings(mUserData);
     mUserData.save();
     mPanels.clear();
     mSelection.clear();
