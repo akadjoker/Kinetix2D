@@ -12,5 +12,19 @@
  * miniaudio explicitly does not support them.
  */
 #include "stb_vorbis.c"
+
+/* stb_vorbis uses short, generic macro names for its internal channel map.
+ * They have done their job once the implementation above has been included,
+ * but PLAYBACK_LEFT and PLAYBACK_RIGHT also occur in Windows SDK headers that
+ * miniaudio includes below. Do not let the decoder macros leak into those
+ * platform headers.
+ */
+#undef PLAYBACK_MONO
+#undef PLAYBACK_LEFT
+#undef PLAYBACK_RIGHT
+#undef L
+#undef C
+#undef R
+
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
