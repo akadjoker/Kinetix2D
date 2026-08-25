@@ -1,5 +1,9 @@
 # Kinetix2D
 
+[![Build and release](https://github.com/akadjoker/Kinetix2D/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/akadjoker/Kinetix2D/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/akadjoker/Kinetix2D?display_name=tag&sort=semver)](https://github.com/akadjoker/Kinetix2D/releases)
+[![License](https://img.shields.io/github/license/akadjoker/Kinetix2D)](LICENSE)
+
 Kinetix2D is a C++ 2D engine with an editor, runner, native 2D physics, and ZenScript scripting.
 
 ## Build
