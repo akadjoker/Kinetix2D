@@ -44,6 +44,8 @@
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RigidBody2D.h>
 
+#include "k2d_test_paths.h"
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -608,8 +610,8 @@ static bool testSerialization()
 {
     k2d::RegisterZenScriptSerializer();
 
-    const char* scriptPath = "/tmp/k2d_zen_test_script.py";
-    FILE* file = std::fopen(scriptPath, "w");
+    const std::string scriptPath = k2d_tests::tempPath("k2d_zen_test_script.py");
+    FILE* file = std::fopen(scriptPath.c_str(), "w");
     if (!file)
         return false;
     std::fputs("class S:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
@@ -620,14 +622,14 @@ static bool testSerialization()
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("scripted");
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadFile(scriptPath);
+    bool ok = script->loadFile(scriptPath.c_str());
 
     const ct::Json json = k2d::Serializer::WriteObject(*object);
     const ct::Json& components = json["components"];
     bool foundEntry = false;
     for (size_t i = 0; i < components.size(); ++i)
         if (std::strcmp(components[i]["type"].as_cstr(""), "ZenScript") == 0 &&
-            std::strcmp(components[i]["data"]["path"].as_cstr(""), scriptPath) == 0)
+            std::strcmp(components[i]["data"]["path"].as_cstr(""), scriptPath.c_str()) == 0)
             foundEntry = true;
     ok = ok && foundEntry;
 
@@ -635,12 +637,12 @@ static bool testSerialization()
     k2d::GameObject* loaded = k2d::Serializer::ReadObject(loadedScene, json);
     ok = ok && loaded != nullptr;
     k2d::ZenScriptComponent* loadedScript = loaded ? loaded->getComponent<k2d::ZenScriptComponent>() : nullptr;
-    ok = ok && loadedScript && loadedScript->loaded() && loadedScript->scriptPath() == ct::String(scriptPath);
+    ok = ok && loadedScript && loadedScript->loaded() && loadedScript->scriptPath() == ct::String(scriptPath.c_str());
 
     loadedScene.update(0.016f);
     ok = ok && loaded && nearEqual(loaded->position().x, 33.0f) && nearEqual(loaded->position().y, 44.0f);
 
-    std::remove(scriptPath);
+    std::remove(scriptPath.c_str());
     return ok;
 }
 
@@ -649,8 +651,8 @@ static bool gCapturedError = false;
 
 static bool testSpawnAndMath()
 {
-    const char* prefabPath = "/tmp/k2d_zen_test_prefab.k2dprefab";
-    FILE* file = std::fopen(prefabPath, "w");
+    const std::string prefabPath = k2d_tests::tempPath("k2d_zen_test_prefab.k2dprefab");
+    FILE* file = std::fopen(prefabPath.c_str(), "w");
     if (!file)
         return false;
     std::fputs("{\"name\":\"bullet\",\"components\":[],\"children\":[]}", file);
@@ -660,16 +662,17 @@ static bool testSpawnAndMath()
     k2d::GameObject* object = scene.createObject("shooter");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource("class Shooter:\n"
-                                 "    def __init__(self, node):\n"
-                                 "        self.node = node\n"
-                                 "    def on_start(self):\n"
-                                 "        b = self.node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
-                                 "        print(\"spawned\", b.get_name(), self.node.distance_to(30, 40))\n"
-                                 "        self.node.look_at(0, 100)\n"
-                                 "    def on_update(self, dt):\n"
-                                 "        self.node.move_toward(60, 0, 25)\n",
-                                 "spawner");
+    const std::string source =
+        std::string("class Shooter:\n") +
+        "    def __init__(self, node):\n"
+        "        self.node = node\n"
+        "    def on_start(self):\n"
+        "        b = self.node.spawn(\"" + prefabPath + "\", 30, 40)\n"
+        "        print(\"spawned\", b.get_name(), self.node.distance_to(30, 40))\n"
+        "        self.node.look_at(0, 100)\n"
+        "    def on_update(self, dt):\n"
+        "        self.node.move_toward(60, 0, 25)\n";
+    bool ok = script->loadSource(source.c_str(), "spawner");
 
     k2d::SetZenScriptOutput(
         [](const char* text, bool isError, void*)
@@ -694,7 +697,7 @@ static bool testSpawnAndMath()
     ok = ok && std::strstr(gCapturedOutput.c_str(), "bullet") != nullptr;
     ok = ok && std::strstr(gCapturedOutput.c_str(), "50") != nullptr;
 
-    std::remove(prefabPath);
+    std::remove(prefabPath.c_str());
     return ok;
 }
 
@@ -804,8 +807,8 @@ static bool testBlackboardAndEvents()
 
 static bool testHotReload()
 {
-    const char* path = "/tmp/k2d_zen_hotreload.py";
-    FILE* file = std::fopen(path, "w");
+    const std::string path = k2d_tests::tempPath("k2d_zen_hotreload.py");
+    FILE* file = std::fopen(path.c_str(), "w");
     if (!file)
         return false;
     std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
@@ -816,7 +819,7 @@ static bool testHotReload()
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("reloader");
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadFile(path);
+    bool ok = script->loadFile(path.c_str());
     scene.update(0.016f);
     ok = ok && nearEqual(object->position().x, 1.0f);
 
@@ -824,7 +827,9 @@ static bool testHotReload()
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
     std::filesystem::last_write_time(path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
-    file = std::fopen(path, "w");
+    file = std::fopen(path.c_str(), "w");
+    if (!file)
+        return false;
     std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
                "  self.node.set_position(2, 2)\n",
                file);
@@ -836,7 +841,7 @@ static bool testHotReload()
     ok = ok && nearEqual(object->position().x, 2.0f);
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
-    std::remove(path);
+    std::remove(path.c_str());
     return ok;
 }
 
