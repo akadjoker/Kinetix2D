@@ -32,6 +32,20 @@ namespace k2d
         bool recompile(const char *path);
         std::size_t refreshChangedFiles();
 
+        // Compiles a Zen source file to the portable VM bytecode format used
+        // by exported builds. The native Kinetix bindings must be identical
+        // when the resulting file is loaded.
+        bool compileFileToBytecode(const char *sourcePath, const char *bytecodePath,
+                                   bool stripDebug = true, ct::String *error = nullptr);
+        bool compileSourceToBytecode(const char *source, const char *sourceName, const char *bytecodePath,
+                                     bool stripDebug = true, ct::String *error = nullptr);
+
+        // A Web export loads its complete script bundle once, then maps the
+        // logical script paths stored in scenes to the classes it defines.
+        bool loadBytecodeBundle(const char *bytecodePath, ct::String *error = nullptr);
+        bool registerBytecodeScript(const char *scriptPath, const char *className,
+                                    ct::String *error = nullptr);
+
         // Detailed VM timers are opt-in because they instrument every script
         // callback. Call submitProfilerSamples once after update/render.
         void setVmProfiling(bool enabled);

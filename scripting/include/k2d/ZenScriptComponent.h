@@ -76,6 +76,7 @@ namespace k2d
 
     private:
         bool loadFromSource(const char *source, const char *path);
+        bool loadFromBytecode(const unsigned char *data, std::size_t size, const char *path);
         bool ensureInstance();
 
         ZenScriptProperty &overrideSlot(const char *name);

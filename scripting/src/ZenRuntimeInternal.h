@@ -96,6 +96,8 @@ struct ZenRuntime::Impl
 
     void initialize();
     bool compileClass(const char* source, const char* path, ZenScriptClass& out);
+    bool loadBytecodeClass(const unsigned char* data, size_t size, const char* path,
+                           ZenScriptClass& out);
     bool recompileClass(ZenScriptClass& entry, const char* source);
     ZenScriptClass* findClass(const char* path);
     ZenScriptClass* addClass(const ZenScriptClass& entry);

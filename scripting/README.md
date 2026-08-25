@@ -430,6 +430,20 @@ For world-space gameplay, use `wx, wy = mouse_world_position()` or
 an input callback or `on_update`. The scene is loaded using the normal asset paths and its physics
 world is rebuilt before the next update.
 
+## Bytecode for exports
+
+Development keeps scripts as `.py`, so source reload remains available. Release exporters can compile
+a script to Zen bytecode with:
+
+```sh
+k2d_scriptc assets/scripts/player.py exported/scripts/player.zbc
+```
+
+`ZenScriptComponent::loadFile()` recognises the `ZENBC` header and runs `.zbc` directly; it never
+falls back to source. Bytecode requires the same Zen VM version and Kinetix native bindings that
+generated it, so a Web export must be rebuilt after either changes. The Web exporter will compile
+and preload the project scripts in a deterministic order before loading its first scene.
+
 ## Notes
 
 - All scripts share one VM for the whole run. Module-level globals are therefore shared

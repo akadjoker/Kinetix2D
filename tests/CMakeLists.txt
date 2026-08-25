@@ -94,6 +94,10 @@ add_executable(k2d_zen_class_tests k2d_zen_class_tests.cpp)
 target_link_libraries(k2d_zen_class_tests PRIVATE k2d_zen)
 target_compile_features(k2d_zen_class_tests PRIVATE cxx_std_17)
 
+add_executable(k2d_zen_bytecode_tests k2d_zen_bytecode_tests.cpp)
+target_link_libraries(k2d_zen_bytecode_tests PRIVATE k2d_zen)
+target_compile_features(k2d_zen_bytecode_tests PRIVATE cxx_std_17)
+
 add_executable(k2d_zen_props_tests k2d_zen_props_tests.cpp)
 target_link_libraries(k2d_zen_props_tests PRIVATE k2d_zen)
 target_compile_features(k2d_zen_props_tests PRIVATE cxx_std_17)
@@ -134,6 +138,7 @@ target_compile_features(k2d_zen_physics_tests PRIVATE cxx_std_17)
 set(K2D_ZEN_TEST_TARGETS
     k2d_zen_tests
     k2d_zen_class_tests
+    k2d_zen_bytecode_tests
     k2d_zen_props_tests
     k2d_zen_prefab_tests
     k2d_zen_physics_tests

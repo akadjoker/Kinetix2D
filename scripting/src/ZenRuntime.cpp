@@ -2,6 +2,7 @@
 #include "ZenRuntimeInternal.h"
 
 #include <zen/compiler.h>
+#include <zen/bytecode.h>
 #include <zen/memory.h>
 #include <zen/object.h>
 #include <zen/vm.h>
@@ -206,6 +207,157 @@ namespace k2d
         return rebuilt;
     }
 
+    bool ZenRuntime::compileFileToBytecode(const char *sourcePath, const char *bytecodePath,
+                                           bool stripDebug, ct::String *error)
+    {
+        if (error)
+            error->clear();
+        if (!sourcePath || !sourcePath[0] || !bytecodePath || !bytecodePath[0])
+        {
+            if (error)
+                *error = "A source and output path are required";
+            return false;
+        }
+
+        FileBuffer source;
+        if (!FileSystem::Instance().LoadFile(sourcePath, source, true))
+        {
+            if (error)
+                *error = "Could not read Zen source file";
+            return false;
+        }
+
+        return compileSourceToBytecode(source.Text(), sourcePath, bytecodePath, stripDebug, error);
+    }
+
+    bool ZenRuntime::compileSourceToBytecode(const char *source, const char *sourceName,
+                                             const char *bytecodePath, bool stripDebug, ct::String *error)
+    {
+        if (error)
+            error->clear();
+        if (!source || !source[0] || !bytecodePath || !bytecodePath[0])
+        {
+            if (error)
+                *error = "Source and output paths are required";
+            return false;
+        }
+
+        zen::Compiler compiler;
+        zen::ObjFunc *script = compiler.compile(&mImpl->vm.get_gc(), &mImpl->vm, source,
+                                                sourceName && sourceName[0] ? sourceName : "script");
+        if (!script)
+        {
+            if (error)
+                *error = "Zen compilation failed";
+            return false;
+        }
+
+        char bytecodeError[256] = {};
+        if (!zen::dump_bytecode_file(&mImpl->vm, script, bytecodePath, stripDebug, bytecodeError,
+                                     static_cast<int>(sizeof(bytecodeError))))
+        {
+            if (error)
+                *error = bytecodeError[0] ? bytecodeError : "Could not write Zen bytecode";
+            return false;
+        }
+        return true;
+    }
+
+    bool ZenRuntime::loadBytecodeBundle(const char *bytecodePath, ct::String *error)
+    {
+        if (error)
+            error->clear();
+        if (!bytecodePath || !bytecodePath[0])
+        {
+            if (error)
+                *error = "A bytecode path is required";
+            return false;
+        }
+
+        FileBuffer bytecode;
+        if (!FileSystem::Instance().LoadFile(bytecodePath, bytecode, false))
+        {
+            if (error)
+                *error = "Could not read Zen bytecode bundle";
+            return false;
+        }
+
+        char bytecodeError[256] = {};
+        zen::ObjFunc *script = zen::load_bytecode_buffer(&mImpl->vm, bytecode.Data(), bytecode.Size(),
+                                                         bytecodeError, static_cast<int>(sizeof(bytecodeError)));
+        if (!script)
+        {
+            if (error)
+                *error = bytecodeError[0] ? bytecodeError : "Could not load Zen bytecode bundle";
+            return false;
+        }
+
+        mImpl->vm.run(script);
+        if (mImpl->vm.had_error())
+        {
+            if (error)
+                *error = "Zen bytecode bundle failed while initializing";
+            return false;
+        }
+        return true;
+    }
+
+    bool ZenRuntime::registerBytecodeScript(const char *scriptPath, const char *className, ct::String *error)
+    {
+        if (error)
+            error->clear();
+        if (!scriptPath || !scriptPath[0] || !className || !className[0])
+        {
+            if (error)
+                *error = "A script path and class name are required";
+            return false;
+        }
+        if (mImpl->findClass(scriptPath))
+            return true;
+
+        const int global = mImpl->vm.find_global(className);
+        if (global < 0 || !zen::is_class(mImpl->vm.get_global(global)))
+        {
+            if (error)
+                *error = "Bytecode bundle does not define the requested script class";
+            return false;
+        }
+
+        if (mImpl->selectorInit < 0)
+        {
+            mImpl->selectorInit = mImpl->vm.intern_selector("__init__", 8);
+            mImpl->selectorStart = mImpl->vm.intern_selector("on_start", 8);
+            mImpl->selectorUpdate = mImpl->vm.intern_selector("on_update", 9);
+            mImpl->selectorDraw = mImpl->vm.intern_selector("on_draw", 7);
+            mImpl->selectorDrawUi = mImpl->vm.intern_selector("on_draw_ui", 10);
+            mImpl->selectorDestroy = mImpl->vm.intern_selector("on_destroy", 10);
+            mImpl->selectorEvent = mImpl->vm.intern_selector("on_event", 8);
+            mImpl->selectorCollision = mImpl->vm.intern_selector("on_collision", 12);
+        }
+
+        ZenScriptClass entry;
+        entry.path = scriptPath;
+        entry.klass = mImpl->vm.get_global(global);
+        zen::ObjClass *klass = zen::as_class(entry.klass);
+        const auto slotIfPresent = [klass](int slot) -> int
+        {
+            if (slot < 0 || slot >= klass->vtable_size || zen::is_nil(klass->vtable[slot]))
+                return -1;
+            return slot;
+        };
+        entry.slotInit = slotIfPresent(mImpl->selectorInit);
+        entry.slotStart = slotIfPresent(mImpl->selectorStart);
+        entry.slotUpdate = slotIfPresent(mImpl->selectorUpdate);
+        entry.slotDraw = slotIfPresent(mImpl->selectorDraw);
+        entry.slotDrawUi = slotIfPresent(mImpl->selectorDrawUi);
+        entry.slotDestroy = slotIfPresent(mImpl->selectorDestroy);
+        entry.slotEvent = slotIfPresent(mImpl->selectorEvent);
+        entry.slotCollision = slotIfPresent(mImpl->selectorCollision);
+        BuildZenClassProperties(entry, nullptr);
+        mImpl->addClass(entry);
+        return true;
+    }
+
     bool ZenRuntime::invalidate(const char *path)
     {
         if (!path)
@@ -300,6 +452,81 @@ namespace k2d
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
         BuildZenClassProperties(out, source);
+        return true;
+    }
+
+    bool ZenRuntime::Impl::loadBytecodeClass(const unsigned char *data, size_t size, const char *path,
+                                             ZenScriptClass &out)
+    {
+        if (!zen::is_bytecode_buffer(data, size))
+            return false;
+
+        const int savedGlobals = vm.num_globals();
+        ct::Vector<zen::Value> snapshot;
+        for (int i = 0; i < savedGlobals; ++i)
+            snapshot.push_back(vm.get_global(i));
+
+        char error[256] = {};
+        zen::ObjFunc *script = zen::load_bytecode_buffer(&vm, data, size, error,
+                                                         static_cast<int>(sizeof(error)));
+        if (!script)
+            return false;
+
+        vm.run(script);
+        if (vm.had_error())
+            return false;
+
+        zen::Value found = zen::val_nil();
+        for (int i = 0; i < vm.num_globals(); ++i)
+        {
+            const zen::Value candidate = vm.get_global(i);
+            if (!zen::is_class(candidate))
+                continue;
+
+            const bool isNew = i >= savedGlobals;
+            const bool changed = !isNew && (!zen::is_class(snapshot[i]) ||
+                                            snapshot[i].as.obj != candidate.as.obj);
+            if (isNew || changed)
+            {
+                found = candidate;
+                break;
+            }
+        }
+
+        if (!zen::is_class(found))
+            return false;
+
+        if (selectorInit < 0)
+        {
+            selectorInit = vm.intern_selector("__init__", 8);
+            selectorStart = vm.intern_selector("on_start", 8);
+            selectorUpdate = vm.intern_selector("on_update", 9);
+            selectorDraw = vm.intern_selector("on_draw", 7);
+            selectorDrawUi = vm.intern_selector("on_draw_ui", 10);
+            selectorDestroy = vm.intern_selector("on_destroy", 10);
+            selectorEvent = vm.intern_selector("on_event", 8);
+            selectorCollision = vm.intern_selector("on_collision", 12);
+        }
+
+        zen::ObjClass *klass = zen::as_class(found);
+        const auto slotIfPresent = [klass](int slot) -> int
+        {
+            if (slot < 0 || slot >= klass->vtable_size || zen::is_nil(klass->vtable[slot]))
+                return -1;
+            return slot;
+        };
+
+        out.klass = found;
+        out.module = zen::val_nil();
+        out.slotInit = slotIfPresent(selectorInit);
+        out.slotStart = slotIfPresent(selectorStart);
+        out.slotUpdate = slotIfPresent(selectorUpdate);
+        out.slotDraw = slotIfPresent(selectorDraw);
+        out.slotDrawUi = slotIfPresent(selectorDrawUi);
+        out.slotDestroy = slotIfPresent(selectorDestroy);
+        out.slotEvent = slotIfPresent(selectorEvent);
+        out.slotCollision = slotIfPresent(selectorCollision);
+        BuildZenClassProperties(out, nullptr);
         return true;
     }
 

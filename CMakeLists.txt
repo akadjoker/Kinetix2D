@@ -42,7 +42,7 @@ add_subdirectory(runner)
 add_subdirectory(editor)
 
 include(GNUInstallDirs)
-install(TARGETS k2d_editor k2d_runner k2d_pack RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS k2d_editor k2d_runner k2d_pack k2d_scriptc RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY assets DESTINATION .)
 install(FILES README.md DESTINATION .)
 

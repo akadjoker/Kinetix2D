@@ -11,6 +11,8 @@
 #include "k2d/ZenRuntime.h"
 #include "ZenRuntimeInternal.h"
 
+#include <zen/bytecode.h>
+
 #include "k2d/Animation2D.h"
 #include "k2d/AudioEngine.h"
 #include "k2d/AudioPlayer.h"
@@ -2752,11 +2754,13 @@ bool ZenScriptComponent::loadFile(const char* path)
     }
 
     FileBuffer buffer;
-    if (!FileSystem::Instance().LoadFile(path, buffer, true))
+    if (!FileSystem::Instance().LoadFile(path, buffer, false))
         return false;
 
     mScriptPath = path;
     mSourceTimestamp = fileTimestamp(path);
+    if (zen::is_bytecode_buffer(buffer.Data(), buffer.Size()))
+        return loadFromBytecode(buffer.Data(), buffer.Size(), path);
     return loadFromSource(buffer.Text(), path);
 }
 
@@ -2775,6 +2779,29 @@ bool ZenScriptComponent::loadFromSource(const char* source, const char* path)
         return false;
 
     ++runtime.mCompileCount;
+    compiled.path = path;
+    compiled.timestamp = mSourceTimestamp;
+    mState->scriptClass = impl.addClass(compiled);
+    mState->classVersion = mState->scriptClass->version;
+    mState->generation = runtime.generation();
+    mState->loaded = true;
+    return true;
+}
+
+bool ZenScriptComponent::loadFromBytecode(const unsigned char* data, std::size_t size, const char* path)
+{
+    ZenRuntime& runtime = ZenRuntime::instance();
+    ZenRuntime::Impl& impl = runtime.impl();
+
+    destroyInstance();
+    mState->scriptClass = nullptr;
+    mState->loaded = false;
+    mState->pending = false;
+
+    ZenScriptClass compiled;
+    if (!impl.loadBytecodeClass(data, size, path, compiled))
+        return false;
+
     compiled.path = path;
     compiled.timestamp = mSourceTimestamp;
     mState->scriptClass = impl.addClass(compiled);
