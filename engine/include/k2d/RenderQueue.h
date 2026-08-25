@@ -7,34 +7,52 @@
 namespace k2d
 {
 
-    class CanvasRenderer;
+class CanvasRenderer;
 
-    class RenderQueue
+class RenderQueue
+{
+  public:
+    RenderQueue();
+    ~RenderQueue();
+
+    void Clear();
+    RenderItem& AddItem(int zIndex, bool ySort = false);
+    void AddLight(const PointLight& light);
+    void AddDirectionalLight(const DirectionalLight& light);
+    void AddOccluder(const Occluder& occluder);
+    void Flush(CanvasRenderer& canvas);
+
+    std::size_t ItemCount() const
     {
-    public:
-        RenderQueue();
-        ~RenderQueue();
+        return mItemCount;
+    }
+    std::size_t CommandCount() const;
+    std::size_t LightCount() const
+    {
+        return mLights.size();
+    }
+    std::size_t DirectionalLightCount() const
+    {
+        return mDirectionalLights.size();
+    }
+    std::size_t OccluderCount() const
+    {
+        return mOccluders.size();
+    }
 
-        void Clear();
-        RenderItem &AddItem(int zIndex, bool ySort = false);
-        void AddLight(const PointLight &light);
-        void AddDirectionalLight(const DirectionalLight &light);
-        void AddOccluder(const Occluder &occluder);
-        void Flush(CanvasRenderer &canvas);
+  private:
+    ct::Vector<RenderItem> mItems;
+    ct::Vector<PointLight> mLights;
+    ct::Vector<DirectionalLight> mDirectionalLights;
+    ct::Vector<Occluder> mOccluders;
+    unsigned int mSeq;
+    std::size_t mItemCount;
+    // The queue is rebuilt every frame, but the common case has a single
+    // layer and no Y sorting.  Its insertion order is already the draw
+    // order, so avoid an unnecessary O(n log n) sort in that case.
+    int mFirstZIndex;
+    bool mHasFirstZIndex;
+    bool mNeedsSort;
+};
 
-        std::size_t ItemCount() const { return mItemCount; }
-        std::size_t CommandCount() const;
-        std::size_t LightCount() const { return mLights.size(); }
-        std::size_t DirectionalLightCount() const { return mDirectionalLights.size(); }
-        std::size_t OccluderCount() const { return mOccluders.size(); }
-
-    private:
-        ct::Vector<RenderItem> mItems;
-        ct::Vector<PointLight> mLights;
-        ct::Vector<DirectionalLight> mDirectionalLights;
-        ct::Vector<Occluder> mOccluders;
-        unsigned int mSeq;
-        std::size_t mItemCount;
-    };
-
-}
+} // namespace k2d

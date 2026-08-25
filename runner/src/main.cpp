@@ -3,6 +3,7 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/Device.h>
+#include <k2d/OpenGL.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
@@ -22,7 +23,6 @@
 #include <k2d/UserData.h>
 #include <k2d/VirtualPad.h>
 
-#include <glad/glad.h>
 #include <SDL.h>
 
 #include <ct/json.hpp>
@@ -42,7 +42,7 @@ struct PhysicsConfig
     bool treeBroadphase = true;
 };
 
-Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
+Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
 {
     if (!value.is_array() || value.size() < 2)
         return fallback;
@@ -50,18 +50,18 @@ Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
                       static_cast<float>(value[1].as_double(fallback.y)));
 }
 
-void preloadTextures(const ct::Json &node, k2d::Assets &assets)
+void preloadTextures(const ct::Json& node, k2d::Assets& assets)
 {
     if (node.is_object())
     {
-        const ct::Json::Object &members = node.members();
+        const ct::Json::Object& members = node.members();
         for (size_t i = 0; i < members.size(); ++i)
         {
-            const ct::String &key = members[i].key;
-            const ct::Json &value = members[i].value;
+            const ct::String& key = members[i].key;
+            const ct::Json& value = members[i].value;
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
-                const char *path = value.as_cstr("");
+                const char* path = value.as_cstr("");
                 if (path[0] && !assets.GetTexture(path))
                     assets.LoadTexture(path, path, true, false);
             }
@@ -76,7 +76,7 @@ void preloadTextures(const ct::Json &node, k2d::Assets &assets)
     }
 }
 
-bool loadJson(const char *path, ct::Json &out)
+bool loadJson(const char* path, ct::Json& out)
 {
     k2d::FileBuffer buffer;
     if (!k2d::FileSystem::Instance().LoadFile(path, buffer, true))
@@ -86,9 +86,9 @@ bool loadJson(const char *path, ct::Json &out)
     return !error;
 }
 
-void applyRoot(k2d::Scene &scene, const ct::Json &rootJson, k2d::Assets &assets)
+void applyRoot(k2d::Scene& scene, const ct::Json& rootJson, k2d::Assets& assets)
 {
-    k2d::GameObject &root = scene.root();
+    k2d::GameObject& root = scene.root();
     root.setName(rootJson["name"].as_cstr("Scene"));
     root.setTag(rootJson["tag"].as_cstr(""));
     root.setActive(rootJson["active"].as_bool(true));
@@ -99,19 +99,19 @@ void applyRoot(k2d::Scene &scene, const ct::Json &rootJson, k2d::Assets &assets)
     root.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));
     root.setScale(readVec2(rootJson["scale"], Math::Vec2(1.0f)));
 
-    const ct::Json &children = rootJson["children"];
+    const ct::Json& children = rootJson["children"];
     if (children.is_array())
         for (size_t i = 0; i < children.size(); ++i)
             k2d::Serializer::ReadObject(scene, children[i], &root, &assets);
 }
 
-PhysicsConfig loadPhysics(const char *projectPath)
+PhysicsConfig loadPhysics(const char* projectPath)
 {
     PhysicsConfig config;
     ct::Json project;
     if (!projectPath || !projectPath[0] || !loadJson(projectPath, project))
         return config;
-    const ct::Json &physics = project["physics"];
+    const ct::Json& physics = project["physics"];
     if (!physics.is_object())
         return config;
     config.gravity = readVec2(physics["gravity"], config.gravity);
@@ -121,9 +121,9 @@ PhysicsConfig loadPhysics(const char *projectPath)
     return config;
 }
 
-void configureVirtualPad(const ct::Json &sceneJson, k2d::VirtualPad &pad)
+void configureVirtualPad(const ct::Json& sceneJson, k2d::VirtualPad& pad)
 {
-    const ct::Json &config = sceneJson["virtualPad"];
+    const ct::Json& config = sceneJson["virtualPad"];
     if (!config.is_object())
         return;
 
@@ -134,7 +134,7 @@ void configureVirtualPad(const ct::Json &sceneJson, k2d::VirtualPad &pad)
 
 void configureDefaultInputActions()
 {
-    k2d::InputActionMap &actions = k2d::GetInputActions();
+    k2d::InputActionMap& actions = k2d::GetInputActions();
     actions.Clear();
     actions.Bind("move_forward", SDL_SCANCODE_W);
     actions.Bind("move_forward", SDL_SCANCODE_UP);
@@ -148,14 +148,14 @@ void configureDefaultInputActions()
     actions.Bind("secondary", SDL_SCANCODE_LCTRL);
 }
 
-void scriptOutput(const char *text, bool error, void *)
+void scriptOutput(const char* text, bool error, void*)
 {
     static std::string line;
     static bool lineIsError = false;
     if (!text)
         return;
 
-    for (const char *c = text; *c; ++c)
+    for (const char* c = text; *c; ++c)
     {
         if (*c == '\n')
         {
@@ -173,15 +173,15 @@ void scriptOutput(const char *text, bool error, void *)
     }
 }
 
-void drawProfilerOverlay(k2d::CanvasRenderer &canvas, float width, float height)
+void drawProfilerOverlay(k2d::CanvasRenderer& canvas, float width, float height)
 {
     k2d::RenderQueue overlay;
-    k2d::RenderItem &item = overlay.AddItem(0);
+    k2d::RenderItem& item = overlay.AddItem(0);
     float y = 12.0f;
     char line[128];
-    const k2d::Profiler &profiler = k2d::Profiler::Get();
+    const k2d::Profiler& profiler = k2d::Profiler::Get();
 
-    const auto addLine = [&](const char *text)
+    const auto addLine = [&](const char* text)
     {
         k2d::RenderCommand command;
         command.type = k2d::RenderCommand::kText;
@@ -193,9 +193,9 @@ void drawProfilerOverlay(k2d::CanvasRenderer &canvas, float width, float height)
         item.commands.push_back(command);
         y += 18.0f;
     };
-    const k2d::ProfileSample *samples = profiler.samples();
+    const k2d::ProfileSample* samples = profiler.samples();
     const uint32_t sampleCount = profiler.sampleCount();
-    const k2d::ProfileSample *frame = nullptr;
+    const k2d::ProfileSample* frame = nullptr;
     for (uint32_t i = 0; i < sampleCount; ++i)
         if (std::strcmp(samples[i].name, "Frame") == 0)
         {
@@ -206,17 +206,14 @@ void drawProfilerOverlay(k2d::CanvasRenderer &canvas, float width, float height)
     const float frameMs = frame ? frame->display : profiler.frameMilliseconds();
     const float frameAverage = frame ? frame->average : frameMs;
     const float frameMaximum = frame ? frame->maximum : frameMs;
-    std::snprintf(line, sizeof(line),
-                  "Profiler (F5): %.2f ms / %.1f FPS | avg %.2f | max %.2f (120 frames)",
-                  frameMs, frameMs > 0.0f ? 1000.0f / frameMs : 0.0f,
-                  frameAverage, frameMaximum);
+    std::snprintf(line, sizeof(line), "Profiler (F5): %.2f ms / %.1f FPS | avg %.2f | max %.2f (120 frames)", frameMs,
+                  frameMs > 0.0f ? 1000.0f / frameMs : 0.0f, frameAverage, frameMaximum);
     addLine(line);
 
-    const auto addSample = [&](const k2d::ProfileSample &sample)
+    const auto addSample = [&](const k2d::ProfileSample& sample)
     {
-        std::snprintf(line, sizeof(line), "%s: %.2f ms | avg %.2f | max %.2f (%u calls)",
-                      sample.name, sample.display, sample.average, sample.maximum,
-                      sample.displayCalls);
+        std::snprintf(line, sizeof(line), "%s: %.2f ms | avg %.2f | max %.2f (%u calls)", sample.name, sample.display,
+                      sample.average, sample.maximum, sample.displayCalls);
         addLine(line);
     };
 
@@ -229,8 +226,7 @@ void drawProfilerOverlay(k2d::CanvasRenderer &canvas, float width, float height)
     uint32_t shown = 0;
     for (uint32_t i = 0; i < sampleCount && shown < 8; ++i)
     {
-        if (std::strcmp(samples[i].name, "Frame") == 0 ||
-            std::strncmp(samples[i].name, "vm.", 3) == 0)
+        if (std::strcmp(samples[i].name, "Frame") == 0 || std::strncmp(samples[i].name, "vm.", 3) == 0)
             continue;
         addSample(samples[i]);
         ++shown;
@@ -239,9 +235,9 @@ void drawProfilerOverlay(k2d::CanvasRenderer &canvas, float width, float height)
     canvas.SetOrtho(width, height);
     overlay.Flush(canvas);
 }
-}
+} // namespace
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     if (argc < 2)
     {
@@ -250,9 +246,8 @@ int main(int argc, char **argv)
     }
 
     const std::filesystem::path scenePath(argv[1]);
-    const std::filesystem::path projectRoot = argc >= 3
-        ? std::filesystem::path(argv[2]).parent_path()
-        : scenePath.parent_path().parent_path();
+    const std::filesystem::path projectRoot =
+        argc >= 3 ? std::filesystem::path(argv[2]).parent_path() : scenePath.parent_path().parent_path();
 
     k2d::Device device;
     if (!device.Init("Kinetix2D Game", 1280, 720, true, false))
@@ -294,7 +289,7 @@ int main(int argc, char **argv)
         k2d::SetZenScriptsEnabled(true);
         configureDefaultInputActions();
         preloadTextures(sceneJson, assets);
-        const ct::Json &rootJson = sceneJson["root"];
+        const ct::Json& rootJson = sceneJson["root"];
         if (!rootJson.is_object())
         {
             std::fprintf(stderr, "Invalid scene (missing root object): %s\n", argv[1]);
@@ -307,7 +302,7 @@ int main(int argc, char **argv)
         }
 
         PhysicsConfig physicsConfig = loadPhysics(argc >= 3 ? argv[2] : nullptr);
-        const ct::Json &scenePhysics = sceneJson["physics"];
+        const ct::Json& scenePhysics = sceneJson["physics"];
         if (scenePhysics.is_object())
             physicsConfig.gravity = readVec2(scenePhysics["gravity"], physicsConfig.gravity);
         physics.setGravity(physicsConfig.gravity);
@@ -331,8 +326,7 @@ int main(int argc, char **argv)
                     std::fprintf(stderr, "Audio unavailable; continuing without sound\n");
                 k2d::VirtualPad virtualPad;
                 virtualPad.SetTexture(k2d::VirtualPad::DefaultTexture(assets));
-                virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-                                          SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
+                virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
                                           SDL_SCANCODE_SPACE, SDL_SCANCODE_LCTRL);
                 configureVirtualPad(sceneJson, virtualPad);
                 bool profilerVisible = false;
@@ -345,13 +339,20 @@ int main(int argc, char **argv)
                         k2d::SetZenScriptProfilerVisible(profilerVisible);
                         k2d::ZenRuntime::instance().setVmProfiling(profilerVisible);
                     }
+                    if (device.GetInput().KeyPressed(SDL_SCANCODE_F6))
+                    {
+                        const std::size_t reloaded = k2d::ReloadChangedZenScripts();
+                        std::fprintf(
+                            stderr, reloaded ? "Reloaded %zu saved script(s)\n" : "No saved script changes to reload\n",
+                            reloaded);
+                    }
                     const float deltaTime = device.DeltaTime();
                     k2d::GetScreenFade().Update(deltaTime);
                     k2d::GetAudio().Update();
                     virtualPad.Update(device.GetInput(), static_cast<float>(device.Width()),
                                       static_cast<float>(device.Height()), deltaTime);
                     k2d::SetUiViewport(0.0f, 0.0f, static_cast<float>(device.Width()),
-                                        static_cast<float>(device.Height()));
+                                       static_cast<float>(device.Height()));
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
                     physics.step(deltaTime);
@@ -371,7 +372,7 @@ int main(int argc, char **argv)
                     const float height = static_cast<float>(device.Height());
                     k2d::SetZenScriptGameViewport(0.0f, 0.0f, width, height);
                     k2d::SetUiViewport(0.0f, 0.0f, width, height);
-                    if (k2d::CameraComponent *camera = scene.activeCamera())
+                    if (k2d::CameraComponent* camera = scene.activeCamera())
                     {
                         camera->setViewport(width, height);
                         canvas.SetProjection(camera->projection());

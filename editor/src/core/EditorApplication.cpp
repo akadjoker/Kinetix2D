@@ -8,6 +8,7 @@
 #include "panels/ConsolePanel.h"
 #include "panels/GamePanel.h"
 #include "panels/HierarchyPanel.h"
+#include "panels/ImageEditorPanel.h"
 #include "panels/InspectorPanel.h"
 #include "panels/ParticlePanel.h"
 #include "panels/PrefabsPanel.h"
@@ -19,7 +20,6 @@
 #include "panels/TileMapPanel.h"
 #include "widgets/EditorToolbar.h"
 
-#include <glad/glad.h>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <IconsMaterialDesignIcons.h>
@@ -60,7 +60,7 @@ namespace k2d::editor
 
 namespace
 {
-Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
+Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
 {
     if (!value.is_array() || value.size() < 2)
         return fallback;
@@ -70,7 +70,7 @@ Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
 
 void configureDefaultInputActions()
 {
-    InputActionMap &actions = GetInputActions();
+    InputActionMap& actions = GetInputActions();
     actions.Clear();
     actions.Bind("move_forward", SDL_SCANCODE_W);
     actions.Bind("move_forward", SDL_SCANCODE_UP);
@@ -84,7 +84,7 @@ void configureDefaultInputActions()
     actions.Bind("secondary", SDL_SCANCODE_LCTRL);
 }
 
-ct::String relativeToRoot(const ct::String &absolute, const ct::String &root)
+ct::String relativeToRoot(const ct::String& absolute, const ct::String& root)
 {
     if (root.empty() || absolute.size() <= root.size())
         return ct::String();
@@ -97,7 +97,7 @@ ct::String relativeToRoot(const ct::String &absolute, const ct::String &root)
     ++start;
     return absolute.substr(start, absolute.size() - start);
 }
-}
+} // namespace
 
 EditorApplication::~EditorApplication() = default;
 
@@ -110,7 +110,7 @@ bool EditorApplication::initialize()
     else
         mUserData.load();
 
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.IniFilename = "k2d_editor.ini";
     io.Fonts->AddFontDefault();
@@ -128,25 +128,27 @@ bool EditorApplication::initialize()
     SetUiThemeTexture(UiTheme::DefaultTexture(mAssets));
     SetZenScriptAssets(&mAssets);
     SetZenScriptUserData(&mUserData);
-    SetZenScriptOutput([](const char *text, bool isError, void *user)
-    {
-        EditorApplication &self = *static_cast<EditorApplication *>(user);
-        static ct::String lineBuffer;
-        for (const char *c = text; *c; ++c)
+    SetZenScriptOutput(
+        [](const char* text, bool isError, void* user)
         {
-            if (*c == '\n')
+            EditorApplication& self = *static_cast<EditorApplication*>(user);
+            static ct::String lineBuffer;
+            for (const char* c = text; *c; ++c)
             {
-                ct::String message(isError ? "[script] ERROR: " : "[script] ");
-                message += lineBuffer;
-                self.log(message);
-                lineBuffer.clear();
+                if (*c == '\n')
+                {
+                    ct::String message(isError ? "[script] ERROR: " : "[script] ");
+                    message += lineBuffer;
+                    self.log(message);
+                    lineBuffer.clear();
+                }
+                else
+                {
+                    lineBuffer.push_back(*c);
+                }
             }
-            else
-            {
-                lineBuffer.push_back(*c);
-            }
-        }
-    }, this);
+        },
+        this);
 
     loadSettings();
     mDevice.SetDisplayIndex(mSettings.windowDisplayIndex);
@@ -189,22 +191,6 @@ int EditorApplication::run()
 
         if (mPlaying && !mPaused)
         {
-            if (mSettings.scriptHotReload)
-            {
-                mScriptWatchTimer += mDevice.DeltaTime();
-                if (mScriptWatchTimer >= 0.5f)
-                {
-                    mScriptWatchTimer = 0.0f;
-                    if (const size_t reloaded = ReloadChangedZenScripts())
-                    {
-                        char message[64];
-                        std::snprintf(message, sizeof(message), "Hot reloaded %d script(s)",
-                                      static_cast<int>(reloaded));
-                        log(message);
-                        mToasts.info(message);
-                    }
-                }
-            }
             SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
             GetScreenFade().Update(mDevice.DeltaTime());
             mRuntimeScene.update(mDevice.DeltaTime());
@@ -221,7 +207,7 @@ int EditorApplication::run()
         mDevice.BeginUI();
         handleShortcuts();
         drawWorkspace();
-        for (const ct::Unique<EditorPanel> &panel : mPanels)
+        for (const ct::Unique<EditorPanel>& panel : mPanels)
             panel->draw();
         ShowProfilerWindow(&mProfilerOpen);
         if (mDefaultFocusPending)
@@ -281,6 +267,9 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<ParticlePanel>(*this));
     mPanels.push_back(ct::make_unique<TileMapPanel>(*this));
     mPanels.push_back(ct::make_unique<SpriteEditorPanel>(*this));
+    ct::Unique<ImageEditorPanel> imageEditor = ct::make_unique<ImageEditorPanel>(*this);
+    mImageEditor = imageEditor.get();
+    mPanels.push_back(ct::detail::move(imageEditor));
     mPanels.push_back(ct::make_unique<AnimatorPanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
@@ -291,19 +280,27 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<ConsolePanel>(*this));
 }
 
-void EditorApplication::openScriptEditor(const char *path)
+void EditorApplication::openScriptEditor(const char* path)
 {
     if (mScriptEditor)
         mScriptEditor->openFile(path);
 }
 
-void EditorApplication::log(const char *message)
+void EditorApplication::openImageEditor(const char* path)
+{
+    if (!mImageEditor)
+        return;
+    mImageEditor->open() = true;
+    mImageEditor->openImage(path);
+}
+
+void EditorApplication::log(const char* message)
 {
     mConsoleText += message;
     mConsoleText.push_back('\n');
 }
 
-void EditorApplication::log(const ct::String &message)
+void EditorApplication::log(const ct::String& message)
 {
     log(message.c_str());
 }
@@ -317,7 +314,7 @@ EditorApplication::SceneChange EditorApplication::beginChange()
     return change;
 }
 
-void EditorApplication::commitChange(const char *label, const SceneChange &before)
+void EditorApplication::commitChange(const char* label, const SceneChange& before)
 {
     SceneCommand command;
     command.label = label;
@@ -334,7 +331,7 @@ void EditorApplication::commitChange(const char *label, const SceneChange &befor
     log(message);
 }
 
-void EditorApplication::beginTransaction(const char *label, const SceneChange &before)
+void EditorApplication::beginTransaction(const char* label, const SceneChange& before)
 {
     if (mTransactionActive)
         return;
@@ -369,27 +366,26 @@ ct::Json EditorApplication::snapshotScene()
     return document;
 }
 
-void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selectedId, bool hadSelection)
+void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selectedId, bool hadSelection)
 {
-    const ct::Json &rootJson = snapshot["root"];
+    const ct::Json& rootJson = snapshot["root"];
     mSelection.clear();
     mScene.clear();
 
     mScenePhysics = ScenePhysics();
-    const ct::Json &physics = snapshot["physics"];
+    const ct::Json& physics = snapshot["physics"];
     if (physics.is_object())
     {
-        const ct::Json &gravity = physics["gravity"];
+        const ct::Json& gravity = physics["gravity"];
         if (gravity.is_array() && gravity.size() >= 2)
         {
             mScenePhysics.overrideGravity = true;
-            mScenePhysics.gravity = Math::Vec2((float)gravity[0].as_double(0.0),
-                                               (float)gravity[1].as_double(980.0));
+            mScenePhysics.gravity = Math::Vec2((float)gravity[0].as_double(0.0), (float)gravity[1].as_double(980.0));
         }
     }
     applyPhysicsSettings();
 
-    GameObject &root = mScene.root();
+    GameObject& root = mScene.root();
     root.setName(rootJson["name"].as_cstr("Scene"));
     root.setTag(rootJson["tag"].as_cstr(""));
     root.setActive(rootJson["active"].as_bool(true));
@@ -400,7 +396,7 @@ void EditorApplication::restoreScene(const ct::Json &snapshot, uint64_t selected
     root.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));
     root.setScale(readVec2(rootJson["scale"], Math::Vec2(1.0f)));
 
-    const ct::Json &children = rootJson["children"];
+    const ct::Json& children = rootJson["children"];
     if (children.is_array())
         for (size_t i = 0; i < children.size(); ++i)
             Serializer::ReadObject(mScene, children[i], &root, &mAssets);
@@ -419,7 +415,7 @@ void EditorApplication::startPlay()
     ZenBlackboard::clear();
 
     const ct::Json rootJson = Serializer::WriteObject(mScene.root(), &mAssets);
-    GameObject &runtimeRoot = mRuntimeScene.root();
+    GameObject& runtimeRoot = mRuntimeScene.root();
     runtimeRoot.setName(rootJson["name"].as_cstr("Scene"));
     runtimeRoot.setTag(rootJson["tag"].as_cstr(""));
     runtimeRoot.setActive(rootJson["active"].as_bool(true));
@@ -429,7 +425,7 @@ void EditorApplication::startPlay()
     runtimeRoot.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));
     runtimeRoot.setScale(readVec2(rootJson["scale"], Math::Vec2(1.0f)));
 
-    const ct::Json &children = rootJson["children"];
+    const ct::Json& children = rootJson["children"];
     if (children.is_array())
         for (size_t i = 0; i < children.size(); ++i)
             Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
@@ -456,7 +452,7 @@ void EditorApplication::applyPhysicsSettings()
 {
     if (!mPhysicsWorld)
         return;
-    const PhysicsSettings &physics = mProject.physics();
+    const PhysicsSettings& physics = mProject.physics();
     mPhysicsWorld->setGravity(effectiveGravity());
     mPhysicsWorld->setFixedTimeStep(physics.fixedTimeStep);
     mPhysicsWorld->world().SetVelocityIterations(physics.velocityIterations);
@@ -515,11 +511,10 @@ void EditorApplication::runStandalone()
     if (pid == 0)
     {
         if (mProject.valid())
-            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(),
-                  mProject.projectFile().c_str(), static_cast<char *>(nullptr));
+            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(), mProject.projectFile().c_str(),
+                  static_cast<char*>(nullptr));
         else
-            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(),
-                  static_cast<char *>(nullptr));
+            execl(runnerPath.c_str(), runnerPath.c_str(), mCurrentScenePath.c_str(), static_cast<char*>(nullptr));
         _exit(127);
     }
     if (pid < 0)
@@ -536,7 +531,7 @@ void EditorApplication::runStandalone()
 #endif
 }
 
-void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)
+void EditorApplication::tickEditPreview(GameObject& object, float deltaTime)
 {
     if (!object.isActiveInHierarchy())
         return;
@@ -544,7 +539,7 @@ void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)
     const size_t particleCount = object.componentCount<ParticleComponent>();
     for (size_t i = 0; i < particleCount; ++i)
     {
-        ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i);
+        ParticleComponent* particle = object.getComponentAt<ParticleComponent>(i);
         if (!particle || !particle->active())
             continue;
         if (particle->followOwner())
@@ -555,7 +550,7 @@ void EditorApplication::tickEditPreview(GameObject &object, float deltaTime)
     const size_t animCount = object.componentCount<Animation2D>();
     for (size_t i = 0; i < animCount; ++i)
     {
-        Animation2D *anim = object.getComponentAt<Animation2D>(i);
+        Animation2D* anim = object.getComponentAt<Animation2D>(i);
         if (anim && anim->active())
             anim->Advance(deltaTime);
     }
@@ -569,16 +564,16 @@ void EditorApplication::restartEditPreview()
     restartEditPreview(mScene.root());
 }
 
-void EditorApplication::restartEditPreview(GameObject &object)
+void EditorApplication::restartEditPreview(GameObject& object)
 {
     const size_t particleCount = object.componentCount<ParticleComponent>();
     for (size_t i = 0; i < particleCount; ++i)
-        if (ParticleComponent *particle = object.getComponentAt<ParticleComponent>(i))
+        if (ParticleComponent* particle = object.getComponentAt<ParticleComponent>(i))
             particle->system().Reset();
 
     const size_t animCount = object.componentCount<Animation2D>();
     for (size_t i = 0; i < animCount; ++i)
-        if (Animation2D *anim = object.getComponentAt<Animation2D>(i))
+        if (Animation2D* anim = object.getComponentAt<Animation2D>(i))
             anim->reset();
 
     for (size_t i = 0; i < object.childCount(); ++i)
@@ -587,7 +582,7 @@ void EditorApplication::restartEditPreview(GameObject &object)
 
 void EditorApplication::undo()
 {
-    const SceneCommand *command = mCommands.undo();
+    const SceneCommand* command = mCommands.undo();
     if (!command)
     {
         log("Undo: nothing to undo");
@@ -601,7 +596,7 @@ void EditorApplication::undo()
 
 void EditorApplication::redo()
 {
-    const SceneCommand *command = mCommands.redo();
+    const SceneCommand* command = mCommands.redo();
     if (!command)
     {
         log("Redo: nothing to redo");
@@ -615,10 +610,14 @@ void EditorApplication::redo()
 
 void EditorApplication::handleShortcuts()
 {
-    const ImGuiIO &io = ImGui::GetIO();
+    const ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput)
         return;
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+    if (mPlaying && ImGui::IsKeyPressed(ImGuiKey_F6, false))
+    {
+        reloadChangedScripts();
+    }
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
     {
         if (io.KeyShift)
             redo();
@@ -633,6 +632,24 @@ void EditorApplication::handleShortcuts()
     {
         saveScene(mCurrentScenePath.c_str());
     }
+}
+
+void EditorApplication::reloadChangedScripts()
+{
+    if (!mPlaying)
+    {
+        mToasts.info("Start Play before reloading scripts");
+        return;
+    }
+
+    const size_t reloaded = ReloadChangedZenScripts();
+    char message[80];
+    if (reloaded)
+        std::snprintf(message, sizeof(message), "Reloaded %d saved script(s)", static_cast<int>(reloaded));
+    else
+        std::snprintf(message, sizeof(message), "No saved script changes to reload");
+    log(message);
+    mToasts.info(message);
 }
 
 void EditorApplication::newScene()
@@ -657,29 +674,29 @@ void EditorApplication::createShapesExampleScene()
     newScene();
     mScene.root().setName("Shapes Example");
 
-    GameObject *filledCircle = mScene.createObject("Filled Circle");
+    GameObject* filledCircle = mScene.createObject("Filled Circle");
     filledCircle->setPosition(Math::Vec2(-150.0f, 0.0f));
-    CircleShape *circle = filledCircle->addComponent<CircleShape>();
+    CircleShape* circle = filledCircle->addComponent<CircleShape>();
     circle->setRadius(70.0f);
     circle->setColor(80, 170, 255, 255);
 
-    GameObject *outlineCircle = mScene.createObject("Circle Outline");
+    GameObject* outlineCircle = mScene.createObject("Circle Outline");
     outlineCircle->setPosition(Math::Vec2(50.0f, 0.0f));
-    CircleShape *lineCircle = outlineCircle->addComponent<CircleShape>();
+    CircleShape* lineCircle = outlineCircle->addComponent<CircleShape>();
     lineCircle->setRadius(70.0f);
     lineCircle->setMode(ShapeRenderMode::Line);
     lineCircle->setLineWidth(6.0f);
     lineCircle->setColor(255, 210, 90, 255);
 
-    GameObject *filledRect = mScene.createObject("Filled Rect");
+    GameObject* filledRect = mScene.createObject("Filled Rect");
     filledRect->setPosition(Math::Vec2(-50.0f, 150.0f));
-    RectShape *rect = filledRect->addComponent<RectShape>();
+    RectShape* rect = filledRect->addComponent<RectShape>();
     rect->setSize(Math::Vec2(180.0f, 80.0f));
     rect->setColor(115, 220, 145, 255);
 
-    GameObject *outlineRect = mScene.createObject("Rect Outline");
+    GameObject* outlineRect = mScene.createObject("Rect Outline");
     outlineRect->setPosition(Math::Vec2(170.0f, 150.0f));
-    RectShape *lineRect = outlineRect->addComponent<RectShape>();
+    RectShape* lineRect = outlineRect->addComponent<RectShape>();
     lineRect->setSize(Math::Vec2(160.0f, 80.0f));
     lineRect->setMode(ShapeRenderMode::Line);
     lineRect->setLineWidth(6.0f);
@@ -694,25 +711,25 @@ void EditorApplication::createPhysicsExampleScene()
     newScene();
     mScene.root().setName("Physics Example");
 
-    GameObject *ground = mScene.createObject("Ground");
+    GameObject* ground = mScene.createObject("Ground");
     ground->setPosition(Math::Vec2(0.0f, 270.0f));
-    RectShape *groundShape = ground->addComponent<RectShape>();
+    RectShape* groundShape = ground->addComponent<RectShape>();
     groundShape->setSize(Math::Vec2(800.0f, 40.0f));
     groundShape->setColor(90, 105, 125, 255);
     ground->addComponent<RigidBody2D>()->setBodyType(kx::BodyType::Static);
     ground->addComponent<BoxCollider2D>()->setSize(Math::Vec2(800.0f, 40.0f));
 
-    GameObject *ball = mScene.createObject("Ball");
+    GameObject* ball = mScene.createObject("Ball");
     ball->setPosition(Math::Vec2(-100.0f, -180.0f));
-    CircleShape *ballShape = ball->addComponent<CircleShape>();
+    CircleShape* ballShape = ball->addComponent<CircleShape>();
     ballShape->setRadius(32.0f);
     ballShape->setColor(85, 175, 255, 255);
     ball->addComponent<RigidBody2D>();
     ball->addComponent<CircleCollider2D>()->setRadius(32.0f);
 
-    GameObject *box = mScene.createObject("Box");
+    GameObject* box = mScene.createObject("Box");
     box->setPosition(Math::Vec2(120.0f, -80.0f));
-    RectShape *boxShape = box->addComponent<RectShape>();
+    RectShape* boxShape = box->addComponent<RectShape>();
     boxShape->setSize(Math::Vec2(64.0f, 64.0f));
     boxShape->setColor(245, 180, 80, 255);
     box->addComponent<RigidBody2D>();
@@ -727,8 +744,8 @@ void EditorApplication::createBunnymarkExampleScene()
     newScene();
     mScene.root().setName("Bunnymark Example");
 
-    GameObject *main = mScene.createObject("Bunnymark Main");
-    ZenScriptComponent *script = main->addComponent<ZenScriptComponent>();
+    GameObject* main = mScene.createObject("Bunnymark Main");
+    ZenScriptComponent* script = main->addComponent<ZenScriptComponent>();
     if (!script->loadFile("scripts/bunnymark_main.py"))
     {
         log("Could not load scripts/bunnymark_main.py from the Assets search paths");
@@ -740,18 +757,18 @@ void EditorApplication::createBunnymarkExampleScene()
     log("Created Bunnymark example. Press Play, then click inside Game to spawn 100 bunnies.");
 }
 
-void EditorApplication::preloadTextures(const ct::Json &node)
+void EditorApplication::preloadTextures(const ct::Json& node)
 {
     if (node.is_object())
     {
-        const ct::Json::Object &members = node.members();
+        const ct::Json::Object& members = node.members();
         for (size_t i = 0; i < members.size(); ++i)
         {
-            const ct::String &key = members[i].key;
-            const ct::Json &value = members[i].value;
+            const ct::String& key = members[i].key;
+            const ct::Json& value = members[i].value;
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
-                const char *path = value.as_cstr("");
+                const char* path = value.as_cstr("");
                 if (path[0] && !mAssets.GetTexture(path))
                     mAssets.LoadTexture(path, path, true, false);
             }
@@ -768,11 +785,11 @@ void EditorApplication::preloadTextures(const ct::Json &node)
     }
 }
 
-Texture *EditorApplication::particlePlaceholderTexture()
+Texture* EditorApplication::particlePlaceholderTexture()
 {
-    constexpr const char *kName = "__editor_particle_placeholder";
+    constexpr const char* kName = "__editor_particle_placeholder";
     constexpr int kSize = 64;
-    if (Texture *texture = mAssets.GetTexture(kName))
+    if (Texture* texture = mAssets.GetTexture(kName))
         return texture;
 
     unsigned char pixels[kSize * kSize * 4];
@@ -797,7 +814,7 @@ Texture *EditorApplication::particlePlaceholderTexture()
     return mAssets.CreateTexture(kName, kSize, kSize, pixels, true, false);
 }
 
-bool EditorApplication::openScene(const char *path)
+bool EditorApplication::openScene(const char* path)
 {
     if (!path || !path[0])
         return false;
@@ -840,7 +857,7 @@ bool EditorApplication::openScene(const char *path)
     return true;
 }
 
-bool EditorApplication::saveScene(const char *path)
+bool EditorApplication::saveScene(const char* path)
 {
     if (!path || !path[0])
         return false;
@@ -866,7 +883,7 @@ bool EditorApplication::saveScene(const char *path)
     return true;
 }
 
-bool EditorApplication::newProject(const char *rootDirectory, const char *name)
+bool EditorApplication::newProject(const char* rootDirectory, const char* name)
 {
     if (!mProject.create(rootDirectory, name))
     {
@@ -888,7 +905,7 @@ bool EditorApplication::newProject(const char *rootDirectory, const char *name)
     return true;
 }
 
-bool EditorApplication::openProject(const char *projectFile)
+bool EditorApplication::openProject(const char* projectFile)
 {
     if (!mProject.load(projectFile))
     {
@@ -914,7 +931,7 @@ bool EditorApplication::openProject(const char *projectFile)
 }
 
 void EditorApplication::openFileDialog(FileDialogPurpose purpose, ImGuiFileDialog::Mode mode,
-                                       const ct::String &startDirectory, const ct::String &initialName)
+                                       const ct::String& startDirectory, const ct::String& initialName)
 {
     mFileDialogPurpose = purpose;
     mFileDialog.Open(mode, std::filesystem::path(startDirectory.c_str()), initialName.c_str());
@@ -922,19 +939,14 @@ void EditorApplication::openFileDialog(FileDialogPurpose purpose, ImGuiFileDialo
 
 void EditorApplication::drawWorkspace()
 {
-    const ImGuiViewport *viewport = ImGui::GetMainViewport();
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
 
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_MenuBar |
-                                   ImGuiWindowFlags_NoDocking |
-                                   ImGuiWindowFlags_NoTitleBar |
-                                   ImGuiWindowFlags_NoCollapse |
-                                   ImGuiWindowFlags_NoResize |
-                                   ImGuiWindowFlags_NoMove |
-                                   ImGuiWindowFlags_NoBringToFrontOnFocus |
-                                   ImGuiWindowFlags_NoNavFocus;
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
+                                   ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                   ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -967,15 +979,15 @@ void EditorApplication::drawMenuBar()
     {
         if (ImGui::MenuItem("New Project..."))
             openFileDialog(FileDialogPurpose::NewProjectFolder, ImGuiFileDialog::Mode::ChooseFolder,
-                          EditorFileSystem::currentDirectory());
+                           EditorFileSystem::currentDirectory());
         if (ImGui::MenuItem("Open Project..."))
             openFileDialog(FileDialogPurpose::OpenProject, ImGuiFileDialog::Mode::OpenFile,
-                          EditorFileSystem::currentDirectory());
+                           EditorFileSystem::currentDirectory());
         if (ImGui::BeginMenu("Recent Projects", !mSettings.recentProjectPaths.empty()))
         {
             for (size_t i = mSettings.recentProjectPaths.size(); i > 0; --i)
             {
-                const ct::String &path = mSettings.recentProjectPaths[i - 1];
+                const ct::String& path = mSettings.recentProjectPaths[i - 1];
                 if (ImGui::MenuItem(path.c_str()))
                     openProject(path.c_str());
             }
@@ -999,15 +1011,13 @@ void EditorApplication::drawMenuBar()
         }
         if (ImGui::MenuItem("Open Scene..."))
             openFileDialog(FileDialogPurpose::OpenScene, ImGuiFileDialog::Mode::OpenFile,
-                          mProject.valid() ? mProject.scenesDirectory()
-                                           : EditorFileSystem::currentDirectory());
+                           mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory());
         if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, !mCurrentScenePath.empty()))
             saveScene(mCurrentScenePath.c_str());
         if (ImGui::MenuItem("Save Scene As..."))
             openFileDialog(FileDialogPurpose::SaveScene, ImGuiFileDialog::Mode::SaveFile,
-                          mProject.valid() ? mProject.scenesDirectory()
-                                           : EditorFileSystem::currentDirectory(),
-                          "scene.k2dscene");
+                           mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory(),
+                           "scene.k2dscene");
 
         if (mProject.valid())
         {
@@ -1027,7 +1037,7 @@ void EditorApplication::drawMenuBar()
             {
                 for (size_t i = 0; i < mProject.scenes().size(); ++i)
                 {
-                    const ct::String &sceneRelative = mProject.scenes()[i];
+                    const ct::String& sceneRelative = mProject.scenes()[i];
                     ct::String label = sceneRelative;
                     if (mProject.startupScene() == sceneRelative)
                         label += "  (startup)";
@@ -1064,7 +1074,7 @@ void EditorApplication::drawMenuBar()
 
     if (ImGui::BeginMenu("Window"))
     {
-        for (const ct::Unique<EditorPanel> &panel : mPanels)
+        for (const ct::Unique<EditorPanel>& panel : mPanels)
         {
             if (ImGui::MenuItem(panel->title(), nullptr, &panel->open()))
             {
@@ -1075,14 +1085,14 @@ void EditorApplication::drawMenuBar()
         }
         ImGui::Separator();
         ImGui::MenuItem("Profiler", nullptr, &mProfilerOpen);
-        if (ImGui::MenuItem("Script Hot Reload", nullptr, &mSettings.scriptHotReload))
-            log(mSettings.scriptHotReload ? "Script hot reload enabled" : "Script hot reload disabled");
+        if (ImGui::MenuItem("Reload Saved Scripts", "F6", false, mPlaying))
+            reloadChangedScripts();
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("While playing, reload .py files as soon as they change on disk");
+            ImGui::SetTooltip("Recompile changed .py files once; files are never polled automatically");
         ImGui::Separator();
         if (ImGui::MenuItem("Reset Layout"))
         {
-            for (const ct::Unique<EditorPanel> &panel : mPanels)
+            for (const ct::Unique<EditorPanel>& panel : mPanels)
                 panel->open() = true;
             mLayoutResetRequested = true;
             log("Layout reset");
@@ -1120,8 +1130,8 @@ void EditorApplication::drawFileDialog()
         return;
 
     const std::filesystem::path anchor = mProject.valid()
-        ? std::filesystem::path(mProject.root().c_str())
-        : std::filesystem::path(EditorFileSystem::currentDirectory().c_str());
+                                             ? std::filesystem::path(mProject.root().c_str())
+                                             : std::filesystem::path(EditorFileSystem::currentDirectory().c_str());
     if (!mFileDialog.Render(anchor, anchor, anchor))
         return;
 
@@ -1157,14 +1167,13 @@ void EditorApplication::drawStatusBar()
     mStatsSmoothedDelta = mStatsSmoothedDelta <= 0.0f ? deltaTime : mStatsSmoothedDelta * 0.9f + deltaTime * 0.1f;
     const float fps = mStatsSmoothedDelta > 0.0f ? 1.0f / mStatsSmoothedDelta : 0.0f;
 
-    const ImGuiViewport *viewport = ImGui::GetMainViewport();
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const float height = 26.0f;
     ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - height));
     ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, height));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                                    ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
-                                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                   ImGuiWindowFlags_NoDocking;
+                                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoDocking;
     ImGui::Begin("##StatusBar", nullptr, flags);
 
     ImGui::Text("%.0f FPS  %.2f ms", fps, mStatsSmoothedDelta * 1000.0f);
@@ -1208,7 +1217,7 @@ void EditorApplication::drawToolbar()
     toolbarSameLine();
     if (toolbarIcon("open", ICON_MDI_FOLDER_OPEN, "Open scene"))
         openFileDialog(FileDialogPurpose::OpenScene, ImGuiFileDialog::Mode::OpenFile,
-                      mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory());
+                       mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory());
     toolbarSameLine();
     if (toolbarIcon("save", ICON_MDI_CONTENT_SAVE, "Save scene"))
     {
@@ -1216,17 +1225,14 @@ void EditorApplication::drawToolbar()
             saveScene(mCurrentScenePath.c_str());
         else
             openFileDialog(FileDialogPurpose::SaveScene, ImGuiFileDialog::Mode::SaveFile,
-                          mProject.valid() ? mProject.scenesDirectory()
-                                           : EditorFileSystem::currentDirectory(),
-                          "scene.k2dscene");
+                           mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory(),
+                           "scene.k2dscene");
     }
     toolbarDivider();
-    if (toolbarIcon("undo", ICON_MDI_UNDO, canUndo() ? undoName() : "Nothing to undo",
-                    false, canUndo()))
+    if (toolbarIcon("undo", ICON_MDI_UNDO, canUndo() ? undoName() : "Nothing to undo", false, canUndo()))
         undo();
     toolbarSameLine();
-    if (toolbarIcon("redo", ICON_MDI_REDO, canRedo() ? redoName() : "Nothing to redo",
-                    false, canRedo()))
+    if (toolbarIcon("redo", ICON_MDI_REDO, canRedo() ? redoName() : "Nothing to redo", false, canRedo()))
         redo();
 
     const float playbackWidth = 30.0f * 5.0f + 3.0f * 4.0f;
@@ -1284,4 +1290,4 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     mDefaultFocusPending = true;
 }
 
-}
+} // namespace k2d::editor

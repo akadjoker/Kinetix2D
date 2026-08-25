@@ -10,14 +10,12 @@
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
 
-#include <glad/glad.h>
-
 #include <cstdint>
 
 namespace k2d::editor
 {
 
-GamePanel::GamePanel(EditorApplication &application) : EditorPanel("Game", application)
+GamePanel::GamePanel(EditorApplication& application) : EditorPanel("Game", application)
 {
     mCanvasInitialized = mCanvas.Init();
 }
@@ -91,8 +89,8 @@ void GamePanel::renderScene(int width, int height)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    Scene &scene = app().runtimeScene();
-    CameraComponent *camera = scene.activeCamera();
+    Scene& scene = app().runtimeScene();
+    CameraComponent* camera = scene.activeCamera();
     if (camera)
     {
         camera->setViewport(static_cast<float>(width), static_cast<float>(height));
@@ -107,15 +105,15 @@ void GamePanel::renderScene(int width, int height)
     }
     scene.render(mCanvas);
     if (app().settings().showPhysicsDebug)
-        if (PhysicsWorld2D *world = app().physicsWorld())
+        if (PhysicsWorld2D* world = app().physicsWorld())
         {
             // Physics is an editor overlay. scene.render() has already
             // submitted its batch; make the overlay independent from any
             // depth state a material/shadow pass may have changed.
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
-            world->debugDraw(mCanvas, kx::DebugDrawShapes | kx::DebugDrawAABBs |
-                                          kx::DebugDrawContacts | kx::DebugDrawJoints);
+            world->debugDraw(mCanvas,
+                             kx::DebugDrawShapes | kx::DebugDrawAABBs | kx::DebugDrawContacts | kx::DebugDrawJoints);
         }
     GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
 
@@ -131,12 +129,12 @@ void GamePanel::drawContents()
         const ImVec2 position = ImGui::GetCursorScreenPos();
         const float width = available.x < 1.0f ? 1.0f : available.x;
         const float height = available.y < 1.0f ? 1.0f : available.y;
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            position, ImVec2(position.x + width, position.y + height), IM_COL32(12, 14, 18, 255));
-        const char *message = "Press Play to run the edited scene";
+        ImGui::GetWindowDrawList()->AddRectFilled(position, ImVec2(position.x + width, position.y + height),
+                                                  IM_COL32(12, 14, 18, 255));
+        const char* message = "Press Play to run the edited scene";
         const ImVec2 textSize = ImGui::CalcTextSize(message);
-        ImGui::SetCursorScreenPos(ImVec2(position.x + (width - textSize.x) * 0.5f,
-                                        position.y + (height - textSize.y) * 0.5f));
+        ImGui::SetCursorScreenPos(
+            ImVec2(position.x + (width - textSize.x) * 0.5f, position.y + (height - textSize.y) * 0.5f));
         ImGui::TextDisabled("%s", message);
         return;
     }
@@ -158,7 +156,7 @@ void GamePanel::drawContents()
     SetUiViewport(position.x, position.y, width, height);
     renderScene(fboWidth, fboHeight);
 
-    ImDrawList &drawList = *ImGui::GetWindowDrawList();
+    ImDrawList& drawList = *ImGui::GetWindowDrawList();
     if (mCanvasReady)
     {
         drawList.AddImage((ImTextureID)(intptr_t)mColorTexture, position,
@@ -166,8 +164,7 @@ void GamePanel::drawContents()
     }
     else
     {
-        drawList.AddRectFilled(position, ImVec2(position.x + width, position.y + height),
-                               IM_COL32(12, 14, 18, 255));
+        drawList.AddRectFilled(position, ImVec2(position.x + width, position.y + height), IM_COL32(12, 14, 18, 255));
     }
     SetZenScriptGameViewport(position.x, position.y, width, height);
     if (app().paused())
@@ -177,4 +174,4 @@ void GamePanel::drawContents()
     }
 }
 
-}
+} // namespace k2d::editor

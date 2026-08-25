@@ -1,24 +1,23 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <ct/string.hpp>
 
 static const int SCANCODE_ESCAPE = 41;
 
 class Spin : public k2d::ScriptComponent
 {
-public:
+  public:
     explicit Spin(float degreesPerSecond) : mDegreesPerSecond(degreesPerSecond)
     {
     }
 
-protected:
+  protected:
     void onUpdate(float deltaTime) override
     {
         owner()->rotate(mDegreesPerSecond * deltaTime);
     }
 
-private:
+  private:
     float mDegreesPerSecond;
 };
 
@@ -58,24 +57,24 @@ int main()
         }
     }
 
-    k2d::Texture *checkerTex = assets.CreateTexture("checker", 8, 8, checker);
+    k2d::Texture* checkerTex = assets.CreateTexture("checker", 8, 8, checker);
 
     k2d::Scene scene;
 
-    k2d::GameObject *sun = scene.createObject("sun");
+    k2d::GameObject* sun = scene.createObject("sun");
     sun->setPosition(Math::Vec2(device.Width() * 0.5f, device.Height() * 0.5f));
-    k2d::SpriteComponent *sunSprite = sun->addComponent<k2d::SpriteComponent>(checkerTex);
+    k2d::SpriteComponent* sunSprite = sun->addComponent<k2d::SpriteComponent>(checkerTex);
     sunSprite->setSize(Math::Vec2(100.0f, 100.0f));
     sun->addComponent<Spin>(30.0f);
 
-    k2d::GameObject *planet = scene.createObject("planet", sun);
+    k2d::GameObject* planet = scene.createObject("planet", sun);
     planet->setPosition(Math::Vec2(180.0f, 0.0f));
-    k2d::SpriteComponent *planetSprite = planet->addComponent<k2d::SpriteComponent>(checkerTex);
+    k2d::SpriteComponent* planetSprite = planet->addComponent<k2d::SpriteComponent>(checkerTex);
     planetSprite->setSize(Math::Vec2(40.0f, 40.0f));
 
-    k2d::GameObject *moon = scene.createObject("moon", planet);
+    k2d::GameObject* moon = scene.createObject("moon", planet);
     moon->setPosition(Math::Vec2(60.0f, 0.0f));
-    k2d::SpriteComponent *moonSprite = moon->addComponent<k2d::SpriteComponent>(checkerTex);
+    k2d::SpriteComponent* moonSprite = moon->addComponent<k2d::SpriteComponent>(checkerTex);
     moonSprite->setSize(Math::Vec2(16.0f, 16.0f));
     moon->addComponent<Spin>(180.0f);
 
@@ -84,7 +83,7 @@ int main()
     {
         running = device.PollEvents();
 
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
 

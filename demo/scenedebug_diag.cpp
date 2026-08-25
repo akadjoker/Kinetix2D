@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -17,21 +15,21 @@ int main()
 
     k2d::Assets assets;
     unsigned char px[4] = {200, 90, 200, 200};
-    k2d::Texture *tex = assets.CreateTexture("sq", 1, 1, px);
+    k2d::Texture* tex = assets.CreateTexture("sq", 1, 1, px);
 
     k2d::Scene scene;
-    k2d::GameObject *parent = scene.createObject("parent");
+    k2d::GameObject* parent = scene.createObject("parent");
     parent->setPosition(Math::Vec2(300.0f, 300.0f));
     parent->setRotationDegrees(20.0f);
-    k2d::SpriteComponent *parentSprite = parent->addComponent<k2d::SpriteComponent>(tex);
+    k2d::SpriteComponent* parentSprite = parent->addComponent<k2d::SpriteComponent>(tex);
     parentSprite->setSize(Math::Vec2(100.0f, 60.0f));
 
-    k2d::GameObject *child = scene.createObject("child", parent);
+    k2d::GameObject* child = scene.createObject("child", parent);
     child->setPosition(Math::Vec2(140.0f, 0.0f));
-    k2d::SpriteComponent *childSprite = child->addComponent<k2d::SpriteComponent>(tex);
+    k2d::SpriteComponent* childSprite = child->addComponent<k2d::SpriteComponent>(tex);
     childSprite->setSize(Math::Vec2(40.0f, 40.0f));
 
-    k2d::GameObject *grandchild = scene.createObject("grandchild", child);
+    k2d::GameObject* grandchild = scene.createObject("grandchild", child);
     grandchild->setPosition(Math::Vec2(0.0f, 70.0f));
 
     bool running = true;

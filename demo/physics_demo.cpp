@@ -3,7 +3,6 @@
 #include <imgui.h>
 #include <kx/kx.h>
 
-#include <glad/glad.h>
 #include <stb_image.h>
 
 #include <ct/string.hpp>
@@ -31,19 +30,19 @@ static const int SCANCODE_LEFT = 80;
 
 class BatchDebugDraw : public kx::DebugDraw
 {
-public:
-    explicit BatchDebugDraw(k2d::BatchRenderer &batch) : mBatch(batch)
+  public:
+    explicit BatchDebugDraw(k2d::BatchRenderer& batch) : mBatch(batch)
     {
     }
 
-    void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
+    void DrawCircleShape(const kx::Transform& xf, float radius, kx::Color color) override
     {
         Math::Vec2 c = xf.Transform(0.0f, 0.0f);
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(c.x, c.y, radius, 24);
     }
 
-    void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count, kx::Color color) override
+    void DrawPolygonShape(const kx::Transform& xf, const Math::Vec2* verts, int count, kx::Color color) override
     {
         if (count <= 0 || count > 16)
             return;
@@ -63,44 +62,44 @@ public:
         mBatch.DrawPolyline(points, count + 1);
     }
 
-    void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
+    void DrawSegment(const Math::Vec2& a, const Math::Vec2& b, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawLine(a.x, a.y, b.x, b.y);
     }
 
-    void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
+    void DrawPoint(const Math::Vec2& p, float size, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(p.x, p.y, size, 10);
     }
 
-    void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
+    void DrawAABB(const Math::Vec2& lower, const Math::Vec2& upper, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawRect(lower.x, lower.y, upper.x - lower.x, upper.y - lower.y, false);
     }
 
-private:
-    k2d::BatchRenderer &mBatch;
+  private:
+    k2d::BatchRenderer& mBatch;
 };
 
 struct KinematicPlatform
 {
-    kx::Body *body;
+    kx::Body* body;
     float halfWidth;
 };
 
 struct Car
 {
-    kx::Body *chassis;
-    kx::Body *wheelRear;
-    kx::Body *wheelFront;
-    kx::WheelJoint *jointRear;
-    kx::WheelJoint *jointFront;
+    kx::Body* chassis;
+    kx::Body* wheelRear;
+    kx::Body* wheelFront;
+    kx::WheelJoint* jointRear;
+    kx::WheelJoint* jointFront;
 };
 
-static void SpawnBridge(kx::World &world, const Math::Vec2 &dropCenter)
+static void SpawnBridge(kx::World& world, const Math::Vec2& dropCenter)
 {
     const int kPlanks = 14;
     const float kSpan = 700.0f;
@@ -111,49 +110,49 @@ static void SpawnBridge(kx::World &world, const Math::Vec2 &dropCenter)
     float leftX = dropCenter.x - kSpan * 0.5f;
     float y = dropCenter.y;
 
-    kx::Body *leftPillar = world.CreateStaticBox(Math::Vec2(leftX, y + 60.0f), 20.0f, 70.0f);
-    kx::Body *rightPillar = world.CreateStaticBox(Math::Vec2(leftX + kSpan, y + 60.0f), 20.0f, 70.0f);
+    kx::Body* leftPillar = world.CreateStaticBox(Math::Vec2(leftX, y + 60.0f), 20.0f, 70.0f);
+    kx::Body* rightPillar = world.CreateStaticBox(Math::Vec2(leftX + kSpan, y + 60.0f), 20.0f, 70.0f);
 
-    kx::Body *prev = leftPillar;
+    kx::Body* prev = leftPillar;
     Math::Vec2 anchor(leftX, y);
 
     for (int i = 0; i < kPlanks; ++i)
     {
         float cx = leftX + kPlankWidth * ((float)i + 0.5f);
-        kx::Body *plank = world.CreateBox(Math::Vec2(cx, y), kPlankHalfWidth, kPlankHalfHeight, 1.0f);
+        kx::Body* plank = world.CreateBox(Math::Vec2(cx, y), kPlankHalfWidth, kPlankHalfHeight, 1.0f);
 
-        kx::RevoluteJoint *joint = new kx::RevoluteJoint(prev, plank, anchor);
+        kx::RevoluteJoint* joint = new kx::RevoluteJoint(prev, plank, anchor);
         world.AddJoint(joint);
 
         prev = plank;
         anchor = Math::Vec2(cx + kPlankHalfWidth + 1.0f, y);
     }
 
-    kx::RevoluteJoint *last = new kx::RevoluteJoint(prev, rightPillar, anchor);
+    kx::RevoluteJoint* last = new kx::RevoluteJoint(prev, rightPillar, anchor);
     world.AddJoint(last);
 }
 
-static void SpawnGears(kx::World &world, const Math::Vec2 &dropCenter)
+static void SpawnGears(kx::World& world, const Math::Vec2& dropCenter)
 {
     Math::Vec2 posA = dropCenter + Math::Vec2(-50.0f, 0.0f);
     Math::Vec2 posB = dropCenter + Math::Vec2(50.0f, 0.0f);
 
-    kx::Body *anchorA = world.CreateBody(kx::BodyType::Static, posA);
-    kx::Body *discA = world.CreateCircle(posA, 40.0f, 1.0f);
-    kx::RevoluteJoint *jointA = new kx::RevoluteJoint(anchorA, discA, posA);
+    kx::Body* anchorA = world.CreateBody(kx::BodyType::Static, posA);
+    kx::Body* discA = world.CreateCircle(posA, 40.0f, 1.0f);
+    kx::RevoluteJoint* jointA = new kx::RevoluteJoint(anchorA, discA, posA);
     jointA->SetMotor(true, 3.0f, 1.0e7f);
     world.AddJoint(jointA);
 
-    kx::Body *anchorB = world.CreateBody(kx::BodyType::Static, posB);
-    kx::Body *discB = world.CreateCircle(posB, 40.0f, 1.0f);
-    kx::RevoluteJoint *jointB = new kx::RevoluteJoint(anchorB, discB, posB);
+    kx::Body* anchorB = world.CreateBody(kx::BodyType::Static, posB);
+    kx::Body* discB = world.CreateCircle(posB, 40.0f, 1.0f);
+    kx::RevoluteJoint* jointB = new kx::RevoluteJoint(anchorB, discB, posB);
     world.AddJoint(jointB);
 
-    kx::GearJoint *gear = new kx::GearJoint(jointA, jointB, 2.0f);
+    kx::GearJoint* gear = new kx::GearJoint(jointA, jointB, 2.0f);
     world.AddJoint(gear);
 }
 
-static void SpawnBlob(kx::World &world, const Math::Vec2 &dropCenter)
+static void SpawnBlob(kx::World& world, const Math::Vec2& dropCenter)
 {
     const int kRing = 12;
     const float kRingRadius = 30.0f;
@@ -163,10 +162,10 @@ static void SpawnBlob(kx::World &world, const Math::Vec2 &dropCenter)
     const float kSpringFrequency = 4.0f;
     const float kSpringDamping = 0.5f;
 
-    kx::Body *center = world.CreateCircle(dropCenter, kCenterRadius, 1.0f);
+    kx::Body* center = world.CreateCircle(dropCenter, kCenterRadius, 1.0f);
     center->SetFilter(1, 0xFFFF, kBlobGroup);
 
-    kx::Body *nodes[kRing];
+    kx::Body* nodes[kRing];
     for (int i = 0; i < kRing; ++i)
     {
         float angle = (float)i * (6.28318531f / (float)kRing);
@@ -179,29 +178,28 @@ static void SpawnBlob(kx::World &world, const Math::Vec2 &dropCenter)
     {
         int next = (i + 1) % kRing;
 
-        kx::DistanceJoint *ringJoint = new kx::DistanceJoint(nodes[i], nodes[next], nodes[i]->Position(), nodes[next]->Position());
+        kx::DistanceJoint* ringJoint =
+            new kx::DistanceJoint(nodes[i], nodes[next], nodes[i]->Position(), nodes[next]->Position());
         ringJoint->SetSpring(kSpringFrequency, kSpringDamping);
         ringJoint->SetLengthRange(0.0f, 1000.0f);
         world.AddJoint(ringJoint);
 
-        kx::DistanceJoint *spokeJoint = new kx::DistanceJoint(center, nodes[i], center->Position(), nodes[i]->Position());
+        kx::DistanceJoint* spokeJoint =
+            new kx::DistanceJoint(center, nodes[i], center->Position(), nodes[i]->Position());
         spokeJoint->SetSpring(kSpringFrequency, kSpringDamping);
         spokeJoint->SetLengthRange(0.0f, 1000.0f);
         world.AddJoint(spokeJoint);
     }
 }
 
-static Car SpawnCar(kx::World &world, const Math::Vec2 &pos)
+static Car SpawnCar(kx::World& world, const Math::Vec2& pos)
 {
     const float kScale = 50.0f;
 
     Math::Vec2 chassisOutline[6] = {
-        Math::Vec2(-1.5f * kScale, 0.5f * kScale),
-        Math::Vec2(1.5f * kScale, 0.5f * kScale),
-        Math::Vec2(1.5f * kScale, 0.0f * kScale),
-        Math::Vec2(0.0f * kScale, -0.9f * kScale),
-        Math::Vec2(-1.15f * kScale, -0.9f * kScale),
-        Math::Vec2(-1.5f * kScale, -0.2f * kScale)};
+        Math::Vec2(-1.5f * kScale, 0.5f * kScale),   Math::Vec2(1.5f * kScale, 0.5f * kScale),
+        Math::Vec2(1.5f * kScale, 0.0f * kScale),    Math::Vec2(0.0f * kScale, -0.9f * kScale),
+        Math::Vec2(-1.15f * kScale, -0.9f * kScale), Math::Vec2(-1.5f * kScale, -0.2f * kScale)};
 
     Car car;
     car.chassis = world.CreatePolygon(pos, chassisOutline, 6, 1.0f);
@@ -213,8 +211,10 @@ static Car SpawnCar(kx::World &world, const Math::Vec2 &pos)
     car.wheelRear = world.CreateCircle(pos + rearLocal, wheelRadius, 1.0f);
     car.wheelFront = world.CreateCircle(pos + frontLocal, wheelRadius, 1.0f);
 
-    car.jointRear = new kx::WheelJoint(car.chassis, car.wheelRear, pos + rearLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
-    car.jointFront = new kx::WheelJoint(car.chassis, car.wheelFront, pos + frontLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    car.jointRear =
+        new kx::WheelJoint(car.chassis, car.wheelRear, pos + rearLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
+    car.jointFront =
+        new kx::WheelJoint(car.chassis, car.wheelFront, pos + frontLocal, Math::Vec2(0.0f, -1.0f), 4.0f, 0.7f);
     world.AddJoint(car.jointRear);
     world.AddJoint(car.jointFront);
 
@@ -240,7 +240,7 @@ int main()
     world.CreateEdge(Math::Vec2(1240.0f, 700.0f), Math::Vec2(1500.0f, 560.0f));
     world.CreateEdge(Math::Vec2(1500.0f, 560.0f), Math::Vec2(1800.0f, 560.0f));
 
-    unsigned char *bunnyPixels = nullptr;
+    unsigned char* bunnyPixels = nullptr;
     int bunnyWidth = 0;
     int bunnyHeight = 0;
     {
@@ -257,7 +257,7 @@ int main()
 
     ct::Vector<KinematicPlatform> kinematics;
     ct::Vector<Car> cars;
-    kx::MouseJoint *grab = nullptr;
+    kx::MouseJoint* grab = nullptr;
 
     float carFrequency = 4.0f;
     float carDamping = 0.7f;
@@ -273,7 +273,7 @@ int main()
         k2d::Profiler::Get().beginFrame();
         running = device.PollEvents();
 
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
 
@@ -283,7 +283,7 @@ int main()
 
         if (input.MousePressed(0) && !grab && !device.ImGuiWantsMouse())
         {
-            kx::Body *picked = world.BodyAtPoint(mouse);
+            kx::Body* picked = world.BodyAtPoint(mouse);
             if (picked)
             {
                 grab = new kx::MouseJoint(picked, mouse, 5000.0f * picked->Mass());
@@ -318,7 +318,7 @@ int main()
 
         if (input.KeyPressed(SCANCODE_K))
         {
-            kx::Body *platform = world.CreateKinematicBox(Math::Vec2(mouseX, mouseY), 60.0f, 7.0f);
+            kx::Body* platform = world.CreateKinematicBox(Math::Vec2(mouseX, mouseY), 60.0f, 7.0f);
             platform->SetVelocity(Math::Vec2(150.0f, 0.0f));
             KinematicPlatform info;
             info.body = platform;
@@ -328,7 +328,7 @@ int main()
 
         if (input.KeyDown(SCANCODE_V))
         {
-            kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, Math::Vec2(mouseX, mouseY));
+            kx::Body* cart = world.CreateBody(kx::BodyType::Dynamic, Math::Vec2(mouseX, mouseY));
             cart->AddBox(15.0f, 5.0f, Math::Vec2(0.0f, 0.0f), 1.0f);
             cart->AddCircle(Math::Vec2(-20.0f, 12.0f), 8.0f, 1.0f);
             cart->AddCircle(Math::Vec2(20.0f, 12.0f), 8.0f, 1.0f);
@@ -374,8 +374,8 @@ int main()
                 grab = nullptr;
             }
 
-            ct::Vector<kx::Joint *> toDestroyJoints;
-            const ct::Vector<kx::Joint *> &joints = world.Joints();
+            ct::Vector<kx::Joint*> toDestroyJoints;
+            const ct::Vector<kx::Joint*>& joints = world.Joints();
             for (size_t i = 0; i < joints.size(); ++i)
                 toDestroyJoints.push_back(joints[i]);
             for (size_t i = 0; i < toDestroyJoints.size(); ++i)
@@ -383,8 +383,8 @@ int main()
 
             cars.clear();
 
-            ct::Vector<kx::Body *> toDestroy;
-            const ct::Vector<kx::Body *> &bodies = world.Bodies();
+            ct::Vector<kx::Body*> toDestroy;
+            const ct::Vector<kx::Body*>& bodies = world.Bodies();
             for (size_t i = 0; i < bodies.size(); ++i)
                 if (bodies[i]->Type() == kx::BodyType::Dynamic)
                     toDestroy.push_back(bodies[i]);
@@ -428,7 +428,7 @@ int main()
 
         for (size_t i = 0; i < kinematics.size(); ++i)
         {
-            kx::Body *b = kinematics[i].body;
+            kx::Body* b = kinematics[i].body;
             float hw = kinematics[i].halfWidth;
             Math::Vec2 pos = b->Position();
             Math::Vec2 vel = b->Velocity();
@@ -448,7 +448,7 @@ int main()
             }
         }
 
-        const kx::StepProfile &sp = world.Profile();
+        const kx::StepProfile& sp = world.Profile();
         k2d::Profiler::Get().addSample("kx.broadphase", sp.broadphase);
         k2d::Profiler::Get().addSample("kx.narrowphase", sp.narrowphase);
         k2d::Profiler::Get().addSample("kx.solve.vel", sp.solveVelocity);
@@ -485,7 +485,9 @@ int main()
         flagsText += (drawFlags & kx::DebugDrawContacts) ? "on" : "off";
         batch.DrawText(20.0f, 75.0f, 16.0f, flagsText.c_str());
 
-        batch.DrawText(20.0f, 100.0f, 16.0f, "B box  C circle  K platform  V cart  E edge  G car  I bunny  Left/Right drive  T tree  F5 joints  R clear  ESC quit  (see Spawn/Car panels)");
+        batch.DrawText(20.0f, 100.0f, 16.0f,
+                       "B box  C circle  K platform  V cart  E edge  G car  I bunny  Left/Right drive  T tree  F5 "
+                       "joints  R clear  ESC quit  (see Spawn/Car panels)");
 
         batch.EndFrame();
 
@@ -510,7 +512,7 @@ int main()
             ImGui::SameLine();
             if (ImGui::Button("Cart"))
             {
-                kx::Body *cart = world.CreateBody(kx::BodyType::Dynamic, dropPoint);
+                kx::Body* cart = world.CreateBody(kx::BodyType::Dynamic, dropPoint);
                 cart->AddBox(15.0f, 5.0f, Math::Vec2(0.0f, 0.0f), 1.0f);
                 cart->AddCircle(Math::Vec2(-20.0f, 12.0f), 8.0f, 1.0f);
                 cart->AddCircle(Math::Vec2(20.0f, 12.0f), 8.0f, 1.0f);

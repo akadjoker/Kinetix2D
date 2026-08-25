@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Device.h"
+#include "k2d/OpenGL.h"
 #include "k2d/Input.h"
 #include "k2d/InputActionMap.h"
 #include "k2d/AudioEngine.h"
@@ -43,6 +44,11 @@
 #include "k2d/CanvasLayer.h"
 #include "k2d/AStarGrid2D.h"
 #include "k2d/AStar2D.h"
+#include "k2d/Navigation2D.h"
+#include "k2d/NavigationRegion2D.h"
+#include "k2d/NavigationAgent2D.h"
+#include "k2d/MotionTween2D.h"
+#include "k2d/MotionStreak2D.h"
 #include "k2d/Serializer.h"
 #include "k2d/Prefab.h"
 #include "k2d/ScriptComponent.h"

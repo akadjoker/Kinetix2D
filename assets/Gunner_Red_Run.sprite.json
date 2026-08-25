@@ -1,0 +1,59 @@
+{
+  "texture": "/media/projectos/projects/cpp/Kinetix2D/assets/Gunner_Red_Run.png",
+  "regions": [
+    {
+      "id": "Gunner_Red_Run_001",
+      "rect": [
+        0.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Run_002",
+      "rect": [
+        48.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Run_003",
+      "rect": [
+        96.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Run_004",
+      "rect": [
+        144.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Run_005",
+      "rect": [
+        192.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "id": "Gunner_Red_Run_006",
+      "rect": [
+        240.0,
+        0.0,
+        48.0,
+        48.0
+      ]
+    }
+  ]
+}

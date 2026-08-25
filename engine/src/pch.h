@@ -1,10 +1,8 @@
 #pragma once
 
-#include <glad/glad.h>
+#include "k2d/OpenGL.h"
 
 #include <mathc.h>
-
-
 
 #include <ct/vector.hpp>
 #include <ct/string.hpp>

@@ -1,6 +1,5 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 #include <cstdio>
@@ -23,7 +22,7 @@ static float Rnd()
     return (float)(gSeed >> 8) / 16777216.0f;
 }
 
-static void Spawn(ct::Vector<Bunny> &bunnies, int count)
+static void Spawn(ct::Vector<Bunny>& bunnies, int count)
 {
     for (int i = 0; i < count; ++i)
     {
@@ -52,7 +51,7 @@ int main()
     batch.Resize(device.Width(), device.Height());
 
     k2d::Assets assets;
-    k2d::Texture *bunnyTex = assets.LoadTexture("bunny", "assets/wabbit_alpha.png");
+    k2d::Texture* bunnyTex = assets.LoadTexture("bunny", "assets/wabbit_alpha.png");
     if (!bunnyTex)
         bunnyTex = assets.LoadTexture("bunny", "../../assets/wabbit_alpha.png");
     if (!bunnyTex)
@@ -77,7 +76,7 @@ int main()
     {
         running = device.PollEvents();
 
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
         if (input.KeyPressed(SCANCODE_R))
@@ -107,11 +106,11 @@ int main()
         const float maxX = (float)device.Width() - bw;
         const float maxY = (float)device.Height() - bh;
 
-        Bunny *data = bunnies.data();
+        Bunny* data = bunnies.data();
         const std::size_t count = bunnies.size();
         for (std::size_t i = 0; i < count; ++i)
         {
-            Bunny &b = data[i];
+            Bunny& b = data[i];
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.vy += gravity * dt;

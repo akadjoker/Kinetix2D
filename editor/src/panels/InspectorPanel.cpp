@@ -15,6 +15,8 @@
 #include <k2d/Light2D.h>
 #include <k2d/LightOccluder2D.h>
 #include <k2d/Line2D.h>
+#include <k2d/NavigationAgent2D.h>
+#include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Polygon2D.h>
@@ -27,6 +29,7 @@
 #include <k2d/UiControls.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
+#include <k2d/CharacterBody2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/EdgeCollider2D.h>
 #include <k2d/PolygonCollider2D.h>
@@ -45,87 +48,140 @@ namespace k2d::editor
 
 namespace
 {
-GameObject *findById(GameObject &object, uint64_t id)
+GameObject* findById(GameObject& object, uint64_t id)
 {
     if (object.id() == id)
         return &object;
     for (size_t i = 0; i < object.childCount(); ++i)
-        if (GameObject *found = findById(*object.child(i), id))
+        if (GameObject* found = findById(*object.child(i), id))
             return found;
     return nullptr;
 }
 
-const char *componentName(ComponentType type)
+const char* componentName(ComponentType type)
 {
-    static const char *names[] = {
-        "Sprite", "Script", "Camera", "TileMap", "SpriteBatch", "Polygon2D",
-        "Animation2D", "Light2D", "LightOccluder2D", "Line2D", "NinePatch",
-        "Particle", "AudioPlayer", "RigidBody2D", "Collider2D", "CircleShape", "RectShape", "CapsuleShape", "UiCanvas",
-        "UiPanel", "UiLabel", "UiButton", "UiCheckBox", "UiSlider"
-    };
+    static const char* names[] = {"Sprite",
+                                  "Script",
+                                  "Camera",
+                                  "TileMap",
+                                  "SpriteBatch",
+                                  "Polygon2D",
+                                  "Animation2D",
+                                  "Light2D",
+                                  "LightOccluder2D",
+                                  "Line2D",
+                                  "NinePatch",
+                                  "Particle",
+                                  "AudioPlayer",
+                                  "RigidBody2D",
+                                  "Collider2D",
+                                  "CircleShape",
+                                  "RectShape",
+                                  "CapsuleShape",
+                                  "UiCanvas",
+                                  "UiPanel",
+                                  "UiLabel",
+                                  "UiButton",
+                                  "UiCheckBox",
+                                  "UiSlider",
+                                  "NavigationRegion2D",
+                                  "NavigationAgent2D",
+                                  "MotionTween2D",
+                                  "MotionStreak2D",
+                                  "CharacterBody2D"};
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
 }
 
-const char *componentName(const Component &component)
+const char* componentName(const Component& component)
 {
-    if (dynamic_cast<const BoxCollider2D *>(&component))
+    if (dynamic_cast<const BoxCollider2D*>(&component))
         return "BoxCollider2D";
-    if (dynamic_cast<const CircleCollider2D *>(&component))
+    if (dynamic_cast<const CircleCollider2D*>(&component))
         return "CircleCollider2D";
-    if (dynamic_cast<const EdgeCollider2D *>(&component))
+    if (dynamic_cast<const EdgeCollider2D*>(&component))
         return "EdgeCollider2D";
-    if (dynamic_cast<const PolygonCollider2D *>(&component))
+    if (dynamic_cast<const PolygonCollider2D*>(&component))
         return "PolygonCollider2D";
-    if (dynamic_cast<const ChainCollider2D *>(&component))
+    if (dynamic_cast<const ChainCollider2D*>(&component))
         return "ChainCollider2D";
-    if (dynamic_cast<const DirectionalLight2D *>(&component))
+    if (dynamic_cast<const DirectionalLight2D*>(&component))
         return "DirectionalLight2D";
     return componentName(component.type());
 }
 
-const char *componentDescription(const Component &component)
+const char* componentDescription(const Component& component)
 {
-    if (dynamic_cast<const BoxCollider2D *>(&component))
+    if (dynamic_cast<const BoxCollider2D*>(&component))
         return "Physical rectangular collision shape. Add a Rigid Body to simulate it.";
-    if (dynamic_cast<const CircleCollider2D *>(&component))
+    if (dynamic_cast<const CircleCollider2D*>(&component))
         return "Physical circular collision shape. Add a Rigid Body to simulate it.";
-    if (dynamic_cast<const EdgeCollider2D *>(&component))
+    if (dynamic_cast<const EdgeCollider2D*>(&component))
         return "Physical line segment, useful for floors and one-dimensional obstacles.";
-    if (dynamic_cast<const PolygonCollider2D *>(&component))
+    if (dynamic_cast<const PolygonCollider2D*>(&component))
         return "Physical convex polygon collision shape.";
-    if (dynamic_cast<const ChainCollider2D *>(&component))
+    if (dynamic_cast<const ChainCollider2D*>(&component))
         return "Physical chain of segments, useful for terrain.";
     switch (component.type())
     {
-    case ComponentType::Sprite: return "Draws one texture with transform, colour and material settings.";
-    case ComponentType::TileMap: return "Draws a grid of tiles from a texture atlas.";
-    case ComponentType::Polygon2D: return "Draws a filled custom polygon.";
-    case ComponentType::LinePath: return "Draws a line or closed outline through editable points.";
-    case ComponentType::CircleShape: return "Draws a circle; this is visual only, not a physics collider.";
-    case ComponentType::RectShape: return "Draws a rectangle; this is visual only, not a physics collider.";
-    case ComponentType::CapsuleShape: return "Draws a filled or outlined capsule; this is visual only, not a physics collider.";
-    case ComponentType::NinePatch: return "Draws a scalable UI-style panel with protected borders.";
-    case ComponentType::SpriteBatch: return "Draws many sprites efficiently from one component.";
-    case ComponentType::Animation: return "Plays frame-based sprite animation clips.";
-    case ComponentType::Script: return "Runs a Zen script. ScriptComponent scripts receive self.node.";
-    case ComponentType::RigidBody: return "Gives this object a simulated physics body during Play.";
-    case ComponentType::Particle: return "Emits and simulates particle effects.";
-    case ComponentType::AudioPlayer: return "Plays an audio file as SFX or music during Play.";
-    case ComponentType::Light: return "Adds point or directional lighting to the scene.";
-    case ComponentType::Occluder: return "Blocks shadows cast by 2D lights.";
-    case ComponentType::Camera: return "Controls the Game view projection and can follow another object.";
-    case ComponentType::UiCanvas: return "Marks a screen-space UI hierarchy. UI children ignore the world camera.";
-    case ComponentType::UiPanel: return "Screen-space panel with anchor and offset layout.";
-    case ComponentType::UiLabel: return "Screen-space text label with anchor and offset layout.";
-    case ComponentType::UiButton: return "Clickable screen-space button.";
-    case ComponentType::UiCheckBox: return "Clickable boolean screen-space control.";
-    case ComponentType::UiSlider: return "Clickable numeric screen-space control.";
-    default: return "";
+    case ComponentType::Sprite:
+        return "Draws one texture with transform, colour and material settings.";
+    case ComponentType::TileMap:
+        return "Draws a grid of tiles from a texture atlas.";
+    case ComponentType::Polygon2D:
+        return "Draws a filled custom polygon.";
+    case ComponentType::LinePath:
+        return "Draws a line or closed outline through editable points.";
+    case ComponentType::CircleShape:
+        return "Draws a circle; this is visual only, not a physics collider.";
+    case ComponentType::RectShape:
+        return "Draws a rectangle; this is visual only, not a physics collider.";
+    case ComponentType::CapsuleShape:
+        return "Draws a filled or outlined capsule; this is visual only, not a physics collider.";
+    case ComponentType::NinePatch:
+        return "Draws a scalable UI-style panel with protected borders.";
+    case ComponentType::SpriteBatch:
+        return "Draws many sprites efficiently from one component.";
+    case ComponentType::Animation:
+        return "Plays frame-based sprite animation clips.";
+    case ComponentType::Script:
+        return "Runs a Zen script. ScriptComponent scripts receive self.node.";
+    case ComponentType::RigidBody:
+        return "Gives this object a simulated physics body during Play.";
+    case ComponentType::Particle:
+        return "Emits and simulates particle effects.";
+    case ComponentType::AudioPlayer:
+        return "Plays an audio file as SFX or music during Play.";
+    case ComponentType::Light:
+        return "Adds point or directional lighting to the scene.";
+    case ComponentType::Occluder:
+        return "Blocks shadows cast by 2D lights.";
+    case ComponentType::Camera:
+        return "Controls the Game view projection and can follow another object.";
+    case ComponentType::UiCanvas:
+        return "Marks a screen-space UI hierarchy. UI children ignore the world camera.";
+    case ComponentType::UiPanel:
+        return "Screen-space panel with anchor and offset layout.";
+    case ComponentType::UiLabel:
+        return "Screen-space text label with anchor and offset layout.";
+    case ComponentType::UiButton:
+        return "Clickable screen-space button.";
+    case ComponentType::UiCheckBox:
+        return "Clickable boolean screen-space control.";
+    case ComponentType::UiSlider:
+        return "Clickable numeric screen-space control.";
+    case ComponentType::NavigationRegion:
+        return "Walkable polygon baked as a local triangle navigation mesh.";
+    case ComponentType::NavigationAgent:
+        return "Requests paths in NavigationRegion2D and optionally follows them.";
+    case ComponentType::CharacterBody:
+        return "Script-driven kinematic movement using this object's RigidBody2D and Collider2D components.";
+    default:
+        return "";
     }
 }
 
-bool componentMenuItem(const char *label, const char *description)
+bool componentMenuItem(const char* label, const char* description)
 {
     const bool selected = ImGui::MenuItem(label);
     if (ImGui::IsItemHovered())
@@ -135,10 +191,10 @@ bool componentMenuItem(const char *label, const char *description)
 
 constexpr int kPlaceholderSize = 32;
 
-Texture *placeholderSpriteTexture(EditorApplication &application)
+Texture* placeholderSpriteTexture(EditorApplication& application)
 {
-    constexpr const char *kName = "__editor_sprite_placeholder";
-    Texture *texture = application.assets().GetTexture(kName);
+    constexpr const char* kName = "__editor_sprite_placeholder";
+    Texture* texture = application.assets().GetTexture(kName);
     if (texture)
         return texture;
 
@@ -153,15 +209,15 @@ Texture *placeholderSpriteTexture(EditorApplication &application)
     return application.assets().CreateTexture(kName, kPlaceholderSize, kPlaceholderSize, pixels, true, false);
 }
 
-Texture *acceptTextureDrop(EditorApplication &app)
+Texture* acceptTextureDrop(EditorApplication& app)
 {
-    Texture *result = nullptr;
+    Texture* result = nullptr;
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
         {
-            const char *path = static_cast<const char *>(payload->Data);
-            Texture *loaded = app.assets().GetTexture(path);
+            const char* path = static_cast<const char*>(payload->Data);
+            Texture* loaded = app.assets().GetTexture(path);
             if (!loaded)
                 loaded = app.assets().LoadTexture(path, path, true, false);
             result = loaded;
@@ -171,7 +227,7 @@ Texture *acceptTextureDrop(EditorApplication &app)
     return result;
 }
 
-bool textureField(EditorApplication &app, const char *label, Texture *current, Texture *&outTexture)
+bool textureField(EditorApplication& app, const char* label, Texture* current, Texture*& outTexture)
 {
     ImGui::PushID(label);
     ImGui::TextUnformatted(label);
@@ -183,7 +239,7 @@ bool textureField(EditorApplication &app, const char *label, Texture *current, T
         ImGui::Dummy(box);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Drag an image here from Assets");
-    Texture *dropped = acceptTextureDrop(app);
+    Texture* dropped = acceptTextureDrop(app);
     ImGui::SameLine();
     ImGui::TextDisabled("%s", current ? "(assigned)" : "None");
     ImGui::PopID();
@@ -195,7 +251,7 @@ bool textureField(EditorApplication &app, const char *label, Texture *current, T
     return false;
 }
 
-bool dragVec2(EditorApplication &app, const char *label, Math::Vec2 &value, float speed, const char *undoLabel)
+bool dragVec2(EditorApplication& app, const char* label, Math::Vec2& value, float speed, const char* undoLabel)
 {
     float values[2] = {value.x, value.y};
     const bool changed = ImGui::DragFloat2(label, values, speed);
@@ -208,7 +264,7 @@ bool dragVec2(EditorApplication &app, const char *label, Math::Vec2 &value, floa
     return changed;
 }
 
-bool dragVec4(EditorApplication &app, const char *label, Math::Vec4 &value, float speed, const char *undoLabel)
+bool dragVec4(EditorApplication& app, const char* label, Math::Vec4& value, float speed, const char* undoLabel)
 {
     float values[4] = {value.x, value.y, value.z, value.w};
     const bool changed = ImGui::DragFloat4(label, values, speed);
@@ -221,8 +277,8 @@ bool dragVec4(EditorApplication &app, const char *label, Math::Vec4 &value, floa
     return changed;
 }
 
-bool dragFloatProperty(EditorApplication &app, const char *label, float &value, float speed,
-                       const char *undoLabel, float minValue = 0.0f, float maxValue = 0.0f)
+bool dragFloatProperty(EditorApplication& app, const char* label, float& value, float speed, const char* undoLabel,
+                       float minValue = 0.0f, float maxValue = 0.0f)
 {
     const bool changed = ImGui::DragFloat(label, &value, speed, minValue, maxValue);
     if (ImGui::IsItemActivated())
@@ -232,8 +288,8 @@ bool dragFloatProperty(EditorApplication &app, const char *label, float &value, 
     return changed;
 }
 
-bool dragIntProperty(EditorApplication &app, const char *label, int &value, float speed,
-                     const char *undoLabel, int minValue = 0, int maxValue = 0)
+bool dragIntProperty(EditorApplication& app, const char* label, int& value, float speed, const char* undoLabel,
+                     int minValue = 0, int maxValue = 0)
 {
     const bool changed = ImGui::DragInt(label, &value, speed, minValue, maxValue);
     if (ImGui::IsItemActivated())
@@ -243,7 +299,7 @@ bool dragIntProperty(EditorApplication &app, const char *label, int &value, floa
     return changed;
 }
 
-bool colorEdit(EditorApplication &app, const char *label, Color &value, const char *undoLabel)
+bool colorEdit(EditorApplication& app, const char* label, Color& value, const char* undoLabel)
 {
     const bool changed = ImGui::ColorEdit4(label, &value.r);
     if (ImGui::IsItemActivated())
@@ -253,7 +309,7 @@ bool colorEdit(EditorApplication &app, const char *label, Color &value, const ch
     return changed;
 }
 
-void colorToBytes(const Color &c, unsigned char &r, unsigned char &g, unsigned char &b, unsigned char &a)
+void colorToBytes(const Color& c, unsigned char& r, unsigned char& g, unsigned char& b, unsigned char& a)
 {
     r = static_cast<unsigned char>(std::lround(c.r * 255.0f));
     g = static_cast<unsigned char>(std::lround(c.g * 255.0f));
@@ -261,9 +317,9 @@ void colorToBytes(const Color &c, unsigned char &r, unsigned char &g, unsigned c
     a = static_cast<unsigned char>(std::lround(c.a * 255.0f));
 }
 
-bool blendModeCombo(BlendMode &mode)
+bool blendModeCombo(BlendMode& mode)
 {
-    static const char *names[] = {"Mix", "Add", "Sub", "Mul"};
+    static const char* names[] = {"Mix", "Add", "Sub", "Mul"};
     int index = static_cast<int>(mode);
     const bool changed = ImGui::Combo("Blend Mode", &index, names, 4);
     if (changed)
@@ -271,8 +327,7 @@ bool blendModeCombo(BlendMode &mode)
     return changed;
 }
 
-template <class Setter>
-void applyInstant(EditorApplication &app, const char *undoLabel, Setter &&setter)
+template <class Setter> void applyInstant(EditorApplication& app, const char* undoLabel, Setter&& setter)
 {
     const EditorApplication::SceneChange before = app.beginChange();
     setter();
@@ -280,18 +335,13 @@ void applyInstant(EditorApplication &app, const char *undoLabel, Setter &&setter
 }
 
 template <class Setter>
-void pivotPresetPicker(EditorApplication &app, const char *undoLabel, const Math::Vec2 &current, Setter &&setter)
+void pivotPresetPicker(EditorApplication& app, const char* undoLabel, const Math::Vec2& current, Setter&& setter)
 {
-    static const Math::Vec2 presets[9] = {
-        Math::Vec2(0.0f, 0.0f), Math::Vec2(0.5f, 0.0f), Math::Vec2(1.0f, 0.0f),
-        Math::Vec2(0.0f, 0.5f), Math::Vec2(0.5f, 0.5f), Math::Vec2(1.0f, 0.5f),
-        Math::Vec2(0.0f, 1.0f), Math::Vec2(0.5f, 1.0f), Math::Vec2(1.0f, 1.0f)
-    };
-    static const char *names[9] = {
-        "Top Left", "Top Center", "Top Right",
-        "Center Left", "Center", "Center Right",
-        "Bottom Left", "Bottom Center", "Bottom Right"
-    };
+    static const Math::Vec2 presets[9] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(0.5f, 0.0f), Math::Vec2(1.0f, 0.0f),
+                                          Math::Vec2(0.0f, 0.5f), Math::Vec2(0.5f, 0.5f), Math::Vec2(1.0f, 0.5f),
+                                          Math::Vec2(0.0f, 1.0f), Math::Vec2(0.5f, 1.0f), Math::Vec2(1.0f, 1.0f)};
+    static const char* names[9] = {"Top Left",     "Top Center",  "Top Right",     "Center Left", "Center",
+                                   "Center Right", "Bottom Left", "Bottom Center", "Bottom Right"};
 
     ImGui::TextUnformatted("Pivot Preset");
     for (int i = 0; i < 9; ++i)
@@ -299,8 +349,7 @@ void pivotPresetPicker(EditorApplication &app, const char *undoLabel, const Math
         if (i % 3 != 0)
             ImGui::SameLine();
         ImGui::PushID(i);
-        const bool isCurrent =
-            fabsf(current.x - presets[i].x) < 0.001f && fabsf(current.y - presets[i].y) < 0.001f;
+        const bool isCurrent = fabsf(current.x - presets[i].x) < 0.001f && fabsf(current.y - presets[i].y) < 0.001f;
         if (isCurrent)
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.55f, 0.85f, 1.0f));
         if (ImGui::Button("##preset", ImVec2(22.0f, 22.0f)))
@@ -317,8 +366,8 @@ void pivotPresetPicker(EditorApplication &app, const char *undoLabel, const Math
 }
 
 template <class Apply>
-void pointListEditor(EditorApplication &app, ct::Vector<Math::Vec2> points, size_t minPoints,
-                     const char *undoLabel, Apply &&apply)
+void pointListEditor(EditorApplication& app, ct::Vector<Math::Vec2> points, size_t minPoints, const char* undoLabel,
+                     Apply&& apply)
 {
     for (size_t i = 0; i < points.size(); ++i)
     {
@@ -359,17 +408,37 @@ void pointListEditor(EditorApplication &app, ct::Vector<Math::Vec2> points, size
     }
 }
 
-void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
+void drawSpriteProperties(EditorApplication& app, SpriteComponent& sprite)
 {
-    Texture *texture = sprite.texture();
-    Texture *newTexture = nullptr;
+    Texture* texture = sprite.texture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set Sprite Texture", [&] { sprite.setTexture(newTexture); });
 
-    Texture *normalMap = sprite.normalMap();
-    Texture *newNormalMap = nullptr;
+    Texture* normalMap = sprite.normalMap();
+    Texture* newNormalMap = nullptr;
     if (textureField(app, "Normal Map", normalMap, newNormalMap))
         applyInstant(app, "Set Sprite Normal Map", [&] { sprite.setNormalMap(newNormalMap); });
+
+    bool waterEnabled = sprite.waterEnabled();
+    if (ImGui::Checkbox("Water Effect", &waterEnabled))
+        applyInstant(app, "Toggle Sprite Water Effect", [&] { sprite.setWaterEnabled(waterEnabled); });
+    if (waterEnabled)
+    {
+        if (!sprite.normalMap())
+            ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.25f, 1.0f), "Water needs a normal map (it is sampled twice).");
+        // Edit the persisted values directly. The transaction helpers take
+        // their final snapshot when the ImGui item is released, so using a
+        // temporary here would omit the final drag value from undo history.
+        WaterEffect& water = sprite.water();
+        dragFloatProperty(app, "Water Strength", water.strength, 0.0005f, "Adjust Water Refraction", 0.0f, 0.15f);
+        dragFloatProperty(app, "Water Normal Scale", water.normalScale, 0.05f, "Adjust Water Detail Scale", 0.01f,
+                          64.0f);
+        dragVec2(app, "Water Flow A", water.flowA, 0.005f, "Adjust First Water Flow");
+        dragVec2(app, "Water Flow B", water.flowB, 0.005f, "Adjust Second Water Flow");
+        dragFloatProperty(app, "Water Highlight", water.highlight, 0.01f, "Adjust Water Crest Highlight", 0.0f, 2.0f);
+        colorEdit(app, "Water Tint", water.tint, "Recolor Water");
+    }
 
     Math::Vec2 size = sprite.size();
     if (dragVec2(app, "Size", size, 0.5f, "Resize Sprite"))
@@ -378,7 +447,7 @@ void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
     Math::Vec2 pivot = sprite.pivot();
     if (dragVec2(app, "Pivot", pivot, 0.05f, "Adjust Sprite Pivot"))
         sprite.setPivot(pivot);
-    pivotPresetPicker(app, "Set Sprite Pivot", sprite.pivot(), [&](const Math::Vec2 &p) { sprite.setPivot(p); });
+    pivotPresetPicker(app, "Set Sprite Pivot", sprite.pivot(), [&](const Math::Vec2& p) { sprite.setPivot(p); });
 
     Math::Vec2 tiling = sprite.tiling();
     if (dragVec2(app, "Tiling", tiling, 0.05f, "Adjust Sprite Tiling"))
@@ -415,18 +484,19 @@ void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
     bool hasRect = sprite.material().hasSourceRect();
     if (ImGui::Checkbox("Source Rect", &hasRect))
     {
-        applyInstant(app, "Toggle Sprite Source Rect", [&]
-        {
-            if (hasRect)
-            {
-                const Math::Vec2 s = sprite.size();
-                sprite.setSourceRect(0.0f, 0.0f, s.x, s.y);
-            }
-            else
-            {
-                sprite.clearSourceRect();
-            }
-        });
+        applyInstant(app, "Toggle Sprite Source Rect",
+                     [&]
+                     {
+                         if (hasRect)
+                         {
+                             const Math::Vec2 s = sprite.size();
+                             sprite.setSourceRect(0.0f, 0.0f, s.x, s.y);
+                         }
+                         else
+                         {
+                             sprite.clearSourceRect();
+                         }
+                     });
     }
     if (hasRect)
     {
@@ -436,10 +506,10 @@ void drawSpriteProperties(EditorApplication &app, SpriteComponent &sprite)
     }
 }
 
-void drawTileMapProperties(EditorApplication &app, TileMapComponent &tileMap)
+void drawTileMapProperties(EditorApplication& app, TileMapComponent& tileMap)
 {
-    Texture *texture = tileMap.texture();
-    Texture *newTexture = nullptr;
+    Texture* texture = tileMap.texture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set TileMap Texture", [&] { tileMap.setTexture(newTexture); });
 
@@ -471,14 +541,15 @@ void drawTileMapProperties(EditorApplication &app, TileMapComponent &tileMap)
     bool hasCull = tileMap.hasCullRect();
     if (ImGui::Checkbox("Cull Rect", &hasCull))
     {
-        applyInstant(app, "Toggle TileMap Cull Rect", [&]
-        {
-            if (hasCull)
-                tileMap.setCullRect(0.0f, 0.0f, tileMap.columns() * tileMap.cellWidth(),
-                                    tileMap.rows() * tileMap.cellHeight());
-            else
-                tileMap.clearCullRect();
-        });
+        applyInstant(app, "Toggle TileMap Cull Rect",
+                     [&]
+                     {
+                         if (hasCull)
+                             tileMap.setCullRect(0.0f, 0.0f, tileMap.columns() * tileMap.cellWidth(),
+                                                 tileMap.rows() * tileMap.cellHeight());
+                         else
+                             tileMap.clearCullRect();
+                     });
     }
     if (hasCull)
     {
@@ -494,10 +565,10 @@ void drawTileMapProperties(EditorApplication &app, TileMapComponent &tileMap)
     ImGui::TextDisabled("Use the Tile Painter panel to paint tiles and collision cells.");
 }
 
-void drawPolygonProperties(EditorApplication &app, Polygon2D &polygon)
+void drawPolygonProperties(EditorApplication& app, Polygon2D& polygon)
 {
-    Texture *texture = polygon.texture();
-    Texture *newTexture = nullptr;
+    Texture* texture = polygon.texture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set Polygon Texture", [&] { polygon.setTexture(newTexture); });
 
@@ -515,13 +586,53 @@ void drawPolygonProperties(EditorApplication &app, Polygon2D &polygon)
 
     ImGui::SeparatorText("Points");
     pointListEditor(app, polygon.polygon(), 3, "Edit Polygon Points",
-                    [&](const ct::Vector<Math::Vec2> &pts) { polygon.setPolygon(pts.data(), (int)pts.size()); });
+                    [&](const ct::Vector<Math::Vec2>& pts) { polygon.setPolygon(pts.data(), (int)pts.size()); });
 }
 
-void drawLineProperties(EditorApplication &app, Line2D &line)
+void drawNavigationRegionProperties(EditorApplication& app, NavigationRegion2D& region)
 {
-    Texture *texture = line.texture();
-    Texture *newTexture = nullptr;
+    ImGui::TextDisabled("Draw the walkable area. This is independent from TileMap and baked into triangles.");
+    pointListEditor(app, region.polygon(), 3, "Edit Navigation Region", [&](const ct::Vector<Math::Vec2>& points)
+                    { region.setPolygon(points.data(), static_cast<int>(points.size())); });
+    ImGui::TextDisabled("%d triangle(s) baked", static_cast<int>(region.triangles().size() / 3));
+}
+
+void drawNavigationAgentProperties(EditorApplication& app, NavigationAgent2D& agent)
+{
+    Math::Vec2 target = agent.targetPosition();
+    if (dragVec2(app, "Target", target, 0.5f, "Set Navigation Target"))
+        agent.setTargetPosition(target);
+    float tolerance = agent.pathDesiredDistance();
+    if (dragFloatProperty(app, "Waypoint Distance", tolerance, 0.25f, "Set Navigation Waypoint Distance", 0.01f,
+                          4096.0f))
+        agent.setPathDesiredDistance(tolerance);
+    float speed = agent.maxSpeed();
+    if (dragFloatProperty(app, "Max Speed", speed, 1.0f, "Set Navigation Speed", 0.0f, 100000.0f))
+        agent.setMaxSpeed(speed);
+    bool autoMove = agent.autoMove();
+    if (ImGui::Checkbox("Auto Move", &autoMove))
+        applyInstant(app, "Toggle Navigation Auto Move", [&] { agent.setAutoMove(autoMove); });
+    bool orientToPath = agent.orientToPath();
+    if (ImGui::Checkbox("Orient To Path", &orientToPath))
+        applyInstant(app, "Toggle Navigation Orientation", [&] { agent.setOrientToPath(orientToPath); });
+    if (orientToPath)
+    {
+        float turnSpeed = agent.rotationLerpSpeed();
+        if (dragFloatProperty(app, "Rotation Lerp", turnSpeed, 0.1f, "Set Navigation Rotation Lerp", 0.0f, 1000.0f))
+            agent.setRotationLerpSpeed(turnSpeed);
+        float offset = agent.rotationOffsetDegrees();
+        if (dragFloatProperty(app, "Facing Offset", offset, 1.0f, "Set Navigation Facing Offset", -360.0f, 360.0f))
+            agent.setRotationOffsetDegrees(offset);
+        ImGui::TextDisabled("0 lerp speed rotates instantly. Use offset when the sprite does not face right.");
+    }
+    ImGui::TextDisabled("%d waypoint(s)%s", static_cast<int>(agent.path().size()),
+                        agent.isNavigationFinished() ? " — finished" : "");
+}
+
+void drawLineProperties(EditorApplication& app, Line2D& line)
+{
+    Texture* texture = line.texture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set Line Texture", [&] { line.setTexture(newTexture); });
 
@@ -547,10 +658,10 @@ void drawLineProperties(EditorApplication &app, Line2D &line)
 
     ImGui::SeparatorText("Points");
     pointListEditor(app, line.points(), 2, "Edit Line Points",
-                    [&](const ct::Vector<Math::Vec2> &pts) { line.setPoints(pts.data(), (int)pts.size()); });
+                    [&](const ct::Vector<Math::Vec2>& pts) { line.setPoints(pts.data(), (int)pts.size()); });
 }
 
-bool shapeModeCombo(ShapeRenderMode &mode)
+bool shapeModeCombo(ShapeRenderMode& mode)
 {
     int value = mode == ShapeRenderMode::Line ? 1 : 0;
     if (!ImGui::Combo("Mode", &value, "Fill\0Line\0"))
@@ -559,7 +670,7 @@ bool shapeModeCombo(ShapeRenderMode &mode)
     return true;
 }
 
-void drawCircleShapeProperties(EditorApplication &app, CircleShape &shape)
+void drawCircleShapeProperties(EditorApplication& app, CircleShape& shape)
 {
     float radius = shape.radius();
     if (dragFloatProperty(app, "Radius", radius, 0.5f, "Resize Circle Shape", 0.0f, 100000.0f))
@@ -591,7 +702,7 @@ void drawCircleShapeProperties(EditorApplication &app, CircleShape &shape)
         applyInstant(app, "Set Circle Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
 }
 
-void drawRectShapeProperties(EditorApplication &app, RectShape &shape)
+void drawRectShapeProperties(EditorApplication& app, RectShape& shape)
 {
     Math::Vec2 size = shape.size();
     if (dragVec2(app, "Size", size, 0.5f, "Resize Rect Shape"))
@@ -619,7 +730,7 @@ void drawRectShapeProperties(EditorApplication &app, RectShape &shape)
         applyInstant(app, "Set Rect Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
 }
 
-void drawCapsuleShapeProperties(EditorApplication &app, CapsuleShape &shape)
+void drawCapsuleShapeProperties(EditorApplication& app, CapsuleShape& shape)
 {
     Math::Vec2 size = shape.size();
     if (dragVec2(app, "Size", size, 0.5f, "Resize Capsule Shape"))
@@ -651,7 +762,7 @@ void drawCapsuleShapeProperties(EditorApplication &app, CapsuleShape &shape)
         applyInstant(app, "Set Capsule Shape Blend Mode", [&] { shape.setBlendMode(blendMode); });
 }
 
-void drawAudioPlayerProperties(EditorApplication &app, AudioPlayer &player)
+void drawAudioPlayerProperties(EditorApplication& app, AudioPlayer& player)
 {
     char source[512];
     std::snprintf(source, sizeof(source), "%s", player.source());
@@ -682,10 +793,10 @@ void drawAudioPlayerProperties(EditorApplication &app, AudioPlayer &player)
     }
 }
 
-void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePatch)
+void drawNinePatchProperties(EditorApplication& app, NinePatchComponent& ninePatch)
 {
-    Texture *texture = ninePatch.texture();
-    Texture *newTexture = nullptr;
+    Texture* texture = ninePatch.texture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set NinePatch Texture", [&] { ninePatch.setTexture(newTexture); });
 
@@ -701,7 +812,7 @@ void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePat
     if (dragVec2(app, "Pivot", pivot, 0.05f, "Adjust NinePatch Pivot"))
         ninePatch.setPivot(pivot);
     pivotPresetPicker(app, "Set NinePatch Pivot", ninePatch.pivot(),
-                      [&](const Math::Vec2 &p) { ninePatch.setPivot(p); });
+                      [&](const Math::Vec2& p) { ninePatch.setPivot(p); });
 
     Color color = ninePatch.color();
     if (colorEdit(app, "Color", color, "Recolor NinePatch"))
@@ -716,7 +827,7 @@ void drawNinePatchProperties(EditorApplication &app, NinePatchComponent &ninePat
         applyInstant(app, "Set NinePatch Blend Mode", [&] { ninePatch.setBlendMode(blendMode); });
 }
 
-void drawUiLayoutProperties(EditorApplication &app, UiControl &control)
+void drawUiLayoutProperties(EditorApplication& app, UiControl& control)
 {
     ImGui::SeparatorText("Layout (screen space)");
     Math::Vec4 anchors = control.anchors();
@@ -728,8 +839,8 @@ void drawUiLayoutProperties(EditorApplication &app, UiControl &control)
     ImGui::TextDisabled("Anchors are normalized (0..1); offsets are pixels.");
 }
 
-void drawUiTextProperty(EditorApplication &app, const char *label, const ct::String &value,
-                        const std::function<void(const char *)> &set)
+void drawUiTextProperty(EditorApplication& app, const char* label, const ct::String& value,
+                        const std::function<void(const char*)>& set)
 {
     char text[256];
     std::snprintf(text, sizeof(text), "%s", value.c_str());
@@ -737,7 +848,7 @@ void drawUiTextProperty(EditorApplication &app, const char *label, const ct::Str
         applyInstant(app, "Edit UI Text", [&] { set(text); });
 }
 
-void drawUiPanelProperties(EditorApplication &app, UiPanel &panel)
+void drawUiPanelProperties(EditorApplication& app, UiPanel& panel)
 {
     drawUiLayoutProperties(app, panel);
     Color color = panel.color();
@@ -745,10 +856,10 @@ void drawUiPanelProperties(EditorApplication &app, UiPanel &panel)
         panel.setColor(color);
 }
 
-void drawUiLabelProperties(EditorApplication &app, UiLabel &label)
+void drawUiLabelProperties(EditorApplication& app, UiLabel& label)
 {
     drawUiLayoutProperties(app, label);
-    drawUiTextProperty(app, "Text", label.text(), [&](const char *value) { label.setText(value); });
+    drawUiTextProperty(app, "Text", label.text(), [&](const char* value) { label.setText(value); });
     float size = label.fontSize();
     if (dragFloatProperty(app, "Font Size", size, 0.5f, "Set UI Label Font Size", 1.0f, 256.0f))
         label.setFontSize(size);
@@ -757,22 +868,22 @@ void drawUiLabelProperties(EditorApplication &app, UiLabel &label)
         label.setColor(color);
 }
 
-void drawUiButtonProperties(EditorApplication &app, UiButton &button)
+void drawUiButtonProperties(EditorApplication& app, UiButton& button)
 {
     drawUiLayoutProperties(app, button);
-    drawUiTextProperty(app, "Text", button.text(), [&](const char *value) { button.setText(value); });
+    drawUiTextProperty(app, "Text", button.text(), [&](const char* value) { button.setText(value); });
 }
 
-void drawUiCheckBoxProperties(EditorApplication &app, UiCheckBox &check)
+void drawUiCheckBoxProperties(EditorApplication& app, UiCheckBox& check)
 {
     drawUiLayoutProperties(app, check);
-    drawUiTextProperty(app, "Text", check.text(), [&](const char *value) { check.setText(value); });
+    drawUiTextProperty(app, "Text", check.text(), [&](const char* value) { check.setText(value); });
     bool checked = check.checked();
     if (ImGui::Checkbox("Checked", &checked))
         applyInstant(app, "Toggle UI CheckBox", [&] { check.setChecked(checked); });
 }
 
-void drawUiSliderProperties(EditorApplication &app, UiSlider &slider)
+void drawUiSliderProperties(EditorApplication& app, UiSlider& slider)
 {
     drawUiLayoutProperties(app, slider);
     float minimum = slider.minimum();
@@ -786,14 +897,14 @@ void drawUiSliderProperties(EditorApplication &app, UiSlider &slider)
         slider.setValue(value);
 }
 
-void drawOccluderProperties(EditorApplication &app, LightOccluder2D &occluder)
+void drawOccluderProperties(EditorApplication& app, LightOccluder2D& occluder)
 {
     ImGui::SeparatorText("Points");
     pointListEditor(app, occluder.points(), 2, "Edit Occluder Points",
-                    [&](const ct::Vector<Math::Vec2> &pts) { occluder.setPolygon(pts.data(), (int)pts.size()); });
+                    [&](const ct::Vector<Math::Vec2>& pts) { occluder.setPolygon(pts.data(), (int)pts.size()); });
 }
 
-void drawPointLightProperties(EditorApplication &app, Light2D &light)
+void drawPointLightProperties(EditorApplication& app, Light2D& light)
 {
     Color color = light.color();
     if (colorEdit(app, "Color", color, "Recolor Light"))
@@ -821,11 +932,11 @@ void drawPointLightProperties(EditorApplication &app, Light2D &light)
         if (colorEdit(app, "Shadow Color", shadowColor, "Recolor Light Shadow"))
             light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
 
-        static const char *filterNames[] = {"Nearest", "PCF 5", "PCF 13"};
+        static const char* filterNames[] = {"Nearest", "PCF 5", "PCF 13"};
         int filter = static_cast<int>(light.shadowFilter());
         if (ImGui::Combo("Shadow Filter", &filter, filterNames, 3))
             applyInstant(app, "Set Light Shadow Filter",
-                        [&] { light.setShadowFilter(static_cast<ShadowFilter>(filter)); });
+                         [&] { light.setShadowFilter(static_cast<ShadowFilter>(filter)); });
     }
 
     int cullMask = static_cast<int>(light.cullMask());
@@ -833,7 +944,7 @@ void drawPointLightProperties(EditorApplication &app, Light2D &light)
         light.setCullMask(static_cast<unsigned int>(cullMask));
 }
 
-void drawDirectionalLightProperties(EditorApplication &app, DirectionalLight2D &light)
+void drawDirectionalLightProperties(EditorApplication& app, DirectionalLight2D& light)
 {
     Color color = light.color();
     if (colorEdit(app, "Color", color, "Recolor Light"))
@@ -857,11 +968,11 @@ void drawDirectionalLightProperties(EditorApplication &app, DirectionalLight2D &
         if (colorEdit(app, "Shadow Color", shadowColor, "Recolor Light Shadow"))
             light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
 
-        static const char *filterNames[] = {"Nearest", "PCF 5", "PCF 13"};
+        static const char* filterNames[] = {"Nearest", "PCF 5", "PCF 13"};
         int filter = static_cast<int>(light.shadowFilter());
         if (ImGui::Combo("Shadow Filter", &filter, filterNames, 3))
             applyInstant(app, "Set Light Shadow Filter",
-                        [&] { light.setShadowFilter(static_cast<ShadowFilter>(filter)); });
+                         [&] { light.setShadowFilter(static_cast<ShadowFilter>(filter)); });
     }
 
     int cullMask = static_cast<int>(light.cullMask());
@@ -869,7 +980,7 @@ void drawDirectionalLightProperties(EditorApplication &app, DirectionalLight2D &
         light.setCullMask(static_cast<unsigned int>(cullMask));
 }
 
-void drawCameraProperties(EditorApplication &app, CameraComponent &cameraComponent)
+void drawCameraProperties(EditorApplication& app, CameraComponent& cameraComponent)
 {
     float viewportW = cameraComponent.viewportWidth();
     float viewportH = cameraComponent.viewportHeight();
@@ -884,7 +995,7 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
                         "Higher priority becomes the active camera for the Game view"))
         cameraComponent.setRenderPriority(renderPriority);
 
-    Camera2D &camera = cameraComponent.camera();
+    Camera2D& camera = cameraComponent.camera();
 
     Math::Vec2 position = camera.position;
     if (dragVec2(app, "Position", position, 0.5f, "Move Camera"))
@@ -951,10 +1062,10 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
     ImGui::Button(followLabel.c_str(), ImVec2(150.0f, 0.0f));
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
         {
-            const uint64_t draggedId = *static_cast<const uint64_t *>(payload->Data);
-            GameObject *dragged = findById(app.scene().root(), draggedId);
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            GameObject* dragged = findById(app.scene().root(), draggedId);
             if (dragged)
                 applyInstant(app, "Set Camera Follow Target", [&] { cameraComponent.setFollowTarget(dragged); });
         }
@@ -970,12 +1081,10 @@ void drawCameraProperties(EditorApplication &app, CameraComponent &cameraCompone
     }
 }
 
-void drawRigidBodyProperties(EditorApplication &app, RigidBody2D &body)
+void drawRigidBodyProperties(EditorApplication& app, RigidBody2D& body)
 {
-    static const char *kTypes[] = {"Static", "Kinematic", "Dynamic"};
-    int typeIndex = body.bodyType() == kx::BodyType::Static      ? 0
-                    : body.bodyType() == kx::BodyType::Kinematic ? 1
-                                                                 : 2;
+    static const char* kTypes[] = {"Static", "Kinematic", "Dynamic"};
+    int typeIndex = body.bodyType() == kx::BodyType::Static ? 0 : body.bodyType() == kx::BodyType::Kinematic ? 1 : 2;
     if (ImGui::Combo("Body Type", &typeIndex, kTypes, 3))
     {
         const kx::BodyType picked = typeIndex == 0   ? kx::BodyType::Static
@@ -1021,14 +1130,46 @@ void drawRigidBodyProperties(EditorApplication &app, RigidBody2D &body)
     if (body.inWorld())
     {
         const Math::Vec2 velocity = body.velocity();
-        ImGui::TextDisabled("Live: v=(%.1f, %.1f)  w=%.1f deg/s", velocity.x, velocity.y,
-                            body.angularVelocity());
+        ImGui::TextDisabled("Live: v=(%.1f, %.1f)  w=%.1f deg/s", velocity.x, velocity.y, body.angularVelocity());
     }
     else
         ImGui::TextDisabled("Simulated on Play only.");
 }
 
-void drawColliderShared(EditorApplication &app, Collider2D &collider)
+void drawCharacterBodyProperties(EditorApplication& app, CharacterBody2D& body)
+{
+    ImGui::TextDisabled("Uses the RigidBody2D and Collider2D on this object.");
+    Math::Vec2 velocity = body.velocity();
+    if (dragVec2(app, "Velocity", velocity, 1.0f, "Set Character Velocity"))
+        body.setVelocity(velocity);
+
+    float margin = body.safeMargin();
+    if (dragFloatProperty(app, "Safe Margin", margin, 0.05f, "Set Character Safe Margin", 0.0f, 20.0f))
+        body.setSafeMargin(margin);
+    int maxSlides = body.maxSlides();
+    if (ImGui::InputInt("Max Slides", &maxSlides))
+        applyInstant(app, "Set Character Max Slides", [&] { body.setMaxSlides(maxSlides); });
+
+    static const char* kModes[] = {"Floating (top-down)", "Grounded (platformer)"};
+    int mode = body.motionMode() == CharacterBody2D::MotionMode::Grounded ? 1 : 0;
+    if (ImGui::Combo("Motion Mode", &mode, kModes, 2))
+        applyInstant(app, "Set Character Motion Mode",
+                     [&] {
+                         body.setMotionMode(mode == 1 ? CharacterBody2D::MotionMode::Grounded
+                                                      : CharacterBody2D::MotionMode::Floating);
+                     });
+    Math::Vec2 up = body.upDirection();
+    if (dragVec2(app, "Up Direction", up, 0.05f, "Set Character Up Direction"))
+        body.setUpDirection(up);
+    float floorAngle = body.floorMaxAngleDegrees();
+    if (dragFloatProperty(app, "Floor Max Angle", floorAngle, 1.0f, "Set Floor Max Angle", 0.0f, 89.0f))
+        body.setFloorMaxAngleDegrees(floorAngle);
+
+    ImGui::TextDisabled("Live: floor=%s wall=%s ceiling=%s", body.isOnFloor() ? "yes" : "no",
+                        body.isOnWall() ? "yes" : "no", body.isOnCeiling() ? "yes" : "no");
+}
+
+void drawColliderShared(EditorApplication& app, Collider2D& collider)
 {
     Math::Vec2 offset = collider.offset();
     if (dragVec2(app, "Offset", offset, 0.5f, "Set Collider Offset"))
@@ -1055,7 +1196,7 @@ void drawColliderShared(EditorApplication &app, Collider2D &collider)
     }
 }
 
-void drawBoxColliderProperties(EditorApplication &app, BoxCollider2D &collider)
+void drawBoxColliderProperties(EditorApplication& app, BoxCollider2D& collider)
 {
     Math::Vec2 size = collider.size();
     if (dragVec2(app, "Size", size, 0.5f, "Resize Box Collider"))
@@ -1063,7 +1204,7 @@ void drawBoxColliderProperties(EditorApplication &app, BoxCollider2D &collider)
     drawColliderShared(app, collider);
 }
 
-void drawCircleColliderProperties(EditorApplication &app, CircleCollider2D &collider)
+void drawCircleColliderProperties(EditorApplication& app, CircleCollider2D& collider)
 {
     float radius = collider.radius();
     if (dragFloatProperty(app, "Radius", radius, 0.5f, "Resize Circle Collider", 0.0f, 10000.0f))
@@ -1071,7 +1212,7 @@ void drawCircleColliderProperties(EditorApplication &app, CircleCollider2D &coll
     drawColliderShared(app, collider);
 }
 
-void drawEdgeColliderProperties(EditorApplication &app, EdgeCollider2D &collider)
+void drawEdgeColliderProperties(EditorApplication& app, EdgeCollider2D& collider)
 {
     Math::Vec2 start = collider.start();
     Math::Vec2 end = collider.end();
@@ -1082,7 +1223,7 @@ void drawEdgeColliderProperties(EditorApplication &app, EdgeCollider2D &collider
     drawColliderShared(app, collider);
 }
 
-void drawPolygonColliderProperties(EditorApplication &app, PolygonCollider2D &collider)
+void drawPolygonColliderProperties(EditorApplication& app, PolygonCollider2D& collider)
 {
     ImGui::Text("%d points", static_cast<int>(collider.points().size()));
     static int sides = 6;
@@ -1096,26 +1237,24 @@ void drawPolygonColliderProperties(EditorApplication &app, PolygonCollider2D &co
     if (ImGui::Button("Regular"))
         applyInstant(app, "Set Polygon Collider", [&] { collider.setRegular(sides, regularRadius); });
 
-    pointListEditor(app, collider.points(), 3, "Move Collider Point",
-                    [&](const ct::Vector<Math::Vec2> &points)
+    pointListEditor(app, collider.points(), 3, "Move Collider Point", [&](const ct::Vector<Math::Vec2>& points)
                     { collider.setPoints(points.data(), static_cast<int>(points.size())); });
     drawColliderShared(app, collider);
 }
 
-void drawChainColliderProperties(EditorApplication &app, ChainCollider2D &collider)
+void drawChainColliderProperties(EditorApplication& app, ChainCollider2D& collider)
 {
     ImGui::Text("%d points", static_cast<int>(collider.points().size()));
     bool loop = collider.loop();
     if (ImGui::Checkbox("Loop", &loop))
         applyInstant(app, "Set Chain Loop", [&] { collider.setLoop(loop); });
 
-    pointListEditor(app, collider.points(), 2, "Move Collider Point",
-                    [&](const ct::Vector<Math::Vec2> &points)
+    pointListEditor(app, collider.points(), 2, "Move Collider Point", [&](const ct::Vector<Math::Vec2>& points)
                     { collider.setPoints(points.data(), static_cast<int>(points.size())); });
     drawColliderShared(app, collider);
 }
 
-void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
+void drawZenScriptOverrides(EditorApplication& app, ZenScriptComponent& script)
 {
     const size_t declaredCount = script.declaredPropertyCount();
     if (declaredCount == 0 && script.overrideCount() == 0)
@@ -1126,10 +1265,10 @@ void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
 
     for (size_t i = 0; i < declaredCount; ++i)
     {
-        const ZenScriptProperty *declared = script.declaredPropertyAt(i);
-        const ZenScriptProperty *current = script.findOverride(declared->name.c_str());
-        const ZenScriptProperty &value = current ? *current : *declared;
-        const char *name = declared->name.c_str();
+        const ZenScriptProperty* declared = script.declaredPropertyAt(i);
+        const ZenScriptProperty* current = script.findOverride(declared->name.c_str());
+        const ZenScriptProperty& value = current ? *current : *declared;
+        const char* name = declared->name.c_str();
 
         ImGui::PushID(static_cast<int>(i));
         ImGui::SetNextItemWidth(-60.0f);
@@ -1198,7 +1337,7 @@ void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
     ct::String orphan;
     for (size_t i = 0; i < script.overrideCount(); ++i)
     {
-        const ZenScriptProperty *stored = script.overrideAt(i);
+        const ZenScriptProperty* stored = script.overrideAt(i);
         if (script.declaredProperty(stored->name.c_str()))
             continue;
         ImGui::PushID(static_cast<int>(declaredCount + i));
@@ -1220,7 +1359,7 @@ void drawZenScriptOverrides(EditorApplication &app, ZenScriptComponent &script)
     }
 }
 
-void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
+void drawZenScriptProperties(EditorApplication& app, ZenScriptComponent& script)
 {
     ImGui::TextUnformatted("Script");
     ImGui::SameLine(130.0f);
@@ -1228,9 +1367,9 @@ void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
     ImGui::Button(hasPath ? script.scriptPath().c_str() : "None", ImVec2(-70.0f, 0.0f));
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kScriptDragDropPayload))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kScriptDragDropPayload))
         {
-            const char *path = static_cast<const char *>(payload->Data);
+            const char* path = static_cast<const char*>(payload->Data);
             applyInstant(app, "Set Zen Script", [&] { script.loadFile(path); });
         }
         ImGui::EndDragDropTarget();
@@ -1268,7 +1407,7 @@ void drawZenScriptProperties(EditorApplication &app, ZenScriptComponent &script)
     ImGui::TextDisabled("Scripts run in Play mode only.");
 }
 
-void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
+void drawSpriteBatchProperties(EditorApplication& app, SpriteBatch& batch)
 {
     BlendMode blendMode = batch.blendMode();
     if (blendModeCombo(blendMode))
@@ -1278,21 +1417,28 @@ void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
     int removeIndex = -1;
     for (int i = 0; i < batch.count(); ++i)
     {
-        SpriteBatch::Entry *entry = batch.entryAt(i);
+        SpriteBatch::Entry* entry = batch.entryAt(i);
         if (!entry)
             continue;
         ImGui::PushID(i);
-        if (ImGui::TreeNodeEx("##entry", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
-                              "Entry %d", i))
+        if (ImGui::TreeNodeEx("##entry", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth, "Entry %d", i))
         {
             ImGui::Indent();
-            Texture *newTexture = nullptr;
+            Texture* newTexture = nullptr;
             if (textureField(app, "Texture", entry->texture, newTexture))
                 applyInstant(app, "Set Batch Entry Texture", [&] { entry->texture = newTexture; });
-            if (dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry")) {}
-            if (dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry")) {}
-            if (dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source")) {}
-            if (colorEdit(app, "Color", entry->color, "Recolor Batch Entry")) {}
+            if (dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry"))
+            {
+            }
+            if (dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry"))
+            {
+            }
+            if (dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source"))
+            {
+            }
+            if (colorEdit(app, "Color", entry->color, "Recolor Batch Entry"))
+            {
+            }
 
             bool flipX = (entry->flags & 0x1u) != 0;
             bool flipY = (entry->flags & 0x2u) != 0;
@@ -1314,26 +1460,25 @@ void drawSpriteBatchProperties(EditorApplication &app, SpriteBatch &batch)
     if (ImGui::Button(ICON_MDI_PLUS " Add Entry"))
     {
         applyInstant(app, "Add Batch Entry", [&]
-        {
-            batch.add(placeholderSpriteTexture(app), Math::Vec2(0.0f, 0.0f), Math::Vec2(32.0f, 32.0f));
-        });
+                     { batch.add(placeholderSpriteTexture(app), Math::Vec2(0.0f, 0.0f), Math::Vec2(32.0f, 32.0f)); });
     }
 }
 
-void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
+void drawAnimationProperties(EditorApplication& app, Animation2D& anim)
 {
-    static const char *modeNames[] = {"One Shot", "Loop", "Ping Pong"};
-    GameObject *owner = anim.owner();
+    static const char* modeNames[] = {"One Shot", "Loop", "Ping Pong"};
+    GameObject* owner = anim.owner();
     if (!owner || !owner->getComponent<SpriteComponent>())
     {
         ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.35f, 1.0f),
                            "Animation2D requires a Sprite Renderer to display frames.");
         if (ImGui::Button("Add Sprite Renderer"))
-            applyInstant(app, "Add Sprite Renderer", [&]
-            {
-                if (owner && !owner->getComponent<SpriteComponent>())
-                    owner->addComponent<SpriteComponent>();
-            });
+            applyInstant(app, "Add Sprite Renderer",
+                         [&]
+                         {
+                             if (owner && !owner->getComponent<SpriteComponent>())
+                                 owner->addComponent<SpriteComponent>();
+                         });
     }
     int mode = static_cast<int>(anim.mode());
     if (ImGui::Combo("Mode", &mode, modeNames, 3))
@@ -1341,28 +1486,29 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
 
     if (ImGui::Button(anim.playing() ? "Stop Preview" : "Preview in Scene"))
     {
-        applyInstant(app, anim.playing() ? "Stop Animation" : "Play Animation", [&]
-        {
-            if (anim.playing())
-                anim.stop();
-            else
-            {
-                app.settings().viewportLivePreview = true;
-                anim.play();
-            }
-        });
+        applyInstant(app, anim.playing() ? "Stop Animation" : "Play Animation",
+                     [&]
+                     {
+                         if (anim.playing())
+                             anim.stop();
+                         else
+                         {
+                             app.settings().viewportLivePreview = true;
+                             anim.play();
+                         }
+                     });
     }
     ImGui::SameLine();
     ImGui::Text("Frame %d / %d", anim.frame(), anim.frameCount());
     ImGui::TextDisabled("Edit the sprite library, clips and timeline in Window > Animator.");
     return;
 
-    ImGui::Text("%d clip(s)%s%s", static_cast<int>(anim.clipCount()),
-               anim.currentClip() ? ", current: " : "", anim.currentClip() ? anim.currentClip() : "");
+    ImGui::Text("%d clip(s)%s%s", static_cast<int>(anim.clipCount()), anim.currentClip() ? ", current: " : "",
+                anim.currentClip() ? anim.currentClip() : "");
     ct::String clipToDelete;
     for (size_t i = 0; i < anim.clipCount(); ++i)
     {
-        AnimationClip *clip = anim.clipAt(i);
+        AnimationClip* clip = anim.clipAt(i);
         if (!clip)
             continue;
         ImGui::PushID(static_cast<int>(i));
@@ -1376,9 +1522,8 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 applyInstant(app, "Change Animation Clip", [&] { anim.play(clip->name.c_str()); });
 
             const ct::String clipName = clip->name;
-            const bool individualFrames = !clip->frames.empty() ||
-                                          (!clip->texture && clip->frameWidth == 0 &&
-                                           clip->frameHeight == 0 && clip->frameCount == 0);
+            const bool individualFrames = !clip->frames.empty() || (!clip->texture && clip->frameWidth == 0 &&
+                                                                    clip->frameHeight == 0 && clip->frameCount == 0);
             if (individualFrames)
             {
                 float fps = clip->framesPerSecond;
@@ -1386,28 +1531,29 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                     clip->framesPerSecond = fps;
                 int modeIdx = static_cast<int>(clip->mode);
                 if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
-                    applyInstant(app, "Set Animation Clip Mode", [&]
-                    {
-                        AnimationClip *editable = anim.clipAt(i);
-                        if (editable)
-                            editable->mode = static_cast<AnimationMode>(modeIdx);
-                    });
+                    applyInstant(app, "Set Animation Clip Mode",
+                                 [&]
+                                 {
+                                     AnimationClip* editable = anim.clipAt(i);
+                                     if (editable)
+                                         editable->mode = static_cast<AnimationMode>(modeIdx);
+                                 });
 
                 ImGui::SeparatorText("Frames");
                 ImGui::Button("Drop a Sprite Editor region here", ImVec2(-1.0f, 28.0f));
                 if (ImGui::BeginDragDropTarget())
                 {
-                    if (const ImGuiPayload *payload =
-                            ImGui::AcceptDragDropPayload(kSpriteRegionDragDropPayload))
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kSpriteRegionDragDropPayload))
                     {
-                        const auto *data = static_cast<const SpriteRegionDragDropData *>(payload->Data);
+                        const auto* data = static_cast<const SpriteRegionDragDropData*>(payload->Data);
                         const Math::Vec4 rect(data->x, data->y, data->width, data->height);
-                        applyInstant(app, "Add Sprite Editor Frame", [&]
-                        {
-                            anim.addFrame(clipName.c_str(), data->texture, rect, data->texturePath);
-                            app.settings().viewportLivePreview = true;
-                            anim.play(clipName.c_str());
-                        });
+                        applyInstant(app, "Add Sprite Editor Frame",
+                                     [&]
+                                     {
+                                         anim.addFrame(clipName.c_str(), data->texture, rect, data->texturePath);
+                                         app.settings().viewportLivePreview = true;
+                                         anim.play(clipName.c_str());
+                                     });
                     }
                     ImGui::EndDragDropTarget();
                 }
@@ -1415,18 +1561,19 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 size_t frameToDelete = static_cast<size_t>(-1);
                 for (size_t frameIndex = 0; frameIndex < clip->frames.size(); ++frameIndex)
                 {
-                    const AnimationFrame &frame = clip->frames[frameIndex];
+                    const AnimationFrame& frame = clip->frames[frameIndex];
                     ImGui::PushID(static_cast<int>(frameIndex));
                     ImGui::Text("Frame %d", static_cast<int>(frameIndex) + 1);
-                    Texture *frameTexture = frame.texture;
-                    Texture *droppedFrameTexture = nullptr;
+                    Texture* frameTexture = frame.texture;
+                    Texture* droppedFrameTexture = nullptr;
                     if (textureField(app, "Texture", frameTexture, droppedFrameTexture))
                     {
-                        applyInstant(app, "Set Animation Frame Texture", [&]
-                        {
-                            anim.setFrame(clipName.c_str(), frameIndex, droppedFrameTexture, frame.rect,
-                                          app.assets().FindTextureName(droppedFrameTexture));
-                        });
+                        applyInstant(app, "Set Animation Frame Texture",
+                                     [&]
+                                     {
+                                         anim.setFrame(clipName.c_str(), frameIndex, droppedFrameTexture, frame.rect,
+                                                       app.assets().FindTextureName(droppedFrameTexture));
+                                     });
                     }
                     Math::Vec4 rect = frame.rect;
                     if (dragVec4(app, "Rect (0 = image)", rect, 0.5f, "Edit Animation Frame"))
@@ -1437,24 +1584,25 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                     ImGui::PopID();
                 }
                 if (frameToDelete != static_cast<size_t>(-1))
-                    applyInstant(app, "Delete Animation Frame", [&]
-                    { anim.removeFrame(clipName.c_str(), frameToDelete); });
+                    applyInstant(app, "Delete Animation Frame",
+                                 [&] { anim.removeFrame(clipName.c_str(), frameToDelete); });
 
-                static Texture *newFrameTexture = nullptr;
+                static Texture* newFrameTexture = nullptr;
                 static Math::Vec4 newFrameRect(0.0f);
                 ImGui::SeparatorText("Add Frame");
-                Texture *droppedNewFrameTexture = nullptr;
+                Texture* droppedNewFrameTexture = nullptr;
                 if (textureField(app, "Frame Texture", newFrameTexture, droppedNewFrameTexture))
                     newFrameTexture = droppedNewFrameTexture;
                 ImGui::DragFloat4("Frame Rect (0 = image)", &newFrameRect.x, 0.5f);
                 if (ImGui::Button(ICON_MDI_PLUS " Add Frame"))
                 {
-                    applyInstant(app, "Add Animation Frame", [&]
-                    {
-                        anim.addFrame(clipName.c_str(), newFrameTexture, newFrameRect);
-                        app.settings().viewportLivePreview = true;
-                        anim.play(clipName.c_str());
-                    });
+                    applyInstant(app, "Add Animation Frame",
+                                 [&]
+                                 {
+                                     anim.addFrame(clipName.c_str(), newFrameTexture, newFrameRect);
+                                     app.settings().viewportLivePreview = true;
+                                     anim.play(clipName.c_str());
+                                 });
                     newFrameTexture = nullptr;
                     newFrameRect = Math::Vec4(0.0f);
                 }
@@ -1466,7 +1614,7 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
                 continue;
             }
             const bool wasPlaying = clip->playing;
-            Texture *clipTexture = clip->texture;
+            Texture* clipTexture = clip->texture;
             int fw = clip->frameWidth;
             int fh = clip->frameHeight;
             int fc = clip->frameCount;
@@ -1477,14 +1625,13 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
 
             const auto updateClip = [&]
             {
-                anim.addClip(clipName.c_str(), clipTexture, fw, fh, fc, fps,
-                            static_cast<AnimationMode>(modeIdx));
+                anim.addClip(clipName.c_str(), clipTexture, fw, fh, fc, fps, static_cast<AnimationMode>(modeIdx));
                 anim.setClipAtlasLayout(clipName.c_str(), atlasPadding, atlasGap);
                 if (isCurrent && wasPlaying)
                     anim.play(clipName.c_str());
             };
 
-            Texture *droppedClipTexture = nullptr;
+            Texture* droppedClipTexture = nullptr;
             if (textureField(app, "Texture", clipTexture, droppedClipTexture))
             {
                 clipTexture = droppedClipTexture;
@@ -1505,8 +1652,8 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
             if (ImGui::Combo("Mode", &modeIdx, modeNames, 3))
                 applyInstant(app, "Set Animation Clip Mode", updateClip);
             if (ImGui::Button("Use Individual Frames"))
-                applyInstant(app, "Convert Animation Clip to Frames", [&]
-                { anim.addFrame(clipName.c_str(), clipTexture, Math::Vec4(0.0f)); });
+                applyInstant(app, "Convert Animation Clip to Frames",
+                             [&] { anim.addFrame(clipName.c_str(), clipTexture, Math::Vec4(0.0f)); });
             if (ImGui::Button(ICON_MDI_DELETE " Delete Clip"))
                 clipToDelete = clipName;
             ImGui::Unindent();
@@ -1521,8 +1668,9 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
     static float framesPerSecond = 10.0f;
     static int clipMode = 1;
 
-    if (ImGui::TreeNodeEx("##newClip", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth |
-                          ImGuiTreeNodeFlags_DefaultOpen, ICON_MDI_PLAYLIST_PLUS " New Clip"))
+    if (ImGui::TreeNodeEx(
+            "##newClip", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen,
+            ICON_MDI_PLAYLIST_PLUS " New Clip"))
     {
         ImGui::Indent();
         ImGui::InputText("Name", clipName, sizeof(clipName));
@@ -1533,12 +1681,13 @@ void drawAnimationProperties(EditorApplication &app, Animation2D &anim)
         ImGui::BeginDisabled(!valid);
         if (ImGui::Button("Add Clip"))
         {
-            applyInstant(app, "Add Animation Clip", [&]
-            {
-                anim.addClip(clipName, nullptr, 0, 0, 0, framesPerSecond,
-                            static_cast<AnimationMode>(clipMode));
-                anim.play(clipName);
-            });
+            applyInstant(app, "Add Animation Clip",
+                         [&]
+                         {
+                             anim.addClip(clipName, nullptr, 0, 0, 0, framesPerSecond,
+                                          static_cast<AnimationMode>(clipMode));
+                             anim.play(clipName);
+                         });
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
@@ -1558,9 +1707,9 @@ enum class ParticlePreset
     Snow
 };
 
-void applyParticlePreset(EditorApplication &app, ParticleComponent &particleComponent, ParticlePreset preset)
+void applyParticlePreset(EditorApplication& app, ParticleComponent& particleComponent, ParticlePreset preset)
 {
-    ParticleSystem &system = particleComponent.system();
+    ParticleSystem& system = particleComponent.system();
     if (!system.GetTexture())
         system.SetTexture(app.particlePlaceholderTexture());
     ParticlePrefab prefab;
@@ -1727,65 +1876,68 @@ void applyParticlePreset(EditorApplication &app, ParticleComponent &particleComp
     system.Reset();
 }
 
-void drawParticleProperties(EditorApplication &app, ParticleComponent &particleComponent)
+void drawParticleProperties(EditorApplication& app, ParticleComponent& particleComponent)
 {
-    ParticleSystem &system = particleComponent.system();
+    ParticleSystem& system = particleComponent.system();
 
     ImGui::TextUnformatted("Presets");
     if (ImGui::Button("Fire"))
-        applyInstant(app, "Apply Fire Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Fire); });
+        applyInstant(app, "Apply Fire Preset",
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Fire); });
     ImGui::SameLine();
     if (ImGui::Button("Smoke"))
-        applyInstant(app, "Apply Smoke Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Smoke); });
+        applyInstant(app, "Apply Smoke Preset",
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Smoke); });
     ImGui::SameLine();
     if (ImGui::Button("Explosion"))
     {
         applyInstant(app, "Apply Explosion Preset",
-                    [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Explosion); });
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Explosion); });
     }
     if (ImGui::Button("Engine Flame"))
     {
         applyInstant(app, "Apply Engine Flame Preset",
-                    [&] { applyParticlePreset(app, particleComponent, ParticlePreset::EngineFlame); });
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::EngineFlame); });
     }
     ImGui::SameLine();
     if (ImGui::Button("Rain"))
-        applyInstant(app, "Apply Rain Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Rain); });
+        applyInstant(app, "Apply Rain Preset",
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Rain); });
     ImGui::SameLine();
     if (ImGui::Button("Snow"))
-        applyInstant(app, "Apply Snow Preset", [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Snow); });
+        applyInstant(app, "Apply Snow Preset",
+                     [&] { applyParticlePreset(app, particleComponent, ParticlePreset::Snow); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Presets set emission, blend mode, gravity, emitter shape and the whole emission prefab below.");
+        ImGui::SetTooltip(
+            "Presets set emission, blend mode, gravity, emitter shape and the whole emission prefab below.");
     ImGui::Separator();
 
-    Texture *texture = system.GetTexture();
-    Texture *newTexture = nullptr;
+    Texture* texture = system.GetTexture();
+    Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
         applyInstant(app, "Set Particle Texture", [&] { system.SetTexture(newTexture); });
     if (!texture)
     {
-        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f),
-                           "No texture - particles will not render.");
+        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f), "No texture - particles will not render.");
         ImGui::SameLine();
         if (ImGui::SmallButton("Use default dot"))
-            applyInstant(app, "Set Particle Texture",
-                        [&] { system.SetTexture(app.particlePlaceholderTexture()); });
+            applyInstant(app, "Set Particle Texture", [&] { system.SetTexture(app.particlePlaceholderTexture()); });
     }
 
     int capacity = static_cast<int>(system.Capacity());
     if (dragIntProperty(app, "Capacity", capacity, 1.0f, "Resize Particle Capacity", 1, 1000000))
         system.SetCapacity(static_cast<size_t>(capacity));
 
-    static const char *modeNames[] = {"One Shot", "Persistent", "Loop"};
+    static const char* modeNames[] = {"One Shot", "Persistent", "Loop"};
     int mode = static_cast<int>(system.GetMode());
     if (ImGui::Combo("Mode", &mode, modeNames, 3))
         applyInstant(app, "Set Particle Mode", [&] { system.SetMode(static_cast<ParticleMode>(mode)); });
 
-    static const char *shapeNames[] = {"Point", "Circle", "Rectangle"};
+    static const char* shapeNames[] = {"Point", "Circle", "Rectangle"};
     int shape = static_cast<int>(system.GetEmitterShape());
     if (ImGui::Combo("Emitter Shape", &shape, shapeNames, 3))
         applyInstant(app, "Set Particle Emitter Shape",
-                    [&] { system.SetEmitterShape(static_cast<ParticleEmitterShape>(shape)); });
+                     [&] { system.SetEmitterShape(static_cast<ParticleEmitterShape>(shape)); });
 
     Math::Vec2 emitterSize = system.EmitterSize();
     if (dragVec2(app, "Emitter Size", emitterSize, 0.5f, "Resize Particle Emitter"))
@@ -1813,13 +1965,14 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
 
     if (ImGui::Button(system.IsPlaying() ? "Stop" : "Start"))
     {
-        applyInstant(app, system.IsPlaying() ? "Stop Particles" : "Start Particles", [&]
-        {
-            if (system.IsPlaying())
-                system.Stop();
-            else
-                system.Start();
-        });
+        applyInstant(app, system.IsPlaying() ? "Stop Particles" : "Start Particles",
+                     [&]
+                     {
+                         if (system.IsPlaying())
+                             system.Stop();
+                         else
+                             system.Start();
+                     });
     }
 
     BlendMode blendMode = particleComponent.blendMode();
@@ -1893,94 +2046,103 @@ void drawParticleProperties(EditorApplication &app, ParticleComponent &particleC
         system.SetPrefab(prefab);
 }
 
-void drawComponentProperties(EditorApplication &app, Component &component)
+void drawComponentProperties(EditorApplication& app, Component& component)
 {
     switch (component.type())
     {
     case ComponentType::Sprite:
-        drawSpriteProperties(app, static_cast<SpriteComponent &>(component));
+        drawSpriteProperties(app, static_cast<SpriteComponent&>(component));
         break;
     case ComponentType::TileMap:
-        drawTileMapProperties(app, static_cast<TileMapComponent &>(component));
+        drawTileMapProperties(app, static_cast<TileMapComponent&>(component));
         break;
     case ComponentType::Polygon2D:
-        drawPolygonProperties(app, static_cast<Polygon2D &>(component));
+        drawPolygonProperties(app, static_cast<Polygon2D&>(component));
+        break;
+    case ComponentType::NavigationRegion:
+        drawNavigationRegionProperties(app, static_cast<NavigationRegion2D&>(component));
+        break;
+    case ComponentType::NavigationAgent:
+        drawNavigationAgentProperties(app, static_cast<NavigationAgent2D&>(component));
         break;
     case ComponentType::LinePath:
-        drawLineProperties(app, static_cast<Line2D &>(component));
+        drawLineProperties(app, static_cast<Line2D&>(component));
         break;
     case ComponentType::CircleShape:
-        drawCircleShapeProperties(app, static_cast<CircleShape &>(component));
+        drawCircleShapeProperties(app, static_cast<CircleShape&>(component));
         break;
     case ComponentType::RectShape:
-        drawRectShapeProperties(app, static_cast<RectShape &>(component));
+        drawRectShapeProperties(app, static_cast<RectShape&>(component));
         break;
     case ComponentType::CapsuleShape:
-        drawCapsuleShapeProperties(app, static_cast<CapsuleShape &>(component));
+        drawCapsuleShapeProperties(app, static_cast<CapsuleShape&>(component));
         break;
     case ComponentType::AudioPlayer:
-        drawAudioPlayerProperties(app, static_cast<AudioPlayer &>(component));
+        drawAudioPlayerProperties(app, static_cast<AudioPlayer&>(component));
         break;
     case ComponentType::NinePatch:
-        drawNinePatchProperties(app, static_cast<NinePatchComponent &>(component));
+        drawNinePatchProperties(app, static_cast<NinePatchComponent&>(component));
         break;
     case ComponentType::UiCanvas:
         ImGui::TextDisabled("Create UI controls as children of this GameObject.");
         break;
     case ComponentType::UiPanel:
-        drawUiPanelProperties(app, static_cast<UiPanel &>(component));
+        drawUiPanelProperties(app, static_cast<UiPanel&>(component));
         break;
     case ComponentType::UiLabel:
-        drawUiLabelProperties(app, static_cast<UiLabel &>(component));
+        drawUiLabelProperties(app, static_cast<UiLabel&>(component));
         break;
     case ComponentType::UiButton:
-        drawUiButtonProperties(app, static_cast<UiButton &>(component));
+        drawUiButtonProperties(app, static_cast<UiButton&>(component));
         break;
     case ComponentType::UiCheckBox:
-        drawUiCheckBoxProperties(app, static_cast<UiCheckBox &>(component));
+        drawUiCheckBoxProperties(app, static_cast<UiCheckBox&>(component));
         break;
     case ComponentType::UiSlider:
-        drawUiSliderProperties(app, static_cast<UiSlider &>(component));
+        drawUiSliderProperties(app, static_cast<UiSlider&>(component));
         break;
     case ComponentType::SpriteBatch:
-        drawSpriteBatchProperties(app, static_cast<SpriteBatch &>(component));
+        drawSpriteBatchProperties(app, static_cast<SpriteBatch&>(component));
         break;
     case ComponentType::Animation:
-        drawAnimationProperties(app, static_cast<Animation2D &>(component));
+        drawAnimationProperties(app, static_cast<Animation2D&>(component));
         break;
     case ComponentType::Light:
-        if (Light2D *light = dynamic_cast<Light2D *>(&component))
+        if (Light2D* light = dynamic_cast<Light2D*>(&component))
             drawPointLightProperties(app, *light);
-        else if (DirectionalLight2D *directional = dynamic_cast<DirectionalLight2D *>(&component))
+        else if (DirectionalLight2D* directional = dynamic_cast<DirectionalLight2D*>(&component))
             drawDirectionalLightProperties(app, *directional);
         break;
     case ComponentType::Occluder:
-        drawOccluderProperties(app, static_cast<LightOccluder2D &>(component));
+        drawOccluderProperties(app, static_cast<LightOccluder2D&>(component));
         break;
     case ComponentType::Camera:
-        drawCameraProperties(app, static_cast<CameraComponent &>(component));
+        drawCameraProperties(app, static_cast<CameraComponent&>(component));
         break;
     case ComponentType::Particle:
-        drawParticleProperties(app, static_cast<ParticleComponent &>(component));
+        drawParticleProperties(app, static_cast<ParticleComponent&>(component));
         break;
     case ComponentType::RigidBody:
-        if (RigidBody2D *body = dynamic_cast<RigidBody2D *>(&component))
+        if (RigidBody2D* body = dynamic_cast<RigidBody2D*>(&component))
             drawRigidBodyProperties(app, *body);
         break;
+    case ComponentType::CharacterBody:
+        drawCharacterBodyProperties(app, static_cast<CharacterBody2D&>(component));
+        break;
     case ComponentType::Collider:
-        if (BoxCollider2D *box = dynamic_cast<BoxCollider2D *>(&component))
+        if (BoxCollider2D* box = dynamic_cast<BoxCollider2D*>(&component))
             drawBoxColliderProperties(app, *box);
-        else if (CircleCollider2D *circle = dynamic_cast<CircleCollider2D *>(&component))
+        else if (CircleCollider2D* circle = dynamic_cast<CircleCollider2D*>(&component))
             drawCircleColliderProperties(app, *circle);
-        else if (EdgeCollider2D *edge = dynamic_cast<EdgeCollider2D *>(&component))
+        else if (EdgeCollider2D* edge = dynamic_cast<EdgeCollider2D*>(&component))
             drawEdgeColliderProperties(app, *edge);
-        else if (PolygonCollider2D *polygon = dynamic_cast<PolygonCollider2D *>(&component))
+        else if (PolygonCollider2D* polygon = dynamic_cast<PolygonCollider2D*>(&component))
             drawPolygonColliderProperties(app, *polygon);
-        else if (ChainCollider2D *chain = dynamic_cast<ChainCollider2D *>(&component))
+        else if (ChainCollider2D* chain = dynamic_cast<ChainCollider2D*>(&component))
             drawChainColliderProperties(app, *chain);
         break;
     case ComponentType::Script:
-        if (ZenScriptComponent *script = dynamic_cast<ZenScriptComponent *>(&component))
+        if (ZenScriptComponent* script = dynamic_cast<ZenScriptComponent*>(&component))
             drawZenScriptProperties(app, *script);
         else
             ImGui::TextDisabled("Native script component (code-attached).");
@@ -1989,11 +2151,11 @@ void drawComponentProperties(EditorApplication &app, Component &component)
         break;
     }
 }
-}
+} // namespace
 
 void InspectorPanel::drawContents()
 {
-    GameObject *object = app().selection().resolve(app().scene());
+    GameObject* object = app().selection().resolve(app().scene());
     if (!object)
     {
         ImGui::TextDisabled("Select an object in the Hierarchy or Scene view.");
@@ -2110,7 +2272,7 @@ void InspectorPanel::drawContents()
 
     ImGui::SeparatorText("Components");
     bool any = false;
-    Component *componentToRemove = nullptr;
+    Component* componentToRemove = nullptr;
     EditorApplication::SceneChange removeBefore;
     ct::String removeLabel;
     for (unsigned int value = 0; value < static_cast<unsigned int>(ComponentType::Count); ++value)
@@ -2119,7 +2281,7 @@ void InspectorPanel::drawContents()
         const size_t count = object->rawComponentCount(type);
         for (size_t index = 0; index < count; ++index)
         {
-            Component *component = object->rawComponent(type, index);
+            Component* component = object->rawComponent(type, index);
             if (!component)
                 continue;
             any = true;
@@ -2132,13 +2294,14 @@ void InspectorPanel::drawContents()
                 app().commitChange(componentActive ? "Enable Component" : "Disable Component", before);
             }
             ImGui::SameLine();
-            const bool open = ImGui::TreeNodeEx("##header", ImGuiTreeNodeFlags_DefaultOpen |
-                                                ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
+            const bool open = ImGui::TreeNodeEx("##header",
+                                                ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed |
+                                                    ImGuiTreeNodeFlags_SpanAvailWidth,
                                                 "%s  #%u", componentName(*component), component->id());
             if (open)
             {
                 ImGui::Indent();
-                const char *description = componentDescription(*component);
+                const char* description = componentDescription(*component);
                 if (description[0] != '\0')
                     ImGui::TextDisabled("%s", description);
                 drawComponentProperties(app(), *component);
@@ -2179,7 +2342,7 @@ void InspectorPanel::drawContents()
         if (componentMenuItem("NinePatch", "Draw a scalable panel with fixed borders."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            NinePatchComponent *ninePatch = object->addComponent<NinePatchComponent>();
+            NinePatchComponent* ninePatch = object->addComponent<NinePatchComponent>();
             ninePatch->setTexture(placeholderSpriteTexture(app()));
             app().commitChange("Add NinePatch Component", addBefore);
         }
@@ -2226,23 +2389,38 @@ void InspectorPanel::drawContents()
         if (componentMenuItem("TileMap", "Draw a grid of tiles from a texture atlas."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            TileMapComponent *tileMap = object->addComponent<TileMapComponent>();
+            TileMapComponent* tileMap = object->addComponent<TileMapComponent>();
             tileMap->setMapSize(8, 8);
             app().commitChange("Add TileMap Component", addBefore);
         }
         if (componentMenuItem("Polygon2D", "Draw a filled custom polygon."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            Polygon2D *polygon = object->addComponent<Polygon2D>();
+            Polygon2D* polygon = object->addComponent<Polygon2D>();
             const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
                                                 Math::Vec2(-26.0f, 20.0f)};
             polygon->setPolygon(defaultShape, 3);
             app().commitChange("Add Polygon2D Component", addBefore);
         }
+        if (componentMenuItem("Navigation Region 2D", "Editable walkable polygon; does not require a TileMap."))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            NavigationRegion2D* region = object->addComponent<NavigationRegion2D>();
+            const Math::Vec2 defaultShape[4] = {Math::Vec2(-160.0f, -100.0f), Math::Vec2(160.0f, -100.0f),
+                                                Math::Vec2(160.0f, 100.0f), Math::Vec2(-160.0f, 100.0f)};
+            region->setPolygon(defaultShape, 4);
+            app().commitChange("Add Navigation Region 2D", addBefore);
+        }
+        if (componentMenuItem("Navigation Agent 2D", "Gets a path from a Navigation Region. Auto Move is optional."))
+        {
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<NavigationAgent2D>();
+            app().commitChange("Add Navigation Agent 2D", addBefore);
+        }
         if (componentMenuItem("Line2D", "Draw an editable line or outline."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            Line2D *line = object->addComponent<Line2D>();
+            Line2D* line = object->addComponent<Line2D>();
             const Math::Vec2 defaultPoints[2] = {Math::Vec2(-30.0f, 0.0f), Math::Vec2(30.0f, 0.0f)};
             line->setPoints(defaultPoints, 2);
             app().commitChange("Add Line2D Component", addBefore);
@@ -2280,7 +2458,7 @@ void InspectorPanel::drawContents()
         if (componentMenuItem("Animation2D", "Play a frame-based sprite animation."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            Animation2D *anim = object->addComponent<Animation2D>();
+            Animation2D* anim = object->addComponent<Animation2D>();
             anim->addClip("default", nullptr, 0, 0, 0, 10.0f, AnimationMode::Loop);
             anim->play("default");
             app().commitChange("Add Animation2D Component", addBefore);
@@ -2298,6 +2476,18 @@ void InspectorPanel::drawContents()
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<RigidBody2D>();
                 app().commitChange("Add Rigid Body Component", addBefore);
+            }
+            if (componentMenuItem("Character Body",
+                                  "Script-driven kinematic movement with move_and_collide and move_and_slide."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                RigidBody2D* body = object->getComponent<RigidBody2D>();
+                if (!body)
+                    body = object->addComponent<RigidBody2D>();
+                if (body)
+                    body->setBodyType(kx::BodyType::Kinematic);
+                object->addComponent<CharacterBody2D>();
+                app().commitChange("Add Character Body Component", addBefore);
             }
             ImGui::Separator();
             if (componentMenuItem("Box Collider", "Physical rectangular collision shape."))
@@ -2327,7 +2517,7 @@ void InspectorPanel::drawContents()
             if (componentMenuItem("Chain Collider", "Physical chain of segments for terrain."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                ChainCollider2D *chain = object->addComponent<ChainCollider2D>();
+                ChainCollider2D* chain = object->addComponent<ChainCollider2D>();
                 const Math::Vec2 defaults[3] = {Math::Vec2(-60.0f, 0.0f), Math::Vec2(0.0f, 30.0f),
                                                 Math::Vec2(60.0f, 0.0f)};
                 chain->setPoints(defaults, 3);
@@ -2338,7 +2528,7 @@ void InspectorPanel::drawContents()
         if (componentMenuItem("Particle", "Emit and simulate a particle effect."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            ParticleComponent *particle = object->addComponent<ParticleComponent>();
+            ParticleComponent* particle = object->addComponent<ParticleComponent>();
             particle->system().SetTexture(app().particlePlaceholderTexture());
             particle->system().SetMode(ParticleMode::Loop);
             particle->system().SetEmissionRate(20.0f);
@@ -2372,7 +2562,7 @@ void InspectorPanel::drawContents()
         if (componentMenuItem("Light Occluder", "Block shadows cast by 2D lights."))
         {
             const EditorApplication::SceneChange addBefore = app().beginChange();
-            LightOccluder2D *occluder = object->addComponent<LightOccluder2D>();
+            LightOccluder2D* occluder = object->addComponent<LightOccluder2D>();
             const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
                                                 Math::Vec2(-26.0f, 20.0f)};
             occluder->setPolygon(defaultShape, 3);
@@ -2391,4 +2581,4 @@ void InspectorPanel::drawContents()
     ImGui::EndDisabled();
 }
 
-}
+} // namespace k2d::editor

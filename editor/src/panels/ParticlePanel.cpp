@@ -9,7 +9,6 @@
 #include <k2d/ParticleComponent.h>
 #include <k2d/Scene.h>
 
-#include <glad/glad.h>
 #include <IconsMaterialDesignIcons.h>
 
 #include <cstdint>
@@ -19,29 +18,32 @@ namespace k2d::editor
 
 namespace
 {
-ParticleComponent *findFirstParticle(GameObject &object)
+ParticleComponent* findFirstParticle(GameObject& object)
 {
-    if (ParticleComponent *particle = object.getComponent<ParticleComponent>())
+    if (ParticleComponent* particle = object.getComponent<ParticleComponent>())
         return particle;
     for (size_t i = 0; i < object.childCount(); ++i)
-        if (ParticleComponent *found = findFirstParticle(*object.child(i)))
+        if (ParticleComponent* found = findFirstParticle(*object.child(i)))
             return found;
     return nullptr;
 }
 
-const char *modeName(ParticleMode mode)
+const char* modeName(ParticleMode mode)
 {
     switch (mode)
     {
-    case ParticleMode::OneShot: return "One Shot";
-    case ParticleMode::Persistent: return "Persistent";
-    case ParticleMode::Loop: return "Loop";
+    case ParticleMode::OneShot:
+        return "One Shot";
+    case ParticleMode::Persistent:
+        return "Persistent";
+    case ParticleMode::Loop:
+        return "Loop";
     }
     return "?";
 }
-}
+} // namespace
 
-ParticlePanel::ParticlePanel(EditorApplication &application) : EditorPanel("Particles", application)
+ParticlePanel::ParticlePanel(EditorApplication& application) : EditorPanel("Particles", application)
 {
     mCanvasInitialized = mCanvas.Init();
 }
@@ -100,7 +102,7 @@ void ParticlePanel::destroyFramebuffer()
     mFramebufferHeight = 0;
 }
 
-void ParticlePanel::renderPreview(ParticleComponent &particle, int width, int height)
+void ParticlePanel::renderPreview(ParticleComponent& particle, int width, int height)
 {
     if (!mCanvasInitialized || !mCanvasReady)
         return;
@@ -130,8 +132,8 @@ void ParticlePanel::renderPreview(ParticleComponent &particle, int width, int he
 
 void ParticlePanel::drawContents()
 {
-    GameObject *selected = app().selection().resolve(app().scene());
-    ParticleComponent *particle = selected ? findFirstParticle(*selected) : nullptr;
+    GameObject* selected = app().selection().resolve(app().scene());
+    ParticleComponent* particle = selected ? findFirstParticle(*selected) : nullptr;
 
     if (!particle)
     {
@@ -139,17 +141,17 @@ void ParticlePanel::drawContents()
         const ImVec2 position = ImGui::GetCursorScreenPos();
         const float width = available.x < 1.0f ? 1.0f : available.x;
         const float height = available.y < 1.0f ? 1.0f : available.y;
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            position, ImVec2(position.x + width, position.y + height), IM_COL32(11, 13, 16, 255));
-        const char *message = "Select an object with a Particle component";
+        ImGui::GetWindowDrawList()->AddRectFilled(position, ImVec2(position.x + width, position.y + height),
+                                                  IM_COL32(11, 13, 16, 255));
+        const char* message = "Select an object with a Particle component";
         const ImVec2 textSize = ImGui::CalcTextSize(message);
-        ImGui::SetCursorScreenPos(ImVec2(position.x + (width - textSize.x) * 0.5f,
-                                        position.y + (height - textSize.y) * 0.5f));
+        ImGui::SetCursorScreenPos(
+            ImVec2(position.x + (width - textSize.x) * 0.5f, position.y + (height - textSize.y) * 0.5f));
         ImGui::TextDisabled("%s", message);
         return;
     }
 
-    ParticleSystem &system = particle->system();
+    ParticleSystem& system = particle->system();
 
     if (toolbarIcon("restart", ICON_MDI_RESTART, "Restart emitter"))
         system.Reset();
@@ -167,9 +169,7 @@ void ParticlePanel::drawContents()
     ImGui::SetNextItemWidth(120.0f);
     ImGui::SliderFloat("##zoom", &mZoom, 0.25f, 4.0f, "%.2fx");
     ImGui::SameLine();
-    ImGui::TextDisabled("%s | %d / %d alive%s",
-                        modeName(system.GetMode()),
-                        static_cast<int>(system.ActiveCount()),
+    ImGui::TextDisabled("%s | %d / %d alive%s", modeName(system.GetMode()), static_cast<int>(system.ActiveCount()),
                         static_cast<int>(system.Capacity()),
                         app().settings().viewportLivePreview ? "" : " | preview paused");
     ImGui::Separator();
@@ -185,7 +185,7 @@ void ParticlePanel::drawContents()
     ensureFramebuffer(fboWidth, fboHeight);
     renderPreview(*particle, fboWidth, fboHeight);
 
-    ImDrawList &drawList = *ImGui::GetWindowDrawList();
+    ImDrawList& drawList = *ImGui::GetWindowDrawList();
     if (mCanvasReady)
         drawList.AddImage((ImTextureID)(intptr_t)mColorTexture, min, max, ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
     else
@@ -203,10 +203,9 @@ void ParticlePanel::drawContents()
 
     if (!system.GetTexture())
     {
-        const char *hint = "No texture - drag an image here";
+        const char* hint = "No texture - drag an image here";
         const ImVec2 textSize = ImGui::CalcTextSize(hint);
-        ImGui::SetCursorScreenPos(ImVec2(min.x + (width - textSize.x) * 0.5f,
-                                        min.y + (height - textSize.y) * 0.5f));
+        ImGui::SetCursorScreenPos(ImVec2(min.x + (width - textSize.x) * 0.5f, min.y + (height - textSize.y) * 0.5f));
         ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f), "%s", hint);
         ImGui::SetCursorScreenPos(min);
     }
@@ -214,10 +213,10 @@ void ParticlePanel::drawContents()
     ImGui::Dummy(ImVec2(width, height));
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
         {
-            const char *path = static_cast<const char *>(payload->Data);
-            Texture *loaded = app().assets().GetTexture(path);
+            const char* path = static_cast<const char*>(payload->Data);
+            Texture* loaded = app().assets().GetTexture(path);
             if (!loaded)
                 loaded = app().assets().LoadTexture(path, path, true, false);
             if (loaded)
@@ -239,4 +238,4 @@ void ParticlePanel::drawContents()
     }
 }
 
-}
+} // namespace k2d::editor

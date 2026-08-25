@@ -21,8 +21,8 @@ void SettingsPanel::drawPhysics()
     if (!ImGui::CollapsingHeader("Physics 2D", ImGuiTreeNodeFlags_DefaultOpen))
         return;
 
-    PhysicsSettings &physics = app().project().physics();
-    EditorApplication::ScenePhysics &scene = app().scenePhysics();
+    PhysicsSettings& physics = app().project().physics();
+    EditorApplication::ScenePhysics& scene = app().scenePhysics();
 
     ImGui::TextDisabled("Gravity");
     bool overridden = scene.overrideGravity;
@@ -38,9 +38,9 @@ void SettingsPanel::drawPhysics()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Off means the scene follows the project default below");
 
-    Math::Vec2 &edited = overridden ? scene.gravity : physics.gravity;
+    Math::Vec2& edited = overridden ? scene.gravity : physics.gravity;
     float gravity[2] = {edited.x, edited.y};
-    const char *label = overridden ? "Scene Gravity" : "Project Gravity";
+    const char* label = overridden ? "Scene Gravity" : "Project Gravity";
     const bool dragged = ImGui::DragFloat2(label, gravity, 5.0f);
     if (overridden && ImGui::IsItemActivated())
         app().beginTransaction("Set Scene Gravity", app().beginChange());
@@ -59,7 +59,7 @@ void SettingsPanel::drawPhysics()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Positive Y pulls down, the same way screen coordinates run");
 
-    const auto preset = [&](const char *name, const Math::Vec2 &value)
+    const auto preset = [&](const char* name, const Math::Vec2& value)
     {
         if (!ImGui::Button(name))
             return;
@@ -102,15 +102,12 @@ void SettingsPanel::drawPhysics()
 
     if (fixedStep)
     {
-        int rate = physics.fixedTimeStep > 0.0f
-                       ? static_cast<int>(1.0f / physics.fixedTimeStep + 0.5f)
-                       : 60;
+        int rate = physics.fixedTimeStep > 0.0f ? static_cast<int>(1.0f / physics.fixedTimeStep + 0.5f) : 60;
         if (ImGui::DragInt("Steps per Second", &rate, 1.0f, 15, 240))
             physics.fixedTimeStep = 1.0f / static_cast<float>(rate < 1 ? 1 : rate);
         if (ImGui::IsItemDeactivatedAfterEdit())
             persist();
-        ImGui::TextDisabled("%.4f s per step, up to 8 steps caught up per frame",
-                            physics.fixedTimeStep);
+        ImGui::TextDisabled("%.4f s per step, up to 8 steps caught up per frame", physics.fixedTimeStep);
     }
 
     if (ImGui::DragInt("Velocity Iterations", &physics.velocityIterations, 1.0f, 1, 32))
@@ -128,7 +125,7 @@ void SettingsPanel::drawPhysics()
 
     ImGui::Separator();
 
-    if (PhysicsWorld2D *world = app().physicsWorld())
+    if (PhysicsWorld2D* world = app().physicsWorld())
     {
         ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), ICON_MDI_PLAY " Simulating");
         ImGui::Text("%d bodies, %d contacts", static_cast<int>(world->bodyCount()),
@@ -169,8 +166,6 @@ void SettingsPanel::drawViewport()
         app().settings().viewportGridSize = Math::Vec2(gridSize[0], gridSize[1]);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Grid and snap spacing in world pixels for the Scene panel");
-
-    ImGui::Checkbox("Script Hot Reload", &app().settings().scriptHotReload);
 }
 
 void SettingsPanel::drawContents()
@@ -179,4 +174,4 @@ void SettingsPanel::drawContents()
     drawViewport();
 }
 
-}
+} // namespace k2d::editor

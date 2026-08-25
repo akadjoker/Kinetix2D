@@ -2,8 +2,15 @@ cmake_minimum_required(VERSION 3.16)
 
 find_package(SDL2 REQUIRED)
 
-add_library(glad STATIC ${CMAKE_SOURCE_DIR}/external/glad/src/glad.cpp)
-target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
+# WebGL 2 and Android already provide the GLES3 entry points. Desktop still
+# needs glad to resolve them from SDL's GL context at runtime.
+set(K2D_NATIVE_GLES3 OFF)
+if(ANDROID OR EMSCRIPTEN)
+    set(K2D_NATIVE_GLES3 ON)
+else()
+    add_library(glad STATIC ${CMAKE_SOURCE_DIR}/external/glad/src/glad.cpp)
+    target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
+endif()
 
 add_library(imgui STATIC
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui.cpp
@@ -20,13 +27,19 @@ target_include_directories(imgui PUBLIC
     ${CMAKE_SOURCE_DIR}/external/imgui/backends
 )
 
-target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
-target_link_libraries(imgui PUBLIC glad)
+if(K2D_NATIVE_GLES3)
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
+    set(K2D_IMGUI_GL_INCLUDE "GLES3/gl3.h")
+else()
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
+    target_link_libraries(imgui PUBLIC glad)
+    set(K2D_IMGUI_GL_INCLUDE "${CMAKE_SOURCE_DIR}/external/glad/include/glad/glad.h")
+endif()
 
 set_source_files_properties(
     ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_opengl3.cpp
     PROPERTIES
-    COMPILE_OPTIONS "-include${CMAKE_SOURCE_DIR}/external/glad/include/glad/glad.h"
+    COMPILE_OPTIONS "-include${K2D_IMGUI_GL_INCLUDE}"
 )
 
 # The default UI skin is owned by the engine, not by a game project. Embed it
@@ -135,6 +148,11 @@ add_library(k2d STATIC
     src/CanvasLayer.cpp
     src/AStarGrid2D.cpp
     src/AStar2D.cpp
+    src/Navigation2D.cpp
+    src/NavigationRegion2D.cpp
+    src/NavigationAgent2D.cpp
+    src/MotionTween2D.cpp
+    src/MotionStreak2D.cpp
     src/Serializer.cpp
     src/Prefab.cpp
     ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
@@ -146,16 +164,29 @@ add_library(k2d STATIC
 
 target_include_directories(k2d PUBLIC
     include
-    ${CMAKE_SOURCE_DIR}/external/glad/include
     ${CMAKE_SOURCE_DIR}/external/stb
     ${CMAKE_SOURCE_DIR}/physics/include
     ${CMAKE_SOURCE_DIR}/external/containers/include
 )
 
+if(NOT K2D_NATIVE_GLES3)
+    target_include_directories(k2d PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
+endif()
+
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
 
-target_link_libraries(k2d PUBLIC glad mathc k2d_miniaudio)
+target_link_libraries(k2d PUBLIC mathc k2d_miniaudio)
+if(K2D_NATIVE_GLES3)
+    if(ANDROID)
+        target_link_libraries(k2d PUBLIC GLESv3)
+    endif()
+    if(EMSCRIPTEN)
+        target_link_options(k2d PUBLIC "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2")
+    endif()
+else()
+    target_link_libraries(k2d PUBLIC glad)
+endif()
 target_link_libraries(k2d PRIVATE imgui)
 
 if(TARGET SDL2::SDL2)

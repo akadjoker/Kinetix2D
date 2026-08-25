@@ -10,11 +10,11 @@ namespace k2d::editor
 
 class EditorSettings
 {
-public:
-    bool load(const char *path);
-    bool save(const char *path) const;
+  public:
+    bool load(const char* path);
+    bool save(const char* path) const;
 
-    void touchRecentProject(const ct::String &projectFile);
+    void touchRecentProject(const ct::String& projectFile);
 
     ct::String lastProjectPath;
     ct::String lastScenePath;
@@ -32,9 +32,8 @@ public:
     bool viewportShowGrid = true;
     Math::Vec2 viewportGridSize = Math::Vec2(32.0f, 32.0f);
     bool viewportLivePreview = true;
-    bool scriptHotReload = true;
     bool showColliders = true;
     bool showPhysicsDebug = false;
 };
 
-}
+} // namespace k2d::editor

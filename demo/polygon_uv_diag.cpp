@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 #include <cstdio>
 
 int main()
@@ -19,14 +17,14 @@ int main()
     k2d::Assets assets;
 
     unsigned char pixels[2 * 4] = {255, 0, 0, 255, 0, 0, 255, 255};
-    k2d::Texture *texture = assets.CreateTexture("split", 2, 1, pixels,  true);
+    k2d::Texture* texture = assets.CreateTexture("split", 2, 1, pixels, true);
     if (!texture)
         return 1;
 
     k2d::Scene scene;
-    k2d::GameObject *obj = scene.createObject("quad");
+    k2d::GameObject* obj = scene.createObject("quad");
     obj->setPosition(Math::Vec2(128.0f, 128.0f));
-    k2d::Polygon2D *poly = obj->addComponent<k2d::Polygon2D>();
+    k2d::Polygon2D* poly = obj->addComponent<k2d::Polygon2D>();
     poly->setTexture(texture);
 
     Math::Vec2 quad[4] = {{-100.0f, -50.0f}, {100.0f, -50.0f}, {100.0f, 50.0f}, {-100.0f, 50.0f}};
@@ -53,9 +51,8 @@ int main()
             bool leftIsRed = left[0] > 200 && left[2] < 60;
             bool rightIsBlue = right[2] > 200 && right[0] < 60;
             bool mapped = leftIsRed && rightIsBlue;
-            std::printf("left=(%d,%d,%d) right=(%d,%d,%d) uv_mapped=%s\n",
-                        left[0], left[1], left[2], right[0], right[1], right[2],
-                        mapped ? "PASS" : "FAIL");
+            std::printf("left=(%d,%d,%d) right=(%d,%d,%d) uv_mapped=%s\n", left[0], left[1], left[2], right[0],
+                        right[1], right[2], mapped ? "PASS" : "FAIL");
             device.Shutdown();
             return mapped ? 0 : 1;
         }

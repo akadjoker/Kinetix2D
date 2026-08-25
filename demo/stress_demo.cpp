@@ -3,8 +3,6 @@
 #include <imgui.h>
 #include <kx/kx.h>
 
-#include <glad/glad.h>
-
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
@@ -46,26 +44,25 @@ struct Camera
 
     Math::Vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
     {
-        return Math::Vec2(center.x + (sx - screenW * 0.5f) / zoom,
-                         center.y + (sy - screenH * 0.5f) / zoom);
+        return Math::Vec2(center.x + (sx - screenW * 0.5f) / zoom, center.y + (sy - screenH * 0.5f) / zoom);
     }
 };
 
 class StressDebugDraw : public kx::DebugDraw
 {
-public:
-    explicit StressDebugDraw(k2d::BatchRenderer &batch) : mBatch(batch)
+  public:
+    explicit StressDebugDraw(k2d::BatchRenderer& batch) : mBatch(batch)
     {
     }
 
-    void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
+    void DrawCircleShape(const kx::Transform& xf, float radius, kx::Color color) override
     {
         Math::Vec2 c = xf.Transform(0.0f, 0.0f);
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(c.x, c.y, radius, 12);
     }
 
-    void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count, kx::Color color) override
+    void DrawPolygonShape(const kx::Transform& xf, const Math::Vec2* verts, int count, kx::Color color) override
     {
         if (count <= 0 || count > 16)
             return;
@@ -83,29 +80,29 @@ public:
         mBatch.DrawPolyline(points, count + 1);
     }
 
-    void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
+    void DrawSegment(const Math::Vec2& a, const Math::Vec2& b, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawLine(a.x, a.y, b.x, b.y);
     }
 
-    void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
+    void DrawPoint(const Math::Vec2& p, float size, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(p.x, p.y, size, 6);
     }
 
-    void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
+    void DrawAABB(const Math::Vec2& lower, const Math::Vec2& upper, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawRect(lower.x, lower.y, upper.x - lower.x, upper.y - lower.y, false);
     }
 
-private:
-    k2d::BatchRenderer &mBatch;
+  private:
+    k2d::BatchRenderer& mBatch;
 };
 
-static void SpawnRain(kx::World &world, const Math::Vec2 &around, int count)
+static void SpawnRain(kx::World& world, const Math::Vec2& around, int count)
 {
     for (int i = 0; i < count; ++i)
     {
@@ -150,8 +147,7 @@ int main()
     world.CreateStaticBox(Math::Vec2(kArenaW - 20.0f, kArenaH * 0.5f), 20.0f, kArenaH * 0.5f);
 
     for (int i = 0; i < 6; ++i)
-        world.CreateStaticBox(Math::Vec2(800.0f + i * 1200.0f, kArenaH - 600.0f - (i % 3) * 400.0f),
-                              300.0f, 15.0f);
+        world.CreateStaticBox(Math::Vec2(800.0f + i * 1200.0f, kArenaH - 600.0f - (i % 3) * 400.0f), 300.0f, 15.0f);
 
     StressDebugDraw debugDraw(batch);
     unsigned drawFlags = kx::DebugDrawShapes | kx::DebugDrawContacts;
@@ -160,7 +156,7 @@ int main()
     camera.center = Math::Vec2(kArenaW * 0.5f, kArenaH - 800.0f);
     camera.zoom = 0.5f;
 
-    kx::MouseJoint *grab = nullptr;
+    kx::MouseJoint* grab = nullptr;
     bool debugEnabled = true;
     bool showProfiler = true;
     k2d::Profiler::Get().SetEnabled(true);
@@ -173,7 +169,7 @@ int main()
         k2d::Profiler::Get().beginFrame();
         running = device.PollEvents();
 
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
 
@@ -199,8 +195,8 @@ int main()
                 camera.zoom = 4.0f;
         }
 
-        Math::Vec2 mouseWorld = camera.ScreenToWorld(input.MouseX(), input.MouseY(),
-                                                    (float)device.Width(), (float)device.Height());
+        Math::Vec2 mouseWorld =
+            camera.ScreenToWorld(input.MouseX(), input.MouseY(), (float)device.Width(), (float)device.Height());
 
         if (input.KeyDown(SCANCODE_SPACE))
             SpawnRain(world, mouseWorld, 25);
@@ -216,8 +212,8 @@ int main()
                 world.DestroyJoint(grab);
                 grab = nullptr;
             }
-            ct::Vector<kx::Body *> toDestroy;
-            const ct::Vector<kx::Body *> &bodies = world.Bodies();
+            ct::Vector<kx::Body*> toDestroy;
+            const ct::Vector<kx::Body*>& bodies = world.Bodies();
             for (size_t i = 0; i < bodies.size(); ++i)
                 if (bodies[i]->Type() == kx::BodyType::Dynamic)
                     toDestroy.push_back(bodies[i]);
@@ -227,7 +223,7 @@ int main()
 
         if (input.MousePressed(0) && !grab && !device.ImGuiWantsMouse())
         {
-            kx::Body *picked = world.BodyAtPoint(mouseWorld);
+            kx::Body* picked = world.BodyAtPoint(mouseWorld);
             if (picked)
             {
                 grab = new kx::MouseJoint(picked, mouseWorld, 5000.0f * picked->Mass());
@@ -273,7 +269,7 @@ int main()
             }
         }
 
-        const kx::StepProfile &sp = world.Profile();
+        const kx::StepProfile& sp = world.Profile();
         k2d::Profiler::Get().addSample("kx.broadphase", sp.broadphase);
         k2d::Profiler::Get().addSample("kx.narrowphase", sp.narrowphase);
         k2d::Profiler::Get().addSample("kx.solve.vel", sp.solveVelocity);
@@ -311,7 +307,8 @@ int main()
         batch.SetColor((unsigned char)120, (unsigned char)255, (unsigned char)120, (unsigned char)255);
         batch.DrawText(20.0f, 18.0f, 18.0f, hud.c_str());
         batch.SetColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255);
-        batch.DrawText(20.0f, 46.0f, 14.0f, "WASD camera  scroll zoom  SPACE chuva  1/2 +500  R clear  T tree  F2 debug  F1/F3/F4  ESC");
+        batch.DrawText(20.0f, 46.0f, 14.0f,
+                       "WASD camera  scroll zoom  SPACE chuva  1/2 +500  R clear  T tree  F2 debug  F1/F3/F4  ESC");
 
         batch.EndFrame();
 

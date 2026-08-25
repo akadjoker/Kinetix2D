@@ -1,7 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <cstdio>
 
 int main()
@@ -17,8 +16,8 @@ int main()
 
     k2d::Assets assets;
 
-    k2d::Texture *lightTexture = assets.LoadTexture("light_cookie", "fire.png");
-    std::printf("lightTexture=%p\n", (void *)lightTexture);
+    k2d::Texture* lightTexture = assets.LoadTexture("light_cookie", "fire.png");
+    std::printf("lightTexture=%p\n", (void*)lightTexture);
     std::fflush(stdout);
     if (lightTexture)
         canvas.SetDefaultLightTexture(lightTexture->Id());
@@ -27,19 +26,19 @@ int main()
 
     k2d::Pixmap whitePixmap(1, 1);
     whitePixmap.Clear(255, 255, 255, 255);
-    k2d::Texture *white = whitePixmap.CreateTexture(assets, "diag_white");
+    k2d::Texture* white = whitePixmap.CreateTexture(assets, "diag_white");
 
     k2d::Scene scene;
-    k2d::GameObject *floorObject = scene.createObject("floor");
+    k2d::GameObject* floorObject = scene.createObject("floor");
     floorObject->setPosition(Math::Vec2(640.0f, 400.0f));
-    k2d::SpriteComponent *floor = floorObject->addComponent<k2d::SpriteComponent>(white);
+    k2d::SpriteComponent* floor = floorObject->addComponent<k2d::SpriteComponent>(white);
     floor->setSize(Math::Vec2(1280.0f, 800.0f));
     floor->setPivot(Math::Vec2(0.5f, 0.5f));
     floor->setColor(255, 255, 255);
 
-    k2d::GameObject *lightObject = scene.createObject("light");
+    k2d::GameObject* lightObject = scene.createObject("light");
     lightObject->setPosition(Math::Vec2(640.0f, 400.0f));
-    k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
+    k2d::Light2D* light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 1.0f, 1.0f);
     light->setEnergy(1.0f);
     light->setRadius(360.0f);

@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -24,33 +22,51 @@ int main()
             bool cornerX = x < 8 || x >= 24;
             bool cornerY = y < 8 || y >= 24;
             unsigned char r, g, b;
-            if (cornerX && cornerY) { r = 220; g = 60; b = 60; }   
-            else if (cornerX || cornerY) { r = 60; g = 200; b = 90; } 
-            else { r = 60; g = 110; b = 220; }                      
-            panel[i + 0] = r; panel[i + 1] = g; panel[i + 2] = b; panel[i + 3] = 255;
+            if (cornerX && cornerY)
+            {
+                r = 220;
+                g = 60;
+                b = 60;
+            }
+            else if (cornerX || cornerY)
+            {
+                r = 60;
+                g = 200;
+                b = 90;
+            }
+            else
+            {
+                r = 60;
+                g = 110;
+                b = 220;
+            }
+            panel[i + 0] = r;
+            panel[i + 1] = g;
+            panel[i + 2] = b;
+            panel[i + 3] = 255;
         }
-    k2d::Texture *panelTex = assets.CreateTexture("panel", 32, 32, panel, true, false);
+    k2d::Texture* panelTex = assets.CreateTexture("panel", 32, 32, panel, true, false);
 
     k2d::Scene scene;
 
-    k2d::GameObject *patchObject = scene.createObject("patch");
+    k2d::GameObject* patchObject = scene.createObject("patch");
     patchObject->setPosition(Math::Vec2(60.0f, 60.0f));
-    k2d::NinePatchComponent *patch = patchObject->addComponent<k2d::NinePatchComponent>();
+    k2d::NinePatchComponent* patch = patchObject->addComponent<k2d::NinePatchComponent>();
     patch->setTexture(panelTex);
     patch->setSize(Math::Vec2(400.0f, 260.0f));
     patch->setMargins(8.0f, 8.0f, 8.0f, 8.0f);
 
-    k2d::GameObject *lineObject = scene.createObject("zigzag");
+    k2d::GameObject* lineObject = scene.createObject("zigzag");
     lineObject->setPosition(Math::Vec2(550.0f, 80.0f));
-    k2d::Line2D *line = lineObject->addComponent<k2d::Line2D>();
+    k2d::Line2D* line = lineObject->addComponent<k2d::Line2D>();
     Math::Vec2 zigzag[6] = {{0, 0}, {60, 120}, {120, 0}, {180, 120}, {240, 0}, {300, 120}};
     line->setPoints(zigzag, 6);
     line->setWidth(14.0f);
     line->setColor(255, 210, 60, 255);
 
-    k2d::GameObject *pentObject = scene.createObject("pentagon");
+    k2d::GameObject* pentObject = scene.createObject("pentagon");
     pentObject->setPosition(Math::Vec2(720.0f, 420.0f));
-    k2d::Line2D *pentagon = pentObject->addComponent<k2d::Line2D>();
+    k2d::Line2D* pentagon = pentObject->addComponent<k2d::Line2D>();
     Math::Vec2 penta[5];
     for (int i = 0; i < 5; ++i)
     {

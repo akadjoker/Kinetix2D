@@ -1,0 +1,159 @@
+#include "k2d/CharacterBody2D.h"
+
+#include "k2d/GameObject.h"
+#include "k2d/RigidBody2D.h"
+
+#include <cmath>
+
+namespace k2d
+{
+namespace
+{
+constexpr float kRadToDeg = 57.29577951308232088f;
+
+Math::Vec2 globalPositionFromLocal(const GameObject& object, float x, float y)
+{
+    const GameObject* parent = object.parent();
+    return parent ? parent->globalPosition() + Math::Vec2(x, y) : Math::Vec2(x, y);
+}
+} // namespace
+
+CharacterBody2D::CharacterBody2D()
+    : Component(Type, ComponentEventNone), mVelocity(0.0f, 0.0f), mUpDirection(0.0f, -1.0f), mFloorNormal(0.0f, 0.0f),
+      mSlideCollisions(), mSafeMargin(kx::kLinearSlop), mFloorMaxAngleDegrees(45.0f), mMaxSlides(4),
+      mMotionMode(MotionMode::Floating), mOnFloor(false), mOnWall(false), mOnCeiling(false)
+{
+}
+
+void CharacterBody2D::onAwake()
+{
+    if (RigidBody2D* body = rigidBody())
+        body->setBodyType(kx::BodyType::Kinematic);
+}
+
+RigidBody2D* CharacterBody2D::rigidBody() const
+{
+    return owner() ? owner()->getComponent<RigidBody2D>() : nullptr;
+}
+
+void CharacterBody2D::applyWorldPosition(const Math::Vec2& position) const
+{
+    GameObject* object = owner();
+    if (!object)
+        return;
+    if (GameObject* parent = object->parent())
+        object->setPosition(position - parent->globalPosition());
+    else
+        object->setPosition(position);
+}
+
+CollisionInfo CharacterBody2D::moveAndCollide(const Math::Vec2& motion, bool testOnly)
+{
+    CollisionInfo collision;
+    collision.self = owner();
+    RigidBody2D* rigid = rigidBody();
+    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
+    if (!rigid || !rigid->body() || !physics || rigid->bodyType() != kx::BodyType::Kinematic)
+        return collision;
+
+    kx::MotionResult result;
+    physics->world().TestMotion(*rigid->body(), motion, result, mSafeMargin);
+    collision.hit = result.hit;
+    collision.other = PhysicsWorld2D::objectFor(result.body);
+    collision.point = result.point;
+    collision.normal = result.normal;
+    collision.travel = result.travel;
+    collision.remainder = result.remainder;
+    collision.fraction = result.fraction;
+    if (!result.hit)
+        return collision;
+
+    if (!testOnly)
+    {
+        const Math::Vec2 target = rigid->body()->Position() + result.travel;
+        rigid->body()->SetPosition(target);
+        applyWorldPosition(target);
+    }
+    return collision;
+}
+
+bool CharacterBody2D::testMove(const Math::Vec2& motion, CollisionInfo* out) const
+{
+    CharacterBody2D* self = const_cast<CharacterBody2D*>(this);
+    CollisionInfo collision = self->moveAndCollide(motion, true);
+    if (out)
+        *out = collision;
+    return collision.hit;
+}
+
+bool CharacterBody2D::placeFree(float x, float y) const
+{
+    RigidBody2D* rigid = rigidBody();
+    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
+    if (!rigid || !rigid->body() || !physics)
+        return true;
+    kx::MotionResult result;
+    return !physics->world().TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+}
+
+GameObject* CharacterBody2D::placeMeeting(float x, float y) const
+{
+    RigidBody2D* rigid = rigidBody();
+    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
+    if (!rigid || !rigid->body() || !physics)
+        return nullptr;
+    kx::MotionResult result;
+    physics->world().TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+    return PhysicsWorld2D::objectFor(result.body);
+}
+
+void CharacterBody2D::classifyCollision(const CollisionInfo& collision)
+{
+    if (mMotionMode == MotionMode::Floating)
+    {
+        mOnWall = true;
+        return;
+    }
+    const float threshold = std::cos(mFloorMaxAngleDegrees / kRadToDeg);
+    const float upDot = collision.normal.Dot(mUpDirection);
+    if (upDot >= threshold)
+    {
+        mOnFloor = true;
+        mFloorNormal = collision.normal;
+    }
+    else if (upDot <= -threshold)
+        mOnCeiling = true;
+    else
+        mOnWall = true;
+}
+
+bool CharacterBody2D::moveAndSlide()
+{
+    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
+    const float delta = physics ? physics->fixedTimeStep() : 0.0f;
+    mOnFloor = mOnWall = mOnCeiling = false;
+    mFloorNormal = Math::Vec2(0.0f, 0.0f);
+    mSlideCollisions.clear();
+    if (delta <= 0.0f)
+        return false;
+
+    Math::Vec2 motion = mVelocity * delta;
+    for (int index = 0; index < mMaxSlides && motion.LengthSquared() > 0.0000001f; ++index)
+    {
+        CollisionInfo collision = moveAndCollide(motion);
+        if (!collision.hit)
+            break;
+        mSlideCollisions.push_back(collision);
+        classifyCollision(collision);
+
+        const float remainingIntoSurface = collision.remainder.Dot(collision.normal);
+        motion = collision.remainder - collision.normal * remainingIntoSurface;
+        const float velocityIntoSurface = mVelocity.Dot(collision.normal);
+        if (velocityIntoSurface < 0.0f)
+            mVelocity -= collision.normal * velocityIntoSurface;
+        if (motion.Dot(mVelocity) <= 0.0f)
+            break;
+    }
+    return !mSlideCollisions.empty();
+}
+} // namespace k2d

@@ -14,8 +14,7 @@
 namespace k2d::editor
 {
 
-ScriptEditorPanel::ScriptEditorPanel(EditorApplication &application)
-    : EditorPanel("Script Editor", application)
+ScriptEditorPanel::ScriptEditorPanel(EditorApplication& application) : EditorPanel("Script Editor", application)
 {
     mEditor.SetLanguageDefinition(TextEditor::LanguageDefinitionId::ZenScript);
     mEditor.SetPalette(TextEditor::PaletteId::VsCodeDark);
@@ -27,7 +26,7 @@ ScriptEditorPanel::ScriptEditorPanel(EditorApplication &application)
     mEditor.SetFoldingEnabled(true);
 }
 
-void ScriptEditorPanel::openFile(const char *path)
+void ScriptEditorPanel::openFile(const char* path)
 {
     if (!path || !path[0])
         return;
@@ -42,7 +41,7 @@ void ScriptEditorPanel::openFile(const char *path)
     loadFile(path);
 }
 
-bool ScriptEditorPanel::loadFile(const char *path)
+bool ScriptEditorPanel::loadFile(const char* path)
 {
     FileBuffer file;
     if (!FileSystem::Instance().LoadFile(path, file, false))
@@ -124,7 +123,7 @@ void ScriptEditorPanel::drawContents()
     if (mPath.empty())
     {
         ImGui::TextDisabled("Open a .py file from Assets (double click) to edit it here.");
-        ImGui::TextDisabled("Scripts are saved on disk; while playing, Script Hot Reload reloads saved changes.");
+        ImGui::TextDisabled("While playing, press F6 to reload saved script changes.");
         return;
     }
 
@@ -223,9 +222,7 @@ void ScriptEditorPanel::drawContents()
     const ct::String fileName = EditorFileSystem::fileName(mPath);
     ImGui::TextDisabled("Ln %d, Col %d  |  %d lines  |  %d bytes  |  %s%s", cursor.line + 1, cursor.column + 1,
                         mEditor.GetLineCount(), static_cast<int>(source.size()), fileName.c_str(),
-                        app().playing() && app().settings().scriptHotReload
-                            ? "  |  Hot reload is enabled"
-                            : "");
+                        app().playing() ? "  |  F6 reloads saved changes" : "");
 }
 
-}
+} // namespace k2d::editor

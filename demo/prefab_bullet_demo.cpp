@@ -1,35 +1,34 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <imgui.h>
 
 #include <cstdio>
 
 namespace
 {
-    class BulletScript : public k2d::ScriptComponent
+class BulletScript : public k2d::ScriptComponent
+{
+  public:
+    void Fire(const Math::Vec2& velocity, float lifetime)
     {
-    public:
-        void Fire(const Math::Vec2 &velocity, float lifetime)
-        {
-            mVelocity = velocity;
-            mLifetime = lifetime;
-        }
+        mVelocity = velocity;
+        mLifetime = lifetime;
+    }
 
-    protected:
-        void onUpdate(float deltaTime) override
-        {
-            owner()->translate(mVelocity * deltaTime);
-            mLifetime -= deltaTime;
-            if (mLifetime <= 0.0f)
-                owner()->dispose();
-        }
+  protected:
+    void onUpdate(float deltaTime) override
+    {
+        owner()->translate(mVelocity * deltaTime);
+        mLifetime -= deltaTime;
+        if (mLifetime <= 0.0f)
+            owner()->dispose();
+    }
 
-    private:
-        Math::Vec2 mVelocity{0.0f, 0.0f};
-        float mLifetime = 0.0f;
-    };
-}
+  private:
+    Math::Vec2 mVelocity{0.0f, 0.0f};
+    float mLifetime = 0.0f;
+};
+} // namespace
 
 int main()
 {
@@ -45,11 +44,11 @@ int main()
     k2d::Assets assets;
     k2d::Pixmap bulletPixmap(6, 6);
     bulletPixmap.Clear(255, 255, 255, 255);
-    k2d::Texture *bulletTexture = bulletPixmap.CreateTexture(assets, "bullet");
+    k2d::Texture* bulletTexture = bulletPixmap.CreateTexture(assets, "bullet");
 
     k2d::Pixmap gunPixmap(16, 16);
     gunPixmap.Clear(255, 255, 255, 255);
-    k2d::Texture *gunTexture = gunPixmap.CreateTexture(assets, "gun");
+    k2d::Texture* gunTexture = gunPixmap.CreateTexture(assets, "gun");
 
     // The prefab only carries what k2d::Serializer knows how to write/read
     // (there's no ComponentType::Script entry in its type table -- a
@@ -58,8 +57,8 @@ int main()
     // silently dropped if added here). BulletScript is attached fresh after
     // each Instantiate() instead; the prefab itself is just the visual.
     k2d::Scene templateScene;
-    k2d::GameObject *bulletTemplate = templateScene.createObject("Bullet");
-    k2d::SpriteComponent *templateSprite = bulletTemplate->addComponent<k2d::SpriteComponent>(bulletTexture);
+    k2d::GameObject* bulletTemplate = templateScene.createObject("Bullet");
+    k2d::SpriteComponent* templateSprite = bulletTemplate->addComponent<k2d::SpriteComponent>(bulletTexture);
     templateSprite->setColor(255, 200, 40, 255);
 
     k2d::Prefab bulletPrefab;
@@ -67,9 +66,9 @@ int main()
 
     k2d::Scene scene;
     const Math::Vec2 gunPos(1280.0f * 0.5f, 720.0f - 40.0f);
-    k2d::GameObject *gun = scene.createObject("Gun");
+    k2d::GameObject* gun = scene.createObject("Gun");
     gun->setPosition(gunPos);
-    k2d::SpriteComponent *gunSprite = gun->addComponent<k2d::SpriteComponent>(gunTexture);
+    k2d::SpriteComponent* gunSprite = gun->addComponent<k2d::SpriteComponent>(gunTexture);
     gunSprite->setColor(120, 200, 255, 255);
 
     const float kBulletSpeed = 700.0f;
@@ -80,7 +79,7 @@ int main()
     while (running)
     {
         running = device.PollEvents();
-        const k2d::Input &input = device.GetInput();
+        const k2d::Input& input = device.GetInput();
         if (input.KeyDown(41))
             running = false;
 
@@ -92,11 +91,11 @@ int main()
             Math::Vec2 toTarget = target - gunPos;
             Math::Vec2 direction = toTarget.LengthSquared() > 0.0001f ? toTarget.Normalized() : Math::Vec2(0.0f, -1.0f);
 
-            k2d::GameObject *bullet = bulletPrefab.Instantiate(scene, nullptr, &assets);
+            k2d::GameObject* bullet = bulletPrefab.Instantiate(scene, nullptr, &assets);
             if (bullet)
             {
                 bullet->setPosition(gunPos);
-                BulletScript *script = bullet->addComponent<BulletScript>();
+                BulletScript* script = bullet->addComponent<BulletScript>();
                 script->Fire(direction * kBulletSpeed, kBulletLifetime);
                 ++shotsFired;
             }

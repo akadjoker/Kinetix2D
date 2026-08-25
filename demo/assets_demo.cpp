@@ -1,6 +1,5 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <imgui.h>
 
 static const int SCANCODE_ESCAPE = 41;
@@ -12,9 +11,9 @@ static const int SCANCODE_3 = 32;
 static const int SCANCODE_4 = 33;
 static const int SCANCODE_5 = 34;
 
-static k2d::Texture *LoadAsset(k2d::Assets &assets, const char *name, const char *file)
+static k2d::Texture* LoadAsset(k2d::Assets& assets, const char* name, const char* file)
 {
-    k2d::Texture *texture = assets.LoadTexture(name, file);
+    k2d::Texture* texture = assets.LoadTexture(name, file);
     if (!texture)
     {
         ct::String alternate("../../");
@@ -36,31 +35,31 @@ int main()
         return 1;
 
     k2d::Assets assets;
-    k2d::Texture *idle = LoadAsset(assets, "player_idle", "assets/Gunner_Red_Idle.png");
-    k2d::Texture *run = LoadAsset(assets, "player_run", "assets/Gunner_Red_Run.png");
-    k2d::Texture *jump = LoadAsset(assets, "player_jump", "assets/Gunner_Red_Jump.png");
-    k2d::Texture *crouch = LoadAsset(assets, "player_crouch", "assets/Gunner_Red_Crouch.png");
-    k2d::Texture *death = LoadAsset(assets, "player_death", "assets/Gunner_Red_Death.png");
-    k2d::Texture *fire = LoadAsset(assets, "fire", "assets/fire.png");
-    k2d::Texture *props = LoadAsset(assets, "props", "assets/props_16x16.png");
+    k2d::Texture* idle = LoadAsset(assets, "player_idle", "assets/Gunner_Red_Idle.png");
+    k2d::Texture* run = LoadAsset(assets, "player_run", "assets/Gunner_Red_Run.png");
+    k2d::Texture* jump = LoadAsset(assets, "player_jump", "assets/Gunner_Red_Jump.png");
+    k2d::Texture* crouch = LoadAsset(assets, "player_crouch", "assets/Gunner_Red_Crouch.png");
+    k2d::Texture* death = LoadAsset(assets, "player_death", "assets/Gunner_Red_Death.png");
+    k2d::Texture* fire = LoadAsset(assets, "fire", "assets/fire.png");
+    k2d::Texture* props = LoadAsset(assets, "props", "assets/props_16x16.png");
     if (!idle || !run || !jump || !crouch || !death || !fire || !props)
         return 1;
 
     k2d::Scene scene;
 
-    k2d::GameObject *mapObject = scene.createObject("tilemap");
-    k2d::TileMapComponent *map = mapObject->addComponent<k2d::TileMapComponent>();
+    k2d::GameObject* mapObject = scene.createObject("tilemap");
+    k2d::TileMapComponent* map = mapObject->addComponent<k2d::TileMapComponent>();
     if (!map->loadTMX(assets, "assets/map.tmx", "tmx_tiles"))
     {
         if (!map->loadTMX(assets, "../../assets/map.tmx", "tmx_tiles"))
             return 1;
     }
 
-    k2d::GameObject *playerObject = scene.createObject("player");
+    k2d::GameObject* playerObject = scene.createObject("player");
     playerObject->setPosition(Math::Vec2(600.0f, 560.0f));
-    k2d::SpriteComponent *playerSprite = playerObject->addComponent<k2d::SpriteComponent>();
+    k2d::SpriteComponent* playerSprite = playerObject->addComponent<k2d::SpriteComponent>();
     playerSprite->setPivot(Math::Vec2(0.5f, 1.0f));
-    k2d::Animation2D *playerAnimation = playerObject->addComponent<k2d::Animation2D>();
+    k2d::Animation2D* playerAnimation = playerObject->addComponent<k2d::Animation2D>();
     playerAnimation->addClip("idle", idle, 48, 48, 5, 7.0f, k2d::AnimationMode::Loop);
     playerAnimation->addClip("run", run, 48, 48, 6, 12.0f, k2d::AnimationMode::Loop);
     playerAnimation->addClip("jump", jump, 48, 48, 2, 5.0f, k2d::AnimationMode::OneShot);
@@ -70,23 +69,23 @@ int main()
 
     for (int i = 0; i < 12; ++i)
     {
-        k2d::GameObject *propObject = scene.createObject("prop");
+        k2d::GameObject* propObject = scene.createObject("prop");
         propObject->setPosition(Math::Vec2(80.0f + i * 96.0f, 608.0f));
-        k2d::SpriteComponent *prop = propObject->addComponent<k2d::SpriteComponent>(props);
+        k2d::SpriteComponent* prop = propObject->addComponent<k2d::SpriteComponent>(props);
         prop->setSize(Math::Vec2(48.0f, 48.0f));
         prop->setPivot(Math::Vec2(0.5f, 1.0f));
         prop->setSourceRect((float)((i % 4) * 16), 0.0f, 16.0f, 16.0f);
     }
 
-    k2d::GameObject *fireObject = scene.createObject("fire");
+    k2d::GameObject* fireObject = scene.createObject("fire");
     fireObject->setPosition(Math::Vec2(820.0f, 608.0f));
-    k2d::SpriteComponent *fireSprite = fireObject->addComponent<k2d::SpriteComponent>(fire);
+    k2d::SpriteComponent* fireSprite = fireObject->addComponent<k2d::SpriteComponent>(fire);
     fireSprite->setSize(Math::Vec2(48.0f, 48.0f));
     fireSprite->setPivot(Math::Vec2(0.5f, 1.0f));
     fireSprite->setColor(255, 130, 40);
 
-    k2d::GameObject *lightObject = scene.createObject("player_light");
-    k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
+    k2d::GameObject* lightObject = scene.createObject("player_light");
+    k2d::Light2D* light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 0.55f, 0.2f);
     light->setEnergy(1.5f);
     light->setRadius(260.0f);
@@ -98,7 +97,7 @@ int main()
     {
         k2d::Profiler::Get().beginFrame();
         running = device.PollEvents();
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
 
@@ -106,11 +105,16 @@ int main()
             playerObject->translate(Math::Vec2(-180.0f * device.DeltaTime(), 0.0f));
         if (input.KeyDown(SCANCODE_D))
             playerObject->translate(Math::Vec2(180.0f * device.DeltaTime(), 0.0f));
-        if (input.KeyPressed(SCANCODE_1)) playerAnimation->play("idle");
-        if (input.KeyPressed(SCANCODE_2)) playerAnimation->play("run");
-        if (input.KeyPressed(SCANCODE_3)) playerAnimation->play("jump");
-        if (input.KeyPressed(SCANCODE_4)) playerAnimation->play("crouch");
-        if (input.KeyPressed(SCANCODE_5)) playerAnimation->play("death");
+        if (input.KeyPressed(SCANCODE_1))
+            playerAnimation->play("idle");
+        if (input.KeyPressed(SCANCODE_2))
+            playerAnimation->play("run");
+        if (input.KeyPressed(SCANCODE_3))
+            playerAnimation->play("jump");
+        if (input.KeyPressed(SCANCODE_4))
+            playerAnimation->play("crouch");
+        if (input.KeyPressed(SCANCODE_5))
+            playerAnimation->play("death");
 
         float width = (float)device.Width();
         float height = (float)device.Height();

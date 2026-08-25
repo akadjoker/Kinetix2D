@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -16,50 +14,50 @@ int main()
 
     k2d::Assets assets;
     unsigned char whitePx[4] = {255, 255, 255, 255};
-    k2d::Texture *white = assets.CreateTexture("white", 1, 1, whitePx);
+    k2d::Texture* white = assets.CreateTexture("white", 1, 1, whitePx);
 
     k2d::Scene scene;
 
-    k2d::GameObject *backdropObject = scene.createObject("backdrop");
+    k2d::GameObject* backdropObject = scene.createObject("backdrop");
     backdropObject->setPosition(Math::Vec2(450.0f, 250.0f));
-    k2d::SpriteComponent *backdrop = backdropObject->addComponent<k2d::SpriteComponent>(white);
+    k2d::SpriteComponent* backdrop = backdropObject->addComponent<k2d::SpriteComponent>(white);
     backdrop->setSize(Math::Vec2(900.0f, 500.0f));
     backdrop->setColor(30, 28, 34);
-    backdrop->setLightMask(3u); 
+    backdrop->setLightMask(3u);
 
-    k2d::GameObject *aObj = scene.createObject("spriteA");
+    k2d::GameObject* aObj = scene.createObject("spriteA");
     aObj->setPosition(Math::Vec2(250.0f, 250.0f));
-    k2d::SpriteComponent *spriteA = aObj->addComponent<k2d::SpriteComponent>(white);
+    k2d::SpriteComponent* spriteA = aObj->addComponent<k2d::SpriteComponent>(white);
     spriteA->setSize(Math::Vec2(80.0f, 80.0f));
     spriteA->setColor(50, 45, 45);
     spriteA->setLightMask(1u);
 
-    k2d::GameObject *bObj = scene.createObject("spriteB");
+    k2d::GameObject* bObj = scene.createObject("spriteB");
     bObj->setPosition(Math::Vec2(450.0f, 250.0f));
-    k2d::SpriteComponent *spriteB = bObj->addComponent<k2d::SpriteComponent>(white);
+    k2d::SpriteComponent* spriteB = bObj->addComponent<k2d::SpriteComponent>(white);
     spriteB->setSize(Math::Vec2(80.0f, 80.0f));
     spriteB->setColor(45, 45, 50);
     spriteB->setLightMask(2u);
 
-    k2d::GameObject *cObj = scene.createObject("spriteC");
+    k2d::GameObject* cObj = scene.createObject("spriteC");
     cObj->setPosition(Math::Vec2(650.0f, 250.0f));
-    k2d::SpriteComponent *spriteC = cObj->addComponent<k2d::SpriteComponent>(white);
+    k2d::SpriteComponent* spriteC = cObj->addComponent<k2d::SpriteComponent>(white);
     spriteC->setSize(Math::Vec2(80.0f, 80.0f));
     spriteC->setColor(45, 45, 45);
     spriteC->setLightMask(3u);
 
-    k2d::GameObject *lightAObj = scene.createObject("lightA");
+    k2d::GameObject* lightAObj = scene.createObject("lightA");
     lightAObj->setPosition(Math::Vec2(250.0f, 250.0f));
-    k2d::Light2D *lightA = lightAObj->addComponent<k2d::Light2D>();
+    k2d::Light2D* lightA = lightAObj->addComponent<k2d::Light2D>();
     lightA->setColor(1.0f, 0.2f, 0.2f);
     lightA->setEnergy(1.2f);
-    lightA->setRadius(500.0f); 
+    lightA->setRadius(500.0f);
     lightA->setCastShadow(false);
     lightA->setCullMask(1u);
 
-    k2d::GameObject *lightBObj = scene.createObject("lightB");
+    k2d::GameObject* lightBObj = scene.createObject("lightB");
     lightBObj->setPosition(Math::Vec2(450.0f, 250.0f));
-    k2d::Light2D *lightB = lightBObj->addComponent<k2d::Light2D>();
+    k2d::Light2D* lightB = lightBObj->addComponent<k2d::Light2D>();
     lightB->setColor(0.2f, 0.6f, 1.0f);
     lightB->setEnergy(1.2f);
     lightB->setRadius(500.0f);

@@ -1,6 +1,5 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <ct/string.hpp>
 #include <cstdio>
 
@@ -27,13 +26,12 @@ static bool gAdditive = false;
 
 class BunnyBehavior : public k2d::ScriptComponent
 {
-public:
-    BunnyBehavior()
-        : mVx(Rnd() * 500.0f), mVy(Rnd() * 250.0f - 125.0f)
+  public:
+    BunnyBehavior() : mVx(Rnd() * 500.0f), mVy(Rnd() * 250.0f - 125.0f)
     {
     }
 
-protected:
+  protected:
     void onUpdate(float dt) override
     {
         Math::Vec2 p = owner()->position();
@@ -66,26 +64,26 @@ protected:
         owner()->setPosition(p);
     }
 
-private:
+  private:
     float mVx;
     float mVy;
 };
 
-static void Spawn(k2d::Scene &scene, k2d::Texture *tex, int count)
+static void Spawn(k2d::Scene& scene, k2d::Texture* tex, int count)
 {
     for (int i = 0; i < count; ++i)
     {
-        k2d::GameObject *bunny = scene.createObject("b");
+        k2d::GameObject* bunny = scene.createObject("b");
         bunny->setPosition(Math::Vec2(10.0f, 10.0f));
-        k2d::SpriteComponent *sprite = bunny->addComponent<k2d::SpriteComponent>(tex);
+        k2d::SpriteComponent* sprite = bunny->addComponent<k2d::SpriteComponent>(tex);
         sprite->setPivot(Math::Vec2(0.0f, 0.0f));
         bunny->addComponent<BunnyBehavior>();
     }
 }
 
-static void Clear(k2d::Scene &scene)
+static void Clear(k2d::Scene& scene)
 {
-    k2d::GameObject &root = scene.root();
+    k2d::GameObject& root = scene.root();
     for (std::size_t i = 0; i < root.childCount(); ++i)
         scene.destroy(root.child(i));
 }
@@ -115,7 +113,7 @@ int main()
     canvas.SetOrtho((float)device.Width(), (float)device.Height());
 
     k2d::Assets assets;
-    k2d::Texture *bunnyTex = assets.LoadTexture("bunny", "assets/wabbit_alpha.png");
+    k2d::Texture* bunnyTex = assets.LoadTexture("bunny", "assets/wabbit_alpha.png");
     if (!bunnyTex)
         bunnyTex = assets.LoadTexture("bunny", "../../assets/wabbit_alpha.png");
     if (!bunnyTex)
@@ -135,7 +133,7 @@ int main()
 
         k2d::Profiler::Get().beginFrame();
 
-        k2d::Input &input = device.GetInput();
+        k2d::Input& input = device.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
         if (input.KeyPressed(SCANCODE_R))
@@ -149,10 +147,10 @@ int main()
         if (input.KeyPressed(SCANCODE_F5))
         {
             gAdditive = !gAdditive;
-            k2d::GameObject &root = scene.root();
+            k2d::GameObject& root = scene.root();
             for (std::size_t i = 0; i < root.childCount(); ++i)
             {
-                k2d::SpriteComponent *s = root.child(i)->getComponent<k2d::SpriteComponent>();
+                k2d::SpriteComponent* s = root.child(i)->getComponent<k2d::SpriteComponent>();
                 if (s)
                     s->setBlendMode(gAdditive ? k2d::BLEND_ADD : k2d::BLEND_MIX);
             }

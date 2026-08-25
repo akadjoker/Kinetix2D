@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -17,19 +15,19 @@ int main()
     k2d::Assets assets;
     unsigned char orangePx[4] = {230, 150, 40, 255};
     unsigned char cyanPx[4] = {60, 220, 230, 255};
-    k2d::Texture *orange = assets.CreateTexture("orange", 1, 1, orangePx);
-    k2d::Texture *cyan = assets.CreateTexture("cyan", 1, 1, cyanPx);
+    k2d::Texture* orange = assets.CreateTexture("orange", 1, 1, orangePx);
+    k2d::Texture* cyan = assets.CreateTexture("cyan", 1, 1, cyanPx);
 
     k2d::Scene worldScene;
-    k2d::GameObject *worldObj = worldScene.createObject("world_square");
+    k2d::GameObject* worldObj = worldScene.createObject("world_square");
     worldObj->setPosition(Math::Vec2(400.0f, 300.0f));
-    k2d::SpriteComponent *worldSprite = worldObj->addComponent<k2d::SpriteComponent>(orange);
+    k2d::SpriteComponent* worldSprite = worldObj->addComponent<k2d::SpriteComponent>(orange);
     worldSprite->setSize(Math::Vec2(80.0f, 80.0f));
 
     k2d::CanvasLayer hud;
-    k2d::GameObject *hudObj = hud.scene().createObject("hud_badge");
-    hudObj->setPosition(Math::Vec2(60.0f, 60.0f)); 
-    k2d::SpriteComponent *hudSprite = hudObj->addComponent<k2d::SpriteComponent>(cyan);
+    k2d::GameObject* hudObj = hud.scene().createObject("hud_badge");
+    hudObj->setPosition(Math::Vec2(60.0f, 60.0f));
+    k2d::SpriteComponent* hudSprite = hudObj->addComponent<k2d::SpriteComponent>(cyan);
     hudSprite->setSize(Math::Vec2(50.0f, 50.0f));
 
     k2d::Camera2D camera;
@@ -46,7 +44,7 @@ int main()
         float dt = 1.0f / 30.0f;
         worldScene.update(dt);
         hud.update(dt);
-        camera.position.x += 200.0f * dt; 
+        camera.position.x += 200.0f * dt;
 
         float w = (float)device.Width();
         float h = (float)device.Height();

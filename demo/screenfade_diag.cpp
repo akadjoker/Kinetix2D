@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -19,14 +17,17 @@ int main()
     unsigned char px[4 * 4 * 4];
     for (int i = 0; i < 4 * 4; ++i)
     {
-        px[i * 4 + 0] = 220; px[i * 4 + 1] = 160; px[i * 4 + 2] = 40; px[i * 4 + 3] = 255;
+        px[i * 4 + 0] = 220;
+        px[i * 4 + 1] = 160;
+        px[i * 4 + 2] = 40;
+        px[i * 4 + 3] = 255;
     }
-    k2d::Texture *tex = assets.CreateTexture("sq", 4, 4, px);
+    k2d::Texture* tex = assets.CreateTexture("sq", 4, 4, px);
 
     k2d::Scene scene;
-    k2d::GameObject *obj = scene.createObject("square");
+    k2d::GameObject* obj = scene.createObject("square");
     obj->setPosition(Math::Vec2(400.0f, 300.0f));
-    k2d::SpriteComponent *sprite = obj->addComponent<k2d::SpriteComponent>(tex);
+    k2d::SpriteComponent* sprite = obj->addComponent<k2d::SpriteComponent>(tex);
     sprite->setSize(Math::Vec2(120.0f, 120.0f));
 
     k2d::Camera2D camera;
@@ -44,10 +45,10 @@ int main()
         if (device.GetInput().KeyDown(41))
             running = false;
 
-        float dt = 1.0f / 30.0f; 
+        float dt = 1.0f / 30.0f;
         scene.update(dt);
         fade.Update(dt);
-        camera.position.x += 40.0f * dt; 
+        camera.position.x += 40.0f * dt;
 
         float w = (float)device.Width();
         float h = (float)device.Height();

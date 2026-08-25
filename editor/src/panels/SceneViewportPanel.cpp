@@ -19,8 +19,6 @@
 #include <k2d/Scene.h>
 #include <IconsMaterialDesignIcons.h>
 
-#include <glad/glad.h>
-
 #include <cstdint>
 #include <math.h>
 
@@ -29,13 +27,16 @@ namespace k2d::editor
 
 namespace
 {
-float maxValue(float a, float b) { return a > b ? a : b; }
+float maxValue(float a, float b)
+{
+    return a > b ? a : b;
+}
 float clampValue(float value, float minimum, float maximum)
 {
     return value < minimum ? minimum : (value > maximum ? maximum : value);
 }
 
-float distanceToSegment(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
+float distanceToSegment(const ImVec2& p, const ImVec2& a, const ImVec2& b)
 {
     const ImVec2 ab(b.x - a.x, b.y - a.y);
     const float lengthSq = ab.x * ab.x + ab.y * ab.y;
@@ -51,12 +52,11 @@ constexpr float kGizmoAxisLength = 60.0f;
 constexpr float kGizmoHitRadius = 8.0f;
 constexpr float kGizmoCenterRadius = 8.0f;
 constexpr float kGizmoRingRadius = 46.0f;
-}
+} // namespace
 
-SceneViewportPanel::SceneViewportPanel(EditorApplication &application)
-    : EditorPanel("Scene", application)
+SceneViewportPanel::SceneViewportPanel(EditorApplication& application) : EditorPanel("Scene", application)
 {
-    const EditorSettings &settings = application.settings();
+    const EditorSettings& settings = application.settings();
     mPan = ImVec2(settings.viewportPan.x, settings.viewportPan.y);
     mZoom = settings.viewportZoom;
     mTool = settings.viewportTool;
@@ -147,26 +147,24 @@ void SceneViewportPanel::renderScene(int width, int height)
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
 }
 
-ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2 &origin) const
+ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2& origin) const
 {
-    return ImVec2(origin.x + mPan.x + x * mZoom,
-                  origin.y + mPan.y + y * mZoom);
+    return ImVec2(origin.x + mPan.x + x * mZoom, origin.y + mPan.y + y * mZoom);
 }
 
-Math::Vec2 SceneViewportPanel::screenToWorld(const ImVec2 &screen, const ImVec2 &origin) const
+Math::Vec2 SceneViewportPanel::screenToWorld(const ImVec2& screen, const ImVec2& origin) const
 {
-    return Math::Vec2((screen.x - origin.x - mPan.x) / mZoom,
-                      (screen.y - origin.y - mPan.y) / mZoom);
+    return Math::Vec2((screen.x - origin.x - mPan.x) / mZoom, (screen.y - origin.y - mPan.y) / mZoom);
 }
 
-void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
+void SceneViewportPanel::handlePrefabDrop(const ImVec2& origin)
 {
     if (!ImGui::BeginDragDropTarget())
         return;
 
-    if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kPrefabDragDropPayload))
+    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kPrefabDragDropPayload))
     {
-        const char *path = static_cast<const char *>(payload->Data);
+        const char* path = static_cast<const char*>(payload->Data);
         Prefab prefab;
         if (!prefab.Load(path))
         {
@@ -177,8 +175,7 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
         {
             app().preloadTextures(prefab.data());
             const EditorApplication::SceneChange before = app().beginChange();
-            GameObject *created =
-                prefab.Instantiate(app().scene(), &app().scene().root(), &app().assets());
+            GameObject* created = prefab.Instantiate(app().scene(), &app().scene().root(), &app().assets());
             if (!created)
             {
                 app().log("Prefab drop failed: could not instantiate");
@@ -207,7 +204,7 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2 &origin)
     ImGui::EndDragDropTarget();
 }
 
-void SceneViewportPanel::drawGrid(ImDrawList &drawList, const ImVec2 &min, const ImVec2 &max) const
+void SceneViewportPanel::drawGrid(ImDrawList& drawList, const ImVec2& min, const ImVec2& max) const
 {
     const float stepX = mGridSize.x * mZoom;
     const float stepY = mGridSize.y * mZoom;
@@ -227,7 +224,7 @@ void SceneViewportPanel::drawGrid(ImDrawList &drawList, const ImVec2 &min, const
             drawList.AddLine(ImVec2(min.x, min.y + y), ImVec2(max.x, min.y + y), IM_COL32(47, 52, 62, 150));
 }
 
-void SceneViewportPanel::drawObject(ImDrawList &drawList, GameObject &object, const ImVec2 &origin)
+void SceneViewportPanel::drawObject(ImDrawList& drawList, GameObject& object, const ImVec2& origin)
 {
     const Math::Vec2 world = object.globalPosition();
     const ImVec2 point = worldToScreen(world.x, world.y, origin);
@@ -238,8 +235,7 @@ void SceneViewportPanel::drawObject(ImDrawList &drawList, GameObject &object, co
         drawList.AddLine(parent, point, IM_COL32(100, 110, 125, 170), 1.0f);
     }
 
-    const bool selected = app().selection().hasSelection() &&
-                          app().selection().objectId() == object.id();
+    const bool selected = app().selection().hasSelection() && app().selection().objectId() == object.id();
     drawList.AddCircleFilled(point, selected ? 6.0f : 4.0f,
                              selected ? IM_COL32(255, 205, 65, 255) : IM_COL32(70, 180, 235, 255));
     drawList.AddText(ImVec2(point.x + 8.0f, point.y - 8.0f), IM_COL32(220, 225, 235, 230),
@@ -249,13 +245,12 @@ void SceneViewportPanel::drawObject(ImDrawList &drawList, GameObject &object, co
         drawObject(drawList, *object.child(i), origin);
 }
 
-void SceneViewportPanel::drawColliders(ImDrawList &drawList, GameObject &object,
-                                       const ImVec2 &origin) const
+void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object, const ImVec2& origin) const
 {
     const size_t count = object.componentCount<Collider2D>();
     if (count > 0)
     {
-        const RigidBody2D *body = object.getComponent<RigidBody2D>();
+        const RigidBody2D* body = object.getComponent<RigidBody2D>();
         const Math::Vec2 world = object.globalPosition();
         const Math::Vec2 scale = object.scale();
         const float scaleX = fabsf(scale.x) > 0.0001f ? fabsf(scale.x) : 1.0f;
@@ -268,69 +263,63 @@ void SceneViewportPanel::drawColliders(ImDrawList &drawList, GameObject &object,
         {
             const float sx = lx * scaleX;
             const float sy = ly * scaleY;
-            return worldToScreen(world.x + sx * cosA - sy * sinA,
-                                 world.y + sx * sinA + sy * cosA, origin);
+            return worldToScreen(world.x + sx * cosA - sy * sinA, world.y + sx * sinA + sy * cosA, origin);
         };
 
         for (size_t i = 0; i < count; ++i)
         {
-            const Collider2D *collider = object.getComponentAt<Collider2D>(i);
+            const Collider2D* collider = object.getComponentAt<Collider2D>(i);
             if (!collider || !collider->active())
                 continue;
 
             const bool orphan = body == nullptr;
-            ImU32 color = collider->isSensor() ? IM_COL32(90, 180, 255, 220)
-                                               : IM_COL32(110, 225, 140, 220);
+            ImU32 color = collider->isSensor() ? IM_COL32(90, 180, 255, 220) : IM_COL32(110, 225, 140, 220);
             if (orphan)
                 color = IM_COL32(240, 150, 60, 200);
 
             const Math::Vec2 offset = collider->offset();
 
-            if (const BoxCollider2D *box = dynamic_cast<const BoxCollider2D *>(collider))
+            if (const BoxCollider2D* box = dynamic_cast<const BoxCollider2D*>(collider))
             {
                 const float hw = box->size().x * 0.5f;
                 const float hh = box->size().y * 0.5f;
-                const ImVec2 corners[4] = {place(offset.x - hw, offset.y - hh),
-                                           place(offset.x + hw, offset.y - hh),
-                                           place(offset.x + hw, offset.y + hh),
-                                           place(offset.x - hw, offset.y + hh)};
+                const ImVec2 corners[4] = {place(offset.x - hw, offset.y - hh), place(offset.x + hw, offset.y - hh),
+                                           place(offset.x + hw, offset.y + hh), place(offset.x - hw, offset.y + hh)};
                 drawList.AddPolyline(corners, 4, color, ImDrawFlags_Closed, 1.6f);
             }
-            else if (const CircleCollider2D *circle = dynamic_cast<const CircleCollider2D *>(collider))
+            else if (const CircleCollider2D* circle = dynamic_cast<const CircleCollider2D*>(collider))
             {
                 const ImVec2 center = place(offset.x, offset.y);
                 const float radius = circle->radius() * (scaleX > scaleY ? scaleX : scaleY) * mZoom;
                 drawList.AddCircle(center, radius, color, 32, 1.6f);
                 drawList.AddLine(center, place(offset.x + circle->radius(), offset.y), color, 1.0f);
             }
-            else if (const EdgeCollider2D *edge = dynamic_cast<const EdgeCollider2D *>(collider))
+            else if (const EdgeCollider2D* edge = dynamic_cast<const EdgeCollider2D*>(collider))
             {
                 drawList.AddLine(place(edge->start().x + offset.x, edge->start().y + offset.y),
-                                 place(edge->end().x + offset.x, edge->end().y + offset.y), color,
-                                 1.6f);
+                                 place(edge->end().x + offset.x, edge->end().y + offset.y), color, 1.6f);
             }
-            else if (const PolygonCollider2D *polygon = dynamic_cast<const PolygonCollider2D *>(collider))
+            else if (const PolygonCollider2D* polygon = dynamic_cast<const PolygonCollider2D*>(collider))
             {
-                const ct::Vector<Math::Vec2> &points = polygon->points();
+                const ct::Vector<Math::Vec2>& points = polygon->points();
                 for (size_t p = 0; p + 1 <= points.size() && points.size() >= 2; ++p)
                 {
-                    const Math::Vec2 &a = points[p];
-                    const Math::Vec2 &b = points[(p + 1) % points.size()];
-                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y),
-                                     place(b.x + offset.x, b.y + offset.y), color, 1.6f);
+                    const Math::Vec2& a = points[p];
+                    const Math::Vec2& b = points[(p + 1) % points.size()];
+                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y), place(b.x + offset.x, b.y + offset.y),
+                                     color, 1.6f);
                 }
             }
-            else if (const ChainCollider2D *chain = dynamic_cast<const ChainCollider2D *>(collider))
+            else if (const ChainCollider2D* chain = dynamic_cast<const ChainCollider2D*>(collider))
             {
-                const ct::Vector<Math::Vec2> &points = chain->points();
-                const size_t segments = chain->loop() ? points.size()
-                                                      : (points.size() > 0 ? points.size() - 1 : 0);
+                const ct::Vector<Math::Vec2>& points = chain->points();
+                const size_t segments = chain->loop() ? points.size() : (points.size() > 0 ? points.size() - 1 : 0);
                 for (size_t p = 0; p < segments; ++p)
                 {
-                    const Math::Vec2 &a = points[p];
-                    const Math::Vec2 &b = points[(p + 1) % points.size()];
-                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y),
-                                     place(b.x + offset.x, b.y + offset.y), color, 1.6f);
+                    const Math::Vec2& a = points[p];
+                    const Math::Vec2& b = points[(p + 1) % points.size()];
+                    drawList.AddLine(place(a.x + offset.x, a.y + offset.y), place(b.x + offset.x, b.y + offset.y),
+                                     color, 1.6f);
                 }
             }
         }
@@ -340,8 +329,8 @@ void SceneViewportPanel::drawColliders(ImDrawList &drawList, GameObject &object,
         drawColliders(drawList, *object.child(i), origin);
 }
 
-void SceneViewportPanel::pickObject(GameObject &object, const ImVec2 &mouse, const ImVec2 &origin,
-                                    GameObject *&best, float &bestDistance)
+void SceneViewportPanel::pickObject(GameObject& object, const ImVec2& mouse, const ImVec2& origin, GameObject*& best,
+                                    float& bestDistance)
 {
     const Math::Vec2 world = object.globalPosition();
     const ImVec2 point = worldToScreen(world.x, world.y, origin);
@@ -357,7 +346,7 @@ void SceneViewportPanel::pickObject(GameObject &object, const ImVec2 &mouse, con
         pickObject(*object.child(i), mouse, origin, best, bestDistance);
 }
 
-void SceneViewportPanel::drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const
+void SceneViewportPanel::drawGizmo(ImDrawList& drawList, GameObject& selected, const ImVec2& origin) const
 {
     const Math::Vec2 world = selected.globalPosition();
     const ImVec2 center = worldToScreen(world.x, world.y, origin);
@@ -375,10 +364,10 @@ void SceneViewportPanel::drawGizmo(ImDrawList &drawList, GameObject &selected, c
 
         if (mTool == 1)
         {
-            drawList.AddTriangleFilled(ImVec2(xTip.x - 9.0f, xTip.y - 5.0f),
-                                       ImVec2(xTip.x - 9.0f, xTip.y + 5.0f), ImVec2(xTip.x + 3.0f, xTip.y), xColor);
-            drawList.AddTriangleFilled(ImVec2(yTip.x - 5.0f, yTip.y - 9.0f),
-                                       ImVec2(yTip.x + 5.0f, yTip.y - 9.0f), ImVec2(yTip.x, yTip.y + 3.0f), yColor);
+            drawList.AddTriangleFilled(ImVec2(xTip.x - 9.0f, xTip.y - 5.0f), ImVec2(xTip.x - 9.0f, xTip.y + 5.0f),
+                                       ImVec2(xTip.x + 3.0f, xTip.y), xColor);
+            drawList.AddTriangleFilled(ImVec2(yTip.x - 5.0f, yTip.y - 9.0f), ImVec2(yTip.x + 5.0f, yTip.y - 9.0f),
+                                       ImVec2(yTip.x, yTip.y + 3.0f), yColor);
         }
         else
         {
@@ -395,7 +384,7 @@ void SceneViewportPanel::drawGizmo(ImDrawList &drawList, GameObject &selected, c
     }
 }
 
-int SceneViewportPanel::hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const
+int SceneViewportPanel::hitTestGizmo(GameObject& selected, const ImVec2& mouse, const ImVec2& origin) const
 {
     const Math::Vec2 world = selected.globalPosition();
     const ImVec2 center = worldToScreen(world.x, world.y, origin);
@@ -434,11 +423,9 @@ void SceneViewportPanel::drawContents()
     mGridSize = app().settings().viewportGridSize;
     app().settings().viewportLivePreview = mLivePreview;
 
-    const char *toolIcons[] = {
-        ICON_MDI_CURSOR_DEFAULT, ICON_MDI_ARROW_ALL, ICON_MDI_ROTATE_ORBIT,
-        ICON_MDI_ARROW_EXPAND_ALL, ICON_MDI_HAND
-    };
-    const char *tooltips[] = {"Select", "Move", "Rotate", "Scale", "Pan"};
+    const char* toolIcons[] = {ICON_MDI_CURSOR_DEFAULT, ICON_MDI_ARROW_ALL, ICON_MDI_ROTATE_ORBIT,
+                               ICON_MDI_ARROW_EXPAND_ALL, ICON_MDI_HAND};
+    const char* tooltips[] = {"Select", "Move", "Rotate", "Scale", "Pan"};
     for (int tool = 0; tool < 5; ++tool)
     {
         if (tool != 0)
@@ -491,7 +478,7 @@ void SceneViewportPanel::drawContents()
     ensureFramebuffer(fboWidth, fboHeight);
     renderScene(fboWidth, fboHeight);
 
-    ImDrawList &drawList = *ImGui::GetWindowDrawList();
+    ImDrawList& drawList = *ImGui::GetWindowDrawList();
     if (mCanvasReady)
         drawList.AddImage((ImTextureID)(intptr_t)mColorTexture, min, max, ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
     else
@@ -508,9 +495,9 @@ void SceneViewportPanel::drawContents()
     if (app().settings().showColliders)
         drawColliders(drawList, app().scene().root(), origin);
 
-    GameObject *selected = app().selection().resolve(app().scene());
-    const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() &&
-                             mTool >= 1 && mTool <= 3;
+    GameObject* selected = app().selection().resolve(app().scene());
+    const bool gizmoActive =
+        selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 && mTool <= 3;
     if (gizmoActive)
         drawGizmo(drawList, *selected, origin);
     drawList.PopClipRect();
@@ -537,13 +524,13 @@ void SceneViewportPanel::drawContents()
             mGizmoAxis = hitAxis;
             mGizmoStartPosition = selected->position();
             mGizmoStartMouse = ImGui::GetIO().MousePos;
-            const char *label = mTool == 1 ? "Move GameObject" : mTool == 2 ? "Rotate GameObject" : "Scale GameObject";
+            const char* label = mTool == 1 ? "Move GameObject" : mTool == 2 ? "Rotate GameObject" : "Scale GameObject";
             app().beginTransaction(label, app().beginChange());
         }
         else
         {
             mGizmoAxis = -1;
-            GameObject *best = nullptr;
+            GameObject* best = nullptr;
             float bestDistance = 14.0f;
             pickObject(app().scene().root(), ImGui::GetIO().MousePos, origin, best, bestDistance);
             app().selection().select(best);
@@ -604,4 +591,4 @@ void SceneViewportPanel::drawContents()
     }
 }
 
-}
+} // namespace k2d::editor

@@ -1,10 +1,9 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <cstdio>
 
-static const char *kInvertFragmentShader = R"(#version 300 es
+static const char* kInvertFragmentShader = R"(#version 300 es
 precision highp float;
 in vec2 v_texcoord;
 in vec4 v_color;
@@ -36,38 +35,38 @@ int main()
 
     k2d::Assets assets;
     unsigned char orangePx[4] = {230, 140, 40, 255};
-    k2d::Texture *orange = assets.CreateTexture("orange", 1, 1, orangePx);
+    k2d::Texture* orange = assets.CreateTexture("orange", 1, 1, orangePx);
 
     k2d::Scene scene;
 
-    k2d::GameObject *backdropObject = scene.createObject("backdrop");
+    k2d::GameObject* backdropObject = scene.createObject("backdrop");
     backdropObject->setPosition(Math::Vec2(450.0f, 200.0f));
-    k2d::SpriteComponent *backdrop = backdropObject->addComponent<k2d::SpriteComponent>(orange);
+    k2d::SpriteComponent* backdrop = backdropObject->addComponent<k2d::SpriteComponent>(orange);
     backdrop->setSize(Math::Vec2(900.0f, 400.0f));
     backdrop->setColor(25, 25, 30);
 
-    k2d::GameObject *litObject1 = scene.createObject("lit1");
+    k2d::GameObject* litObject1 = scene.createObject("lit1");
     litObject1->setPosition(Math::Vec2(200.0f, 200.0f));
-    k2d::SpriteComponent *lit1 = litObject1->addComponent<k2d::SpriteComponent>(orange);
+    k2d::SpriteComponent* lit1 = litObject1->addComponent<k2d::SpriteComponent>(orange);
     lit1->setSize(Math::Vec2(120.0f, 120.0f));
     lit1->setColor(230, 140, 40);
 
-    k2d::GameObject *invertedObject = scene.createObject("inverted");
+    k2d::GameObject* invertedObject = scene.createObject("inverted");
     invertedObject->setPosition(Math::Vec2(450.0f, 200.0f));
-    k2d::SpriteComponent *inverted = invertedObject->addComponent<k2d::SpriteComponent>(orange);
+    k2d::SpriteComponent* inverted = invertedObject->addComponent<k2d::SpriteComponent>(orange);
     inverted->setSize(Math::Vec2(120.0f, 120.0f));
-    inverted->setColor(230, 140, 40); 
+    inverted->setColor(230, 140, 40);
     inverted->setCustomShader(invertShader);
 
-    k2d::GameObject *litObject2 = scene.createObject("lit2");
+    k2d::GameObject* litObject2 = scene.createObject("lit2");
     litObject2->setPosition(Math::Vec2(700.0f, 200.0f));
-    k2d::SpriteComponent *lit2 = litObject2->addComponent<k2d::SpriteComponent>(orange);
+    k2d::SpriteComponent* lit2 = litObject2->addComponent<k2d::SpriteComponent>(orange);
     lit2->setSize(Math::Vec2(120.0f, 120.0f));
     lit2->setColor(230, 140, 40);
 
-    k2d::GameObject *lightObject = scene.createObject("light");
+    k2d::GameObject* lightObject = scene.createObject("light");
     lightObject->setPosition(Math::Vec2(450.0f, 100.0f));
-    k2d::Light2D *light = lightObject->addComponent<k2d::Light2D>();
+    k2d::Light2D* light = lightObject->addComponent<k2d::Light2D>();
     light->setColor(1.0f, 1.0f, 1.0f);
     light->setEnergy(1.0f);
     light->setRadius(600.0f);

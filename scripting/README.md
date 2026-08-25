@@ -149,7 +149,9 @@ script->declaredPropertyCount();                   // what the .py declares
 
 Component handles return `None` when the component is missing.
 
-- **Sprite**: `set_color(r, g, b, a)`, `set_flip(x, y)`, `set_size(w, h)`
+- **Sprite**: `set_color(r, g, b, a)`, `set_flip(x, y)`, `set_size(w, h)`,
+  `set_water_enabled(b)`, `set_water_flow(ax, ay, bx, by)`, `set_water_strength(value)`.
+  Water uses the sprite's normal map twice; assign one in the Inspector first.
 - **Animation**: `play(clip)`, `stop()`, `is_playing()`, `current()`
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
 - **Body**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
@@ -234,6 +236,41 @@ node = body_at(x, y)                            # what is under this point
 set_gravity(0, 0)                               # retune the live world
 gx, gy = get_gravity()
 ```
+
+### Character movement
+
+Add a `RigidBody2D`, one or more `Collider2D` components, and a `CharacterBody2D` to the
+same Node. `CharacterBody2D` sets that rigid body to **Kinematic** and uses the engine's
+Box2D-derived convex shape cast; it never moves the object one pixel at a time.
+
+Every placement or movement query reads the node's own colliders and their collision
+layers/masks. No shape or mask is passed from ZenPy.
+
+```python
+# Non-mutating GameMaker-style queries. Coordinates use this Node's position space.
+if self.node.place_free(next_x, next_y):
+    pass
+wall = self.node.place_meeting(next_x, next_y)  # Node or None
+
+# Moves until the first contact. A miss returns None, 0, 0, 0, 0.
+other, hit_x, hit_y, normal_x, normal_y = self.node.move_and_collide(dx, dy)
+
+# Either set velocity separately (Godot-style)...
+self.node.set_character_velocity(vx, vy)
+hit, vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide()
+
+# ...or set it as part of the call.
+hit, vx, vy, on_floor, on_wall, on_ceiling = self.node.move_and_slide(vx, vy)
+
+# A slide can contain more than one impact.
+count = self.node.slide_collision_count()
+other, hit_x, hit_y, normal_x, normal_y = self.node.slide_collision(0)
+```
+
+`move_and_collide(dx, dy)` is the general primitive: it stops at the first obstacle and
+lets the script choose the response. `move_and_slide()` uses the component velocity and
+projects the remaining motion and velocity along every hit normal, up to `maxSlides`.
+It returns the updated velocity as multiple ZenPy values.
 
 ## Prefabs
 
@@ -357,6 +394,8 @@ world is rebuilt before the next update.
   tearing a game down); components re-instantiate themselves on the next frame.
 - Reloading is per script, not per component: `ReloadChangedZenScripts()` walks the compiled
   classes, recompiles the files whose timestamp moved, and returns how many scripts it rebuilt.
+  It is an explicit operation, never a per-frame file watcher: press `F6` while playing in the
+  editor or in the standalone runner to request it.
   Only the objects running a rebuilt script re-instantiate, so editing one `.py` mid-play does
   not reset the state of every other script in the scene. A file that fails to compile keeps
   the last good class running rather than taking the object down with it.

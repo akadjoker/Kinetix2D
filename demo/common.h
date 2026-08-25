@@ -3,7 +3,7 @@
 #include <imgui.h>
 #include <kx/kx.h>
 
-#include <glad/glad.h>
+#include <k2d/OpenGL.h>
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -43,26 +43,25 @@ struct Camera
 
     Math::Vec2 ScreenToWorld(float sx, float sy, float screenW, float screenH) const
     {
-        return Math::Vec2(center.x + (sx - screenW * 0.5f) / zoom,
-                         center.y + (sy - screenH * 0.5f) / zoom);
+        return Math::Vec2(center.x + (sx - screenW * 0.5f) / zoom, center.y + (sy - screenH * 0.5f) / zoom);
     }
 };
 
 class StressDebugDraw : public kx::DebugDraw
 {
-public:
-    explicit StressDebugDraw(k2d::BatchRenderer &batch) : mBatch(batch)
+  public:
+    explicit StressDebugDraw(k2d::BatchRenderer& batch) : mBatch(batch)
     {
     }
 
-    void DrawCircleShape(const kx::Transform &xf, float radius, kx::Color color) override
+    void DrawCircleShape(const kx::Transform& xf, float radius, kx::Color color) override
     {
         Math::Vec2 c = xf.Transform(0.0f, 0.0f);
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(c.x, c.y, radius, 12);
     }
 
-    void DrawPolygonShape(const kx::Transform &xf, const Math::Vec2 *verts, int count, kx::Color color) override
+    void DrawPolygonShape(const kx::Transform& xf, const Math::Vec2* verts, int count, kx::Color color) override
     {
         if (count <= 0 || count > 16)
             return;
@@ -80,24 +79,24 @@ public:
         mBatch.DrawPolyline(points, count + 1);
     }
 
-    void DrawSegment(const Math::Vec2 &a, const Math::Vec2 &b, kx::Color color) override
+    void DrawSegment(const Math::Vec2& a, const Math::Vec2& b, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawLine(a.x, a.y, b.x, b.y);
     }
 
-    void DrawPoint(const Math::Vec2 &p, float size, kx::Color color) override
+    void DrawPoint(const Math::Vec2& p, float size, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawCircle(p.x, p.y, size, 6);
     }
 
-    void DrawAABB(const Math::Vec2 &lower, const Math::Vec2 &upper, kx::Color color) override
+    void DrawAABB(const Math::Vec2& lower, const Math::Vec2& upper, kx::Color color) override
     {
         mBatch.SetColor(color.r, color.g, color.b, color.a);
         mBatch.DrawRect(lower.x, lower.y, upper.x - lower.x, upper.y - lower.y, false);
     }
 
-private:
-    k2d::BatchRenderer &mBatch;
+  private:
+    k2d::BatchRenderer& mBatch;
 };

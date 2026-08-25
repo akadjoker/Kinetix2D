@@ -34,6 +34,9 @@ target_link_libraries(kx_imageshape_tests PRIVATE kx)
 add_executable(kx_queries_tests kx_queries_tests.cpp)
 target_link_libraries(kx_queries_tests PRIVATE kx)
 
+add_executable(kx_shapecast_tests kx_shapecast_tests.cpp)
+target_link_libraries(kx_shapecast_tests PRIVATE kx)
+
 add_executable(kx_sleep_tests kx_sleep_tests.cpp)
 target_link_libraries(kx_sleep_tests PRIVATE kx)
 
@@ -97,6 +100,9 @@ target_link_libraries(k2d_pixmap_tests PRIVATE k2d)
 
 add_executable(k2d_astar_tests k2d_astar_tests.cpp)
 target_link_libraries(k2d_astar_tests PRIVATE k2d)
+
+add_executable(k2d_navigation_tests k2d_navigation_tests.cpp)
+target_link_libraries(k2d_navigation_tests PRIVATE k2d)
 
 add_executable(k2d_serializer_tests k2d_serializer_tests.cpp)
 target_link_libraries(k2d_serializer_tests PRIVATE k2d)

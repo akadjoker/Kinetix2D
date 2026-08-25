@@ -32,20 +32,19 @@ static bool nearEqual(float a, float b)
 static bool testBasics()
 {
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("player");
+    k2d::GameObject* object = scene.createObject("player");
     object->setPosition(Math::Vec2(5.0f, 6.0f));
 
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class Basics:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_start(self):\n"
-        "        self.node.set_z_index(7)\n"
-        "    def on_update(self, dt):\n"
-        "        self.node.translate(10 * dt, 0)\n"
-        "        self.node.set_rotation(self.node.get_rotation() + 90 * dt)\n",
-        "basics");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class Basics:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_start(self):\n"
+                                 "        self.node.set_z_index(7)\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        self.node.translate(10 * dt, 0)\n"
+                                 "        self.node.set_rotation(self.node.get_rotation() + 90 * dt)\n",
+                                 "basics");
     ok = ok && script->loaded();
 
     scene.update(0.5f);
@@ -63,16 +62,15 @@ static bool testScriptComponentBaseProvidesNode()
 {
     k2d::ZenRuntime::instance().reset();
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("base_script");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class BaseScript(ScriptComponent):\n"
-        "    speed = 25\n"
-        "    def __init__(self):\n"
-        "        self.started = True\n"
-        "    def on_update(self, dt):\n"
-        "        self.node.translate(self.speed * dt, 0)\n",
-        "script_component_base");
+    k2d::GameObject* object = scene.createObject("base_script");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class BaseScript(ScriptComponent):\n"
+                                 "    speed = 25\n"
+                                 "    def __init__(self):\n"
+                                 "        self.started = True\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        self.node.translate(self.speed * dt, 0)\n",
+                                 "script_component_base");
     scene.update(1.0f);
     return ok && script->loaded() && nearEqual(object->position().x, 25.0f) &&
            script->declaredProperty("node") == nullptr && script->declaredProperty("speed") != nullptr;
@@ -82,23 +80,22 @@ static bool testDrawApi()
 {
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("draw_script");
+    k2d::GameObject* object = scene.createObject("draw_script");
     object->setZIndex(4);
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class DrawScript(ScriptComponent):\n"
-        "    def on_draw(self):\n"
-        "        set_draw_color(1, 0, 0, 0.5)\n"
-        "        draw_rect(10, 20, 30, 40)\n"
-        "        draw_circle(80, 80, 20, False, 12, 2)\n"
-        "        draw_line(0, 0, 20, 20, 3)\n"
-        "        draw_text(4, 5, \"draw\", 10)\n"
-        "        set_number(\"draw_width\", draw_text_width(\"abc\", 10))\n"
-        "    def on_draw_ui(self):\n"
-        "        draw_text(4, 20, \"hud\", 10)\n",
-        "draw_api");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class DrawScript(ScriptComponent):\n"
+                                 "    def on_draw(self):\n"
+                                 "        set_draw_color(1, 0, 0, 0.5)\n"
+                                 "        draw_rect(10, 20, 30, 40)\n"
+                                 "        draw_circle(80, 80, 20, False, 12, 2)\n"
+                                 "        draw_line(0, 0, 20, 20, 3)\n"
+                                 "        draw_text(4, 5, \"draw\", 10)\n"
+                                 "        set_number(\"draw_width\", draw_text_width(\"abc\", 10))\n"
+                                 "    def on_draw_ui(self):\n"
+                                 "        draw_text(4, 20, \"hud\", 10)\n",
+                                 "draw_api");
 
-    k2d::RenderQueue &queue = scene.buildRenderQueue();
+    k2d::RenderQueue& queue = scene.buildRenderQueue();
     ok = ok && queue.ItemCount() == 2 && queue.CommandCount() == 5 &&
          nearEqual((float)k2d::ZenBlackboard::getNumber("draw_width"), 30.0f);
     k2d::ZenBlackboard::clear();
@@ -109,15 +106,14 @@ static bool testObjectCount()
 {
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
-    k2d::GameObject *main = scene.createObject("main");
+    k2d::GameObject* main = scene.createObject("main");
     scene.createObject("one");
     scene.createObject("two");
-    k2d::ZenScriptComponent *script = main->addComponent<k2d::ZenScriptComponent>();
-    const bool loaded = script->loadSource(
-        "class Counter(ScriptComponent):\n"
-        "    def on_update(self, dt):\n"
-        "        set_number(\"objects\", object_count())\n",
-        "object_count");
+    k2d::ZenScriptComponent* script = main->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource("class Counter(ScriptComponent):\n"
+                                           "    def on_update(self, dt):\n"
+                                           "        set_number(\"objects\", object_count())\n",
+                                           "object_count");
     scene.update(0.016f);
     const bool ok = loaded && nearEqual((float)k2d::ZenBlackboard::getNumber("objects"), 3.0f);
     k2d::ZenBlackboard::clear();
@@ -135,8 +131,8 @@ static bool testBunnymarkSpawn()
     input.OnMouseButton(0, true);
 
     k2d::Scene scene;
-    k2d::GameObject *main = scene.createObject("bunnymark_main");
-    k2d::ZenScriptComponent *script = main->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* main = scene.createObject("bunnymark_main");
+    k2d::ZenScriptComponent* script = main->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadFile("scripts/bunnymark_main.py");
     scene.update(0.016f);
     const std::size_t spawned = static_cast<std::size_t>(k2d::ZenBlackboard::getNumber("bunnymark_bunnies"));
@@ -144,7 +140,7 @@ static bool testBunnymarkSpawn()
     input.NewFrame();
     scene.update(0.016f);
     ok = ok && scene.objectCount() == spawned + 1;
-    k2d::RenderQueue &queue = scene.buildRenderQueue();
+    k2d::RenderQueue& queue = scene.buildRenderQueue();
     ok = ok && queue.ItemCount() == 1 && queue.CommandCount() == 3;
 
     k2d::SetZenScriptInput(nullptr);
@@ -155,25 +151,24 @@ static bool testBunnymarkSpawn()
 static bool testHierarchy()
 {
     k2d::Scene scene;
-    k2d::GameObject *parent = scene.createObject("parent");
-    k2d::GameObject *child = scene.createObject("child", parent);
+    k2d::GameObject* parent = scene.createObject("parent");
+    k2d::GameObject* child = scene.createObject("child", parent);
     scene.createObject("target")->setPosition(Math::Vec2(50.0f, 60.0f));
     (void)child;
 
-    k2d::ZenScriptComponent *script = parent->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class Hier:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_start(self):\n"
-        "        first = self.node.get_child(0)\n"
-        "        set_string(\"child_name\", first.get_name())\n"
-        "        set_string(\"parent_of_child\", first.get_parent().get_name())\n"
-        "        set_number(\"child_total\", self.node.child_count())\n"
-        "        set_number(\"target_x\", self.node.find(\"target\").get_x())\n"
-        "        made = self.node.create_child(\"spawned\")\n"
-        "        made.set_position(1, 2)\n",
-        "hierarchy");
+    k2d::ZenScriptComponent* script = parent->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class Hier:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_start(self):\n"
+                                 "        first = self.node.get_child(0)\n"
+                                 "        set_string(\"child_name\", first.get_name())\n"
+                                 "        set_string(\"parent_of_child\", first.get_parent().get_name())\n"
+                                 "        set_number(\"child_total\", self.node.child_count())\n"
+                                 "        set_number(\"target_x\", self.node.find(\"target\").get_x())\n"
+                                 "        made = self.node.create_child(\"spawned\")\n"
+                                 "        made.set_position(1, 2)\n",
+                                 "hierarchy");
     scene.update(0.016f);
 
     ok = ok && scene.find("spawned") != nullptr;
@@ -185,31 +180,35 @@ static bool testHierarchy()
 static bool testComponents()
 {
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("holder");
-    k2d::SpriteComponent *sprite = object->addComponent<k2d::SpriteComponent>();
-    k2d::Animation2D *animation = object->addComponent<k2d::Animation2D>();
+    k2d::GameObject* object = scene.createObject("holder");
+    k2d::SpriteComponent* sprite = object->addComponent<k2d::SpriteComponent>();
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
     animation->addClip("run", nullptr, 8, 8, 4, 10.0f, k2d::AnimationMode::Loop);
     animation->addClip("idle", nullptr, 8, 8, 2, 5.0f, k2d::AnimationMode::Loop);
-    k2d::ParticleComponent *particle = object->addComponent<k2d::ParticleComponent>();
+    k2d::ParticleComponent* particle = object->addComponent<k2d::ParticleComponent>();
     particle->system().SetCapacity(64);
 
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class Comp:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_start(self):\n"
-        "        s = self.node.get_sprite()\n"
-        "        s.set_color(255, 0, 0, 255)\n"
-        "        s.set_flip(True, False)\n"
-        "        s.set_size(32, 16)\n"
-        "        self.node.get_animation().play(\"idle\")\n"
-        "        self.node.get_particle().burst(5)\n",
-        "components");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class Comp:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_start(self):\n"
+                                 "        s = self.node.get_sprite()\n"
+                                 "        s.set_color(255, 0, 0, 255)\n"
+                                 "        s.set_flip(True, False)\n"
+                                 "        s.set_size(32, 16)\n"
+                                 "        s.set_water_enabled(True)\n"
+                                 "        s.set_water_flow(0.1, 0.2, -0.05, 0.07)\n"
+                                 "        s.set_water_strength(0.03)\n"
+                                 "        self.node.get_animation().play(\"idle\")\n"
+                                 "        self.node.get_particle().burst(5)\n",
+                                 "components");
     scene.update(0.016f);
 
     ok = ok && sprite->flipX() && !sprite->flipY();
     ok = ok && nearEqual(sprite->size().x, 32.0f) && nearEqual(sprite->size().y, 16.0f);
+    ok = ok && sprite->waterEnabled() && nearEqual(sprite->water().strength, 0.03f) &&
+         nearEqual(sprite->water().flowA.x, 0.1f) && nearEqual(sprite->water().flowB.y, 0.07f);
     ok = ok && std::strcmp(animation->currentClip(), "idle") == 0;
     ok = ok && particle->system().ActiveCount() == 5;
     return ok;
@@ -225,18 +224,17 @@ static bool testInput()
     input.OnMouseButton(0, true);
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("listener");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class In:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_update(self, dt):\n"
-        "        if key_down(\"space\") and mouse_down(0):\n"
-        "            self.node.set_position(mouse_x(), mouse_y())\n"
-        "        if key_down(\"escape\"):\n"
-        "            self.node.set_position(-1, -1)\n",
-        "input");
+    k2d::GameObject* object = scene.createObject("listener");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class In:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        if key_down(\"space\") and mouse_down(0):\n"
+                                 "            self.node.set_position(mouse_x(), mouse_y())\n"
+                                 "        if key_down(\"escape\"):\n"
+                                 "            self.node.set_position(-1, -1)\n",
+                                 "input");
     scene.update(0.016f);
 
     ok = ok && nearEqual(object->position().x, 120.0f) && nearEqual(object->position().y, 240.0f);
@@ -300,11 +298,10 @@ static bool testAudioApi()
     audio.SetMasterVolume(0.5f);
     audio.SetSfxVolume(0.25f);
     audio.SetMusicVolume(0.75f);
-    bool ok = !audio.Ready() && nearEqual(audio.MasterVolume(), 0.5f) &&
-              nearEqual(audio.SfxVolume(), 0.25f) && nearEqual(audio.MusicVolume(), 0.75f);
-    ok = ok && audio.LoadSound("missing_audio_file.ogg") == 0 &&
-         audio.LoadMusic("missing_audio_file.ogg") == 0 && audio.Play(1) == 0 &&
-         audio.PlayMusic(1) == 0 && !audio.Stop(1) && !audio.Pause(1) && !audio.Resume(1);
+    bool ok = !audio.Ready() && nearEqual(audio.MasterVolume(), 0.5f) && nearEqual(audio.SfxVolume(), 0.25f) &&
+              nearEqual(audio.MusicVolume(), 0.75f);
+    ok = ok && audio.LoadSound("missing_audio_file.ogg") == 0 && audio.LoadMusic("missing_audio_file.ogg") == 0 &&
+         audio.Play(1) == 0 && audio.PlayMusic(1) == 0 && !audio.Stop(1) && !audio.Pause(1) && !audio.Resume(1);
     const unsigned char encodedAudio[] = {0x52, 0x49, 0x46, 0x46};
     const k2d::AudioEngine::SoundId memorySfx = audio.LoadSoundMemory(encodedAudio, sizeof(encodedAudio));
     const k2d::AudioEngine::SoundId memoryMusic = audio.LoadMusicMemory(encodedAudio, sizeof(encodedAudio));
@@ -312,23 +309,20 @@ static bool testAudioApi()
 
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("audio_script");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    ok = ok && script->loadSource(
-        "class AudioScript(ScriptComponent):\n"
-        "    def on_start(self):\n"
-        "        audio_set_master_volume(0.5)\n"
-        "        audio_set_sfx_volume(0.25)\n"
-        "        audio_set_music_volume(0.75)\n"
-        "        set_number(\"audio_missing\", audio_load(\"missing_audio_file.ogg\"))\n"
-        "        set_flag(\"audio_playing\", audio_playing(0))\n",
-        "audio_api");
+    k2d::GameObject* object = scene.createObject("audio_script");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && script->loadSource("class AudioScript(ScriptComponent):\n"
+                                  "    def on_start(self):\n"
+                                  "        audio_set_master_volume(0.5)\n"
+                                  "        audio_set_sfx_volume(0.25)\n"
+                                  "        audio_set_music_volume(0.75)\n"
+                                  "        set_number(\"audio_missing\", audio_load(\"missing_audio_file.ogg\"))\n"
+                                  "        set_flag(\"audio_playing\", audio_playing(0))\n",
+                                  "audio_api");
     scene.update(0.016f);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("audio_missing"), 0.0f) &&
-         !k2d::ZenBlackboard::getBool("audio_playing", true) &&
-         nearEqual(k2d::GetAudio().MasterVolume(), 0.5f) &&
-         nearEqual(k2d::GetAudio().SfxVolume(), 0.25f) &&
-         nearEqual(k2d::GetAudio().MusicVolume(), 0.75f);
+         !k2d::ZenBlackboard::getBool("audio_playing", true) && nearEqual(k2d::GetAudio().MasterVolume(), 0.5f) &&
+         nearEqual(k2d::GetAudio().SfxVolume(), 0.25f) && nearEqual(k2d::GetAudio().MusicVolume(), 0.75f);
     k2d::GetAudio().SetMasterVolume(1.0f);
     k2d::GetAudio().SetSfxVolume(1.0f);
     k2d::GetAudio().SetMusicVolume(1.0f);
@@ -341,7 +335,7 @@ static bool testSceneManager()
     k2d::Assets assets;
     k2d::Scene scene;
     k2d::SceneManager manager;
-    k2d::GameObject *root = manager.Load(scene, assets, "assets/senes/ui_controls.k2dscene");
+    k2d::GameObject* root = manager.Load(scene, assets, "assets/senes/ui_controls.k2dscene");
     bool ok = root && root->name() == ct::String("UI Controls Example") &&
               root->getComponent<k2d::UiCanvas>() != nullptr && scene.find("Settings Panel") != nullptr;
     manager.Request("assets/senes/ui_controls.k2dscene");
@@ -363,18 +357,17 @@ static bool testGameViewportMouseInput()
     input.OnMouseButton(0, true);
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("game_input");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class GameInput(ScriptComponent):\n"
-        "    def on_update(self, dt):\n"
-        "        set_number(\"game_mouse_x\", mouse_x())\n"
-        "        set_number(\"game_mouse_y\", mouse_y())\n"
-        "        wx, wy = mouse_world_position()\n"
-        "        set_number(\"game_world_x\", wx)\n"
-        "        set_number(\"game_world_y\", wy)\n"
-        "        set_flag(\"game_mouse_pressed\", mouse_pressed(0))\n",
-        "game_viewport_input");
+    k2d::GameObject* object = scene.createObject("game_input");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class GameInput(ScriptComponent):\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        set_number(\"game_mouse_x\", mouse_x())\n"
+                                 "        set_number(\"game_mouse_y\", mouse_y())\n"
+                                 "        wx, wy = mouse_world_position()\n"
+                                 "        set_number(\"game_world_x\", wx)\n"
+                                 "        set_number(\"game_world_y\", wy)\n"
+                                 "        set_flag(\"game_mouse_pressed\", mouse_pressed(0))\n",
+                                 "game_viewport_input");
     scene.update(0.016f);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_x"), 20.0f) &&
          nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_y"), 30.0f) &&
@@ -392,15 +385,14 @@ static bool testGameViewportMouseInput()
 static bool testDestroy()
 {
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("mortal");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class Mortal:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_update(self, dt):\n"
-        "        self.node.queue_destroy()\n",
-        "destroy");
+    k2d::GameObject* object = scene.createObject("mortal");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class Mortal:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        self.node.queue_destroy()\n",
+                                 "destroy");
     ok = ok && scene.find("mortal") != nullptr;
     scene.update(0.016f);
     scene.update(0.016f);
@@ -412,20 +404,22 @@ static bool testSerialization()
 {
     k2d::RegisterZenScriptSerializer();
 
-    const char *scriptPath = "/tmp/k2d_zen_test_script.py";
-    FILE *file = std::fopen(scriptPath, "w");
+    const char* scriptPath = "/tmp/k2d_zen_test_script.py";
+    FILE* file = std::fopen(scriptPath, "w");
     if (!file)
         return false;
-    std::fputs("class S:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(33, 44)\n", file);
+    std::fputs("class S:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
+               "  self.node.set_position(33, 44)\n",
+               file);
     std::fclose(file);
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("scripted");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* object = scene.createObject("scripted");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadFile(scriptPath);
 
     const ct::Json json = k2d::Serializer::WriteObject(*object);
-    const ct::Json &components = json["components"];
+    const ct::Json& components = json["components"];
     bool foundEntry = false;
     for (size_t i = 0; i < components.size(); ++i)
         if (std::strcmp(components[i]["type"].as_cstr(""), "ZenScript") == 0 &&
@@ -434,11 +428,10 @@ static bool testSerialization()
     ok = ok && foundEntry;
 
     k2d::Scene loadedScene;
-    k2d::GameObject *loaded = k2d::Serializer::ReadObject(loadedScene, json);
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(loadedScene, json);
     ok = ok && loaded != nullptr;
-    k2d::ZenScriptComponent *loadedScript = loaded ? loaded->getComponent<k2d::ZenScriptComponent>() : nullptr;
-    ok = ok && loadedScript && loadedScript->loaded() &&
-         loadedScript->scriptPath() == ct::String(scriptPath);
+    k2d::ZenScriptComponent* loadedScript = loaded ? loaded->getComponent<k2d::ZenScriptComponent>() : nullptr;
+    ok = ok && loadedScript && loadedScript->loaded() && loadedScript->scriptPath() == ct::String(scriptPath);
 
     loadedScene.update(0.016f);
     ok = ok && loaded && nearEqual(loaded->position().x, 33.0f) && nearEqual(loaded->position().y, 44.0f);
@@ -452,39 +445,40 @@ static bool gCapturedError = false;
 
 static bool testSpawnAndMath()
 {
-    const char *prefabPath = "/tmp/k2d_zen_test_prefab.k2dprefab";
-    FILE *file = std::fopen(prefabPath, "w");
+    const char* prefabPath = "/tmp/k2d_zen_test_prefab.k2dprefab";
+    FILE* file = std::fopen(prefabPath, "w");
     if (!file)
         return false;
     std::fputs("{\"name\":\"bullet\",\"components\":[],\"children\":[]}", file);
     std::fclose(file);
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("shooter");
+    k2d::GameObject* object = scene.createObject("shooter");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class Shooter:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "    def on_start(self):\n"
-        "        b = self.node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
-        "        print(\"spawned\", b.get_name(), self.node.distance_to(30, 40))\n"
-        "        self.node.look_at(0, 100)\n"
-        "    def on_update(self, dt):\n"
-        "        self.node.move_toward(60, 0, 25)\n",
-        "spawner");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class Shooter:\n"
+                                 "    def __init__(self, node):\n"
+                                 "        self.node = node\n"
+                                 "    def on_start(self):\n"
+                                 "        b = self.node.spawn(\"/tmp/k2d_zen_test_prefab.k2dprefab\", 30, 40)\n"
+                                 "        print(\"spawned\", b.get_name(), self.node.distance_to(30, 40))\n"
+                                 "        self.node.look_at(0, 100)\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        self.node.move_toward(60, 0, 25)\n",
+                                 "spawner");
 
-    k2d::SetZenScriptOutput([](const char *text, bool isError, void *)
-    {
-        gCapturedOutput += text;
-        if (isError)
-            gCapturedError = true;
-    }, nullptr);
+    k2d::SetZenScriptOutput(
+        [](const char* text, bool isError, void*)
+        {
+            gCapturedOutput += text;
+            if (isError)
+                gCapturedError = true;
+        },
+        nullptr);
     scene.update(0.016f);
     k2d::SetZenScriptOutput(nullptr, nullptr);
 
-    k2d::GameObject *bullet = scene.find("bullet");
+    k2d::GameObject* bullet = scene.find("bullet");
     ok = ok && bullet && nearEqual(bullet->position().x, 30.0f) && nearEqual(bullet->position().y, 40.0f);
     ok = ok && nearEqual(object->rotationDegrees(), 90.0f);
     ok = ok && nearEqual(object->position().x, 25.0f);
@@ -504,10 +498,11 @@ static bool testScriptsGate()
 {
     k2d::SetZenScriptsEnabled(false);
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("gated");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* object = scene.createObject("gated");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource("class G:\n    def __init__(self, node):\n        self.node = node\n"
-                                 "    def on_update(self, dt):\n        self.node.set_position(9, 9)\n", "gate");
+                                 "    def on_update(self, dt):\n        self.node.set_position(9, 9)\n",
+                                 "gate");
 
     scene.update(0.016f);
     ok = ok && nearEqual(object->position().x, 0.0f);
@@ -523,33 +518,31 @@ static bool testBlackboardAndEvents()
     k2d::ZenBlackboard::clear();
 
     k2d::Scene scene;
-    k2d::GameObject *sender = scene.createObject("sender");
-    k2d::ZenScriptComponent *senderScript = sender->addComponent<k2d::ZenScriptComponent>();
-    bool ok = senderScript->loadSource(
-        "class Sender:\n"
-        "    def __init__(self, node):\n"
-        "        self.node = node\n"
-        "        self.fired = False\n"
-        "    def on_update(self, dt):\n"
-        "        if not self.fired:\n"
-        "            self.fired = True\n"
-        "            set_number(\"hp\", 75)\n"
-        "            set_string(\"stage\", \"boss\")\n"
-        "            set_flag(\"alive\", True)\n"
-        "            emit(\"hit\", 12)\n",
-        "sender");
+    k2d::GameObject* sender = scene.createObject("sender");
+    k2d::ZenScriptComponent* senderScript = sender->addComponent<k2d::ZenScriptComponent>();
+    bool ok = senderScript->loadSource("class Sender:\n"
+                                       "    def __init__(self, node):\n"
+                                       "        self.node = node\n"
+                                       "        self.fired = False\n"
+                                       "    def on_update(self, dt):\n"
+                                       "        if not self.fired:\n"
+                                       "            self.fired = True\n"
+                                       "            set_number(\"hp\", 75)\n"
+                                       "            set_string(\"stage\", \"boss\")\n"
+                                       "            set_flag(\"alive\", True)\n"
+                                       "            emit(\"hit\", 12)\n",
+                                       "sender");
 
-    k2d::GameObject *receiver = scene.createObject("receiver");
-    k2d::ZenScriptComponent *receiverScript = receiver->addComponent<k2d::ZenScriptComponent>();
-    ok = ok && receiverScript->loadSource(
-                   "class Receiver:\n"
-                   "    def __init__(self, node):\n"
-                   "        self.node = node\n"
-                   "    def on_event(self, name, value):\n"
-                   "        if name == \"hit\":\n"
-                   "            set_number(\"damage\", value * 2)\n"
-                   "            self.node.set_position(get_number(\"hp\", 0), 1)\n",
-                   "receiver");
+    k2d::GameObject* receiver = scene.createObject("receiver");
+    k2d::ZenScriptComponent* receiverScript = receiver->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && receiverScript->loadSource("class Receiver:\n"
+                                          "    def __init__(self, node):\n"
+                                          "        self.node = node\n"
+                                          "    def on_event(self, name, value):\n"
+                                          "        if name == \"hit\":\n"
+                                          "            set_number(\"damage\", value * 2)\n"
+                                          "            self.node.set_position(get_number(\"hp\", 0), 1)\n",
+                                          "receiver");
 
     scene.update(0.016f);
     ok = ok && k2d::ZenBlackboard::pendingEventCount() == 1;
@@ -565,8 +558,8 @@ static bool testBlackboardAndEvents()
     ok = ok && k2d::ZenBlackboard::has("hp") && !k2d::ZenBlackboard::has("nope");
 
     k2d::ZenBlackboard::setNumber("from_host", 3.5);
-    k2d::GameObject *reader = scene.createObject("reader");
-    k2d::ZenScriptComponent *readerScript = reader->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* reader = scene.createObject("reader");
+    k2d::ZenScriptComponent* readerScript = reader->addComponent<k2d::ZenScriptComponent>();
     ok = ok && readerScript->loadSource(
                    "class Reader:\n"
                    "    def __init__(self, node):\n"
@@ -582,14 +575,16 @@ static bool testBlackboardAndEvents()
 
     static int hostSeen = 0;
     static double hostValue = 0.0;
-    k2d::ZenBlackboard::setHostHandler([](const char *name, double value, void *)
-    {
-        if (std::strcmp(name, "hit") == 0)
+    k2d::ZenBlackboard::setHostHandler(
+        [](const char* name, double value, void*)
         {
-            ++hostSeen;
-            hostValue = value;
-        }
-    }, nullptr);
+            if (std::strcmp(name, "hit") == 0)
+            {
+                ++hostSeen;
+                hostValue = value;
+            }
+        },
+        nullptr);
     k2d::ZenBlackboard::emit("hit", 7.0);
     ok = ok && hostSeen == 1 && nearEqual((float)hostValue, 7.0f);
     k2d::ZenBlackboard::setHostHandler(nullptr, nullptr);
@@ -605,16 +600,18 @@ static bool testBlackboardAndEvents()
 
 static bool testHotReload()
 {
-    const char *path = "/tmp/k2d_zen_hotreload.py";
-    FILE *file = std::fopen(path, "w");
+    const char* path = "/tmp/k2d_zen_hotreload.py";
+    FILE* file = std::fopen(path, "w");
     if (!file)
         return false;
-    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(1, 1)\n", file);
+    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
+               "  self.node.set_position(1, 1)\n",
+               file);
     std::fclose(file);
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("reloader");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* object = scene.createObject("reloader");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadFile(path);
     scene.update(0.016f);
     ok = ok && nearEqual(object->position().x, 1.0f);
@@ -622,13 +619,13 @@ static bool testHotReload()
     ok = ok && !script->reloadIfChanged();
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
-    std::filesystem::last_write_time(
-        path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
+    std::filesystem::last_write_time(path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
     file = std::fopen(path, "w");
-    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n        self.node.set_position(2, 2)\n", file);
+    std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
+               "  self.node.set_position(2, 2)\n",
+               file);
     std::fclose(file);
-    std::filesystem::last_write_time(
-        path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
+    std::filesystem::last_write_time(path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
 
     ok = ok && k2d::ReloadChangedZenScripts() == 1;
     scene.update(0.016f);
@@ -644,8 +641,8 @@ static bool testNetAndHttpModulesImport()
     k2d::ZenBlackboard::clear();
 
     k2d::Scene scene;
-    k2d::GameObject *object = scene.createObject("importer");
-    k2d::ZenScriptComponent *script = object->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* object = scene.createObject("importer");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource("import net\n"
                                  "import http\n"
                                  "import json\n"
@@ -673,54 +670,53 @@ static bool testNetAndHttpModulesImport()
 static bool testExampleScripts()
 {
     k2d::Scene scene;
-    k2d::GameObject *player = scene.createObject("player");
+    k2d::GameObject* player = scene.createObject("player");
     player->setPosition(Math::Vec2(10.0f, 20.0f));
-    k2d::ZenScriptComponent *playerScript = player->addComponent<k2d::ZenScriptComponent>();
+    k2d::ZenScriptComponent* playerScript = player->addComponent<k2d::ZenScriptComponent>();
     bool ok = playerScript->loadFile("../assets/scripts/player.py");
 
-    k2d::GameObject *satellite = scene.createObject("satellite");
-    k2d::ZenScriptComponent *orbitScript = satellite->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* satellite = scene.createObject("satellite");
+    k2d::ZenScriptComponent* orbitScript = satellite->addComponent<k2d::ZenScriptComponent>();
     ok = ok && orbitScript->loadFile("../assets/scripts/orbit.py");
 
     scene.update(0.016f);
     ok = ok && std::fabs(satellite->position().x - 10.0f) < 200.0f &&
-         std::fabs(satellite->position().y - 20.0f) < 200.0f &&
-         satellite->rotationDegrees() > 0.0f;
+         std::fabs(satellite->position().y - 20.0f) < 200.0f && satellite->rotationDegrees() > 0.0f;
 
-    k2d::GameObject *spawner = scene.createObject("spawner");
-    k2d::ZenScriptComponent *spawnerScript = spawner->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* spawner = scene.createObject("spawner");
+    k2d::ZenScriptComponent* spawnerScript = spawner->addComponent<k2d::ZenScriptComponent>();
     ok = ok && spawnerScript->loadFile("../assets/scripts/spawner.py");
 
-    k2d::GameObject *hud = scene.createObject("hud");
-    k2d::ZenScriptComponent *hudScript = hud->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* hud = scene.createObject("hud");
+    k2d::ZenScriptComponent* hudScript = hud->addComponent<k2d::ZenScriptComponent>();
     ok = ok && hudScript->loadFile("../assets/scripts/hud.py");
 
-    k2d::GameObject *bunnymarkMain = scene.createObject("bunnymark_main");
-    k2d::ZenScriptComponent *bunnymarkMainScript = bunnymarkMain->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* bunnymarkMain = scene.createObject("bunnymark_main");
+    k2d::ZenScriptComponent* bunnymarkMainScript = bunnymarkMain->addComponent<k2d::ZenScriptComponent>();
     ok = ok && bunnymarkMainScript->loadFile("../assets/scripts/bunnymark_main.py");
 
-    k2d::GameObject *bunnymarkBunny = scene.createObject("bunnymark_bunny");
-    k2d::ZenScriptComponent *bunnymarkBunnyScript = bunnymarkBunny->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* bunnymarkBunny = scene.createObject("bunnymark_bunny");
+    k2d::ZenScriptComponent* bunnymarkBunnyScript = bunnymarkBunny->addComponent<k2d::ZenScriptComponent>();
     ok = ok && bunnymarkBunnyScript->loadFile("../assets/scripts/bunnymark_bunny.py");
 
-    k2d::GameObject *fireworksDirector = scene.createObject("fireworks_director");
-    k2d::ZenScriptComponent *fireworksDirectorScript = fireworksDirector->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* fireworksDirector = scene.createObject("fireworks_director");
+    k2d::ZenScriptComponent* fireworksDirectorScript = fireworksDirector->addComponent<k2d::ZenScriptComponent>();
     ok = ok && fireworksDirectorScript->loadFile("../assets/scripts/fireworks_director.py");
 
-    k2d::GameObject *fireworkRocket = scene.createObject("firework_rocket");
-    k2d::ZenScriptComponent *fireworkRocketScript = fireworkRocket->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* fireworkRocket = scene.createObject("firework_rocket");
+    k2d::ZenScriptComponent* fireworkRocketScript = fireworkRocket->addComponent<k2d::ZenScriptComponent>();
     ok = ok && fireworkRocketScript->loadFile("../assets/scripts/firework_rocket.py");
 
-    k2d::GameObject *fireworkSpark = scene.createObject("firework_spark");
-    k2d::ZenScriptComponent *fireworkSparkScript = fireworkSpark->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* fireworkSpark = scene.createObject("firework_spark");
+    k2d::ZenScriptComponent* fireworkSparkScript = fireworkSpark->addComponent<k2d::ZenScriptComponent>();
     ok = ok && fireworkSparkScript->loadFile("../assets/scripts/firework_spark.py");
 
-    k2d::GameObject *fireworkTrail = scene.createObject("firework_trail");
-    k2d::ZenScriptComponent *fireworkTrailScript = fireworkTrail->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* fireworkTrail = scene.createObject("firework_trail");
+    k2d::ZenScriptComponent* fireworkTrailScript = fireworkTrail->addComponent<k2d::ZenScriptComponent>();
     ok = ok && fireworkTrailScript->loadFile("../assets/scripts/firework_trail.py");
 
-    k2d::GameObject *fireworkExplosion = scene.createObject("firework_explosion");
-    k2d::ZenScriptComponent *fireworkExplosionScript = fireworkExplosion->addComponent<k2d::ZenScriptComponent>();
+    k2d::GameObject* fireworkExplosion = scene.createObject("firework_explosion");
+    k2d::ZenScriptComponent* fireworkExplosionScript = fireworkExplosion->addComponent<k2d::ZenScriptComponent>();
     ok = ok && fireworkExplosionScript->loadFile("../assets/scripts/firework_explosion.py");
 
     scene.update(0.016f);
@@ -743,35 +739,34 @@ static bool testExampleScripts()
 static bool testUiSerializationAndInput()
 {
     k2d::Scene scene;
-    k2d::GameObject *canvas = scene.createObject("ui");
+    k2d::GameObject* canvas = scene.createObject("ui");
     canvas->addComponent<k2d::UiCanvas>();
-    k2d::GameObject *buttonObject = scene.createObject("play", canvas);
-    k2d::UiButton *button = buttonObject->addComponent<k2d::UiButton>();
+    k2d::GameObject* buttonObject = scene.createObject("play", canvas);
+    k2d::UiButton* button = buttonObject->addComponent<k2d::UiButton>();
     button->setText("Play");
     button->setAnchors(Math::Vec4(0.5f, 0.5f, 0.5f, 0.5f));
     button->setOffsets(Math::Vec4(-60.0f, -18.0f, 60.0f, 18.0f));
-    k2d::ZenScriptComponent *script = buttonObject->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadSource(
-        "class UiScript(ScriptComponent):\n"
-        "    def on_start(self):\n"
-        "        self.button = self.node.get_button()\n"
-        "    def on_update(self, dt):\n"
-        "        if self.button.clicked():\n"
-        "            set_flag('ui_clicked', True)\n",
-        "ui_script");
+    k2d::ZenScriptComponent* script = buttonObject->addComponent<k2d::ZenScriptComponent>();
+    bool ok = script->loadSource("class UiScript(ScriptComponent):\n"
+                                 "    def on_start(self):\n"
+                                 "        self.button = self.node.get_button()\n"
+                                 "    def on_update(self, dt):\n"
+                                 "        if self.button.clicked():\n"
+                                 "            set_flag('ui_clicked', True)\n",
+                                 "ui_script");
 
-    k2d::GameObject *sliderObject = scene.createObject("volume", canvas);
-    k2d::UiSlider *slider = sliderObject->addComponent<k2d::UiSlider>();
+    k2d::GameObject* sliderObject = scene.createObject("volume", canvas);
+    k2d::UiSlider* slider = sliderObject->addComponent<k2d::UiSlider>();
     slider->setRect(10.0f, 20.0f, 200.0f, 24.0f);
     slider->setRange(0.0f, 100.0f);
     slider->setValue(25.0f);
 
     const ct::Json json = k2d::Serializer::WriteObject(*canvas);
     k2d::Scene loadedScene;
-    k2d::GameObject *loaded = k2d::Serializer::ReadObject(loadedScene, json);
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(loadedScene, json);
     ok = ok && loaded && loaded->getComponent<k2d::UiCanvas>() && loaded->childCount() == 2;
-    k2d::GameObject *loadedButtonNode = loaded ? loaded->findChild("play") : nullptr;
-    k2d::UiButton *loadedButton = loadedButtonNode ? loadedButtonNode->getComponent<k2d::UiButton>() : nullptr;
+    k2d::GameObject* loadedButtonNode = loaded ? loaded->findChild("play") : nullptr;
+    k2d::UiButton* loadedButton = loadedButtonNode ? loadedButtonNode->getComponent<k2d::UiButton>() : nullptr;
     ok = ok && loadedButton && loadedButton->text() == ct::String("Play") &&
          nearEqual(loadedButton->anchors().x, 0.5f) && nearEqual(loadedButton->offsets().x, -60.0f);
 
@@ -819,16 +814,20 @@ int main()
     const bool examples = testExampleScripts();
     const bool ui = testUiSerializationAndInput();
 
-    std::printf("zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
-                "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
-                basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail", objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
-                components ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail", audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
-                destroy ? "pass" : "fail", serialization ? "pass" : "fail",
-                spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
-                channel ? "pass" : "fail", hotReload ? "pass" : "fail",
-                modules ? "pass" : "fail", examples ? "pass" : "fail", ui ? "pass" : "fail");
-    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy && serialization &&
-                        spawnMath && gate && channel && hotReload && modules && examples && ui;
+    std::printf(
+        "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s input=%s "
+        "fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
+        "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
+        basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
+        objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
+        components ? "pass" : "fail", inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
+        audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
+        destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
+        channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
+        ui ? "pass" : "fail");
+    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components &&
+                        inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
+                        serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();
     return passed ? 0 : 1;
 }

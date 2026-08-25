@@ -14,17 +14,26 @@ namespace k2d::editor
 
 namespace
 {
-bool isImage(const ct::String &ext)
+bool isImage(const ct::String& ext)
 {
-    return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
-          ext == "tga" || ext == "gif" || ext == "webp";
+    return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga" || ext == "gif" ||
+           ext == "webp";
 }
 
-bool isPrefab(const ct::String &ext) { return ext == "k2dprefab"; }
-bool isScene(const ct::String &ext) { return ext == "k2dscene"; }
-bool isScript(const ct::String &ext) { return ext == "py"; }
+bool isPrefab(const ct::String& ext)
+{
+    return ext == "k2dprefab";
+}
+bool isScene(const ct::String& ext)
+{
+    return ext == "k2dscene";
+}
+bool isScript(const ct::String& ext)
+{
+    return ext == "py";
+}
 
-const char *dragPayloadFor(const ct::String &ext)
+const char* dragPayloadFor(const ct::String& ext)
 {
     if (isPrefab(ext))
         return kPrefabDragDropPayload;
@@ -33,24 +42,24 @@ const char *dragPayloadFor(const ct::String &ext)
     return kTextureDragDropPayload;
 }
 
-bool isCode(const ct::String &ext)
+bool isCode(const ct::String& ext)
 {
-    return ext == "cpp" || ext == "c" || ext == "h" || ext == "hpp" || ext == "glsl" ||
-          ext == "vert" || ext == "frag" || ext == "lua" || ext == "py";
+    return ext == "cpp" || ext == "c" || ext == "h" || ext == "hpp" || ext == "glsl" || ext == "vert" ||
+           ext == "frag" || ext == "lua" || ext == "py";
 }
 
-bool isDocument(const ct::String &ext)
+bool isDocument(const ct::String& ext)
 {
-    return ext == "txt" || ext == "md" || ext == "json" || ext == "xml" ||
-          ext == "yaml" || ext == "yml" || ext == "ini" || ext == "cfg";
+    return ext == "txt" || ext == "md" || ext == "json" || ext == "xml" || ext == "yaml" || ext == "yml" ||
+           ext == "ini" || ext == "cfg";
 }
 
-bool isAudio(const ct::String &ext)
+bool isAudio(const ct::String& ext)
 {
     return ext == "wav" || ext == "mp3" || ext == "ogg" || ext == "flac";
 }
 
-const char *iconFor(bool directory, const ct::String &ext)
+const char* iconFor(bool directory, const ct::String& ext)
 {
     if (directory)
         return ICON_MDI_FOLDER;
@@ -69,7 +78,7 @@ const char *iconFor(bool directory, const ct::String &ext)
     return ICON_MDI_FILE;
 }
 
-ImVec4 colorFor(bool directory, const ct::String &ext)
+ImVec4 colorFor(bool directory, const ct::String& ext)
 {
     if (directory)
         return ImVec4(0.95f, 0.78f, 0.35f, 1.0f);
@@ -88,11 +97,11 @@ ImVec4 colorFor(bool directory, const ct::String &ext)
     return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-ct::String scriptClassName(const char *fileName)
+ct::String scriptClassName(const char* fileName)
 {
     ct::String result;
     bool uppercaseNext = true;
-    for (const char *c = fileName; c && *c; ++c)
+    for (const char* c = fileName; c && *c; ++c)
     {
         const bool lower = *c >= 'a' && *c <= 'z';
         const bool upper = *c >= 'A' && *c <= 'Z';
@@ -113,7 +122,7 @@ ct::String scriptClassName(const char *fileName)
     return result.empty() ? ct::String("NewScript") : result;
 }
 
-ct::String makeScriptTemplate(const char *fileName, int kind)
+ct::String makeScriptTemplate(const char* fileName, int kind)
 {
     ct::String source("class ");
     source += scriptClassName(fileName);
@@ -162,15 +171,14 @@ ct::String makeScriptTemplate(const char *fileName, int kind)
     }
     return source;
 }
-}
+} // namespace
 
-AssetsPanel::AssetsPanel(EditorApplication &application)
-    : EditorPanel("Assets", application)
+AssetsPanel::AssetsPanel(EditorApplication& application) : EditorPanel("Assets", application)
 {
-    const char *basePath = FileSystem::Instance().BasePath();
+    const char* basePath = FileSystem::Instance().BasePath();
     mRoot = (basePath && basePath[0]) ? ct::String(basePath) : EditorFileSystem::currentDirectory();
 
-    const ct::String &saved = application.settings().assetsDirectory;
+    const ct::String& saved = application.settings().assetsDirectory;
     if (!saved.empty() && EditorFileSystem::isDirectory(saved))
         mRoot = saved;
     mHistory.push_back(mRoot);
@@ -179,12 +187,12 @@ AssetsPanel::AssetsPanel(EditorApplication &application)
 
 AssetsPanel::~AssetsPanel()
 {
-    for (auto &entry : mThumbnailCache)
+    for (auto& entry : mThumbnailCache)
         delete entry.value;
     mThumbnailCache.clear();
 }
 
-void AssetsPanel::navigateTo(const ct::String &directory)
+void AssetsPanel::navigateTo(const ct::String& directory)
 {
     if (directory == mRoot || !EditorFileSystem::isDirectory(directory))
         return;
@@ -209,13 +217,13 @@ void AssetsPanel::refreshEntries()
     mEntriesDirty = false;
 }
 
-Texture *AssetsPanel::thumbnailFor(const EditorFileEntry &entry)
+Texture* AssetsPanel::thumbnailFor(const EditorFileEntry& entry)
 {
-    Texture **cached = mThumbnailCache.find(entry.path);
+    Texture** cached = mThumbnailCache.find(entry.path);
     if (cached)
         return *cached;
 
-    Texture *texture = new Texture();
+    Texture* texture = new Texture();
     if (!texture->Load(entry.path.c_str(), true, false))
     {
         delete texture;
@@ -312,18 +320,18 @@ void AssetsPanel::drawBreadcrumb()
     }
 }
 
-void AssetsPanel::drawDirectoryTree(const ct::String &directory)
+void AssetsPanel::drawDirectoryTree(const ct::String& directory)
 {
     ct::Vector<EditorFileEntry> children;
     EditorFileSystem::listDirectory(directory, children);
     for (size_t i = 0; i < children.size(); ++i)
     {
-        const EditorFileEntry &child = children[i];
+        const EditorFileEntry& child = children[i];
         if (!child.directory)
             continue;
 
         ImGui::PushID(child.path.c_str());
-        ImGuiStorage *storage = ImGui::GetStateStorage();
+        ImGuiStorage* storage = ImGui::GetStateStorage();
         const ImGuiID openId = ImGui::GetID("##open");
         bool open = storage->GetBool(openId, false);
         if (ImGui::ArrowButton("##expand", open ? ImGuiDir_Down : ImGuiDir_Right))
@@ -347,13 +355,13 @@ void AssetsPanel::drawDirectoryTree(const ct::String &directory)
     }
 }
 
-void AssetsPanel::drawBookmark(const char *label, const ct::String &root)
+void AssetsPanel::drawBookmark(const char* label, const ct::String& root)
 {
     if (root.empty() || !EditorFileSystem::isDirectory(root))
         return;
 
     ImGui::PushID(root.c_str());
-    ImGuiStorage *storage = ImGui::GetStateStorage();
+    ImGuiStorage* storage = ImGui::GetStateStorage();
     const ImGuiID openId = ImGui::GetID("##open");
     bool open = storage->GetBool(openId, false);
     if (ImGui::ArrowButton("##expand", open ? ImGuiDir_Down : ImGuiDir_Right))
@@ -378,8 +386,7 @@ void AssetsPanel::drawBookmark(const char *label, const ct::String &root)
 
 void AssetsPanel::drawSidebar()
 {
-    ImGui::BeginChild("##assets_tree", ImVec2(mSidebarWidth, 0.0f), true,
-                      ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("##assets_tree", ImVec2(mSidebarWidth, 0.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
     if (app().project().valid())
         drawBookmark("Project", app().project().assetsDirectory());
     drawBookmark("Filesystem", "/");
@@ -400,7 +407,7 @@ void AssetsPanel::drawSidebar()
     ImGui::SameLine();
 }
 
-void AssetsPanel::handleEntryInteraction(const EditorFileEntry &entry, bool clicked, bool doubleClicked)
+void AssetsPanel::handleEntryInteraction(const EditorFileEntry& entry, bool clicked, bool doubleClicked)
 {
     if (!clicked)
         return;
@@ -423,6 +430,11 @@ void AssetsPanel::handleEntryInteraction(const EditorFileEntry &entry, bool clic
         app().openScriptEditor(entry.path.c_str());
         return;
     }
+    if (isImage(ext) && doubleClicked)
+    {
+        app().openImageEditor(entry.path.c_str());
+        return;
+    }
     if (isPrefab(ext) && !doubleClicked)
     {
         app().previewPrefab(entry.path.c_str());
@@ -432,7 +444,7 @@ void AssetsPanel::handleEntryInteraction(const EditorFileEntry &entry, bool clic
     }
 }
 
-void AssetsPanel::generateBumpMap(const EditorFileEntry &entry)
+void AssetsPanel::generateBumpMap(const EditorFileEntry& entry)
 {
     Pixmap source;
     if (!source.Load(entry.path.c_str()))
@@ -442,7 +454,7 @@ void AssetsPanel::generateBumpMap(const EditorFileEntry &entry)
         return;
     }
 
-    Pixmap *normalMap = source.GenerateNormalMap();
+    Pixmap* normalMap = source.GenerateNormalMap();
     if (!normalMap)
     {
         app().log("Generate Bump Map failed: could not generate");
@@ -470,7 +482,7 @@ void AssetsPanel::generateBumpMap(const EditorFileEntry &entry)
     }
 }
 
-void AssetsPanel::drawEntryContextMenu(const EditorFileEntry &entry)
+void AssetsPanel::drawEntryContextMenu(const EditorFileEntry& entry)
 {
     if (entry.directory)
         return;
@@ -480,6 +492,8 @@ void AssetsPanel::drawEntryContextMenu(const EditorFileEntry &entry)
 
     if (ImGui::BeginPopupContextItem())
     {
+        if (ImGui::MenuItem(ICON_MDI_CONTENT_CUT " Open in Image Editor"))
+            app().openImageEditor(entry.path.c_str());
         if (ImGui::MenuItem(ICON_MDI_TEXTURE " Generate Bump Map"))
             generateBumpMap(entry);
         ImGui::EndPopup();
@@ -494,7 +508,7 @@ void AssetsPanel::drawNewScriptPopup()
     ImGui::TextDisabled("Creating in %s", mRoot.c_str());
     ImGui::SetNextItemWidth(220.0f);
     ImGui::InputText("Name", mNewScriptName, sizeof(mNewScriptName));
-    static const char *templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
+    static const char* templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
     ImGui::SetNextItemWidth(220.0f);
     ImGui::Combo("Template", &mNewScriptTemplate, templates,
                  static_cast<int>(sizeof(templates) / sizeof(templates[0])));
@@ -545,7 +559,7 @@ void AssetsPanel::drawGrid()
     for (size_t i = 0; i < mEntries.size(); ++i)
     {
         ImGui::TableNextColumn();
-        const EditorFileEntry &entry = mEntries[i];
+        const EditorFileEntry& entry = mEntries[i];
         const ct::String ext = entry.directory ? ct::String() : EditorFileSystem::extension(entry.path);
 
         ImGui::PushID(static_cast<int>(i));
@@ -557,7 +571,7 @@ void AssetsPanel::drawGrid()
         const bool hovered = ImGui::IsItemHovered();
         const ImVec2 cellMin = ImGui::GetItemRectMin();
         const ImVec2 cellMax = ImGui::GetItemRectMax();
-        ImDrawList *drawList = ImGui::GetWindowDrawList();
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
 
         if (hovered)
             drawList->AddRectFilled(cellMin, cellMax, IM_COL32(60, 66, 78, 120), 4.0f);
@@ -566,14 +580,14 @@ void AssetsPanel::drawGrid()
         if (selected)
             drawList->AddRect(cellMin, cellMax, IM_COL32(255, 205, 65, 220), 4.0f, 0, 2.0f);
 
-        Texture *texture = !entry.directory && isImage(ext) ? thumbnailFor(entry) : nullptr;
+        Texture* texture = !entry.directory && isImage(ext) ? thumbnailFor(entry) : nullptr;
         if (texture)
         {
             drawList->AddImage((ImTextureID)(intptr_t)texture->Id(), cellMin, cellMax);
         }
         else
         {
-            const char *icon = iconFor(entry.directory, ext);
+            const char* icon = iconFor(entry.directory, ext);
             const ImVec4 color = colorFor(entry.directory, ext);
             const ImVec2 textSize = ImGui::CalcTextSize(icon);
             const ImVec2 iconPos((cellMin.x + cellMax.x - textSize.x) * 0.5f,
@@ -606,18 +620,17 @@ void AssetsPanel::drawList()
 {
     for (size_t i = 0; i < mEntries.size(); ++i)
     {
-        const EditorFileEntry &entry = mEntries[i];
+        const EditorFileEntry& entry = mEntries[i];
         const ct::String ext = entry.directory ? ct::String() : EditorFileSystem::extension(entry.path);
         const bool selected = isPrefab(ext) && app().previewPrefabPath() == entry.path;
 
         ImGui::PushID(static_cast<int>(i));
-        const char *icon = iconFor(entry.directory, ext);
+        const char* icon = iconFor(entry.directory, ext);
         const ImVec4 color = colorFor(entry.directory, ext);
         ImGui::TextColored(color, "%s", icon);
         ImGui::SameLine();
 
-        const bool clicked =
-            ImGui::Selectable(entry.name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick);
+        const bool clicked = ImGui::Selectable(entry.name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick);
         const bool doubleClicked = clicked && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
         if (!entry.directory && (isPrefab(ext) || isImage(ext) || isScript(ext)) && ImGui::BeginDragDropSource())
@@ -657,4 +670,4 @@ void AssetsPanel::drawContents()
     ImGui::EndChild();
 }
 
-}
+} // namespace k2d::editor

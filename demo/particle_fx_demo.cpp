@@ -1,6 +1,5 @@
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
 #include <mathc.h>
 #include <imgui.h>
 
@@ -8,28 +7,25 @@
 
 namespace
 {
-    void AddRect(k2d::RenderQueue &queue, k2d::Texture *texture, float x, float y,
-                 float width, float height, unsigned int color, int z)
-    {
-        k2d::RenderItem &item = queue.AddItem(z);
-        item.commands.push_back(k2d::RenderCommand::MakeTransform(
-            k2d::Matrix2D::Translation(x, y)));
-        k2d::RenderCommand rect = k2d::RenderCommand::MakeRect(texture->Id(), 0.0f, 0.0f,
-                                                                 width, height);
-        rect.texWidth = texture->Width();
-        rect.texHeight = texture->Height();
-        rect.pivotX = 0.5f;
-        rect.pivotY = 0.5f;
-        rect.color = color;
-        item.commands.push_back(rect);
-    }
-
-    unsigned int Color(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
-    {
-        return (unsigned int)r | ((unsigned int)g << 8) |
-               ((unsigned int)b << 16) | ((unsigned int)a << 24);
-    }
+void AddRect(k2d::RenderQueue& queue, k2d::Texture* texture, float x, float y, float width, float height,
+             unsigned int color, int z)
+{
+    k2d::RenderItem& item = queue.AddItem(z);
+    item.commands.push_back(k2d::RenderCommand::MakeTransform(k2d::Matrix2D::Translation(x, y)));
+    k2d::RenderCommand rect = k2d::RenderCommand::MakeRect(texture->Id(), 0.0f, 0.0f, width, height);
+    rect.texWidth = texture->Width();
+    rect.texHeight = texture->Height();
+    rect.pivotX = 0.5f;
+    rect.pivotY = 0.5f;
+    rect.color = color;
+    item.commands.push_back(rect);
 }
+
+unsigned int Color(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255)
+{
+    return (unsigned int)r | ((unsigned int)g << 8) | ((unsigned int)b << 16) | ((unsigned int)a << 24);
+}
+} // namespace
 
 int main()
 {
@@ -43,13 +39,13 @@ int main()
         return 1;
 
     k2d::Assets assets;
-    k2d::Texture *particleTexture = assets.LoadTexture("fire", "assets/fire.png");
+    k2d::Texture* particleTexture = assets.LoadTexture("fire", "assets/fire.png");
     if (!particleTexture)
         particleTexture = assets.LoadTexture("fire", "../../assets/fire.png");
     if (!particleTexture)
         return 1;
     const unsigned char whitePixel[4] = {255, 255, 255, 255};
-    k2d::Texture *white = assets.CreateTexture("fx_white", 1, 1, whitePixel);
+    k2d::Texture* white = assets.CreateTexture("fx_white", 1, 1, whitePixel);
 
     const Math::Vec2 firePosition(360.0f, 590.0f);
     k2d::ParticlePrefab firePrefab;
@@ -72,19 +68,24 @@ int main()
     firePrefab.fadeIn = 0.05f;
     firePrefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem fire(220);
-    fire.SetTexture(particleTexture); fire.SetMode(k2d::ParticleMode::Loop);
-    fire.SetPrefab(firePrefab); fire.SetEmitterPosition(firePosition);
+    fire.SetTexture(particleTexture);
+    fire.SetMode(k2d::ParticleMode::Loop);
+    fire.SetPrefab(firePrefab);
+    fire.SetEmitterPosition(firePosition);
     fire.SetEmitterShape(k2d::ParticleEmitterShape::Rectangle);
     fire.SetEmitterSize(Math::Vec2(18.0f, 4.0f));
-    fire.SetEmissionRate(34.0f); fire.Start();
+    fire.SetEmissionRate(34.0f);
+    fire.Start();
 
     k2d::ParticlePrefab smokePrefab = firePrefab;
     smokePrefab.spreadDegrees = 26.0f;
     smokePrefab.speedMin = 28.0f;
     smokePrefab.speedMax = 48.0f;
-    smokePrefab.lifeMin = 2.2f; smokePrefab.lifeMax = 3.4f;
-    smokePrefab.sizeMin = 30.0f; smokePrefab.sizeMax = 46.0f;
-    smokePrefab.endSize = 60.0f; 
+    smokePrefab.lifeMin = 2.2f;
+    smokePrefab.lifeMax = 3.4f;
+    smokePrefab.sizeMin = 30.0f;
+    smokePrefab.sizeMax = 46.0f;
+    smokePrefab.endSize = 60.0f;
     smokePrefab.angularVelocityMin = -20.0f;
     smokePrefab.angularVelocityMax = 20.0f;
     smokePrefab.colorStart = k2d::Color(0.7f, 0.72f, 0.78f, 0.42f);
@@ -92,11 +93,15 @@ int main()
     smokePrefab.fadeIn = 0.15f;
     smokePrefab.atlasBounds = Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f);
     k2d::ParticleSystem smoke(100);
-    smoke.SetTexture(particleTexture); smoke.SetMode(k2d::ParticleMode::Loop);
-    smoke.SetPrefab(smokePrefab); smoke.SetEmitterPosition(firePosition + Math::Vec2(0, -25));
+    smoke.SetTexture(particleTexture);
+    smoke.SetMode(k2d::ParticleMode::Loop);
+    smoke.SetPrefab(smokePrefab);
+    smoke.SetEmitterPosition(firePosition + Math::Vec2(0, -25));
     smoke.SetEmitterShape(k2d::ParticleEmitterShape::Circle);
     smoke.SetEmitterRadius(12.0f);
-    smoke.SetEmissionRate(10.0f); smoke.SetGravity(Math::Vec2(10.0f, -4.0f)); smoke.Start();
+    smoke.SetEmissionRate(10.0f);
+    smoke.SetGravity(Math::Vec2(10.0f, -4.0f));
+    smoke.Start();
 
     k2d::ParticleSystem fireworks(700);
     fireworks.SetTexture(particleTexture);
@@ -106,9 +111,12 @@ int main()
     while (running)
     {
         running = device.PollEvents();
-        if (device.GetInput().KeyDown(41)) running = false;
+        if (device.GetInput().KeyDown(41))
+            running = false;
         float dt = device.DeltaTime();
-        fire.Update(dt); smoke.Update(dt); fireworks.Update(dt);
+        fire.Update(dt);
+        smoke.Update(dt);
+        fireworks.Update(dt);
 
         fireworkTimer -= dt;
         if (fireworkTimer <= 0.0f)
@@ -120,9 +128,9 @@ int main()
             {
                 float angle = (float)i / 48.0f * 6.2831853f;
                 float speed = 75.0f + (float)((i * 17) % 45);
-                fireworks.Emit(center, Math::Vec2(std::cos(angle), std::sin(angle)) * speed,
-                                1.5f, 14.0f, k2d::Color(1.0f, 0.65f + (i % 3) * 0.1f, 0.2f, 1.0f),
-                                0.0f, 0.0f, Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f));
+                fireworks.Emit(center, Math::Vec2(std::cos(angle), std::sin(angle)) * speed, 1.5f, 14.0f,
+                               k2d::Color(1.0f, 0.65f + (i % 3) * 0.1f, 0.2f, 1.0f), 0.0f, 0.0f,
+                               Math::Vec4(0.0f, 0.0f, 32.0f, 32.0f));
             }
         }
 
@@ -134,8 +142,10 @@ int main()
         AddRect(queue, white, width * 0.5f, height * 0.5f, width, height, Color(10, 14, 28), -10);
         AddRect(queue, white, firePosition.x, firePosition.y + 22.0f, 100.0f, 18.0f, Color(75, 45, 35), -1);
         k2d::PointLight light;
-        light.position = firePosition; light.color = k2d::Color(1.0f, 0.35f, 0.08f, 2.0f);
-        light.radius = 240.0f; light.useShadow = false;
+        light.position = firePosition;
+        light.color = k2d::Color(1.0f, 0.35f, 0.08f, 2.0f);
+        light.radius = 240.0f;
+        light.useShadow = false;
         queue.AddLight(light);
         smoke.Submit(queue, 1);
         fire.Submit(queue, 2);
@@ -146,8 +156,8 @@ int main()
         ImGui::Begin("Particle FX");
         ImGui::Text("fogueira: fogo + smoke (Loop)");
         ImGui::Text("fireworks: explosao emitida manualmente");
-        ImGui::Text("Fire: %d  Smoke: %d  Fireworks: %d", (int)fire.ActiveCount(),
-                    (int)smoke.ActiveCount(), (int)fireworks.ActiveCount());
+        ImGui::Text("Fire: %d  Smoke: %d  Fireworks: %d", (int)fire.ActiveCount(), (int)smoke.ActiveCount(),
+                    (int)fireworks.ActiveCount());
         ImGui::Text("ESC quit");
         ImGui::End();
         device.EndUI();

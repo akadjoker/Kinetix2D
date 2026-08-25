@@ -1,8 +1,6 @@
 
 #include <k2d/k2d.h>
 
-#include <glad/glad.h>
-
 int main()
 {
     k2d::Device device;
@@ -28,20 +26,20 @@ int main()
             checker[i + 2] = on ? 120 : 90;
             checker[i + 3] = 255;
         }
-    k2d::Texture *tex = assets.CreateTexture("checker", 16, 16, checker, true, true);
+    k2d::Texture* tex = assets.CreateTexture("checker", 16, 16, checker, true, true);
 
     k2d::Scene scene;
 
-    k2d::GameObject *tiledObject = scene.createObject("tiled");
+    k2d::GameObject* tiledObject = scene.createObject("tiled");
     tiledObject->setPosition(Math::Vec2(320.0f, 320.0f));
-    k2d::SpriteComponent *tiled = tiledObject->addComponent<k2d::SpriteComponent>(tex);
+    k2d::SpriteComponent* tiled = tiledObject->addComponent<k2d::SpriteComponent>(tex);
     tiled->setSize(Math::Vec2(600.0f, 560.0f));
     tiled->setPivot(Math::Vec2(0.5f, 0.5f));
-    tiled->setTiling(8.0f, 7.0f); 
+    tiled->setTiling(8.0f, 7.0f);
 
-    k2d::GameObject *stretchedObject = scene.createObject("stretched");
+    k2d::GameObject* stretchedObject = scene.createObject("stretched");
     stretchedObject->setPosition(Math::Vec2(960.0f, 320.0f));
-    k2d::SpriteComponent *stretched = stretchedObject->addComponent<k2d::SpriteComponent>(tex);
+    k2d::SpriteComponent* stretched = stretchedObject->addComponent<k2d::SpriteComponent>(tex);
     stretched->setSize(Math::Vec2(600.0f, 560.0f));
     stretched->setPivot(Math::Vec2(0.5f, 0.5f));
 

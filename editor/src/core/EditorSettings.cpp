@@ -10,7 +10,7 @@ namespace k2d::editor
 
 namespace
 {
-Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
+Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
 {
     if (!value.is_array() || value.size() < 2)
         return fallback;
@@ -18,16 +18,16 @@ Math::Vec2 readVec2(const ct::Json &value, const Math::Vec2 &fallback)
                       static_cast<float>(value[1].as_double(fallback.y)));
 }
 
-ct::Json writeVec2(const Math::Vec2 &value)
+ct::Json writeVec2(const Math::Vec2& value)
 {
     ct::Json array = ct::Json::array();
     array.push_back(value.x);
     array.push_back(value.y);
     return array;
 }
-}
+} // namespace
 
-bool EditorSettings::load(const char *path)
+bool EditorSettings::load(const char* path)
 {
     FileBuffer buffer;
     if (!FileSystem::Instance().LoadFile(path, buffer, true))
@@ -41,14 +41,15 @@ bool EditorSettings::load(const char *path)
     lastProjectPath = root["lastProjectPath"].as_cstr("");
     lastScenePath = root["lastScenePath"].as_cstr("");
     recentProjectPaths.clear();
-    const ct::Json &recent = root["recentProjectPaths"];
+    const ct::Json& recent = root["recentProjectPaths"];
     if (recent.is_array())
         for (size_t i = 0; i < recent.size(); ++i)
             recentProjectPaths.push_back(ct::String(recent[i].as_cstr("")));
 
     themeIndex = static_cast<int>(root["themeIndex"].as_int(0));
     windowDisplayIndex = static_cast<int>(root["windowDisplayIndex"].as_int(0));
-    if (windowDisplayIndex < 0) windowDisplayIndex = 0;
+    if (windowDisplayIndex < 0)
+        windowDisplayIndex = 0;
     assetsDirectory = root["assetsDirectory"].as_cstr("");
 
     viewportPan = readVec2(root["viewportPan"], Math::Vec2(0.0f, 0.0f));
@@ -57,16 +58,17 @@ bool EditorSettings::load(const char *path)
     viewportSnap = root["viewportSnap"].as_bool(false);
     viewportShowGrid = root["viewportShowGrid"].as_bool(true);
     viewportGridSize = readVec2(root["viewportGridSize"], Math::Vec2(32.0f, 32.0f));
-    if (viewportGridSize.x < 1.0f) viewportGridSize.x = 1.0f;
-    if (viewportGridSize.y < 1.0f) viewportGridSize.y = 1.0f;
+    if (viewportGridSize.x < 1.0f)
+        viewportGridSize.x = 1.0f;
+    if (viewportGridSize.y < 1.0f)
+        viewportGridSize.y = 1.0f;
     viewportLivePreview = root["viewportLivePreview"].as_bool(true);
-    scriptHotReload = root["scriptHotReload"].as_bool(true);
     showColliders = root["showColliders"].as_bool(true);
     showPhysicsDebug = root["showPhysicsDebug"].as_bool(false);
     return true;
 }
 
-bool EditorSettings::save(const char *path) const
+bool EditorSettings::save(const char* path) const
 {
     ct::Json root = ct::Json::object();
     root.set("lastProjectPath", lastProjectPath);
@@ -85,14 +87,13 @@ bool EditorSettings::save(const char *path) const
     root.set("viewportShowGrid", viewportShowGrid);
     root.set("viewportGridSize", writeVec2(viewportGridSize));
     root.set("viewportLivePreview", viewportLivePreview);
-    root.set("scriptHotReload", scriptHotReload);
     root.set("showColliders", showColliders);
     root.set("showPhysicsDebug", showPhysicsDebug);
 
     return FileSystem::Instance().SaveTextFile(path, root.dump(2));
 }
 
-void EditorSettings::touchRecentProject(const ct::String &projectFile)
+void EditorSettings::touchRecentProject(const ct::String& projectFile)
 {
     if (projectFile.empty())
         return;
@@ -117,4 +118,4 @@ void EditorSettings::touchRecentProject(const ct::String &projectFile)
     }
 }
 
-}
+} // namespace k2d::editor

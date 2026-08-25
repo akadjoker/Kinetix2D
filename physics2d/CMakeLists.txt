@@ -1,6 +1,7 @@
 add_library(k2d_physics2d STATIC
     src/BoxCollider2D.cpp
     src/ChainCollider2D.cpp
+    src/CharacterBody2D.cpp
     src/CircleCollider2D.cpp
     src/Collider2D.cpp
     src/EdgeCollider2D.cpp

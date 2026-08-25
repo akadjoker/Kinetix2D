@@ -28,6 +28,7 @@ add_executable(k2d_editor
     src/panels/ConsolePanel.cpp
     src/panels/GamePanel.cpp
     src/panels/HierarchyPanel.cpp
+    src/panels/ImageEditorPanel.cpp
     src/panels/InspectorPanel.cpp
     src/panels/ParticlePanel.cpp
     src/panels/PrefabsPanel.cpp

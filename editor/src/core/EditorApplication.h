@@ -27,10 +27,11 @@ namespace k2d::editor
 {
 
 class ScriptEditorPanel;
+class ImageEditorPanel;
 
 class EditorApplication
 {
-public:
+  public:
     struct SceneChange
     {
         ct::Json scene;
@@ -54,20 +55,54 @@ public:
     int run();
     void shutdown();
 
-    Scene &scene() { return mScene; }
-    Scene &runtimeScene() { return mRuntimeScene; }
-    Assets &assets() { return mAssets; }
-    EditorSelection &selection() { return mSelection; }
-    EditorSettings &settings() { return mSettings; }
-    Project &project() { return mProject; }
-    EditorToasts &toasts() { return mToasts; }
-    const ct::String &consoleText() const { return mConsoleText; }
-    void clearConsole() { mConsoleText.clear(); }
-    void log(const char *message);
-    void log(const ct::String &message);
-    bool playing() const { return mPlaying; }
-    PhysicsWorld2D *physicsWorld() const { return mPhysicsWorld; }
+    Scene& scene()
+    {
+        return mScene;
+    }
+    Scene& runtimeScene()
+    {
+        return mRuntimeScene;
+    }
+    Assets& assets()
+    {
+        return mAssets;
+    }
+    EditorSelection& selection()
+    {
+        return mSelection;
+    }
+    EditorSettings& settings()
+    {
+        return mSettings;
+    }
+    Project& project()
+    {
+        return mProject;
+    }
+    EditorToasts& toasts()
+    {
+        return mToasts;
+    }
+    const ct::String& consoleText() const
+    {
+        return mConsoleText;
+    }
+    void clearConsole()
+    {
+        mConsoleText.clear();
+    }
+    void log(const char* message);
+    void log(const ct::String& message);
+    bool playing() const
+    {
+        return mPlaying;
+    }
+    PhysicsWorld2D* physicsWorld() const
+    {
+        return mPhysicsWorld;
+    }
     void applyPhysicsSettings();
+    void reloadChangedScripts();
 
     struct ScenePhysics
     {
@@ -75,38 +110,66 @@ public:
         Math::Vec2 gravity = Math::Vec2(0.0f, 980.0f);
     };
 
-    ScenePhysics &scenePhysics() { return mScenePhysics; }
+    ScenePhysics& scenePhysics()
+    {
+        return mScenePhysics;
+    }
     Math::Vec2 effectiveGravity() const;
-    bool paused() const { return mPaused; }
+    bool paused() const
+    {
+        return mPaused;
+    }
     SceneChange beginChange();
-    void commitChange(const char *label, const SceneChange &before);
-    void beginTransaction(const char *label, const SceneChange &before);
+    void commitChange(const char* label, const SceneChange& before);
+    void beginTransaction(const char* label, const SceneChange& before);
     void commitTransaction();
     void undo();
     void redo();
-    bool canUndo() const { return mCommands.canUndo(); }
-    bool canRedo() const { return mCommands.canRedo(); }
-    const char *undoName() const { return mCommands.undoName(); }
-    const char *redoName() const { return mCommands.redoName(); }
+    bool canUndo() const
+    {
+        return mCommands.canUndo();
+    }
+    bool canRedo() const
+    {
+        return mCommands.canRedo();
+    }
+    const char* undoName() const
+    {
+        return mCommands.undoName();
+    }
+    const char* redoName() const
+    {
+        return mCommands.redoName();
+    }
 
-    const ct::String &previewPrefabPath() const { return mPreviewPrefabPath; }
-    void previewPrefab(const char *path) { mPreviewPrefabPath = path ? path : ""; }
+    const ct::String& previewPrefabPath() const
+    {
+        return mPreviewPrefabPath;
+    }
+    void previewPrefab(const char* path)
+    {
+        mPreviewPrefabPath = path ? path : "";
+    }
 
     void restartEditPreview();
 
-    void preloadTextures(const ct::Json &node);
-    Texture *particlePlaceholderTexture();
+    void preloadTextures(const ct::Json& node);
+    Texture* particlePlaceholderTexture();
 
-    const ct::String &currentScenePath() const { return mCurrentScenePath; }
-    bool openScene(const char *path);
-    bool saveScene(const char *path);
-    bool newProject(const char *rootDirectory, const char *name);
-    bool openProject(const char *projectFile);
-    void openScriptEditor(const char *path);
-    void openFileDialog(FileDialogPurpose purpose, ImGuiFileDialog::Mode mode,
-                        const ct::String &startDirectory, const ct::String &initialName = ct::String());
+    const ct::String& currentScenePath() const
+    {
+        return mCurrentScenePath;
+    }
+    bool openScene(const char* path);
+    bool saveScene(const char* path);
+    bool newProject(const char* rootDirectory, const char* name);
+    bool openProject(const char* projectFile);
+    void openScriptEditor(const char* path);
+    void openImageEditor(const char* path);
+    void openFileDialog(FileDialogPurpose purpose, ImGuiFileDialog::Mode mode, const ct::String& startDirectory,
+                        const ct::String& initialName = ct::String());
 
-private:
+  private:
     void createPanels();
     void drawWorkspace();
     void drawMenuBar();
@@ -119,7 +182,7 @@ private:
     void createPhysicsExampleScene();
     void createBunnymarkExampleScene();
     ct::Json snapshotScene();
-    void restoreScene(const ct::Json &snapshot, uint64_t selectedId, bool hadSelection);
+    void restoreScene(const ct::Json& snapshot, uint64_t selectedId, bool hadSelection);
     void handleShortcuts();
     void loadSettings();
     void saveSettings();
@@ -127,8 +190,8 @@ private:
     void stopPlay();
     void stepPlay();
     void runStandalone();
-    void tickEditPreview(GameObject &object, float deltaTime);
-    void restartEditPreview(GameObject &object);
+    void tickEditPreview(GameObject& object, float deltaTime);
+    void restartEditPreview(GameObject& object);
 
     Device mDevice;
     Assets mAssets;
@@ -141,13 +204,14 @@ private:
     EditorToasts mToasts;
     CommandStack mCommands;
     ct::Vector<ct::Unique<EditorPanel>> mPanels;
-    ScriptEditorPanel *mScriptEditor = nullptr;
+    ScriptEditorPanel* mScriptEditor = nullptr;
+    ImageEditorPanel* mImageEditor = nullptr;
     ct::String mConsoleText;
     ct::String mCurrentScenePath;
     ct::String mPreviewPrefabPath;
     bool mInitialized = false;
     bool mPlaying = false;
-    PhysicsWorld2D *mPhysicsWorld = nullptr;
+    PhysicsWorld2D* mPhysicsWorld = nullptr;
     ScenePhysics mScenePhysics;
     bool mPaused = false;
     int mThemeKind = 0;
@@ -162,7 +226,6 @@ private:
     ImGuiFileDialog mFileDialog;
     FileDialogPurpose mFileDialogPurpose = FileDialogPurpose::None;
     float mStatsSmoothedDelta = 0.0f;
-    float mScriptWatchTimer = 0.0f;
 };
 
-}
+} // namespace k2d::editor

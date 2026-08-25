@@ -5,11 +5,11 @@
 
 namespace
 {
-    bool Near(float a, float b)
-    {
-        return std::fabs(a - b) < 0.0001f;
-    }
+bool Near(float a, float b)
+{
+    return std::fabs(a - b) < 0.0001f;
 }
+} // namespace
 
 int main()
 {
@@ -19,19 +19,21 @@ int main()
     material.setPivot(Math::Vec2(0.0f, 1.0f));
     material.setFlip(true, false);
     material.setBlendMode(k2d::BLEND_ADD);
+    material.setWaterEnabled(true);
+    material.water().strength = 0.025f;
+    material.water().flowA = Math::Vec2(0.1f, -0.2f);
 
-    bool color = Near(material.color().r, 128.0f / 255.0f) &&
-                 Near(material.color().g, 64.0f / 255.0f) &&
-                 Near(material.color().b, 1.0f) &&
-                 Near(material.color().a, 32.0f / 255.0f);
+    bool color = Near(material.color().r, 128.0f / 255.0f) && Near(material.color().g, 64.0f / 255.0f) &&
+                 Near(material.color().b, 1.0f) && Near(material.color().a, 32.0f / 255.0f);
     bool atlas = material.hasSourceRect() && material.sourceRect() == Math::Vec4(16.0f, 8.0f, 32.0f, 24.0f);
-    bool state = material.pivot() == Math::Vec2(0.0f, 1.0f) && material.flipX() &&
-                 !material.flipY() && material.blendMode() == k2d::BLEND_ADD;
+    bool state = material.pivot() == Math::Vec2(0.0f, 1.0f) && material.flipX() && !material.flipY() &&
+                 material.blendMode() == k2d::BLEND_ADD;
+    bool water = material.waterEnabled() && Near(material.water().strength, 0.025f) &&
+                 material.water().flowA == Math::Vec2(0.1f, -0.2f);
     material.clearSourceRect();
     bool clear = !material.hasSourceRect() && material.sourceRect() == Math::Vec4(0.0f);
 
-    std::printf("material: color=%s atlas=%s state=%s clear=%s\n",
-                color ? "pass" : "fail", atlas ? "pass" : "fail",
-                state ? "pass" : "fail", clear ? "pass" : "fail");
-    return color && atlas && state && clear ? 0 : 1;
+    std::printf("material: color=%s atlas=%s state=%s water=%s clear=%s\n", color ? "pass" : "fail",
+                atlas ? "pass" : "fail", state ? "pass" : "fail", water ? "pass" : "fail", clear ? "pass" : "fail");
+    return color && atlas && state && water && clear ? 0 : 1;
 }

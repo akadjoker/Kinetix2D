@@ -160,6 +160,13 @@ scene.update(dt);
 scene.render(batch);
 ```
 
+#### Water material
+
+Assign a small normal map to a sprite, enable **Water Effect** in the Inspector,
+and adjust its two flow vectors. The renderer samples that one normal map twice,
+so the surface moves without a second texture allocation. Water is serialized with
+the scene; it is intended for standalone/tiled textures (or padded atlas regions).
+
 #### Screenshot & Frame Capture
 ```cpp
 // F9: Save PNG screenshot
@@ -249,5 +256,4 @@ On a modern machine (Ryzen 7 / RTX 3070):
 ## License
 
 MIT
-
 

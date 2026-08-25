@@ -5,6 +5,7 @@ add_library(kx STATIC
     src/manifold.cpp
     src/collide.cpp
     src/raycast.cpp
+    src/shapecast.cpp
     src/slice.cpp
     src/body.cpp
     src/joint.cpp

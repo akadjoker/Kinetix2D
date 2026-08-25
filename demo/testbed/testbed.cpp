@@ -1,6 +1,6 @@
 #include "testbed.h"
 
-#include <glad/glad.h>
+#include <k2d/OpenGL.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -18,15 +18,15 @@ static const int SCANCODE_RIGHTBRACKET = 48;
 namespace
 {
 
-    ct::Vector<DemoEntry> &DemoRegistry()
-    {
-        static ct::Vector<DemoEntry> sDemos;
-        return sDemos;
-    }
+ct::Vector<DemoEntry>& DemoRegistry()
+{
+    static ct::Vector<DemoEntry> sDemos;
+    return sDemos;
+}
 
-} 
+} // namespace
 
-int TestbedRegisterDemo(const char *category, const char *name, DemoCreateFcn create)
+int TestbedRegisterDemo(const char* category, const char* name, DemoCreateFcn create)
 {
     DemoEntry entry;
     entry.category = category;
@@ -36,7 +36,7 @@ int TestbedRegisterDemo(const char *category, const char *name, DemoCreateFcn cr
     return (int)DemoRegistry().size() - 1;
 }
 
-const DemoEntry *TestbedDemos()
+const DemoEntry* TestbedDemos()
 {
     return DemoRegistry().data();
 }
@@ -46,8 +46,7 @@ int TestbedDemoCount()
     return (int)DemoRegistry().size();
 }
 
-Demo::Demo(Testbed &tb, const Math::Vec2 &gravity)
-    : mTB(tb), mWorld(new kx::World(gravity))
+Demo::Demo(Testbed& tb, const Math::Vec2& gravity) : mTB(tb), mWorld(new kx::World(gravity))
 {
     mWorld->SetTimeSource(&k2d::Device::TimeSeconds);
 }
@@ -58,10 +57,8 @@ Demo::~Demo()
 }
 
 Testbed::Testbed()
-    : mDebugDraw(mBatch), mDemo(nullptr), mGrab(nullptr),
-      mDrawFlags(kx::DebugDrawShapes | kx::DebugDrawJoints), mDemoIndex(0),
-      mPaused(false), mSingleStep(false), mShowUI(true), mShowProfiler(true),
-      mAccumulator(0.0f)
+    : mDebugDraw(mBatch), mDemo(nullptr), mGrab(nullptr), mDrawFlags(kx::DebugDrawShapes | kx::DebugDrawJoints),
+      mDemoIndex(0), mPaused(false), mSingleStep(false), mShowUI(true), mShowProfiler(true), mAccumulator(0.0f)
 {
     mStatus[0] = 0;
 }
@@ -130,7 +127,7 @@ void Testbed::RestartDemo()
     SwitchDemo(mDemoIndex);
 }
 
-void Testbed::SetStatus(const char *fmt, ...)
+void Testbed::SetStatus(const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -140,14 +137,14 @@ void Testbed::SetStatus(const char *fmt, ...)
 
 Math::Vec2 Testbed::MouseWorld()
 {
-    k2d::Input &input = mDevice.GetInput();
-    return CameraScreenToWorld(mCamera, input.MouseX(), input.MouseY(),
-                               (float)mDevice.Width(), (float)mDevice.Height());
+    k2d::Input& input = mDevice.GetInput();
+    return CameraScreenToWorld(mCamera, input.MouseX(), input.MouseY(), (float)mDevice.Width(),
+                               (float)mDevice.Height());
 }
 
 void Testbed::HandleInput(float dt)
 {
-    k2d::Input &input = mDevice.GetInput();
+    k2d::Input& input = mDevice.GetInput();
 
     if (input.KeyPressed(SCANCODE_LEFTBRACKET))
         SwitchDemo(mDemoIndex - 1);
@@ -208,12 +205,12 @@ void Testbed::UpdateMouseGrab()
     if (!mDemo)
         return;
 
-    k2d::Input &input = mDevice.GetInput();
+    k2d::Input& input = mDevice.GetInput();
     Math::Vec2 mouse = MouseWorld();
 
     if (input.MousePressed(0) && !mGrab && !mDevice.ImGuiWantsMouse())
     {
-        kx::Body *picked = mDemo->World().BodyAtPoint(mouse);
+        kx::Body* picked = mDemo->World().BodyAtPoint(mouse);
         if (picked)
         {
             mGrab = new kx::MouseJoint(picked, mouse, 5000.0f * picked->Mass());
@@ -264,7 +261,7 @@ void Testbed::DrawUI()
 
     ImGui::Begin("Testbed");
     {
-        const DemoEntry &entry = TestbedDemos()[mDemoIndex];
+        const DemoEntry& entry = TestbedDemos()[mDemoIndex];
         ImGui::Text("%s / %s", entry.category, entry.name);
         if (mStatus[0] != 0)
         {
@@ -298,13 +295,14 @@ void Testbed::DrawUI()
         ImGui::SameLine();
         ImGui::CheckboxFlags("joints", &mDrawFlags, kx::DebugDrawJoints);
         ImGui::Separator();
-        ImGui::TextWrapped("[ ] demo   R restart   P pause   T step   ` UI   WASD+wheel camera   mouse drag grab   F1-F4 draw   F5 profiler   F9 shot   F10 gif");
+        ImGui::TextWrapped("[ ] demo   R restart   P pause   T step   ` UI   WASD+wheel camera   mouse drag grab   "
+                           "F1-F4 draw   F5 profiler   F9 shot   F10 gif");
         ImGui::Separator();
 
-        const char *lastCategory = nullptr;
+        const char* lastCategory = nullptr;
         for (int i = 0; i < TestbedDemoCount(); ++i)
         {
-            const DemoEntry &de = TestbedDemos()[i];
+            const DemoEntry& de = TestbedDemos()[i];
             if (lastCategory == nullptr || strcmp(lastCategory, de.category) != 0)
             {
                 ImGui::Separator();
@@ -332,7 +330,7 @@ void Testbed::Run()
         k2d::Profiler::Get().beginFrame();
         running = mDevice.PollEvents();
 
-        k2d::Input &input = mDevice.GetInput();
+        k2d::Input& input = mDevice.GetInput();
         if (input.KeyDown(SCANCODE_ESCAPE))
             running = false;
 
@@ -357,7 +355,7 @@ void Testbed::Run()
                 }
             }
 
-            const kx::StepProfile &sp = mDemo->World().Profile();
+            const kx::StepProfile& sp = mDemo->World().Profile();
             k2d::Profiler::Get().addSample("kx.broadphase", sp.broadphase);
             k2d::Profiler::Get().addSample("kx.narrowphase", sp.narrowphase);
             k2d::Profiler::Get().addSample("kx.solve.vel", sp.solveVelocity);
