@@ -54,13 +54,14 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
+          -DK2D_STATIC_MINGW_RUNTIME=ON
           -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
           -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
 
-      - name: Build editor, runner, packer and Zen tests
+      - name: Build editor, runner, export tools and tests
         run: >-
           cmake --build build --config Release
-          --target k2d_editor k2d_runner k2d_pack k2d_kpak_tests
+          --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver k2d_kpak_tests
           k2d_zen_tests k2d_zen_class_tests k2d_zen_props_tests
           k2d_zen_prefab_tests k2d_zen_physics_tests --parallel
 
@@ -85,6 +86,15 @@ jobs:
         run: |
           Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse |
             Copy-Item -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
+
+      - name: Verify Windows runner has no GCC runtime DLL dependency
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $imports = & dumpbin /dependents "stage/Kinetix2D-${{ matrix.name }}/bin/k2d_runner.exe" | Out-String
+          if ($imports -match '(?i)libgcc_s_.*\.dll|libstdc\+\+-.*\.dll') {
+            throw "k2d_runner.exe still depends on a MinGW GCC runtime DLL."
+          }
 
       - name: Create Linux archive
         if: runner.os == 'Linux'

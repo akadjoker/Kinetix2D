@@ -192,6 +192,7 @@ class EditorApplication
     void stopPlay();
     void stepPlay();
     void runStandalone();
+    void exportWeb(bool runAfterExport);
     void tickEditPreview(GameObject& object, float deltaTime);
     void restartEditPreview(GameObject& object);
 

@@ -1,21 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-# The pack format needs deflate, but it must not add a platform zlib
-# dependency. Miniz is built as a static, amalgamated single-header library.
-include(FetchContent)
-set(AMALGAMATE_SOURCES ON CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    k2d_miniz
-    URL https://codeload.github.com/richgel999/miniz/tar.gz/77d0dce8627735138c51770d1799a1ef48f2117d
-    URL_HASH SHA256=baa14349e7c5efb4a493a03af7d2f29d0ef45d87d488567fe5360edb33f8b7ba
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable(k2d_miniz)
-
 # WebGL 2 and Android already provide the GLES3 entry points. Desktop still
 # needs glad to resolve them from SDL's GL context at runtime.
 set(K2D_NATIVE_GLES3 OFF)

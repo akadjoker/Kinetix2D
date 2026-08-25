@@ -2754,7 +2754,9 @@ bool ZenScriptComponent::loadFile(const char* path)
     }
 
     FileBuffer buffer;
-    if (!FileSystem::Instance().LoadFile(path, buffer, false))
+    // Zen's lexer consumes a C string.  Keep the byte count for bytecode
+    // detection, but always reserve the trailing NUL for source scripts.
+    if (!FileSystem::Instance().LoadFile(path, buffer, true))
         return false;
 
     mScriptPath = path;

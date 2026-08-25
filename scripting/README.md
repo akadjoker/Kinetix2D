@@ -444,6 +444,10 @@ falls back to source. Bytecode requires the same Zen VM version and Kinetix nati
 generated it, so a Web export must be rebuilt after either changes. The Web exporter will compile
 and preload the project scripts in a deterministic order before loading its first scene.
 
+Use `k2d_webserver <export-directory> [port]` to test an exported build locally. It binds only to
+`127.0.0.1`, sets the WebAssembly MIME type, and serves static export files without exposing paths
+outside the selected directory.
+
 ## Notes
 
 - All scripts share one VM for the whole run. Module-level globals are therefore shared

@@ -25,6 +25,10 @@
 
 #include <SDL.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
+
 #include <ct/json.hpp>
 
 #include <cstdio>
@@ -437,6 +441,12 @@ int main(int argc, char** argv)
                     k2d::GetScreenFade().Draw(canvas, width, height);
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
+#if defined(__EMSCRIPTEN__)
+                    // The browser owns the event loop. Asyncify preserves the
+                    // runner state across this yield and schedules the next
+                    // frame without blocking the UI thread.
+                    emscripten_sleep(0);
+#endif
                 }
                 canvas.Shutdown();
                 k2d::GetAudio().SaveSettings(userData);

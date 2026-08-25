@@ -546,6 +546,59 @@ void EditorApplication::runStandalone()
 #endif
 }
 
+void EditorApplication::exportWeb(bool runAfterExport)
+{
+    if (!mProject.valid())
+    {
+        mToasts.error("Open a project before exporting for Web");
+        return;
+    }
+    if (mProject.startupScene().empty())
+    {
+        mToasts.error("Set a startup scene before exporting for Web");
+        return;
+    }
+    if (!mCurrentScenePath.empty() && !saveScene(mCurrentScenePath.c_str()))
+        return;
+
+#if defined(__unix__) || defined(__APPLE__)
+    const std::filesystem::path binPath = FileSystem::Instance().BasePath();
+    std::filesystem::path exporter = binPath / "export_web.sh";
+    if (!std::filesystem::exists(exporter))
+    {
+        const std::filesystem::path root = binPath.parent_path();
+        exporter = root / "tools" / "export_web.sh";
+    }
+    if (!std::filesystem::exists(exporter))
+    {
+        ct::String message("Web exporter was not found: ");
+        message += exporter.string().c_str();
+        log(message);
+        mToasts.error("Web exporter script was not found");
+        return;
+    }
+    const pid_t pid = fork();
+    if (pid == 0)
+    {
+        if (runAfterExport)
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--run", static_cast<char*>(nullptr));
+        else
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    if (pid < 0)
+    {
+        mToasts.error("Could not start Web export");
+        return;
+    }
+    log(runAfterExport ? "Run Web: export and local server started" : "Export Web: task started");
+    mToasts.info(runAfterExport ? "Building Web game and opening browser" : "Building Web export");
+#else
+    (void)runAfterExport;
+    mToasts.error("Web export launch is not implemented on this platform");
+#endif
+}
+
 void EditorApplication::tickEditPreview(GameObject& object, float deltaTime)
 {
     if (!object.isActiveInHierarchy())
@@ -1118,6 +1171,17 @@ void EditorApplication::drawMenuBar()
         }
         if (ImGui::MenuItem(redoLabel.c_str(), "Ctrl+Y", false, canRedo()))
             redo();
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Project"))
+    {
+        if (ImGui::MenuItem(ICON_MDI_EXPORT " Export Web...", nullptr, false, mProject.valid()))
+            exportWeb(false);
+        if (ImGui::MenuItem(ICON_MDI_WEB " Run Web", nullptr, false, mProject.valid()))
+            exportWeb(true);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Exports bytecode and assets, then serves the game at localhost:8080");
         ImGui::EndMenu();
     }
 
