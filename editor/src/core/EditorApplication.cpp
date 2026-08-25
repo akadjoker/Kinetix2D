@@ -98,6 +98,27 @@ ct::String relativeToRoot(const ct::String& absolute, const ct::String& root)
     ++start;
     return absolute.substr(start, absolute.size() - start);
 }
+
+std::filesystem::path findEditorTool(const char* name)
+{
+    std::filesystem::path directory = FileSystem::Instance().BasePath();
+    for (int level = 0; level < 4 && !directory.empty(); ++level)
+    {
+        const std::filesystem::path besideExecutable = directory / name;
+        if (std::filesystem::exists(besideExecutable))
+            return besideExecutable;
+
+        const std::filesystem::path sourceTool = directory / "tools" / name;
+        if (std::filesystem::exists(sourceTool))
+            return sourceTool;
+
+        const std::filesystem::path parent = directory.parent_path();
+        if (parent == directory)
+            break;
+        directory = parent;
+    }
+    return std::filesystem::path();
+}
 } // namespace
 
 EditorApplication::~EditorApplication() = default;
@@ -512,7 +533,7 @@ void EditorApplication::runStandalone()
         return;
 
 #if defined(__unix__) || defined(__APPLE__)
-    const std::filesystem::path runnerPath = std::filesystem::path(FileSystem::Instance().BasePath()) / "k2d_runner";
+    const std::filesystem::path runnerPath = findEditorTool("k2d_runner");
     if (!std::filesystem::exists(runnerPath))
     {
         ct::String message("Runner executable was not found: ");
@@ -570,13 +591,7 @@ void EditorApplication::exportWeb(bool runAfterExport)
     }
 
 #if defined(__unix__) || defined(__APPLE__)
-    const std::filesystem::path binPath = FileSystem::Instance().BasePath();
-    std::filesystem::path exporter = binPath / "export_web.sh";
-    if (!std::filesystem::exists(exporter))
-    {
-        const std::filesystem::path root = binPath.parent_path();
-        exporter = root / "tools" / "export_web.sh";
-    }
+    const std::filesystem::path exporter = findEditorTool("export_web.sh");
     if (!std::filesystem::exists(exporter))
     {
         ct::String message("Web exporter was not found: ");
