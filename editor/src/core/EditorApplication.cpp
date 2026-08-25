@@ -227,6 +227,13 @@ int EditorApplication::run()
         mDevice.EndUI();
         ZenRuntime::instance().setVmProfiling(mProfilerOpen);
         ZenRuntime::instance().submitProfilerSamples();
+        if (mCaptureScreenshotPending)
+        {
+            mDevice.CaptureScreenshot();
+            mCaptureScreenshotPending = false;
+        }
+        if (mDevice.IsGifCapturing())
+            mDevice.CaptureGifFrame();
         mDevice.Swap();
         Profiler::Get().endFrame();
     }
@@ -241,6 +248,8 @@ void EditorApplication::shutdown()
     saveSettings();
     GetAudio().SaveSettings(mUserData);
     mUserData.save();
+    if (mDevice.IsGifCapturing())
+        mDevice.StopGifCapture();
     mPanels.clear();
     mSelection.clear();
     SetZenScriptUserData(nullptr);
@@ -619,7 +628,15 @@ void EditorApplication::handleShortcuts()
     const ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput)
         return;
-    if (mPlaying && ImGui::IsKeyPressed(ImGuiKey_F6, false))
+    if (ImGui::IsKeyPressed(ImGuiKey_F9, false))
+    {
+        requestScreenshot();
+    }
+    else if (ImGui::IsKeyPressed(ImGuiKey_F10, false))
+    {
+        toggleGifCapture();
+    }
+    else if (mPlaying && ImGui::IsKeyPressed(ImGuiKey_F6, false))
     {
         reloadChangedScripts();
     }
@@ -638,6 +655,25 @@ void EditorApplication::handleShortcuts()
     {
         saveScene(mCurrentScenePath.c_str());
     }
+}
+
+void EditorApplication::requestScreenshot()
+{
+    mCaptureScreenshotPending = true;
+    mToasts.info("Saving screenshot...");
+}
+
+void EditorApplication::toggleGifCapture()
+{
+    if (mDevice.IsGifCapturing())
+    {
+        mDevice.StopGifCapture();
+        mToasts.success("GIF saved in the current working directory");
+        return;
+    }
+
+    mDevice.StartGifCapture(30);
+    mToasts.info("GIF recording started at 30 FPS — press F10 to stop");
 }
 
 void EditorApplication::reloadChangedScripts()
@@ -1024,6 +1060,13 @@ void EditorApplication::drawMenuBar()
             openFileDialog(FileDialogPurpose::SaveScene, ImGuiFileDialog::Mode::SaveFile,
                            mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory(),
                            "scene.k2dscene");
+
+        ImGui::Separator();
+        if (ImGui::MenuItem("Capture Screenshot", "F9"))
+            requestScreenshot();
+        const char* gifCaptureLabel = mDevice.IsGifCapturing() ? "Stop GIF Recording" : "Record GIF (30 FPS)";
+        if (ImGui::MenuItem(gifCaptureLabel, "F10"))
+            toggleGifCapture();
 
         if (mProject.valid())
         {
