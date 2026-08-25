@@ -57,8 +57,15 @@ jobs:
           -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
           -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
 
-      - name: Build editor, runner and packer
-        run: cmake --build build --config Release --target k2d_editor k2d_runner k2d_pack k2d_kpak_tests --parallel
+      - name: Build editor, runner, packer and Zen tests
+        run: >-
+          cmake --build build --config Release
+          --target k2d_editor k2d_runner k2d_pack k2d_kpak_tests
+          k2d_zen_tests k2d_zen_class_tests k2d_zen_props_tests
+          k2d_zen_prefab_tests k2d_zen_physics_tests --parallel
+
+      - name: Run Zen VM tests
+        run: ctest --test-dir build --build-config Release --output-on-failure -R '^k2d_zen_'
 
       - name: Test KPAK on Linux
         if: runner.os == 'Linux'

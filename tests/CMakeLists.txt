@@ -130,3 +130,15 @@ target_compile_features(k2d_physics2d_tests PRIVATE cxx_std_17)
 add_executable(k2d_zen_physics_tests k2d_zen_physics_tests.cpp)
 target_link_libraries(k2d_zen_physics_tests PRIVATE k2d_zen k2d_physics2d)
 target_compile_features(k2d_zen_physics_tests PRIVATE cxx_std_17)
+
+set(K2D_ZEN_TEST_TARGETS
+    k2d_zen_tests
+    k2d_zen_class_tests
+    k2d_zen_props_tests
+    k2d_zen_prefab_tests
+    k2d_zen_physics_tests
+)
+foreach(test_target IN LISTS K2D_ZEN_TEST_TARGETS)
+    add_test(NAME ${test_target} COMMAND ${test_target})
+    set_tests_properties(${test_target} PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endforeach()
