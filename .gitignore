@@ -1,6 +1,8 @@
 build/
 build-*/
 .k2d-tools/
+**/.k2d/
+__pycache__/
 bin/
 bin-sanitize/
 documentation/_build/

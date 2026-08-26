@@ -1,0 +1,14 @@
+{
+  "name": "projects",
+  "startupScene": "",
+  "scenes": [],
+  "physics": {
+    "gravity": [
+      0.0,
+      980.0
+    ],
+    "fixedTimeStep": 0.01666666753590107,
+    "velocityIterations": 8,
+    "treeBroadphase": true
+  }
+}

@@ -50,6 +50,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -631,9 +632,10 @@ void EditorApplication::exportWeb(bool runAfterExport)
     const pid_t pid = fork();
     if (pid == 0)
     {
+        const std::string parentPid = std::to_string(static_cast<long long>(getppid()));
         if (runAfterExport)
             execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
-                  "--run", static_cast<char*>(nullptr));
+                  "--run", "--parent-pid", parentPid.c_str(), static_cast<char*>(nullptr));
         else
             execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
                   static_cast<char*>(nullptr));
@@ -666,7 +668,10 @@ void EditorApplication::exportWeb(bool runAfterExport)
     command += " --scene ";
     command += quoteWindowsArgument(sceneRelative.c_str());
     if (runAfterExport)
-        command += " --run";
+    {
+        command += " --run --parent-pid ";
+        command += std::to_string(static_cast<unsigned long>(GetCurrentProcessId()));
+    }
     command += "\"";
     std::vector<char> mutableCommand(command.begin(), command.end());
     mutableCommand.push_back('\0');
@@ -1141,6 +1146,7 @@ void EditorApplication::drawWorkspace()
     drawMenuBar();
     drawToolbar();
     drawFileDialog();
+    drawNewProjectNameDialog();
 
     const ImGuiID dockspaceId = ImGui::GetID("Kinetix2D Dockspace");
     if (mDefaultLayoutPending || mLayoutResetRequested)
@@ -1270,7 +1276,7 @@ void EditorApplication::drawMenuBar()
         if (ImGui::MenuItem(ICON_MDI_WEB " Run Web", nullptr, false, mProject.valid()))
             exportWeb(true);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Exports bytecode and assets, then serves the game at localhost:8080");
+            ImGui::SetTooltip("Exports bytecode and assets, then serves the game on a free localhost port");
         ImGui::EndMenu();
     }
 
@@ -1347,7 +1353,9 @@ void EditorApplication::drawFileDialog()
     switch (purpose)
     {
     case FileDialogPurpose::NewProjectFolder:
-        newProject(path.c_str(), EditorFileSystem::fileName(path).c_str());
+        mNewProjectParentDirectory = path;
+        mNewProjectName[0] = '\0';
+        ImGui::OpenPopup("New Project");
         break;
     case FileDialogPurpose::OpenProject:
         openProject(path.c_str());
@@ -1361,6 +1369,48 @@ void EditorApplication::drawFileDialog()
     default:
         break;
     }
+}
+
+void EditorApplication::drawNewProjectNameDialog()
+{
+    if (!ImGui::BeginPopupModal("New Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::TextUnformatted("Choose a name for the project folder.");
+    ImGui::TextDisabled("Location: %s", mNewProjectParentDirectory.c_str());
+    ImGui::SetNextItemWidth(300.0f);
+    ImGui::InputTextWithHint("Name", "My Game", mNewProjectName, sizeof(mNewProjectName));
+
+    const bool hasName = mNewProjectName[0] != '\0';
+    const bool invalidName = std::strchr(mNewProjectName, '/') || std::strchr(mNewProjectName, '\\') ||
+                             std::strcmp(mNewProjectName, ".") == 0 || std::strcmp(mNewProjectName, "..") == 0;
+    const ct::String projectDirectory = EditorFileSystem::join(mNewProjectParentDirectory, mNewProjectName);
+    const bool alreadyExists = hasName && EditorFileSystem::exists(projectDirectory);
+    if (invalidName)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "The name cannot contain a path separator.");
+    else if (alreadyExists)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "This project folder already exists.");
+
+    ImGui::TextDisabled("Will create: scenes, assets/scripts and assets/prefabs.");
+    ImGui::BeginDisabled(!hasName || invalidName || alreadyExists);
+    if (ImGui::Button("Create Project"))
+    {
+        if (newProject(mNewProjectParentDirectory.c_str(), mNewProjectName))
+        {
+            mNewProjectParentDirectory.clear();
+            mNewProjectName[0] = '\0';
+            ImGui::CloseCurrentPopup();
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+    {
+        mNewProjectParentDirectory.clear();
+        mNewProjectName[0] = '\0';
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 void EditorApplication::drawStatusBar()

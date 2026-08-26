@@ -61,8 +61,10 @@ private:
     void drawCreationMenu(const ct::String &directory);
     void drawNewScriptPopup();
     void drawNewFolderPopup();
+    void drawRenamePopup();
     void requestNewScript(const ct::String &directory);
     void requestNewFolder(const ct::String &directory);
+    void requestRename(const EditorFileEntry &entry);
 
     void navigateTo(const ct::String &directory);
     void refreshEntries();
@@ -86,6 +88,8 @@ private:
     char mNewScriptName[64] = "new_script";
     int mNewScriptTemplate = 0;
     char mNewFolderName[64] = "new_folder";
+    ct::String mRenamePath;
+    char mRenameName[256] = {};
 };
 
 }

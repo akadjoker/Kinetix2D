@@ -448,6 +448,19 @@ Input
    Query a physical key by its ``KEY_*`` constant. No string conversion is
    done in the VM.
 
+.. py:function:: virtual_key_add(code, x, y, width, height)
+
+   Adds an explicit rectangular touch button. Its input is synthesized as the
+   supplied ``KEY_*`` code, so direct key and action queries work unchanged.
+
+.. py:function:: virtual_keys_clear()
+
+.. py:function:: virtual_keys_set_visible(visible)
+
+.. py:function:: virtual_keys_visible()
+
+   Manage script-defined virtual touch buttons in the standalone runner.
+
 .. py:function:: action_down(name)
 
 .. py:function:: action_pressed(name)

@@ -6,7 +6,7 @@
 project = "Kinetix2D"
 author = "djokersoft"
 copyright = "2026, djokersoft"
-release = "0.1.0"
+release = "1.1.1"
 
 extensions = []
 

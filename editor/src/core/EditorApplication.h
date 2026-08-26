@@ -175,6 +175,7 @@ class EditorApplication
     void drawMenuBar();
     void drawToolbar();
     void drawFileDialog();
+    void drawNewProjectNameDialog();
     void drawStatusBar();
     void createDefaultDockLayout(unsigned int dockspaceId);
     void newScene();
@@ -229,6 +230,8 @@ class EditorApplication
 
     ImGuiFileDialog mFileDialog;
     FileDialogPurpose mFileDialogPurpose = FileDialogPurpose::None;
+    ct::String mNewProjectParentDirectory;
+    char mNewProjectName[128] = {};
     float mStatsSmoothedDelta = 0.0f;
 };
 

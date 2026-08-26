@@ -39,7 +39,9 @@ Physics tuning is read from the ``physics`` section of the project file:
 ``gravity``, ``fixedTimeStep``, ``velocityIterations`` and ``treeBroadphase``.
 The runner maps the default input actions (``move_forward``, ``move_backward``,
 ``turn_left``, ``turn_right``, ``primary``, ``secondary``) and shows a
-profiler overlay on F5.
+profiler overlay on F5. Touch controls are disabled by default, including in a
+Web export. Enable them only for scenes that need them with, for example,
+``"virtualPad": { "enabled": true }`` in the scene JSON.
 
 The packer (``k2d_pack``)
 -------------------------
