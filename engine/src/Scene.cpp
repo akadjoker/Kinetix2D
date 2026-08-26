@@ -8,7 +8,7 @@
 namespace k2d
 {
 
-    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0)
+    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mComponentListsDirty(false)
     {
         mRoot.mScene = this;
     }
@@ -171,6 +171,7 @@ namespace k2d
         mUiControls.clear();
         mObjectCount = 0;
         mNextId = 1;
+        mComponentListsDirty = false;
     }
 
     void Scene::registerBranch(GameObject *object)
@@ -220,6 +221,7 @@ namespace k2d
 
     void Scene::unregisterComponent(Component *component)
     {
+        mComponentListsDirty = true;
         const auto removeFrom = [component](ct::Vector<Component *> &components, std::size_t &index)
         {
             if (index < components.size() && components[index] == component)
@@ -247,6 +249,9 @@ namespace k2d
 
     void Scene::compactComponentLists()
     {
+        if (!mComponentListsDirty)
+            return;
+
         const auto compact = [](ct::Vector<Component *> &components, int list)
         {
             std::size_t write = 0;
@@ -278,6 +283,7 @@ namespace k2d
             if (mUiControls[uiRead])
                 mUiControls[uiWrite++] = mUiControls[uiRead];
         mUiControls.resize(uiWrite);
+        mComponentListsDirty = false;
     }
 
     void Scene::updateUi()

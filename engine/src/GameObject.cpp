@@ -509,6 +509,13 @@ namespace k2d
         invalidateTransform();
     }
 
+    void GameObject::setPositionAndRotation(const Math::Vec2 &position, float rotationDegrees)
+    {
+        mPosition = position;
+        mRotationDegrees = rotationDegrees;
+        invalidateTransform();
+    }
+
     void GameObject::setScale(const Math::Vec2 &scale)
     {
         mScale = scale;

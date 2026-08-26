@@ -17,6 +17,7 @@ namespace kx
           mForce(0.0f, 0.0f), mTorque(0.0f), mId(0),
           mUserData(nullptr), mContactCallback(nullptr), mContactContext(nullptr),
           mProxyId(-1), mProxyPosition(0.0f, 0.0f),
+          mTightAABB{Math::Vec2(0.0f), Math::Vec2(0.0f)},
           mShapeCount(0)
     {
     }

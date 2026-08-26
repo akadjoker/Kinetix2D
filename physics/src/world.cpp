@@ -148,7 +148,7 @@ uint64_t PairKey(const Body* a, const Body* b);
 World::World(const Math::Vec2& gravity)
     : mGravity(gravity), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1), mVelocityIterations(8)
 {
-    mProfile = StepProfile{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    mProfile = StepProfile{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     mNarrowMs = 0.0f;
 }
 
@@ -846,6 +846,7 @@ void World::SyncProxies()
             continue;
 
         AABB aabb = ComputeBodyAABB(*b);
+        b->mTightAABB = aabb;
 
         if (b->mProxyId == kNullNode)
         {
@@ -982,9 +983,7 @@ void World::UpdateContactsTree()
             continue;
         }
 
-        AABB tightA = ComputeBodyAABB(*a);
-        AABB tightB = ComputeBodyAABB(*b);
-        if (!TestOverlap(tightA, tightB))
+        if (!TestOverlap(a->TightAABB(), b->TightAABB()))
             continue;
 
         CollidePair(a, b);
@@ -1040,6 +1039,7 @@ void World::Step(float dt)
     InitContactConstraints();
     WarmStartContacts();
 
+    mProfile.solveVelocityContacts = 0.0f;
     for (size_t i = 0; i < mJoints.size(); ++i)
         if (JointIsActive(mJoints[i]))
             mJoints[i]->InitVelocity(dt);
@@ -1080,6 +1080,7 @@ void World::Step(float dt)
         mProfile.narrowphase = mNarrowMs;
         mProfile.broadphase = (float)((t2 - t1) * 1000.0) - mNarrowMs;
         mProfile.solveVelocity = (float)((t3 - t2) * 1000.0);
+        mProfile.solveVelocityJoints = mProfile.solveVelocity - mProfile.solveVelocityContacts;
         mProfile.solvePosition = (float)((t5 - t4) * 1000.0);
     }
 }
@@ -1241,19 +1242,15 @@ void World::SolveContactPositions()
             if (JointIsActive(mJoints[i]))
                 mJoints[i]->SolvePosition();
 
-        for (size_t ci = 0; ci < mContacts.size(); ++ci)
+        for (size_t i = 0; i < mDynamicContacts.size(); ++i)
         {
-            ContactInfo& c = mContacts[ci];
-            if (c.sensor || ContactHasStatic(c) || !ContactIsActive(c))
-                continue;
+            ContactInfo& c = *mDynamicContacts[i];
             for (int i = 0; i < c.manifold.pointCount; ++i)
                 SolveContactPointPosition(c, i, kBaumgarte);
         }
-        for (size_t ci = 0; ci < mContacts.size(); ++ci)
+        for (size_t i = 0; i < mStaticContacts.size(); ++i)
         {
-            ContactInfo& c = mContacts[ci];
-            if (c.sensor || !ContactHasStatic(c) || !ContactIsActive(c))
-                continue;
+            ContactInfo& c = *mStaticContacts[i];
             for (int i = 0; i < c.manifold.pointCount; ++i)
                 SolveContactPointPosition(c, i, kBaumgarte);
         }
@@ -1262,11 +1259,19 @@ void World::SolveContactPositions()
 
 void World::InitContactConstraints()
 {
+    mDynamicContacts.clear();
+    mStaticContacts.clear();
     for (size_t ci = 0; ci < mContacts.size(); ++ci)
     {
         ContactInfo& c = mContacts[ci];
         if (c.sensor)
             continue;
+        if (!ContactIsActive(c))
+            continue;
+        if (ContactHasStatic(c))
+            mStaticContacts.push_back(&c);
+        else
+            mDynamicContacts.push_back(&c);
         Body* a = c.a;
         Body* b = c.b;
 
@@ -1333,12 +1338,9 @@ void World::InitContactConstraints()
 
 void World::WarmStartContacts()
 {
-
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    const auto warmStart = [](ContactInfo* contact)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *contact;
         for (int i = 0; i < c.manifold.pointCount; ++i)
         {
             const ManifoldPoint& mp = c.manifold.points[i];
@@ -1348,7 +1350,12 @@ void World::WarmStartContacts()
             c.b->mLinearVelocity += c.b->mInvMass * impulse;
             c.b->mAngularVelocity += c.b->mInvI * Cross(c.rB[i], impulse);
         }
-    }
+    };
+
+    for (size_t i = 0; i < mDynamicContacts.size(); ++i)
+        warmStart(mDynamicContacts[i]);
+    for (size_t i = 0; i < mStaticContacts.size(); ++i)
+        warmStart(mStaticContacts[i]);
 }
 
 void World::SolveContactVelocitiesOne(ContactInfo& c)
@@ -1406,21 +1413,19 @@ void World::SolveContactVelocitiesOne(ContactInfo& c)
 
 void World::SolveContactVelocities()
 {
-
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    double start = mClock ? mClock() : 0.0;
+    for (size_t i = 0; i < mDynamicContacts.size(); ++i)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || ContactHasStatic(c) || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *mDynamicContacts[i];
         SolveContactVelocitiesOne(c);
     }
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    for (size_t i = 0; i < mStaticContacts.size(); ++i)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || !ContactHasStatic(c) || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *mStaticContacts[i];
         SolveContactVelocitiesOne(c);
     }
+    if (mClock)
+        mProfile.solveVelocityContacts += (float)((mClock() - start) * 1000.0);
 }
 
 void World::StoreContactImpulses()

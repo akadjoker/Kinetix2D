@@ -35,7 +35,7 @@ namespace k2d
         bool attached() const { return mShapeIndex >= 0; }
 
     protected:
-        void markDirty() { mDirty = true; }
+        void markDirty();
 
         Math::Vec2 mOffset;
 

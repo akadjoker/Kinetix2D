@@ -407,6 +407,32 @@ static bool testBodyTypeAndDensityApplyLive()
     return ok;
 }
 
+static bool testColliderDirtyUsesOwningWorld()
+{
+    k2d::Scene sceneA;
+    k2d::GameObject* objectA =
+        makeBox(sceneA, "box_a", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+    k2d::PhysicsWorld2D worldA;
+    worldA.build(sceneA.root());
+    k2d::RigidBody2D* rigidBodyA = objectA->getComponent<k2d::RigidBody2D>();
+    const float oldExtent = rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x;
+
+    k2d::Scene sceneB;
+    k2d::PhysicsWorld2D worldB;
+    worldB.build(sceneB.root());
+
+    objectA->getComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(80.0f, 80.0f));
+    worldB.step(1.0f / 60.0f);
+    bool ok = nearEqual(rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x, oldExtent);
+
+    worldA.step(1.0f / 60.0f);
+    ok = ok && !nearEqual(rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x, oldExtent);
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    std::printf("  collider_world: rebuilt_in_owner=%s\n", ok ? "yes" : "no");
+    return ok;
+}
+
 static bool testFiltersKeepShapesApart()
 {
     k2d::Scene scene;
@@ -695,6 +721,7 @@ int main()
     const bool lateSpawn = testObjectSpawnedDuringPlayGetsABody();
     const bool colliderChange = testColliderChangeRebuildsTheBody();
     const bool liveType = testBodyTypeAndDensityApplyLive();
+    const bool colliderWorld = testColliderDirtyUsesOwningWorld();
     const bool filters = testFiltersKeepShapesApart();
     const bool pointQuery = testObjectAtPointFindsStatics();
     const bool circle = testCircleCollider();
@@ -706,17 +733,18 @@ int main()
 
     std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
-                "live_type=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
+                "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s\n",
                 falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail", colliderChange ? "pass" : "fail",
-                liveType ? "pass" : "fail", filters ? "pass" : "fail", pointQuery ? "pass" : "fail",
+                liveType ? "pass" : "fail", colliderWorld ? "pass" : "fail", filters ? "pass" : "fail",
+                pointQuery ? "pass" : "fail",
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail", chain ? "pass" : "fail",
                 compound ? "pass" : "fail", serialized ? "pass" : "fail");
     return falls && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
-                   deterministic && destroy && lateSpawn && colliderChange && liveType && filters && pointQuery &&
+                   deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized
                ? 0
                : 1;

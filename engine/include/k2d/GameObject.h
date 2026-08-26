@@ -144,6 +144,7 @@ namespace k2d
         const Math::Vec2 &scale() const;
         void setPosition(const Math::Vec2 &position);
         void setRotationDegrees(float degrees);
+        void setPositionAndRotation(const Math::Vec2 &position, float rotationDegrees);
         void setScale(const Math::Vec2 &scale);
         void translate(const Math::Vec2 &offset);
         void rotate(float degrees);

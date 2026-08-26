@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Export a Kinetix project as a browser bundle on Unix or Windows."""
+
 import argparse
 import html
 import json
@@ -77,7 +78,9 @@ def main() -> int:
     parser.add_argument("--rebuild", action="store_true")
     args = parser.parse_args()
 
-    root = Path(os.environ.get("K2D_SOURCE_ROOT", Path(__file__).resolve().parent.parent)).resolve()
+    root = Path(
+        os.environ.get("K2D_SOURCE_ROOT", Path(__file__).resolve().parent.parent)
+    ).resolve()
     if not (root / "CMakeLists.txt").is_file():
         raise RuntimeError("K2D source root was not found. Set K2D_SOURCE_ROOT.")
     project = args.project.resolve()
@@ -88,21 +91,52 @@ def main() -> int:
     metadata = json.loads(project_file.read_text(encoding="utf-8"))
     scene = args.scene or metadata.get("startupScene", "")
     normalized_scene = PurePosixPath(scene)
-    if not scene or normalized_scene.is_absolute() or ".." in normalized_scene.parts or "\\" in scene:
+    if (
+        not scene
+        or normalized_scene.is_absolute()
+        or ".." in normalized_scene.parts
+        or "\\" in scene
+    ):
         raise RuntimeError("Scene must be a relative path inside the project.")
     if not (project / normalized_scene).is_file():
         raise RuntimeError(f"Scene was not found: {scene}")
 
     template = root / "bin" / "web" / "_template"
     build = root / "build-web"
-    if args.rebuild or not (template / "k2d_runner.js").is_file() or not (template / "k2d_runner.wasm").is_file():
-        subprocess.run(["emcmake", "cmake", "-S", str(root), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release",
-                        f"-DK2D_RUNTIME_OUTPUT_DIRECTORY={template}"], check=True)
-        subprocess.run(["cmake", "--build", str(build), "--target", "k2d_runner", "--parallel"], check=True)
+    if (
+        args.rebuild
+        or not (template / "k2d_runner.js").is_file()
+        or not (template / "k2d_runner.wasm").is_file()
+    ):
+        subprocess.run(
+            [
+                "emcmake",
+                "cmake",
+                "-S",
+                str(root),
+                "-B",
+                str(build),
+                "-DCMAKE_BUILD_TYPE=Release",
+                f"-DK2D_RUNTIME_OUTPUT_DIRECTORY={template}",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["cmake", "--build", str(build), "--target", "k2d_runner", "--parallel"],
+            check=True,
+        )
 
     output = project / ".k2d" / "web"
     output.mkdir(parents=True, exist_ok=True)
-    for name in ("k2d_runner.js", "k2d_runner.wasm", "assets.js", "assets.data", "index.html"):
+    for name in (
+        "k2d_runner.js",
+        "k2d_runner.wasm",
+        "assets.js",
+        "assets.data",
+        "index.html",
+        "scripts.zbc",
+        "scripts.json",
+    ):
         (output / name).unlink(missing_ok=True)
     shutil.copy2(template / "k2d_runner.js", output / "k2d_runner.js")
     shutil.copy2(template / "k2d_runner.wasm", output / "k2d_runner.wasm")
@@ -112,25 +146,54 @@ def main() -> int:
         copy_project(project, stage)
         bytecode_dir = stage / ".k2d" / "web"
         bytecode_dir.mkdir(parents=True, exist_ok=True)
-        scripts = sorted(path.relative_to(project).as_posix() for path in project.rglob("*.py"))
+        scripts_root = project / "assets" / "scripts"
+        scripts = []
+        if scripts_root.is_dir():
+            scripts = sorted(
+                path.relative_to(project).as_posix()
+                for path in scripts_root.rglob("*.py")
+            )
         if scripts:
-            subprocess.run([str(tool_path(root, "k2d_scriptc")), "--bundle", str(bytecode_dir / "scripts.zbc"),
-                            str(bytecode_dir / "scripts.json"), *scripts], cwd=project, check=True)
-        subprocess.run([*file_packager(), str(output / "assets.data"), "--preload", f"{stage}@/project",
-                        f"--js-output={output / 'assets.js'}", "--export-name=Module", "--no-node", "--quiet"],
-                       check=True)
+            subprocess.run(
+                [
+                    str(tool_path(root, "k2d_scriptc")),
+                    "--bundle",
+                    str(bytecode_dir / "scripts.zbc"),
+                    str(bytecode_dir / "scripts.json"),
+                    *scripts,
+                ],
+                cwd=project,
+                check=True,
+            )
+        subprocess.run(
+            [
+                *file_packager(),
+                str(output / "assets.data"),
+                "--preload",
+                f"{stage}@/project",
+                f"--js-output={output / 'assets.js'}",
+                "--export-name=Module",
+                "--no-node",
+                "--quiet",
+            ],
+            check=True,
+        )
 
     title = html.escape(metadata.get("name") or project.name)
     scene_html = html.escape(normalized_scene.as_posix())
     (output / "index.html").write_text(
-        "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
         f"<title>{title}</title><style>html,body,canvas{{margin:0;width:100%;height:100%;background:#111}}canvas{{display:block;outline:0}}</style>\n"
         f"<canvas id=\"canvas\" tabindex=\"0\"></canvas><script>var Module={{canvas:document.getElementById('canvas'),arguments:['/project/{scene_html}','/project/project.k2dproj']}};</script>\n"
-        "<script src=\"assets.js\"></script><script async src=\"k2d_runner.js\"></script>", encoding="utf-8")
+        '<script src="assets.js"></script><script async src="k2d_runner.js"></script>',
+        encoding="utf-8",
+    )
     print(f"Exported Web game: {output / 'index.html'}")
 
     if args.run:
-        server = subprocess.Popen([str(tool_path(root, "k2d_webserver")), str(output), str(args.port)])
+        server = subprocess.Popen(
+            [str(tool_path(root, "k2d_webserver")), str(output), str(args.port)]
+        )
         try:
             url = f"http://127.0.0.1:{args.port}/"
             wait_for_server(server, args.port)

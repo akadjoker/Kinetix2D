@@ -19,7 +19,8 @@ namespace k2d
           mLinearDamping(0.0f), mAngularDamping(0.0f), mGravityScale(1.0f), mFixedRotation(false),
           mBullet(false), mPendingVelocity(0.0f, 0.0f), mPendingAngularVelocity(0.0f),
           mHasPendingVelocity(false), mHasPendingAngularVelocity(false), mNeedsRebuild(false),
-          mColliderCount(0), mBodyIndex(InvalidWorldIndex), mPendingIndex(InvalidWorldIndex)
+          mColliderCount(0), mBodyIndex(InvalidWorldIndex), mPendingIndex(InvalidWorldIndex),
+          mDirtyIndex(InvalidWorldIndex)
     {
         if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
         {
@@ -40,7 +41,10 @@ namespace k2d
         if (mBodyType == type)
             return;
         mBodyType = type;
-        mNeedsRebuild = true;
+        if (mWorld)
+            mWorld->markDirty(*this);
+        else
+            mNeedsRebuild = true;
     }
 
     void RigidBody2D::setDensity(float density)
@@ -49,7 +53,10 @@ namespace k2d
         if (mDensity == clamped)
             return;
         mDensity = clamped;
-        mNeedsRebuild = true;
+        if (mWorld)
+            mWorld->markDirty(*this);
+        else
+            mNeedsRebuild = true;
     }
 
     void RigidBody2D::setFriction(float friction)
