@@ -81,6 +81,8 @@ struct StepProfile
     float broadphase;
     float narrowphase;
     float solveVelocity;
+    float solveVelocityJoints;
+    float solveVelocityContacts;
     float solvePosition;
     float integrate;
 };
@@ -269,6 +271,8 @@ class World
     float mNarrowMs;
     ct::HashMap<uint64_t, StoredImpulses> mImpulseMap;
     ct::HashMap<uint64_t, ContactState> mContactStates;
+    ct::Vector<ContactInfo *> mDynamicContacts;
+    ct::Vector<ContactInfo *> mStaticContacts;
     ct::Vector<uint64_t> mStaleKeys;
     uint32_t mStepStamp;
     uint32_t mNextBodyId;

@@ -64,6 +64,7 @@ namespace k2d
         RenderQueue mRenderQueue;
         uint64_t mNextId;
         std::size_t mObjectCount;
+        bool mComponentListsDirty;
         // Flat event lists keep the update/render hot paths independent from
         // the number of component types an object does not have.
         ct::Vector<Component *> mAllComponents;

@@ -146,7 +146,7 @@ class PhysicsRenderDebugDraw final : public kx::DebugDraw
 } // namespace
 
 PhysicsWorld2D::PhysicsWorld2D(const Math::Vec2& gravity)
-    : mWorld(gravity), mBodies(), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCallback(nullptr),
+    : mWorld(gravity), mBodies(), mPending(), mDirtyBodies(), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCallback(nullptr),
       mCallbackUser(nullptr)
 {
 }
@@ -218,6 +218,7 @@ void PhysicsWorld2D::clear()
             mPending[i]->mPendingIndex = RigidBody2D::InvalidWorldIndex;
         }
     mPending.clear();
+    mDirtyBodies.clear();
     mAccumulator = 0.0f;
 }
 
@@ -259,9 +260,22 @@ void PhysicsWorld2D::detach(RigidBody2D& rigidBody)
         }
         body.mBodyIndex = RigidBody2D::InvalidWorldIndex;
     };
+    const auto removeDirty = [&](RigidBody2D& body)
+    {
+        const size_t index = body.mDirtyIndex;
+        if (index < mDirtyBodies.size() && mDirtyBodies[index] == &body)
+        {
+            RigidBody2D *moved = mDirtyBodies.back();
+            mDirtyBodies[index] = moved;
+            moved->mDirtyIndex = index;
+            mDirtyBodies.pop_back();
+        }
+        body.mDirtyIndex = RigidBody2D::InvalidWorldIndex;
+    };
 
     removePending(rigidBody);
     removeBody(rigidBody);
+    removeDirty(rigidBody);
 
     if (rigidBody.mBody)
         mWorld.Destroy(rigidBody.mBody);
@@ -271,7 +285,14 @@ void PhysicsWorld2D::detach(RigidBody2D& rigidBody)
 
 bool PhysicsWorld2D::markDirty(RigidBody2D& rigidBody)
 {
+    if (rigidBody.mWorld != this)
+        return false;
     rigidBody.mNeedsRebuild = true;
+    if (rigidBody.mBody && rigidBody.mDirtyIndex == RigidBody2D::InvalidWorldIndex)
+    {
+        rigidBody.mDirtyIndex = mDirtyBodies.size();
+        mDirtyBodies.push_back(&rigidBody);
+    }
     return rigidBody.mBody != nullptr;
 }
 
@@ -320,12 +341,14 @@ bool PhysicsWorld2D::needsRebuild(const RigidBody2D& rigidBody) const
 
 void PhysicsWorld2D::rebuildChanged()
 {
-    for (size_t i = 0; i < mBodies.size(); ++i)
+    for (size_t i = 0; i < mDirtyBodies.size(); ++i)
     {
-        RigidBody2D* rigidBody = mBodies[i];
+        RigidBody2D* rigidBody = mDirtyBodies[i];
+        rigidBody->mDirtyIndex = RigidBody2D::InvalidWorldIndex;
         if (rigidBody && rigidBody->mBody && needsRebuild(*rigidBody))
             rebuildBody(*rigidBody);
     }
+    mDirtyBodies.clear();
 }
 
 void PhysicsWorld2D::rebuildBody(RigidBody2D& rigidBody)
@@ -492,7 +515,7 @@ void PhysicsWorld2D::pushTransforms()
         RigidBody2D* rigidBody = mBodies[i];
         if (!rigidBody || !rigidBody->mBody)
             continue;
-        GameObject* object = objectFor(rigidBody->mBody);
+        GameObject* object = rigidBody->owner();
         if (!object)
             continue;
 
@@ -514,7 +537,7 @@ void PhysicsWorld2D::pullTransforms()
         if (rigidBody->bodyType() == kx::BodyType::Static)
             continue;
 
-        GameObject* object = objectFor(rigidBody->mBody);
+        GameObject* object = rigidBody->owner();
         if (!object)
             continue;
 
