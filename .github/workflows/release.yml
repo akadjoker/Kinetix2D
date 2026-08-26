@@ -62,7 +62,7 @@ jobs:
         run: >-
           cmake --build build --config Release
           --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver k2d_kpak_tests
-          k2d_zen_tests k2d_zen_class_tests k2d_zen_props_tests
+          k2d_zen_tests k2d_zen_class_tests k2d_zen_bytecode_tests k2d_zen_props_tests
           k2d_zen_prefab_tests k2d_zen_physics_tests --parallel
 
       - name: Run Zen VM tests
