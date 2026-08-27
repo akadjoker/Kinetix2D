@@ -7,11 +7,6 @@
 #include <cmath>
 #include <ctime>
 
-/* MSVC compatibility: __builtin_expect is GCC/Clang only */
-#ifdef _MSC_VER
-#define __builtin_expect(expr, val) (expr)
-#endif
-
 namespace zen
 {
 
