@@ -15,6 +15,7 @@
 #include "panels/ScriptsPanel.h"
 #include "panels/SettingsPanel.h"
 #include "panels/SceneViewportPanel.h"
+#include "panels/SkeletonPanel.h"
 #include "panels/ScriptEditorPanel.h"
 #include "panels/SpriteEditorPanel.h"
 #include "panels/TileMapPanel.h"
@@ -336,6 +337,7 @@ void EditorApplication::createPanels()
     mImageEditor = imageEditor.get();
     mPanels.push_back(ct::detail::move(imageEditor));
     mPanels.push_back(ct::make_unique<AnimatorPanel>(*this));
+    mPanels.push_back(ct::make_unique<SkeletonPanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));

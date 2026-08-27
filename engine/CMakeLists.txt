@@ -119,6 +119,7 @@ add_library(k2d STATIC
     src/Batch.cpp
     src/CameraComponent.cpp
     src/Animation2D.cpp
+    src/Bone2D.cpp
     src/Material2D.cpp
     src/CanvasRenderer.cpp
     src/RenderState.cpp
@@ -132,6 +133,7 @@ add_library(k2d STATIC
     src/LightOccluder2D.cpp
     src/Scene.cpp
     src/SceneManager.cpp
+    src/Skeleton2D.cpp
     src/SpriteComponent.cpp
     src/SpriteBatch.cpp
     src/SpriteAtlas.cpp

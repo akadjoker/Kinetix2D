@@ -86,6 +86,9 @@ target_link_libraries(kx_review_fixes_tests PRIVATE kx)
 add_executable(k2d_animation_tests k2d_animation_tests.cpp)
 target_link_libraries(k2d_animation_tests PRIVATE k2d)
 
+add_executable(k2d_skeleton_tests k2d_skeleton_tests.cpp)
+target_link_libraries(k2d_skeleton_tests PRIVATE k2d)
+
 add_executable(k2d_zen_tests k2d_zen_tests.cpp)
 target_link_libraries(k2d_zen_tests PRIVATE k2d_zen)
 target_compile_features(k2d_zen_tests PRIVATE cxx_std_17)
@@ -157,6 +160,7 @@ set(K2D_TEST_TARGETS
     k2d_kpak_tests
     k2d_material_tests
     k2d_animation_tests
+    k2d_skeleton_tests
     k2d_pixmap_tests
     k2d_astar_tests
     k2d_navigation_tests

@@ -42,6 +42,8 @@ enum class ComponentType : uint8_t
     MotionTween,
     MotionStreak,
     CharacterBody,
+    Skeleton,
+    Bone,
     Count
 };
 
