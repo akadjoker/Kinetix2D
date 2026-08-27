@@ -20,9 +20,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if defined(_WIN32)
+#include <direct.h>
+#include <windows.h>
+#define getcwd _getcwd
+#define chdir _chdir
+#else
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#endif
 
 namespace zen
 {
@@ -65,14 +72,37 @@ static int nat_listdir(VM* vm, Value* args, int nargs)
         return -1;
     }
     const char* path = as_cstring(args[0]);
+#if defined(_WIN32)
+    char pattern[4096];
+    snprintf(pattern, sizeof(pattern), "%s\\*", path);
+    WIN32_FIND_DATAA find_data;
+    HANDLE handle = FindFirstFileA(pattern, &find_data);
+    if (handle == INVALID_HANDLE_VALUE)
+    {
+        vm->runtime_error("os.listdir: cannot open '%s'", path);
+        return -1;
+    }
+#else
     DIR* d = opendir(path);
     if (!d)
     {
         vm->runtime_error("os.listdir: cannot open '%s'", path);
         return -1;
     }
+#endif
     GC* gc = &vm->get_gc();
     ObjArray* arr = new_array(gc);
+#if defined(_WIN32)
+    do
+    {
+        const char* name = find_data.cFileName;
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            continue;
+        ObjString* s = vm->make_string(name);
+        array_push(gc, arr, val_obj((Obj*)s));
+    } while (FindNextFileA(handle, &find_data));
+    FindClose(handle);
+#else
     struct dirent* ent;
     while ((ent = readdir(d)) != nullptr)
     {
@@ -82,6 +112,7 @@ static int nat_listdir(VM* vm, Value* args, int nargs)
         array_push(gc, arr, val_obj((Obj*)s));
     }
     closedir(d);
+#endif
     args[0] = val_obj((Obj*)arr);
     return 1;
 }

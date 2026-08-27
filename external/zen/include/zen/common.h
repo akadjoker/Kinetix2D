@@ -18,6 +18,9 @@
 #ifndef __builtin_unreachable
 #define __builtin_unreachable() __assume(0)
 #endif
+#ifndef __builtin_prefetch
+#define __builtin_prefetch(address, read_write, locality) ((void)0)
+#endif
 #endif
 
 namespace zen
