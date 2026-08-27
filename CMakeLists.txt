@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING
+        "Use the static MSVC runtime so release binaries do not require the VC++ Redistributable")
+endif()
+
 set(K2D_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin" CACHE PATH
     "Directory where Kinetix2D executables are written")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${K2D_RUNTIME_OUTPUT_DIRECTORY}")
