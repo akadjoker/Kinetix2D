@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <ct/string.hpp>
 
 namespace k2d
 {
@@ -27,8 +27,8 @@ namespace k2d
         const char *currentPath() const { return CurrentPath(); }
 
     private:
-        std::string mCurrentPath;
-        std::string mRequestedPath;
+        ct::String mCurrentPath;
+        ct::String mRequestedPath;
     };
 
     SceneManager &GetSceneManager();

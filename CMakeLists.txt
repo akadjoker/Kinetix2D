@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING
+        "Use the static MSVC runtime so release binaries do not require the VC++ Redistributable")
+endif()
+
 set(K2D_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin" CACHE PATH
     "Directory where Kinetix2D executables are written")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${K2D_RUNTIME_OUTPUT_DIRECTORY}")
@@ -14,6 +19,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(K2D_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(K2D_STATIC_MINGW_RUNTIME "Link MinGW GCC runtimes into Kinetix executables" ON)
 if(K2D_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
@@ -23,12 +29,20 @@ if(K2D_ENABLE_SANITIZERS)
     endif()
 endif()
 
+# MinGW's GCC runtime is otherwise a DLL dependency (libgcc_s_seh-1.dll),
+# which makes a copied runner fail on a clean Windows machine. SDL and other
+# third-party DLLs remain app-local and are copied by the release workflow.
+if(MINGW AND K2D_STATIC_MINGW_RUNTIME)
+    add_link_options(-static-libgcc -static-libstdc++)
+endif()
+
 
 find_package(SDL2 CONFIG REQUIRED)
 set(MATHC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MATHC_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 set(MATHC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/math)
+add_subdirectory(external/vendor/miniz)
 
 add_subdirectory(external/zen)
 
@@ -42,7 +56,9 @@ add_subdirectory(runner)
 add_subdirectory(editor)
 
 include(GNUInstallDirs)
-install(TARGETS k2d_editor k2d_runner k2d_pack RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(PROGRAMS tools/export_web.sh tools/export_web.py DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES tools/export_web.bat DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY assets DESTINATION .)
 install(FILES README.md DESTINATION .)
 

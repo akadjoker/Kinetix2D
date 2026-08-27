@@ -36,6 +36,7 @@ add_executable(k2d_editor
     src/panels/SettingsPanel.cpp
     src/panels/SpriteEditorPanel.cpp
     src/panels/SceneViewportPanel.cpp
+    src/panels/SkeletonPanel.cpp
     src/panels/ScriptEditorPanel.cpp
     src/panels/TileMapPanel.cpp
 )

@@ -11,6 +11,18 @@
 #include <cstring>
 #include <cstdlib>
 
+#ifdef _MSC_VER
+#ifndef __builtin_expect
+#define __builtin_expect(expr, value) (expr)
+#endif
+#ifndef __builtin_unreachable
+#define __builtin_unreachable() __assume(0)
+#endif
+#ifndef __builtin_prefetch
+#define __builtin_prefetch(address, read_write, locality) ((void)0)
+#endif
+#endif
+
 namespace zen
 {
 

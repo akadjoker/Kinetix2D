@@ -144,9 +144,14 @@ namespace k2d
         const Math::Vec2 &scale() const;
         void setPosition(const Math::Vec2 &position);
         void setRotationDegrees(float degrees);
+        void setPositionAndRotation(const Math::Vec2 &position, float rotationDegrees);
         void setScale(const Math::Vec2 &scale);
         void translate(const Math::Vec2 &offset);
         void rotate(float degrees);
+        void turn(float degrees,float speed);
+        void moveTo(const Math::Vec2 &position, float rotationDegrees);
+        void xadvance(float speed,float angle);
+        void advance(float speed);
         const Matrix2D &localTransform() const;
         const Matrix2D &globalTransform() const;
         Math::Vec2 globalPosition() const;

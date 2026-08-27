@@ -158,6 +158,24 @@ namespace zen
         consume(TOK_IDENTIFIER, "Expected function name.");
         Token name = previous_;
 
+        /* `def f<T, U>(...)` receives T and U as hidden leading runtime
+        ** parameters.  They may then be used or forwarded inside the body. */
+        static const int kMaxGenericParams = 32;
+        Token generic_params[kMaxGenericParams];
+        int generic_count = 0;
+        if (match(TOK_LT))
+        {
+            do
+            {
+                consume(TOK_IDENTIFIER, "Expected generic parameter name.");
+                if (generic_count >= kMaxGenericParams)
+                    error("Too many generic parameters.");
+                else
+                    generic_params[generic_count++] = previous_;
+            } while (match(TOK_COMMA));
+            consume(TOK_GT, "Expected '>' after generic parameters.");
+        }
+
         CompilerState fn_state;
         fn_state.parent = state_;
         fn_state.function = new_func(gc_);
@@ -195,6 +213,11 @@ namespace zen
         /* Parameters */
         consume(TOK_LPAREN, "Expected '(' after function name.");
         int arity = 0;
+        for (int gi = 0; gi < generic_count; gi++)
+        {
+            add_local(generic_params[gi]);
+            arity++;
+        }
         bool is_vararg = false;
         static const int kMaxDefaults = 32;
         Value default_vals[kMaxDefaults];
@@ -482,6 +505,24 @@ namespace zen
                 consume(TOK_IDENTIFIER, "Expected method name.");
                 Token method_name = previous_;
 
+                /* Generic parameters are hidden leading method arguments,
+                ** after the implicit `self` receiver. */
+                static const int kMaxGenericParams = 32;
+                Token generic_params[kMaxGenericParams];
+                int generic_count = 0;
+                if (match(TOK_LT))
+                {
+                    do
+                    {
+                        consume(TOK_IDENTIFIER, "Expected generic parameter name.");
+                        if (generic_count >= kMaxGenericParams)
+                            error("Too many generic parameters.");
+                        else
+                            generic_params[generic_count++] = previous_;
+                    } while (match(TOK_COMMA));
+                    consume(TOK_GT, "Expected '>' after generic parameters.");
+                }
+
                 CompilerState fn_state;
                 fn_state.parent = state_;
                 fn_state.function = new_func(gc_);
@@ -517,6 +558,11 @@ namespace zen
                 /* Parameters */
                 consume(TOK_LPAREN, "Expected '(' after method name.");
                 int arity = 0;
+                for (int gi = 0; gi < generic_count; gi++)
+                {
+                    add_local(generic_params[gi]);
+                    arity++;
+                }
                 /* Skip 'self' if user wrote it explicitly as first param */
                 if (check(TOK_SELF))
                 {

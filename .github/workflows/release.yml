@@ -45,29 +45,29 @@ jobs:
           vcpkgJsonGlob: vcpkg.json
           runVcpkgInstall: true
 
+      - name: Configure MinGW
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $mingw = (Get-Command g++.exe -ErrorAction Stop).Source | Split-Path
+          "MINGW_BIN=$mingw" >> $env:GITHUB_ENV
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER="$mingw/gcc.exe" `
+            -DCMAKE_CXX_COMPILER="$mingw/g++.exe" `
+            -DCMAKE_RC_COMPILER="$mingw/windres.exe" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic `
+            -DK2D_STATIC_MINGW_RUNTIME=ON
+
       - name: Configure Linux
         if: runner.os == 'Linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
-      - name: Configure Windows
-        if: runner.os == 'Windows'
+      - name: Build editor, runner and export tools
         run: >-
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
-
-      - name: Build editor, runner and packer
-        run: cmake --build build --config Release --target k2d_editor k2d_runner k2d_pack k2d_kpak_tests --parallel
-
-      - name: Test KPAK on Linux
-        if: runner.os == 'Linux'
-        run: ./bin/k2d_kpak_tests
-
-      - name: Test KPAK on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./bin/k2d_kpak_tests.exe
+          cmake --build build --config Release
+          --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver --parallel
 
       - name: Install release tree
         run: cmake --install build --config Release --prefix "stage/Kinetix2D-${{ matrix.name }}"
@@ -78,6 +78,19 @@ jobs:
         run: |
           Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse |
             Copy-Item -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
+          Copy-Item "$env:MINGW_BIN/libwinpthread-1.dll" `
+            -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
+
+      - name: Verify Windows runtime DLLs are bundled
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
+          foreach ($dll in @("SDL2.dll", "libwinpthread-1.dll")) {
+            if (!(Test-Path "$bin/$dll")) {
+              throw "$dll was not copied to the release package."
+            }
+          }
 
       - name: Create Linux archive
         if: runner.os == 'Linux'

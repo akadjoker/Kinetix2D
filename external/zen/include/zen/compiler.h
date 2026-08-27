@@ -222,6 +222,7 @@ namespace zen
         int logical_or(int left, int dest);
         int ternary_expr(int true_val, int dest);
         int call_expr(int callee, int dest);
+        int generic_call_expr(int callee, int dest);
         int dot_expr(int obj, int dest, bool can_assign);
         int safe_dot_expr(int obj, int dest);
         int null_coalesce(int left, int dest);
@@ -235,7 +236,9 @@ namespace zen
         int super_expr(int dest);
 
         /* --- Argument list --- */
-        int argument_list(int base);
+        int argument_list(int base, int initial_nargs = 0);
+        int generic_argument_list(int base);
+        bool generic_call_ahead();
 
         /* --- Name resolution (the core of compile-time work) --- */
         int resolve_local(CompilerState *state, const Token &name);

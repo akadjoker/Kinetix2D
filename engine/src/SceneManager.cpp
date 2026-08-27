@@ -71,7 +71,7 @@ GameObject *SceneManager::ApplyRequest(Scene &scene, Assets &assets)
 {
     if (mRequestedPath.empty())
         return nullptr;
-    const std::string path = mRequestedPath;
+    const ct::String path = mRequestedPath;
     mRequestedPath.clear();
     return Load(scene, assets, path.c_str());
 }

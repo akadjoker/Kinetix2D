@@ -5,6 +5,8 @@
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 
+#include "k2d_test_paths.h"
+
 #include <cmath>
 #include <cstdio>
 
@@ -13,13 +15,15 @@ static bool nearEqual(double a, double b, double tolerance = 0.001)
     return std::fabs(a - b) < tolerance;
 }
 
-static const char *kBallScript = "/tmp/k2d_zen_ball.py";
-static const char *kThrowerScript = "/tmp/k2d_zen_thrower.py";
-static const char *kBallPrefab = "/tmp/k2d_zen_ball.k2dprefab";
+static const std::string kBallScript = k2d_tests::tempPath("k2d_zen_ball.py");
+static const std::string kThrowerScript = k2d_tests::tempPath("k2d_zen_thrower.py");
+static const std::string kBallPrefab = k2d_tests::tempPath("k2d_zen_ball.k2dprefab");
 
-static void writeScripts()
+static bool writeScripts()
 {
-    FILE *f = std::fopen(kBallScript, "w");
+    FILE *f = std::fopen(kBallScript.c_str(), "w");
+    if (!f)
+        return false;
     std::fputs("class Ball:\n"
                "    def __init__(self, node):\n"
                "        self.node = node\n"
@@ -31,9 +35,12 @@ static void writeScripts()
                "    def on_update(self, dt):\n"
                "        self.node.translate(self.speed * dt, 0)\n",
                f);
-    std::fclose(f);
+    if (std::fclose(f) != 0)
+        return false;
 
-    f = std::fopen(kThrowerScript, "w");
+    f = std::fopen(kThrowerScript.c_str(), "w");
+    if (!f)
+        return false;
     std::fprintf(f,
                  "class Thrower:\n"
                  "    def __init__(self, node):\n"
@@ -44,26 +51,27 @@ static void writeScripts()
                  "        if self.thrown == False:\n"
                  "            self.thrown = True\n"
                  "            self.node.spawn(\"%s\", 50, 70)\n",
-                 kBallPrefab);
-    std::fclose(f);
+                 kBallPrefab.c_str());
+    return std::fclose(f) == 0;
 }
 
-static void writeBallPrefab(double speedOverride)
+static bool writeBallPrefab(double speedOverride)
 {
     k2d::Scene scene;
     k2d::GameObject *ball = scene.createObject("ball");
     k2d::ZenScriptComponent *script = ball->addComponent<k2d::ZenScriptComponent>();
-    script->loadFile(kBallScript);
+    if (!script->loadFile(kBallScript.c_str()))
+        return false;
     script->setNumberOverride("speed", speedOverride, true);
 
     k2d::Prefab prefab;
-    prefab.SaveToFile(kBallPrefab, *ball);
+    return prefab.SaveToFile(kBallPrefab.c_str(), *ball);
 }
 
 static bool testPrefabInstantiateCarriesTheScript()
 {
-    writeScripts();
-    writeBallPrefab(400.0);
+    if (!writeScripts() || !writeBallPrefab(400.0))
+        return false;
 
     k2d::ZenRuntime::instance().reset();
     k2d::ZenBlackboard::clear();
@@ -71,7 +79,7 @@ static bool testPrefabInstantiateCarriesTheScript()
     const std::size_t compilesBefore = k2d::ZenRuntime::instance().compileCount();
 
     k2d::Prefab prefab;
-    bool ok = prefab.Load(kBallPrefab);
+    bool ok = prefab.Load(kBallPrefab.c_str());
 
     k2d::Scene scene;
     k2d::GameObject *first = prefab.Instantiate(scene);
@@ -103,8 +111,8 @@ static bool testPrefabInstantiateCarriesTheScript()
 
 static bool testScriptSpawnsPrefabWithItsOwnScript()
 {
-    writeScripts();
-    writeBallPrefab(300.0);
+    if (!writeScripts() || !writeBallPrefab(300.0))
+        return false;
 
     k2d::ZenRuntime::instance().reset();
     k2d::ZenBlackboard::clear();
@@ -112,7 +120,7 @@ static bool testScriptSpawnsPrefabWithItsOwnScript()
     k2d::Scene scene;
     k2d::GameObject *thrower = scene.createObject("thrower");
     k2d::ZenScriptComponent *script = thrower->addComponent<k2d::ZenScriptComponent>();
-    bool ok = script->loadFile(kThrowerScript);
+    bool ok = script->loadFile(kThrowerScript.c_str());
 
     scene.update(0.5f);
 
@@ -138,8 +146,8 @@ static bool testScriptSpawnsPrefabWithItsOwnScript()
 
 static bool testSpawnedPrefabsAreIndependent()
 {
-    writeScripts();
-    writeBallPrefab(200.0);
+    if (!writeScripts() || !writeBallPrefab(200.0))
+        return false;
 
     k2d::ZenRuntime::instance().reset();
     k2d::ZenBlackboard::clear();
@@ -147,7 +155,7 @@ static bool testSpawnedPrefabsAreIndependent()
     const std::size_t compilesBefore = k2d::ZenRuntime::instance().compileCount();
 
     k2d::Prefab prefab;
-    bool ok = prefab.Load(kBallPrefab);
+    bool ok = prefab.Load(kBallPrefab.c_str());
 
     k2d::Scene scene;
     for (int i = 0; i < 50; ++i)
@@ -185,9 +193,9 @@ int main()
     const bool spawned = testScriptSpawnsPrefabWithItsOwnScript();
     const bool independent = testSpawnedPrefabsAreIndependent();
 
-    std::remove(kBallScript);
-    std::remove(kThrowerScript);
-    std::remove(kBallPrefab);
+    std::remove(kBallScript.c_str());
+    std::remove(kThrowerScript.c_str());
+    std::remove(kBallPrefab.c_str());
 
     std::printf("zen prefab: instantiate=%s spawn_from_script=%s independent=%s\n",
                 instantiate ? "pass" : "fail", spawned ? "pass" : "fail",

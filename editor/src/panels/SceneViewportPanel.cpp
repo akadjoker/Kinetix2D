@@ -5,6 +5,7 @@
 #include "widgets/EditorToolbar.h"
 
 #include <k2d/Animation2D.h>
+#include <k2d/Bone2D.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CircleCollider2D.h>
@@ -17,6 +18,7 @@
 #include <k2d/ParticleComponent.h>
 #include <k2d/Prefab.h>
 #include <k2d/Scene.h>
+#include <k2d/Skeleton2D.h>
 #include <IconsMaterialDesignIcons.h>
 
 #include <cstdint>
@@ -52,6 +54,14 @@ constexpr float kGizmoAxisLength = 60.0f;
 constexpr float kGizmoHitRadius = 8.0f;
 constexpr float kGizmoCenterRadius = 8.0f;
 constexpr float kGizmoRingRadius = 46.0f;
+
+Skeleton2D *skeletonFor(GameObject *object)
+{
+    for (GameObject *current = object; current; current = current->parent())
+        if (Skeleton2D *skeleton = current->getComponent<Skeleton2D>())
+            return skeleton;
+    return nullptr;
+}
 } // namespace
 
 SceneViewportPanel::SceneViewportPanel(EditorApplication& application) : EditorPanel("Scene", application)
@@ -202,6 +212,41 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2& origin)
         }
     }
     ImGui::EndDragDropTarget();
+}
+
+void SceneViewportPanel::recordBoneKey(GameObject &boneObject)
+{
+    Bone2D *bone = boneObject.getComponent<Bone2D>();
+    Skeleton2D *skeleton = skeletonFor(&boneObject);
+    if (!bone || !skeleton || !skeleton->currentAnimation()[0])
+        return;
+    BoneAnimationClip *clip = skeleton->getClip(skeleton->currentAnimation());
+    if (!clip)
+        return;
+
+    const float time = skeleton->currentTime();
+    const float value = boneObject.rotationDegrees() - bone->restRotationDegrees();
+    for (BoneTrack &track : clip->tracks)
+    {
+        if (track.boneName != boneObject.name() || track.property != BoneTrack::Rotation)
+            continue;
+        for (BoneKeyframe &keyframe : track.keyframes)
+        {
+            if (fabsf(keyframe.time - time) < 0.0001f)
+            {
+                keyframe.value = value;
+                return;
+            }
+        }
+        track.addKeyframe(time, value);
+        return;
+    }
+
+    BoneTrack track;
+    track.boneName = boneObject.name();
+    track.property = BoneTrack::Rotation;
+    track.addKeyframe(time, value);
+    clip->tracks.push_back(track);
 }
 
 void SceneViewportPanel::drawGrid(ImDrawList& drawList, const ImVec2& min, const ImVec2& max) const
@@ -534,6 +579,13 @@ void SceneViewportPanel::drawContents()
             float bestDistance = 14.0f;
             pickObject(app().scene().root(), ImGui::GetIO().MousePos, origin, best, bestDistance);
             app().selection().select(best);
+            mDraggedBone = best ? best->getComponent<Bone2D>() : nullptr;
+            mDraggedBoneMoved = false;
+            if (mDraggedBone)
+            {
+                mDraggedBoneStartRotation = best->rotationDegrees();
+                app().beginTransaction("Pose Bone", app().beginChange());
+            }
             if (best)
             {
                 ct::String message("Selected in Scene: ");
@@ -583,8 +635,33 @@ void SceneViewportPanel::drawContents()
         }
     }
 
+    if (hovered && mDraggedBone && mGizmoAxis == -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        GameObject* boneObject = mDraggedBone->owner();
+        if (boneObject)
+        {
+            const Math::Vec2 bonePosition = boneObject->globalPosition();
+            const Math::Vec2 cursor = screenToWorld(ImGui::GetIO().MousePos, origin);
+            const float angle = atan2f(cursor.y - bonePosition.y, cursor.x - bonePosition.x) * 57.295779513f;
+            boneObject->setRotationDegrees(angle);
+            mDraggedBoneMoved = fabsf(angle - mDraggedBoneStartRotation) > 0.01f;
+        }
+    }
+
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
     {
+        if (mDraggedBone)
+        {
+            if (mDraggedBoneMoved)
+            {
+                GameObject* boneObject = mDraggedBone->owner();
+                if (boneObject)
+                    recordBoneKey(*boneObject);
+            }
+            app().commitTransaction();
+            mDraggedBone = nullptr;
+            mDraggedBoneMoved = false;
+        }
         if (mGizmoAxis != -1)
             app().commitTransaction();
         mGizmoAxis = -1;

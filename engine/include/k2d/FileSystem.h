@@ -4,7 +4,6 @@
 #include <ct/vector.hpp>
 
 #include <memory>
-#include <vector>
 
 namespace k2d
 {
@@ -57,7 +56,7 @@ class FileSystem
 
     ct::Vector<ct::String> mSearchPaths;
     ct::String mBasePath;
-    std::vector<std::unique_ptr<KPak>> mPacks;
+    ct::Vector<std::unique_ptr<KPak>> mPacks;
 };
 
 } // namespace k2d

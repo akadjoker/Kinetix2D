@@ -154,9 +154,19 @@ script->declaredPropertyCount(); // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_sprite()`, `get_animation()`, `get_camera()`, `get_particle()`, `get_body()`, `get_button()`, `get_checkbox()`, `get_slider()` |
+| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, and `MotionStreak`; plus the legacy component getters |
 
 Component handles return `None` when the component is missing.
+
+Every component handle provides `is_active()` and `set_active(value)`. Components with
+component-specific script APIs expose those methods on the handle as well; for example,
+`CharacterBody` provides velocity and slide-state accessors, `Collider` provides offset,
+sensor and filter accessors, and `Panel`/`Label` provide their UI setters and getters.
+
+`get_component<T>()` is the generic form of the component accessors. `T` must be one of the
+component handle classes listed above. A node owns its transform directly, so use the node's
+transform methods (`get_position()`, `set_position()`, and so on) instead of
+`get_component<Transform>()`.
 
 - **Sprite**: `set_color(r, g, b, a)`, `set_flip(x, y)`, `set_size(w, h)`,
   `set_water_enabled(b)`, `set_water_flow(ax, ay, bx, by)`, `set_water_strength(value)`.
@@ -167,7 +177,7 @@ Component handles return `None` when the component is missing.
   `clear_trauma()`, `start_zoom_punch(amount, duration)`, `stop_zoom_punch()`,
   `is_shaking()`. Shake amplitudes are screen pixels and never alter the camera's saved offset.
 - **Particle**: `start()`, `stop()`, `reset()`, `burst(count)`, `is_playing()`
-- **Body**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
+- **RigidBody**: `get_velocity()`, `set_velocity(x, y)`, `get_angular_velocity()`,
   `set_angular_velocity(deg)`, `apply_force(x, y)`, `apply_impulse(x, y)`, `apply_torque(t)`,
   `get_gravity_scale()`, `set_gravity_scale(s)`, `set_type("static"/"kinematic"/"dynamic")`,
   `is_awake()`, `wake()`
@@ -403,6 +413,20 @@ The runner maps `move_forward`, `move_backward`, `turn_left`,
 `turn_right`, `primary`, and `secondary` to keyboard keys and their corresponding virtual-pad
 buttons by default. C++ games can add or replace bindings through `GetInputActions().Bind()`.
 
+For explicit Web/mobile buttons, a script can register only the controls its game needs:
+
+```python
+def on_start(self):
+    virtual_key_add(KEY_LEFT, 24, 620, 72, 72)
+    virtual_key_add(KEY_RIGHT, 108, 620, 72, 72)
+    virtual_key_add(KEY_SPACE, 1160, 620, 88, 72)
+```
+
+They feed the same `key_down`, `key_pressed`, and input-action APIs as a physical key. Use
+`virtual_keys_clear()`, `virtual_keys_set_visible(enabled)`, and `virtual_keys_visible()` to manage
+them. The compatibility names `input_add_virtual_key`, `input_clear_virtual_keys`,
+`input_set_virtual_keys_visible`, and `input_get_virtual_keys_visible` are also available.
+
 Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, `wheel_y()`.
 `get_fps()` returns the engine's rolling half-second FPS measurement; it is stable enough for HUDs,
 unlike calculating `1 / dt` every frame.
@@ -419,6 +443,30 @@ For world-space gameplay, use `wx, wy = mouse_world_position()` or
 `load_scene(path)` schedules a scene replacement after the current frame; it is safe to call from
 an input callback or `on_update`. The scene is loaded using the normal asset paths and its physics
 world is rebuilt before the next update.
+
+## Bytecode for exports
+
+Development keeps scripts as `.py`, so source reload remains available. Release exporters can compile
+a script to Zen bytecode with:
+
+```sh
+k2d_scriptc assets/scripts/player.py exported/scripts/player.zbc
+```
+
+`ZenScriptComponent::loadFile()` recognises the `ZENBC` header and runs `.zbc` directly; it never
+falls back to source. Bytecode requires the same Zen VM version and Kinetix native bindings that
+generated it, so a Web export must be rebuilt after either changes. The Web exporter will compile
+and preload the project scripts in a deterministic order before loading its first scene.
+
+`tools/export_web.sh <project> --scene scenes/level_01.k2dscene` exports that scene explicitly;
+without `--scene`, it uses `startupScene`. The editor's **Project → Export Web** and **Run Web**
+actions automatically use the currently open, saved scene when it belongs to the project.
+The same export pipeline runs on Windows through `tools\\export_web.bat`; activate Emscripten first
+(`emsdk_env.bat`) and use `K2D_SOURCE_ROOT` when the source tree is not beside the launcher.
+
+Use `k2d_webserver <export-directory> [port]` to test an exported build locally. It binds only to
+`127.0.0.1`, sets the WebAssembly MIME type, and serves static export files without exposing paths
+outside the selected directory.
 
 ## Notes
 

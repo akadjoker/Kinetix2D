@@ -155,7 +155,7 @@ namespace zen
         int sent = 0;
         while (sent < len)
         {
-            ssize_t n = ::send(fd, data + sent, (size_t)(len - sent), MSG_NOSIGNAL);
+            int n = ::send(fd, data + sent, (size_t)(len - sent), MSG_NOSIGNAL);
             if (n <= 0)
                 return false;
             sent += (int)n;
@@ -185,7 +185,7 @@ namespace zen
                     break;
                 buf = nb;
             }
-            ssize_t n = ::recv(fd, buf + len, (size_t)(cap - len), 0);
+            int n = ::recv(fd, buf + len, (size_t)(cap - len), 0);
             if (n <= 0)
                 break;
             len += (int)n;
@@ -477,7 +477,7 @@ namespace zen
 
         for (;;)
         {
-            ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
+            int n = ::recv(fd, buf, sizeof(buf), 0);
             if (n <= 0)
                 break;
 

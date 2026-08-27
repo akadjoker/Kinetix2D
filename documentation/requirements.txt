@@ -1,0 +1,5 @@
+# Dependencies for building the Kinetix2D documentation.
+# Install with:  pip install -r documentation/requirements.txt
+# Build with:    sphinx-build -b html documentation documentation/_build/html
+sphinx
+furo

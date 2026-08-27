@@ -232,6 +232,7 @@ namespace kx
 
         const Shape *Shapes() const { return mShapes; }
         int ShapeCount() const { return mShapeCount; }
+        const AABB &TightAABB() const { return mTightAABB; }
 
         void SetFilter(uint16_t category, uint16_t mask, int16_t group = 0)
         {
@@ -306,6 +307,7 @@ namespace kx
 
         int32_t mProxyId;
         Math::Vec2 mProxyPosition;
+        AABB mTightAABB;
 
         Filter mDefaultFilter;
         Shape mShapes[kMaxShapes];

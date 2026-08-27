@@ -240,10 +240,47 @@ namespace
     static bool write_class(BytecodeWriter &w, ObjClass *klass, bool strip_debug, BytecodeStats *stats, char *err, int err_len);
     static bool write_value(BytecodeWriter &w, Value value, bool strip_debug, BytecodeStats *stats, char *err, int err_len);
 
+    static bool contains_native_value(Value value)
+    {
+        return value.type == VAL_OBJ && value.as.obj && value.as.obj->type == OBJ_NATIVE;
+    }
+
+    /* Native classes are recreated by VM::resolve_native_globals() while a
+       bytecode image is loaded.  Their methods and inherited vtable entries
+       contain C++ callbacks, which cannot be serialized. */
+    static bool can_write_global_class(ObjClass *klass)
+    {
+        if (!klass || klass->native_ctor || klass->native_dtor)
+            return false;
+        if (klass->parent && !can_write_global_class(klass->parent))
+            return false;
+
+        if (klass->methods)
+        {
+            for (int32_t bucket = 0; bucket < klass->methods->bucket_count; ++bucket)
+            {
+                for (int32_t index = klass->methods->buckets[bucket]; index != -1;
+                     index = klass->methods->nodes[index].next)
+                {
+                    if (contains_native_value(klass->methods->nodes[index].value))
+                        return false;
+                }
+            }
+        }
+
+        for (int32_t i = 0; i < klass->vtable_size; ++i)
+            if (contains_native_value(klass->vtable[i]))
+                return false;
+        for (int32_t i = 0; i < kOperatorSlotCount; ++i)
+            if (contains_native_value(klass->operator_slots[i]))
+                return false;
+        return true;
+    }
+
     static bool should_write_global_value(Value value)
     {
-        return value.type == VAL_OBJ && value.as.obj &&
-               (value.as.obj->type == OBJ_CLASS );
+        return value.type == VAL_OBJ && value.as.obj && value.as.obj->type == OBJ_CLASS &&
+               can_write_global_class((ObjClass *)value.as.obj);
     }
 
     static bool write_global_names(BytecodeWriter &w, VM *vm, bool strip_debug, BytecodeStats *stats, char *err, int err_len)

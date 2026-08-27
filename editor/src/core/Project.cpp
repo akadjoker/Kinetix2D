@@ -13,16 +13,35 @@ namespace k2d::editor
 namespace
 {
 constexpr const char *kProjectFileName = "project.k2dproj";
+
+bool isProjectDirectoryName(const char *name)
+{
+    if (!name || !name[0])
+        return false;
+    if ((name[0] == '.' && name[1] == '\0') || (name[0] == '.' && name[1] == '.' && name[2] == '\0'))
+        return false;
+    for (const char *character = name; *character; ++character)
+        if (*character == '/' || *character == '\\')
+            return false;
+    return true;
+}
 }
 
 bool Project::create(const char *rootDirectory, const char *name)
 {
-    if (!rootDirectory || !rootDirectory[0])
+    if (!rootDirectory || !rootDirectory[0] || !isProjectDirectoryName(name))
         return false;
 
-    ct::String root(rootDirectory);
-    while (!root.empty() && (root.back() == '/' || root.back() == '\\'))
-        root.pop_back();
+    const ct::String parent(rootDirectory);
+    if (!EditorFileSystem::isDirectory(parent))
+        return false;
+
+    const ct::String root = EditorFileSystem::join(parent, name);
+    // A project must always own a newly-created folder. Apart from avoiding
+    // accidental overwrites, this keeps the chosen location and project name
+    // unambiguous in the New Project flow.
+    if (EditorFileSystem::exists(root))
+        return false;
 
     if (!EditorFileSystem::makeDirectory(root))
         return false;
@@ -30,10 +49,14 @@ bool Project::create(const char *rootDirectory, const char *name)
         return false;
     if (!EditorFileSystem::makeDirectory(EditorFileSystem::join(root, "assets")))
         return false;
+    if (!EditorFileSystem::makeDirectory(EditorFileSystem::join(root, "assets/scripts")))
+        return false;
+    if (!EditorFileSystem::makeDirectory(EditorFileSystem::join(root, "assets/prefabs")))
+        return false;
 
     mRoot = root;
     mProjectFile = EditorFileSystem::join(root, kProjectFileName);
-    mName = name && name[0] ? name : "Untitled";
+    mName = name;
     mScenes.clear();
     mStartupScene.clear();
     mValid = true;

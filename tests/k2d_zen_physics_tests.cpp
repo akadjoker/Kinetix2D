@@ -41,13 +41,13 @@ static bool testBodyHandleDrivesTheSimulation()
                                  "        self.node = node\n"
                                  "\n"
                                  "    def on_start(self):\n"
-                                 "        body = self.node.get_body()\n"
+                                 "        body = self.node.get_component<RigidBody>()\n"
                                  "        set_flag(\"has_body\", body != None)\n"
                                  "        body.set_gravity_scale(0)\n"
                                  "        body.set_velocity(120, 0)\n"
                                  "\n"
                                  "    def on_update(self, dt):\n"
-                                 "        body = self.node.get_body()\n"
+                                 "        body = self.node.get_component<RigidBody>()\n"
                                  "        vx, vy = body.get_velocity()\n"
                                  "        set_number(\"vx\", vx)\n",
                                  "rocket");

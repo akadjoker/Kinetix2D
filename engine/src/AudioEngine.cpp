@@ -5,13 +5,13 @@
 #include "k2d/UserData.h"
 
 #include "audio/miniaudio.h"
+#include <ct/string.hpp>
+#include <ct/vector.hpp>
 
 #include <algorithm>
 #include <cstring>
-#include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace k2d
 {
@@ -28,8 +28,8 @@ struct AudioEngine::Impl
     struct Sound
     {
         SoundId id = 0;
-        std::string path;
-        std::vector<unsigned char> bytes;
+        ct::String path;
+        ct::Vector<unsigned char> bytes;
         bool music = false;
     };
 
@@ -62,7 +62,7 @@ struct AudioEngine::Impl
     bool sfxMuted = false;
     bool musicMuted = false;
     std::unordered_map<SoundId, Sound> sounds;
-    std::vector<Voice*> voices;
+    ct::Vector<Voice*> voices;
 };
 
 namespace

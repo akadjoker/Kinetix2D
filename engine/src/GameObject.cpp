@@ -7,6 +7,21 @@
 namespace k2d
 {
 
+    static constexpr float EPSILON = 1e-6f;
+    inline float clamp(float value, float min, float max)
+    {
+        return value < min ? min : (value > max ? max : value);
+    }
+    inline float lerp(float a, float b, float t)
+    {
+        return a + (b - a) * t;
+    }
+    inline float lerpAngle(float a, float b, float t)
+    {
+        float delta = std::fmod(b - a + 180.0f, 360.0f) - 180.0f;
+        return a + delta * t;
+    }
+
     GameObject::GameObject(const char *name)
         : mName(name), mId(0), mFlags(GameObjectActive | GameObjectVisible), mScene(nullptr),
           mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mNextComponentId(0),
@@ -494,6 +509,13 @@ namespace k2d
         invalidateTransform();
     }
 
+    void GameObject::setPositionAndRotation(const Math::Vec2 &position, float rotationDegrees)
+    {
+        mPosition = position;
+        mRotationDegrees = rotationDegrees;
+        invalidateTransform();
+    }
+
     void GameObject::setScale(const Math::Vec2 &scale)
     {
         mScale = scale;
@@ -508,6 +530,46 @@ namespace k2d
     void GameObject::rotate(float degrees)
     {
         setRotationDegrees(mRotationDegrees + degrees);
+    }
+
+    void GameObject::turn(float degrees, float speed)
+    {
+        float targetRotation = lerpAngle(mRotationDegrees, mRotationDegrees + degrees,  clamp(speed, 0.0f, 1.0f));
+        mRotationDegrees = targetRotation;
+       
+        invalidateTransform();
+    }
+
+    void GameObject::moveTo(const Math::Vec2& position, float rotationDegrees)
+    {
+        float deltaRotation = rotationDegrees - mRotationDegrees;
+        float x = position.x - mPosition.x;
+        float y = position.y - mPosition.y;
+        float cosTheta = std::cos(deltaRotation * 0.01745329251f);
+        float sinTheta = std::sin(deltaRotation * 0.01745329251f);
+        float newX = cosTheta * x - sinTheta * y;
+        float newY = sinTheta * x + cosTheta * y;
+        mPosition.x += newX;
+        mPosition.y += newY;
+        mRotationDegrees = rotationDegrees;
+        invalidateTransform();
+    }
+
+    void GameObject::xadvance(float speed, float angle)
+    {
+        float radians = angle * 0.01745329251f;
+        float dx = std::cos(radians) * speed;
+        float dy = std::sin(radians) * speed;
+        translate(Math::Vec2(dx, dy));
+    }
+
+    void GameObject::advance(float speed)
+    {
+      
+        float radians = mRotationDegrees * 0.01745329251f; // Convert degrees to radians
+        float dx = std::cos(radians) * speed ;
+        float dy = std::sin(radians) * speed ;
+        translate(Math::Vec2(dx, dy));
     }
 
     const Matrix2D &GameObject::localTransform() const

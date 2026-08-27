@@ -1,0 +1,35 @@
+{
+  "name": "Firework Rocket",
+  "tag": "firework_rocket",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 2,
+  "position": [0, 0],
+  "rotation": 0,
+  "scale": [0.6, 0.6],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "fire.png",
+        "size": [32, 32],
+        "pivot": [0.5, 0.5],
+        "tiling": [1, 1],
+        "color": [1, 1, 1, 1],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 1
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "scripts/firework_rocket.py"
+      }
+    }
+  ],
+  "children": []
+}
