@@ -1,10 +1,11 @@
 #include <k2d/KPak.h>
 
+#include <ct/string.hpp>
+#include <ct/vector.hpp>
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <string>
-#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -17,15 +18,15 @@ namespace
 {
 struct Root
 {
-    std::string path;
-    std::string prefix;
+    ct::String path;
+    ct::String prefix;
 };
 
 struct Options
 {
-    std::string output;
-    std::string key;
-    std::vector<Root> roots;
+    ct::String output;
+    ct::String key;
+    ct::Vector<Root> roots;
     int compressionLevel = 9;
     bool list = false;
     bool verbose = false;
@@ -51,10 +52,10 @@ void PrintUsage()
 
 bool ParseArguments(int argc, char** argv, Options& options)
 {
-    std::string prefix;
+    ct::String prefix;
     for (int i = 1; i < argc; ++i)
     {
-        const std::string argument = argv[i];
+        const ct::String argument = argv[i];
         if (argument == "-o" && i + 1 < argc)
             options.output = argv[++i];
         else if (argument == "-t" && i + 1 < argc)
@@ -86,7 +87,7 @@ bool ParseArguments(int argc, char** argv, Options& options)
     return options.list || !options.roots.empty();
 }
 
-std::string JoinPath(const std::string& left, const std::string& right)
+ct::String JoinPath(const ct::String& left, const ct::String& right)
 {
     if (left.empty())
         return right;
@@ -95,13 +96,13 @@ std::string JoinPath(const std::string& left, const std::string& right)
     return left + "/" + right;
 }
 
-std::string BaseName(const std::string& path)
+ct::String BaseName(const ct::String& path)
 {
-    const std::string::size_type separator = path.find_last_of("/\\\\");
-    return separator == std::string::npos ? path : path.substr(separator + 1);
+    const ct::String::size_type separator = path.find_last_of("/\\");
+    return separator == ct::String::npos ? path : path.substr(separator + 1);
 }
 
-bool IsDirectory(const std::string& path)
+bool IsDirectory(const ct::String& path)
 {
 #if defined(_WIN32)
     const DWORD attributes = GetFileAttributesA(path.c_str());
@@ -112,7 +113,7 @@ bool IsDirectory(const std::string& path)
 #endif
 }
 
-bool AddFile(k2d::KPakWriter& writer, const std::string& archivePath, const std::string& sourcePath, bool verbose,
+bool AddFile(k2d::KPakWriter& writer, const ct::String& archivePath, const ct::String& sourcePath, bool verbose,
              std::size_t& added)
 {
     if (!writer.AddFile(archivePath.c_str(), sourcePath.c_str()))
@@ -127,10 +128,10 @@ bool AddFile(k2d::KPakWriter& writer, const std::string& archivePath, const std:
 }
 
 #if defined(_WIN32)
-bool AddDirectory(k2d::KPakWriter& writer, const std::string& root, const std::string& prefix,
-                  const std::string& relative, bool verbose, std::size_t& added)
+bool AddDirectory(k2d::KPakWriter& writer, const ct::String& root, const ct::String& prefix,
+                  const ct::String& relative, bool verbose, std::size_t& added)
 {
-    const std::string directory = relative.empty() ? root : JoinPath(root, relative);
+    const ct::String directory = relative.empty() ? root : JoinPath(root, relative);
     WIN32_FIND_DATAA entry;
     HANDLE search = FindFirstFileA(JoinPath(directory, "*").c_str(), &entry);
     if (search == INVALID_HANDLE_VALUE)
@@ -138,10 +139,10 @@ bool AddDirectory(k2d::KPakWriter& writer, const std::string& root, const std::s
 
     do
     {
-        const std::string name = entry.cFileName;
+        const ct::String name = entry.cFileName;
         if (name == "." || name == "..")
             continue;
-        const std::string child = JoinPath(relative, name);
+        const ct::String child = JoinPath(relative, name);
         if ((entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
         {
             if (!AddDirectory(writer, root, prefix, child, verbose, added))
@@ -161,21 +162,21 @@ bool AddDirectory(k2d::KPakWriter& writer, const std::string& root, const std::s
     return true;
 }
 #else
-bool AddDirectory(k2d::KPakWriter& writer, const std::string& root, const std::string& prefix,
-                  const std::string& relative, bool verbose, std::size_t& added)
+bool AddDirectory(k2d::KPakWriter& writer, const ct::String& root, const ct::String& prefix,
+                  const ct::String& relative, bool verbose, std::size_t& added)
 {
-    const std::string directory = relative.empty() ? root : JoinPath(root, relative);
+    const ct::String directory = relative.empty() ? root : JoinPath(root, relative);
     DIR* const handle = opendir(directory.c_str());
     if (!handle)
         return false;
 
     while (dirent* const entry = readdir(handle))
     {
-        const std::string name = entry->d_name;
+        const ct::String name = entry->d_name;
         if (name == "." || name == "..")
             continue;
-        const std::string child = JoinPath(relative, name);
-        const std::string source = JoinPath(root, child);
+        const ct::String child = JoinPath(relative, name);
+        const ct::String source = JoinPath(root, child);
         if (IsDirectory(source))
         {
             if (!AddDirectory(writer, root, prefix, child, verbose, added))

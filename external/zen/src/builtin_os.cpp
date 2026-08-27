@@ -209,8 +209,14 @@ static int nat_isdir(VM* vm, Value* args, int nargs)
         vm->runtime_error("os.isdir: expected string path");
         return -1;
     }
+#if defined(_WIN32)
+    const DWORD attributes = GetFileAttributesA(as_cstring(args[0]));
+    bool result = attributes != INVALID_FILE_ATTRIBUTES &&
+                  (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
     struct stat st;
     bool result = (stat(as_cstring(args[0]), &st) == 0 && S_ISDIR(st.st_mode));
+#endif
     args[0] = val_bool(result);
     return 1;
 }
@@ -223,8 +229,14 @@ static int nat_isfile(VM* vm, Value* args, int nargs)
         vm->runtime_error("os.isfile: expected string path");
         return -1;
     }
+#if defined(_WIN32)
+    const DWORD attributes = GetFileAttributesA(as_cstring(args[0]));
+    bool result = attributes != INVALID_FILE_ATTRIBUTES &&
+                  (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+#else
     struct stat st;
     bool result = (stat(as_cstring(args[0]), &st) == 0 && S_ISREG(st.st_mode));
+#endif
     args[0] = val_bool(result);
     return 1;
 }

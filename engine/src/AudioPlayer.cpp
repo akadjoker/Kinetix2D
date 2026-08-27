@@ -21,7 +21,7 @@ AudioPlayer::AudioPlayer()
 
 void AudioPlayer::setSource(const char* path)
 {
-    const std::string source = path ? path : "";
+    const ct::String source = path ? path : "";
     if (mSource == source)
         return;
     releaseSound();

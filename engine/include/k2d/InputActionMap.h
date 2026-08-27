@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
-#include <string>
+#include <ct/string.hpp>
+#include <ct/vector.hpp>
 
 namespace k2d
 {
@@ -33,10 +33,10 @@ namespace k2d
     private:
         struct Binding
         {
-            std::string action;
+            ct::String action;
             int scancode = -1;
         };
-        std::vector<Binding> mBindings;
+        ct::Vector<Binding> mBindings;
     };
 
     InputActionMap &GetInputActions();

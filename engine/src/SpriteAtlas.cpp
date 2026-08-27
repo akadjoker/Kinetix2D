@@ -5,10 +5,10 @@
 #include "k2d/FileSystem.h"
 
 #include <ct/json.hpp>
+#include <ct/vector.hpp>
 
 #include <cstring>
 #include <cstdio>
-#include <vector>
 
 namespace k2d
 {
@@ -102,8 +102,8 @@ size_t SpriteAtlas::detectTransparentRegions(const Pixmap &image, unsigned char 
         return 0;
 
     struct Pixel { int x; int y; };
-    std::vector<unsigned char> visited((size_t)width * (size_t)height, 0);
-    std::vector<Pixel> pending;
+    ct::Vector<unsigned char> visited((size_t)width * (size_t)height, 0);
+    ct::Vector<Pixel> pending;
     mRegions.clear();
     minPixels = minPixels > 0 ? minPixels : 1;
     int regionIndex = 0;
