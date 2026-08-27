@@ -48,6 +48,7 @@
 #include "k2d/TileMapComponent.h"
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
+#include "k2d/VirtualPad.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -70,6 +71,7 @@ namespace k2d
 namespace
 {
 Input* gZenInput = nullptr;
+VirtualPad* gZenVirtualPad = nullptr;
 Assets* gZenAssets = nullptr;
 UserData* gZenUserData = nullptr;
 struct ZenGameViewport
@@ -1899,6 +1901,34 @@ int natKeyReleased(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
+int natVirtualKeyAdd(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenVirtualPad && nargs >= 5)
+        gZenVirtualPad->AddVirtualKey(keyCode(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]),
+                                      (float)zen::to_number(args[3]), (float)zen::to_number(args[4]));
+    return 0;
+}
+
+int natVirtualKeysClear(zen::VM*, zen::Value*, int)
+{
+    if (gZenVirtualPad)
+        gZenVirtualPad->ClearVirtualKeys();
+    return 0;
+}
+
+int natVirtualKeysSetVisible(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenVirtualPad && nargs >= 1)
+        gZenVirtualPad->SetVirtualKeysVisible(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natVirtualKeysVisible(zen::VM*, zen::Value* args, int)
+{
+    args[0] = zen::val_bool(gZenVirtualPad && gZenVirtualPad->VirtualKeysVisible());
+    return 1;
+}
+
 int natActionDown(zen::VM* vm, zen::Value* args, int nargs)
 {
     char small[64];
@@ -2615,6 +2645,15 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("key_down", &natKeyDown, 1);
     vm.def_native("key_pressed", &natKeyPressed, 1);
     vm.def_native("key_released", &natKeyReleased, 1);
+    vm.def_native("virtual_key_add", &natVirtualKeyAdd, 5);
+    vm.def_native("virtual_keys_clear", &natVirtualKeysClear, 0);
+    vm.def_native("virtual_keys_set_visible", &natVirtualKeysSetVisible, 1);
+    vm.def_native("virtual_keys_visible", &natVirtualKeysVisible, 0);
+    // Names retained from the previous ZenEngine input module.
+    vm.def_native("input_add_virtual_key", &natVirtualKeyAdd, 5);
+    vm.def_native("input_clear_virtual_keys", &natVirtualKeysClear, 0);
+    vm.def_native("input_set_virtual_keys_visible", &natVirtualKeysSetVisible, 1);
+    vm.def_native("input_get_virtual_keys_visible", &natVirtualKeysVisible, 0);
     vm.def_native("action_down", &natActionDown, 1);
     vm.def_native("action_pressed", &natActionPressed, 1);
     vm.def_native("action_released", &natActionReleased, 1);
@@ -3458,6 +3497,11 @@ bool ZenScriptsEnabled()
 void SetZenScriptInput(Input* input)
 {
     gZenInput = input;
+}
+
+void SetZenScriptVirtualPad(VirtualPad* pad)
+{
+    gZenVirtualPad = pad;
 }
 
 void SetZenScriptGameViewport(float x, float y, float width, float height)

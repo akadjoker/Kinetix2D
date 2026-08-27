@@ -8,6 +8,8 @@
 #include <IconsMaterialDesignIcons.h>
 
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 namespace k2d::editor
 {
@@ -57,6 +59,13 @@ bool isDocument(const ct::String& ext)
 bool isAudio(const ct::String& ext)
 {
     return ext == "wav" || ext == "mp3" || ext == "ogg" || ext == "flac";
+}
+
+bool isAssetName(const char* name)
+{
+    if (!name || !name[0] || std::strcmp(name, ".") == 0 || std::strcmp(name, "..") == 0)
+        return false;
+    return std::strchr(name, '/') == nullptr && std::strchr(name, '\\') == nullptr;
 }
 
 const char* iconFor(bool directory, const ct::String& ext)
@@ -509,6 +518,9 @@ void AssetsPanel::drawEntryContextMenu(const EditorFileEntry& entry)
                     generateBumpMap(entry);
             }
         }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Rename"))
+            requestRename(entry);
         ImGui::EndPopup();
     }
 }
@@ -525,24 +537,33 @@ void AssetsPanel::drawCreationMenu(const ct::String& directory)
 void AssetsPanel::requestNewScript(const ct::String& directory)
 {
     mCreateDirectory = directory;
+    mNewScriptName[0] = '\0';
     ImGui::OpenPopup("New Script");
 }
 
 void AssetsPanel::requestNewFolder(const ct::String& directory)
 {
     mCreateDirectory = directory;
+    mNewFolderName[0] = '\0';
     ImGui::OpenPopup("New Folder");
+}
+
+void AssetsPanel::requestRename(const EditorFileEntry& entry)
+{
+    mRenamePath = entry.path;
+    std::snprintf(mRenameName, sizeof(mRenameName), "%s", entry.name.c_str());
+    ImGui::OpenPopup("Rename Asset");
 }
 
 void AssetsPanel::drawNewScriptPopup()
 {
-    if (!ImGui::BeginPopup("New Script"))
+    if (!ImGui::BeginPopupModal("New Script", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
     const ct::String& directory = mCreateDirectory.empty() ? mRoot : mCreateDirectory;
     ImGui::TextDisabled("Creating in %s", directory.c_str());
     ImGui::SetNextItemWidth(220.0f);
-    ImGui::InputText("Name", mNewScriptName, sizeof(mNewScriptName));
+    ImGui::InputTextWithHint("Name", "player", mNewScriptName, sizeof(mNewScriptName));
     static const char* templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
     ImGui::SetNextItemWidth(220.0f);
     ImGui::Combo("Template", &mNewScriptTemplate, templates,
@@ -556,7 +577,7 @@ void AssetsPanel::drawNewScriptPopup()
     if (exists)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s already exists", fileName.c_str());
 
-    ImGui::BeginDisabled(mNewScriptName[0] == '\0' || exists);
+    ImGui::BeginDisabled(!isAssetName(mNewScriptName) || exists);
     if (ImGui::Button("Create"))
     {
         const ct::String templateSource = makeScriptTemplate(mNewScriptName, mNewScriptTemplate);
@@ -571,31 +592,35 @@ void AssetsPanel::drawNewScriptPopup()
         {
             app().toasts().error("Could not create script");
         }
+        mCreateDirectory.clear();
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button("Cancel"))
+    {
+        mCreateDirectory.clear();
         ImGui::CloseCurrentPopup();
+    }
     ImGui::EndPopup();
 }
 
 void AssetsPanel::drawNewFolderPopup()
 {
-    if (!ImGui::BeginPopup("New Folder"))
+    if (!ImGui::BeginPopupModal("New Folder", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
     const ct::String& directory = mCreateDirectory.empty() ? mRoot : mCreateDirectory;
     ImGui::TextDisabled("Creating in %s", directory.c_str());
     ImGui::SetNextItemWidth(220.0f);
-    ImGui::InputText("Name", mNewFolderName, sizeof(mNewFolderName));
+    ImGui::InputTextWithHint("Name", "textures", mNewFolderName, sizeof(mNewFolderName));
 
     const ct::String target = EditorFileSystem::join(directory, mNewFolderName);
     const bool exists = EditorFileSystem::exists(target);
     if (exists)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s already exists", mNewFolderName);
 
-    ImGui::BeginDisabled(mNewFolderName[0] == '\0' || exists);
+    ImGui::BeginDisabled(!isAssetName(mNewFolderName) || exists);
     if (ImGui::Button("Create"))
     {
         if (EditorFileSystem::makeDirectory(target))
@@ -608,12 +633,62 @@ void AssetsPanel::drawNewFolderPopup()
         {
             app().toasts().error("Could not create folder");
         }
+        mCreateDirectory.clear();
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button("Cancel"))
+    {
+        mCreateDirectory.clear();
         ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+void AssetsPanel::drawRenamePopup()
+{
+    if (!ImGui::BeginPopupModal("Rename Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::TextDisabled("Renaming %s", EditorFileSystem::fileName(mRenamePath).c_str());
+    ImGui::SetNextItemWidth(280.0f);
+    ImGui::InputText("Name", mRenameName, sizeof(mRenameName));
+
+    const bool validName = isAssetName(mRenameName);
+    const ct::String target = EditorFileSystem::join(EditorFileSystem::parentPath(mRenamePath), mRenameName);
+    const bool unchanged = target == mRenamePath;
+    const bool exists = !unchanged && EditorFileSystem::exists(target);
+    if (!validName)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "The name cannot contain a path separator.");
+    else if (exists)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "An asset with this name already exists.");
+
+    ImGui::BeginDisabled(!validName || unchanged || exists);
+    if (ImGui::Button("Rename"))
+    {
+        if (std::rename(mRenamePath.c_str(), target.c_str()) == 0)
+        {
+            mEntriesDirty = true;
+            app().log(ct::String("Renamed asset: ") + target);
+            app().toasts().success("Asset renamed");
+            mRenamePath.clear();
+            mRenameName[0] = '\0';
+            ImGui::CloseCurrentPopup();
+        }
+        else
+        {
+            app().toasts().error("Could not rename asset");
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+    {
+        mRenamePath.clear();
+        mRenameName[0] = '\0';
+        ImGui::CloseCurrentPopup();
+    }
     ImGui::EndPopup();
 }
 
@@ -749,6 +824,7 @@ void AssetsPanel::drawContents()
 
     drawNewScriptPopup();
     drawNewFolderPopup();
+    drawRenamePopup();
 }
 
 } // namespace k2d::editor

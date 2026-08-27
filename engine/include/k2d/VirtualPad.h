@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ct/vector.hpp>
 #include <mathc.h>
 
 namespace k2d
@@ -27,6 +28,13 @@ namespace k2d
         void SetOpacity(float opacity) { mOpacity = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity); }
         void SetIdleOpacity(float opacity) { mIdleOpacity = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity); }
 
+        // Script-defined rectangular touch buttons. They are independent from
+        // the optional built-in stick/pair of action buttons.
+        void AddVirtualKey(int scancode, float x, float y, float width, float height);
+        void ClearVirtualKeys();
+        void SetVirtualKeysVisible(bool visible) { mCustomKeysVisible = visible; }
+        bool VirtualKeysVisible() const { return mCustomKeysVisible; }
+
         void Update(Input &input, float screenWidth, float screenHeight, float deltaTime = 1.0f / 60.0f);
         void Draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const;
 
@@ -44,6 +52,11 @@ namespace k2d
         void setScale(float scale) { SetScale(scale); }
         void setOpacity(float opacity) { SetOpacity(opacity); }
         void setIdleOpacity(float opacity) { SetIdleOpacity(opacity); }
+        void addVirtualKey(int scancode, float x, float y, float width, float height)
+        { AddVirtualKey(scancode, x, y, width, height); }
+        void clearVirtualKeys() { ClearVirtualKeys(); }
+        void setVirtualKeysVisible(bool visible) { SetVirtualKeysVisible(visible); }
+        bool virtualKeysVisible() const { return VirtualKeysVisible(); }
         void update(Input &input, float screenWidth, float screenHeight, float deltaTime = 1.0f / 60.0f)
         { Update(input, screenWidth, screenHeight, deltaTime); }
         void draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const { Draw(canvas, screenWidth, screenHeight); }
@@ -52,7 +65,18 @@ namespace k2d
         bool secondaryDown() const { return SecondaryDown(); }
 
     private:
+        struct VirtualKey
+        {
+            int scancode;
+            float x;
+            float y;
+            float width;
+            float height;
+            bool down;
+        };
+
         bool mEnabled;
+        bool mCustomKeysVisible;
         Texture *mTexture;
         int mLeftKey;
         int mRightKey;
@@ -72,5 +96,7 @@ namespace k2d
         bool mStickUsesMouse;
         bool mPrimaryDown;
         bool mSecondaryDown;
+        ct::Vector<VirtualKey> mCustomKeys;
+        ct::Vector<int> mRetiredCustomKeys;
     };
 }

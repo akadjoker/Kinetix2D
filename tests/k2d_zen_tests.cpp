@@ -455,6 +455,15 @@ static bool testFadeAndVirtualInput()
     ok = ok && !fade.IsFading() && fade.IsClear();
 
     k2d::VirtualPad pad;
+    ok = ok && !pad.Enabled();
+    pad.AddVirtualKey(16, 100.0f, 100.0f, 80.0f, 60.0f);
+    input.OnTouch(99, 120.0f, 120.0f, true, false);
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && input.KeyDown(16) && input.KeyPressed(16);
+    pad.ClearVirtualKeys();
+    pad.Update(input, 1000.0f, 500.0f);
+    ok = ok && !input.KeyDown(16) && input.KeyReleased(16);
+    input.OnTouch(99, 120.0f, 120.0f, false, true);
     pad.SetEnabled(true);
     pad.SetKeyBindings(10, 11, 12, 13, 14, 15);
     input.OnTouch(1, 32.0f, 411.0f, true, false);

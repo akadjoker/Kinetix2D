@@ -50,9 +50,17 @@ const char* mimeType(const fs::path& path)
 
 bool sendAll(Socket socket, const char* data, size_t size)
 {
+#if defined(MSG_NOSIGNAL)
+    constexpr int noSignal = MSG_NOSIGNAL;
+#else
+    constexpr int noSignal = 0;
+#endif
     while (size > 0)
     {
-        const int sent = send(socket, data, static_cast<int>(size), 0);
+        // Browsers can cancel a fetch as soon as they have the data they
+        // need. On POSIX, writing the remainder of that response otherwise
+        // raises SIGPIPE and terminates the entire development Web server.
+        const int sent = send(socket, data, static_cast<int>(size), noSignal);
         if (sent <= 0)
             return false;
         data += sent;

@@ -413,6 +413,20 @@ The runner maps `move_forward`, `move_backward`, `turn_left`,
 `turn_right`, `primary`, and `secondary` to keyboard keys and their corresponding virtual-pad
 buttons by default. C++ games can add or replace bindings through `GetInputActions().Bind()`.
 
+For explicit Web/mobile buttons, a script can register only the controls its game needs:
+
+```python
+def on_start(self):
+    virtual_key_add(KEY_LEFT, 24, 620, 72, 72)
+    virtual_key_add(KEY_RIGHT, 108, 620, 72, 72)
+    virtual_key_add(KEY_SPACE, 1160, 620, 88, 72)
+```
+
+They feed the same `key_down`, `key_pressed`, and input-action APIs as a physical key. Use
+`virtual_keys_clear()`, `virtual_keys_set_visible(enabled)`, and `virtual_keys_visible()` to manage
+them. The compatibility names `input_add_virtual_key`, `input_clear_virtual_keys`,
+`input_set_virtual_keys_visible`, and `input_get_virtual_keys_visible` are also available.
+
 Mouse: `mouse_down(button)`, `mouse_pressed(button)`, `mouse_x()`, `mouse_y()`, `wheel_y()`.
 `get_fps()` returns the engine's rolling half-second FPS measurement; it is stable enough for HUDs,
 unlike calculating `1 / dt` every frame.

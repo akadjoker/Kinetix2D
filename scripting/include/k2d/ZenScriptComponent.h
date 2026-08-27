@@ -93,6 +93,7 @@ namespace k2d
     class Assets;
     class GameObject;
     class UserData;
+    class VirtualPad;
 
     class PhysicsWorld2D;
 
@@ -104,6 +105,9 @@ namespace k2d
     bool ZenScriptsEnabled();
 
     void SetZenScriptInput(Input *input);
+    // The standalone runner provides its touch overlay so scripts can define
+    // explicit virtual keys for Web/mobile games.
+    void SetZenScriptVirtualPad(VirtualPad *pad);
     // The editor supplies the Game view rectangle so mouse input in scripts is
     // local to the running game instead of the whole editor window.
     void SetZenScriptGameViewport(float x, float y, float width, float height);
