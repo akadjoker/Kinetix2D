@@ -2285,9 +2285,18 @@ int natWheelY(zen::VM*, zen::Value* args, int)
 }
 } // namespace
 
+// A component is about to leave its object: drop the script handle cached for
+// its address. The handles are persistent objects, so nothing else would ever
+// free them, and the address is reused by the next component allocated there.
+static void forgetRemovedComponent(Component* component, void* user)
+{
+    static_cast<ZenRuntime::Impl*>(user)->forgetInstance(component);
+}
+
 void ZenRuntime::Impl::initialize()
 {
     zen_host_set_writer(&zenHostWriter, nullptr);
+    Component::SetRemovedCallback(&forgetRemovedComponent, this);
 
     vm.open_lib_globals(&zen::zen_lib_base);
     vm.register_lib(&zen::zen_lib_math);

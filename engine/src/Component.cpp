@@ -3,6 +3,24 @@
 namespace k2d
 {
 
+    namespace
+    {
+        Component::RemovedCallback gRemovedCallback = nullptr;
+        void *gRemovedCallbackUser = nullptr;
+    } // namespace
+
+    void Component::SetRemovedCallback(RemovedCallback callback, void *user)
+    {
+        gRemovedCallback = callback;
+        gRemovedCallbackUser = user;
+    }
+
+    void Component::notifyRemoved(Component *component)
+    {
+        if (gRemovedCallback && component)
+            gRemovedCallback(component, gRemovedCallbackUser);
+    }
+
     Component::Component(ComponentType type, uint8_t events)
         : mOwner(nullptr), mNextSibling(nullptr), mType(type), mLocalId(0), mEvents(events),
           mActive(true), mStarted(false), mSceneAllIndex(InvalidSceneListIndex),

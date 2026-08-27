@@ -72,6 +72,11 @@ namespace k2d
         return mImpl->classes.size();
     }
 
+    bool ZenRuntime::hasCachedInstance(const void *pointer) const
+    {
+        return mImpl->instances.find(const_cast<void *>(pointer)) != nullptr;
+    }
+
     void ZenRuntime::setVmProfiling(bool enabled)
     {
         mImpl->vmProfiling = enabled;

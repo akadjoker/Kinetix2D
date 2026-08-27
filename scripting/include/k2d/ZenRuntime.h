@@ -24,6 +24,10 @@ namespace k2d
 
         std::size_t compileCount() const { return mCompileCount; }
         std::size_t cachedClassCount() const;
+        // Whether a script handle is cached for this component address. The
+        // cache is what keeps a removed component's handle alive, so being
+        // able to see it is what makes that testable.
+        bool hasCachedInstance(const void *pointer) const;
 
         unsigned int generation() const { return mGeneration; }
 

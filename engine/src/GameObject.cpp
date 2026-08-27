@@ -331,6 +331,9 @@ namespace k2d
     {
         if (!component || component->mOwner != this)
             return false;
+        // Before anything else, and unconditionally: an object detached from
+        // its scene still has to let a cached script handle go.
+        Component::notifyRemoved(component);
         if (mScene)
             mScene->unregisterComponent(component);
         component->detached();

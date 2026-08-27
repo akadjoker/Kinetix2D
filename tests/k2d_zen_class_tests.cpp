@@ -1,4 +1,5 @@
 #include <k2d/GameObject.h>
+#include <k2d/SpriteComponent.h>
 #include <k2d/Scene.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
@@ -285,6 +286,48 @@ static bool testBrokenReloadKeepsTheLastGoodClass()
     return ok;
 }
 
+
+// A component handle is cached by the component's address and its class is
+// persistent, so nothing ever collects it. Without Component::notifyRemoved()
+// telling the runtime to let go, the entry outlives the component and the next
+// component allocated at that address inherits the handle.
+static bool testHandleForgottenWhenComponentDies()
+{
+    const std::string path = k2d_tests::tempPath("k2d_zen_grab_sprite.py");
+    FILE *f = std::fopen(path.c_str(), "w");
+    if (!f)
+        return false;
+    std::fputs("class Grab:\n"
+               "    def __init__(self, node):\n"
+               "        self.node = node\n"
+               "    def on_start(self):\n"
+               "        self.sprite = self.node.get_sprite()\n",
+               f);
+    std::fclose(f);
+
+    k2d::ZenRuntime::instance().reset();
+
+    bool cachedWhileAlive = false;
+    bool cachedAfterDeath = true;
+    {
+        k2d::Scene scene;
+        k2d::GameObject *object = scene.createObject("grabber");
+        k2d::SpriteComponent *sprite = object->addComponent<k2d::SpriteComponent>();
+        object->addComponent<k2d::ZenScriptComponent>()->loadFile(path.c_str());
+        scene.update(0.016f);
+
+        cachedWhileAlive = k2d::ZenRuntime::instance().hasCachedInstance(sprite);
+        scene.destroy(object);
+        scene.update(0.016f);
+        cachedAfterDeath = k2d::ZenRuntime::instance().hasCachedInstance(sprite);
+    }
+
+    std::printf("  handle_forgotten: cached_while_alive=%s cached_after_death=%s\n",
+                cachedWhileAlive ? "yes" : "no", cachedAfterDeath ? "yes" : "no");
+    std::remove(path.c_str());
+    return cachedWhileAlive && !cachedAfterDeath;
+}
+
 int main()
 {
     k2d::SetZenScriptsEnabled(true);
@@ -296,12 +339,15 @@ int main()
     const bool broken = testBrokenReloadKeepsTheLastGoodClass();
     const bool reset = testResetInvalidatesStaleInstances();
     const bool destroy = testDestroyHook();
+    const bool forgotten = testHandleForgottenWhenComponentDies();
 
     std::remove(kSpinnerPath.c_str());
     std::printf("zen class: shared=%s spawn=%s reload=%s isolation=%s broken_reload=%s reset=%s "
-                "destroy=%s\n",
+                "destroy=%s forgotten=%s\n",
                 shared ? "pass" : "fail", spawn ? "pass" : "fail", reload ? "pass" : "fail",
                 isolation ? "pass" : "fail", broken ? "pass" : "fail", reset ? "pass" : "fail",
-                destroy ? "pass" : "fail");
-    return shared && spawn && reload && isolation && broken && reset && destroy ? 0 : 1;
+                destroy ? "pass" : "fail", forgotten ? "pass" : "fail");
+    return shared && spawn && reload && isolation && broken && reset && destroy && forgotten
+               ? 0
+               : 1;
 }
