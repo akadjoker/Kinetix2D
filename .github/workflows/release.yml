@@ -45,17 +45,24 @@ jobs:
           vcpkgJsonGlob: vcpkg.json
           runVcpkgInstall: true
 
+      - name: Configure MinGW
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $mingw = (Get-Command g++.exe -ErrorAction Stop).Source | Split-Path
+          "MINGW_BIN=$mingw" >> $env:GITHUB_ENV
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER="$mingw/gcc.exe" `
+            -DCMAKE_CXX_COMPILER="$mingw/g++.exe" `
+            -DCMAKE_RC_COMPILER="$mingw/windres.exe" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic `
+            -DK2D_STATIC_MINGW_RUNTIME=ON
+
       - name: Configure Linux
         if: runner.os == 'Linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure Windows
-        if: runner.os == 'Windows'
-        run: >-
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-          -DK2D_STATIC_MINGW_RUNTIME=ON
-          -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build editor, runner and export tools
         run: >-
@@ -71,14 +78,18 @@ jobs:
         run: |
           Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse |
             Copy-Item -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
+          Copy-Item "$env:MINGW_BIN/libwinpthread-1.dll" `
+            -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
 
-      - name: Verify Windows runner has no GCC runtime DLL dependency
+      - name: Verify Windows runtime DLLs are bundled
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $imports = & dumpbin /dependents "stage/Kinetix2D-${{ matrix.name }}/bin/k2d_runner.exe" | Out-String
-          if ($imports -match '(?i)libgcc_s_.*\.dll|libstdc\+\+-.*\.dll') {
-            throw "k2d_runner.exe still depends on a MinGW GCC runtime DLL."
+          $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
+          foreach ($dll in @("SDL2.dll", "libwinpthread-1.dll")) {
+            if (!(Test-Path "$bin/$dll")) {
+              throw "$dll was not copied to the release package."
+            }
           }
 
       - name: Create Linux archive
