@@ -8,7 +8,7 @@
 namespace k2d
 {
 
-    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mComponentListsDirty(false)
+    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false), mHasDisposed(false)
     {
         mRoot.mScene = this;
     }
@@ -176,6 +176,9 @@ namespace k2d
 
     void Scene::registerBranch(GameObject *object)
     {
+        markTopologyChanged();
+        if (object->disposed())
+            mHasDisposed = true;
         object->mScene = this;
         object->mId = mNextId++;
         ++mObjectCount;
@@ -188,6 +191,7 @@ namespace k2d
 
     void Scene::unregisterBranch(GameObject *object)
     {
+        markTopologyChanged();
         for (std::size_t i = 0; i < object->childCount(); ++i)
             unregisterBranch(object->child(i));
         for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count); ++i)
@@ -201,6 +205,7 @@ namespace k2d
     {
         if (!component)
             return;
+        markTopologyChanged();
         component->mSceneAllIndex = mAllComponents.size();
         mAllComponents.push_back(component);
         if ((component->mEvents & ComponentEventLateUpdate) != 0)
@@ -221,6 +226,7 @@ namespace k2d
 
     void Scene::unregisterComponent(Component *component)
     {
+        markTopologyChanged();
         mComponentListsDirty = true;
         const auto removeFrom = [component](ct::Vector<Component *> &components, std::size_t &index)
         {
@@ -292,7 +298,22 @@ namespace k2d
         if (!viewport.valid)
             return;
 
-        UiControl *top = nullptr;
+        // UiControls owns the input pointer; this call has no global input
+        // access by design, so controls cannot each independently consume it.
+        // The viewport gate also keeps editor chrome out of game controls.
+        extern Input *GetUiInputInternal();
+        Input *input = GetUiInputInternal();
+        float x = 0.0f;
+        float y = 0.0f;
+        bool canHit = false;
+        if (input)
+        {
+            x = input->MouseX() - viewport.x;
+            y = input->MouseY() - viewport.y;
+            canHit = x >= 0.0f && y >= 0.0f && x < viewport.width && y < viewport.height;
+        }
+
+        UiControl *hit = nullptr;
         for (std::size_t i = 0; i < mUiControls.size(); ++i)
         {
             UiControl *control = mUiControls[i];
@@ -301,32 +322,7 @@ namespace k2d
                 continue;
             control->updateLayout();
             control->resetInput();
-            if (!control->interactive())
-                continue;
-            if (!top || object->zIndex() >= top->owner()->zIndex())
-                top = control;
-        }
-
-        Input *input = nullptr;
-        // UiControls owns the input pointer; this call has no global input
-        // access by design, so controls cannot each independently consume it.
-        // The viewport gate also keeps editor chrome out of game controls.
-        extern Input *GetUiInputInternal();
-        input = GetUiInputInternal();
-        if (!top || !input)
-            return;
-        const float x = input->MouseX() - viewport.x;
-        const float y = input->MouseY() - viewport.y;
-        if (x < 0.0f || y < 0.0f || x >= viewport.width || y >= viewport.height)
-            return;
-
-        UiControl *hit = nullptr;
-        for (std::size_t i = 0; i < mUiControls.size(); ++i)
-        {
-            UiControl *control = mUiControls[i];
-            GameObject *object = control ? control->owner() : nullptr;
-            if (!control || !object || !object->isActiveAndVisibleInHierarchy() || !control->active() ||
-                !control->interactive() || !control->contains(x, y))
+            if (!control->interactive() || !canHit || !control->contains(x, y))
                 continue;
             if (!hit || object->zIndex() >= hit->owner()->zIndex())
                 hit = control;
@@ -337,6 +333,9 @@ namespace k2d
 
     void Scene::flushDisposed()
     {
+        if (!mHasDisposed)
+            return;
+        mHasDisposed = false;
         ct::Vector<GameObject *> roots;
         collectDisposed(&mRoot, roots);
         for (GameObject *object : roots)

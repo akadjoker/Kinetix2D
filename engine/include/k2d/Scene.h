@@ -31,6 +31,10 @@ namespace k2d
 
         GameObject *find(const char *name) const;
         std::size_t objectCount() const;
+        // Bumped whenever objects or components enter, leave or are renamed.
+        // Lets per-frame consumers cache name lookups instead of re-searching
+        // the tree every frame, with deletion-safe invalidation.
+        uint32_t topologyVersion() const { return mTopologyVersion; }
         // Chooses the enabled camera with the highest render priority. Ties use
         // the oldest object, so the choice is deterministic.
         CameraComponent *activeCamera();
@@ -50,6 +54,8 @@ namespace k2d
     private:
         friend class GameObject;
 
+        void markTopologyChanged() { ++mTopologyVersion; }
+
         void registerBranch(GameObject *object);
         void unregisterBranch(GameObject *object);
         void registerComponent(Component *component);
@@ -64,7 +70,9 @@ namespace k2d
         RenderQueue mRenderQueue;
         uint64_t mNextId;
         std::size_t mObjectCount;
+        uint32_t mTopologyVersion;
         bool mComponentListsDirty;
+        bool mHasDisposed;
         // Flat event lists keep the update/render hot paths independent from
         // the number of component types an object does not have.
         ct::Vector<Component *> mAllComponents;

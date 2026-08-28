@@ -1,4 +1,5 @@
 #include "k2d/Skeleton2D.h"
+#include "k2d/Scene.h"
 
 #include "k2d/Bone2D.h"
 #include "k2d/GameObject.h"
@@ -159,6 +160,31 @@ Bone2D* Skeleton2D::findBone(const char* name) const
     return owner() ? findBoneRecursive(owner(), name) : nullptr;
 }
 
+static void collectBonesRecursive(GameObject* object, ct::HashMap<ct::String, Bone2D*>& out)
+{
+    if (Bone2D* bone = object->getComponent<Bone2D>())
+        if (!out.find(object->name()))
+            out.put(object->name(), bone);
+    for (size_t index = 0; index < object->childCount(); ++index)
+        collectBonesRecursive(object->child(index), out);
+}
+
+Bone2D* Skeleton2D::cachedBone(const ct::String& name)
+{
+    Scene* scene = owner() ? owner()->scene() : nullptr;
+    if (!scene)
+        return findBone(name.c_str());
+    if (!mBoneCacheValid || mBoneCacheVersion != scene->topologyVersion())
+    {
+        mBoneCache.clear();
+        collectBonesRecursive(owner(), mBoneCache);
+        mBoneCacheVersion = scene->topologyVersion();
+        mBoneCacheValid = true;
+    }
+    Bone2D** bone = mBoneCache.find(name);
+    return bone ? *bone : nullptr;
+}
+
 static Math::Vec2 boneTip(const Bone2D* bone)
 {
     return bone->owner()->globalTransform().Transform(bone->length(), 0.0f);
@@ -234,7 +260,7 @@ void Skeleton2D::applyClip(const BoneAnimationClip& clip)
 {
     for (const BoneTrack& track : clip.tracks)
     {
-        Bone2D* bone = findBone(track.boneName.c_str());
+        Bone2D* bone = cachedBone(track.boneName);
         if (!bone || !bone->owner())
             continue;
         const float value = track.sample(mTime);

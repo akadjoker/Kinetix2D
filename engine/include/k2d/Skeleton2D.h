@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include <ct/hashmap.hpp>
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 #include <mathc.h>
@@ -89,12 +90,18 @@ protected:
 private:
     ct::Vector<BoneAnimationClip> mClips;
     ct::String mCurrent;
+    // Track lookups hit this instead of walking the subtree per track per
+    // frame; the scene's topology version keeps it safe across deletions.
+    ct::HashMap<ct::String, Bone2D *> mBoneCache;
+    uint32_t mBoneCacheVersion = 0;
+    bool mBoneCacheValid = false;
     float mTime = 0.0f;
     float mSpeed = 1.0f;
     bool mLoop = true;
     bool mPlaying = false;
 
     void applyClip(const BoneAnimationClip& clip);
+    Bone2D* cachedBone(const ct::String& name);
 };
 
 } // namespace k2d

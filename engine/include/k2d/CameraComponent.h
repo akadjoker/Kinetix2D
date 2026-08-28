@@ -30,7 +30,11 @@ namespace k2d
         Math::Vec2 screenToWorld(float x, float y) const;
 
         void setFollowTarget(const GameObject *target);
-        void setFollowTargetName(const char *name) { mFollowTargetName = name ? name : ""; }
+        void setFollowTargetName(const char *name)
+        {
+            mFollowTargetName = name ? name : "";
+            mFollowTarget = nullptr;
+        }
         const ct::String &followTargetName() const { return mFollowTargetName; }
         bool hasFollowTarget() const { return !mFollowTargetName.empty(); }
 
@@ -43,6 +47,8 @@ namespace k2d
         float mViewportHeight;
         int mRenderPriority;
         ct::String mFollowTargetName;
+        GameObject *mFollowTarget = nullptr;
+        uint32_t mFollowVersion = 0;
     };
 
 }

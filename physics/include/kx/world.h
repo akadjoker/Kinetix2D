@@ -263,6 +263,7 @@ class World
     ct::Vector<Joint*> mJoints;
     DynamicTree mTree;
     ct::Vector<int32_t> mMoveBuffer;
+    ct::Vector<int32_t> mPairScratch;
     ct::HashMap<uint64_t, BodyPair> mPairs;
     ct::Vector<uint64_t> mDeadPairs;
     bool mUseTree;
@@ -279,6 +280,7 @@ class World
     ct::Vector<uint32_t> mFreeBodyIds;
     ct::HashMap<Body*, unsigned char> mTouchingActive;
     mutable ct::Vector<RayCastHit> mRayScratch;
+    mutable ct::Vector<Body*> mBodyScratch;
     ct::Vector<BulletSweep> mBulletSweeps;
     int mVelocityIterations;
 };

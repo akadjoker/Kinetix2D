@@ -227,11 +227,6 @@ namespace k2d
         mOpenHeap.clear();
         mOpenHeap.push_back(beginIndex);
 
-        ct::Vector<float> absG(mPoints.size(), 0.0f);
-        ct::Vector<float> absF(mPoints.size(), 0.0f);
-        absG[(size_t)beginIndex] = 0.0f;
-        absF[(size_t)beginIndex] = beginPoint.fScore;
-
         IVec2 neighbors[8];
         bool foundRoute = false;
 
@@ -240,12 +235,17 @@ namespace k2d
             int currentIndex = mOpenHeap.front();
             Point &current = mPoints[(size_t)currentIndex];
 
-            if (mLastClosestIndex < 0 ||
-                absF[(size_t)mLastClosestIndex] > absF[(size_t)currentIndex] ||
-                (absF[(size_t)mLastClosestIndex] >= absF[(size_t)currentIndex] &&
-                 absG[(size_t)mLastClosestIndex] > absG[(size_t)currentIndex]))
-            {
+            // Heuristic distance is fScore - gScore; both points were stamped
+            // this pass, so the scores in mPoints are current.
+            const float currentH = current.fScore - current.gScore;
+            if (mLastClosestIndex < 0)
                 mLastClosestIndex = currentIndex;
+            else
+            {
+                const Point &closest = mPoints[(size_t)mLastClosestIndex];
+                const float closestH = closest.fScore - closest.gScore;
+                if (closestH > currentH || (closestH >= currentH && closest.gScore > current.gScore))
+                    mLastClosestIndex = currentIndex;
             }
 
             if (currentIndex == endIndex)
@@ -283,8 +283,6 @@ namespace k2d
                 neighbor.prevIndex = currentIndex;
                 neighbor.gScore = tentativeG;
                 neighbor.fScore = tentativeG + EstimateCost(neighbor.id, end);
-                absG[(size_t)neighborIndex] = tentativeG;
-                absF[(size_t)neighborIndex] = neighbor.fScore - neighbor.gScore;
 
                 if (newPoint)
                 {

@@ -24,7 +24,7 @@ namespace k2d
 
     GameObject::GameObject(const char *name)
         : mName(name), mId(0), mFlags(GameObjectActive | GameObjectVisible), mScene(nullptr),
-          mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mNextComponentId(0),
+          mParent(nullptr), mComponents{}, mUiComponent(nullptr), mComponentCallbackDepth(0), mNextComponentId(0),
           mPosition(0.0f), mRotationDegrees(0.0f), mScale(1.0f, 1.0f), mZIndex(0),
           mLocalDirty(true), mGlobalDirty(true)
     {
@@ -66,6 +66,8 @@ namespace k2d
     void GameObject::setName(const ct::String &name)
     {
         mName = name;
+        if (mScene)
+            mScene->markTopologyChanged();
     }
 
     const ct::String &GameObject::tag() const
@@ -159,7 +161,11 @@ namespace k2d
     void GameObject::dispose()
     {
         if (this != root())
+        {
             mFlags |= GameObjectDispose;
+            if (mScene)
+                mScene->mHasDisposed = true;
+        }
     }
 
     bool GameObject::disposed() const
@@ -321,6 +327,8 @@ namespace k2d
                 tail = tail->mNextSibling;
             tail->mNextSibling = component;
         }
+        if (!mUiComponent && component->uiControl())
+            mUiComponent = component;
         if (mScene)
             mScene->registerComponent(component);
         component->attached();
@@ -358,6 +366,17 @@ namespace k2d
 
     void GameObject::unlinkComponent(Component *component)
     {
+        if (mUiComponent == component)
+        {
+            mUiComponent = nullptr;
+            for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count) && !mUiComponent; ++i)
+                for (Component *c = mComponents[i]; c; c = c->mNextSibling)
+                    if (c != component && c->uiControl())
+                    {
+                        mUiComponent = c;
+                        break;
+                    }
+        }
         const uint8_t index = static_cast<uint8_t>(component->type());
         Component *&head = mComponents[index];
         if (head == component)

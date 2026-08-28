@@ -506,8 +506,8 @@ bool World::TestMotion(const Body& body, const Math::Vec2& motion, MotionResult&
     const AABB sweep{Min(start.lowerBound, end.lowerBound) - expansion,
                      Max(start.upperBound, end.upperBound) + expansion};
 
-    ct::Vector<Body*> candidates;
-    QueryAABB(sweep, candidates);
+    mBodyScratch.clear();
+    QueryAABB(sweep, mBodyScratch);
 
     ShapeCastOutput best;
     best.fraction = 1.0f;
@@ -515,9 +515,9 @@ bool World::TestMotion(const Body& body, const Math::Vec2& motion, MotionResult&
     int bestOtherShape = -1;
     Body* bestBody = nullptr;
     const Shape* selfShapes = body.Shapes();
-    for (size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex)
+    for (size_t candidateIndex = 0; candidateIndex < mBodyScratch.size(); ++candidateIndex)
     {
-        Body* other = candidates[candidateIndex];
+        Body* other = mBodyScratch[candidateIndex];
         if (!other || other == &body || other->ShapeCount() == 0)
             continue;
         const Transform otherTransform = other->GetTransform();
@@ -586,12 +586,12 @@ bool World::TestPosition(const Body& body, const Math::Vec2& position, MotionRes
 
     const Transform selfTransform = MakeTransform(position, body.Angle());
     const AABB bounds = ComputeBodyAABB(body, selfTransform);
-    ct::Vector<Body*> candidates;
-    QueryAABB(bounds, candidates);
+    mBodyScratch.clear();
+    QueryAABB(bounds, mBodyScratch);
     const Shape* selfShapes = body.Shapes();
-    for (size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex)
+    for (size_t candidateIndex = 0; candidateIndex < mBodyScratch.size(); ++candidateIndex)
     {
-        Body* other = candidates[candidateIndex];
+        Body* other = mBodyScratch[candidateIndex];
         if (!other || other == &body || other->ShapeCount() == 0)
             continue;
         const Transform otherTransform = other->GetTransform();
@@ -704,23 +704,23 @@ void World::RayCastGather(const Math::Vec2& origin, const Math::Vec2& translatio
     Math::Vec2 endPoint = origin + translation;
     AABB segmentAABB{Min(origin, endPoint), Max(origin, endPoint)};
 
-    ct::Vector<Body*> candidates;
+    mBodyScratch.clear();
     if (mUseTree)
     {
         const_cast<World*>(this)->SyncProxies();
 
-        BodyQueryVisitor visitor{&mTree, &candidates};
+        BodyQueryVisitor visitor{&mTree, &mBodyScratch};
         mTree.Query(&visitor, segmentAABB);
     }
     else
     {
-        candidates = mBodies;
+        mBodyScratch = mBodies;
     }
 
     float bestFraction = 1.0f;
-    for (size_t i = 0; i < candidates.size(); ++i)
+    for (size_t i = 0; i < mBodyScratch.size(); ++i)
     {
-        Body* body = candidates[i];
+        Body* body = mBodyScratch[i];
         if (body->ShapeCount() == 0 || body == ignoreBody)
             continue;
         Transform xf = body->GetTransform();
@@ -865,22 +865,20 @@ void World::SyncProxies()
 
 void World::FindNewPairs()
 {
-    ct::Vector<int32_t> hits;
-
     for (size_t i = 0; i < mMoveBuffer.size(); ++i)
     {
         int32_t queryProxyId = mMoveBuffer[i];
         if (queryProxyId == kNullNode)
             continue;
 
-        hits.clear();
-        PairQueryVisitor visitor{&mTree, queryProxyId, &hits};
+        mPairScratch.clear();
+        PairQueryVisitor visitor{&mTree, queryProxyId, &mPairScratch};
         mTree.Query(&visitor, mTree.GetFatAABB(queryProxyId));
 
         Body* self = static_cast<Body*>(mTree.GetUserData(queryProxyId));
-        for (size_t h = 0; h < hits.size(); ++h)
+        for (size_t h = 0; h < mPairScratch.size(); ++h)
         {
-            Body* other = static_cast<Body*>(mTree.GetUserData(hits[h]));
+            Body* other = static_cast<Body*>(mTree.GetUserData(mPairScratch[h]));
             if (self->Type() != BodyType::Dynamic && other->Type() != BodyType::Dynamic)
                 continue;
             uint64_t key = PairKey(self, other);

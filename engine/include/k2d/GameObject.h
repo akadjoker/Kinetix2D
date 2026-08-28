@@ -134,6 +134,7 @@ namespace k2d
         bool removeComponent(Component *component);
 
         Component *rawComponent(ComponentType type, std::size_t index = 0) const;
+        Component *uiComponent() const { return mUiComponent; }
         std::size_t rawComponentCount(ComponentType type) const;
 
         int zIndex() const;
@@ -191,6 +192,7 @@ namespace k2d
         GameObject *mParent;
         ct::Vector<GameObject *> mChildren;
         Component *mComponents[static_cast<uint8_t>(ComponentType::Count)];
+        Component *mUiComponent;
         ct::Vector<Component *> mPendingComponentDeletes;
         uint32_t mComponentCallbackDepth;
         uint32_t mNextComponentId;

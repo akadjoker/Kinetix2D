@@ -77,21 +77,17 @@ namespace k2d
     {
         float baseX = 0.0f, baseY = 0.0f;
         float baseW = gUiViewport.width, baseH = gUiViewport.height;
-        bool foundParentControl = false;
-        for (GameObject *parent = owner() ? owner()->parent() : nullptr; parent && !foundParentControl; parent = parent->parent())
+        for (GameObject *parent = owner() ? owner()->parent() : nullptr; parent; parent = parent->parent())
         {
-            for (uint8_t type = 0; type < static_cast<uint8_t>(ComponentType::Count); ++type)
-                if (Component *component = parent->rawComponent(static_cast<ComponentType>(type)))
-                    if (UiControl *control = component->uiControl())
-                    {
-                        const Math::Vec4 parentRect = control->rect();
-                        baseX = parentRect.x;
-                        baseY = parentRect.y;
-                        baseW = parentRect.z;
-                        baseH = parentRect.w;
-                        foundParentControl = true;
-                        break;
-                    }
+            Component *component = parent->uiComponent();
+            if (!component)
+                continue;
+            const Math::Vec4 parentRect = component->uiControl()->rect();
+            baseX = parentRect.x;
+            baseY = parentRect.y;
+            baseW = parentRect.z;
+            baseH = parentRect.w;
+            break;
         }
         const float left = baseX + baseW * mAnchors.x + mOffsets.x;
         const float top = baseY + baseH * mAnchors.y + mOffsets.y;
