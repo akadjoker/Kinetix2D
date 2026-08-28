@@ -105,19 +105,26 @@ jobs:
           $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
           $bundled = Get-ChildItem -Path $bin -Filter *.dll |
             ForEach-Object { $_.Name.ToLowerInvariant() }
+          # dumpbin needs a VS developer shell the pwsh step does not have; the
+          # MinGW objdump sits next to the compiler this job already found.
+          $objdump = Join-Path $env:MINGW_BIN 'objdump.exe'
+          if (-not (Test-Path $objdump)) {
+            throw "objdump not found at $objdump - cannot verify imports."
+          }
           $failed = $false
           Get-ChildItem -Path $bin -Filter *.exe | ForEach-Object {
             $exeName = $_.Name
-            $dump = & dumpbin /dependents $_.FullName | Out-String
+            $dump = & $objdump -p $_.FullName | Out-String
             foreach ($line in ($dump -split "`r?`n")) {
-              $name = $line.Trim()
-              if ($name -notmatch '(?i)\.dll$') { continue }
+              if ($line -notmatch '(?i)^\s*DLL Name:\s*(\S+)') { continue }
+              $name = $Matches[1]
               $lower = $name.ToLowerInvariant()
               if ($systemDlls -contains $lower) { continue }
               if ($bundled -contains $lower) { continue }
               Write-Host "::error::$exeName imports '$name', which is neither a known Windows system DLL nor bundled in bin/."
               $failed = $true
             }
+            Write-Host "$exeName imports verified."
           }
           if ($failed) {
             throw "One or more staged executables import a DLL that the release package does not ship."
