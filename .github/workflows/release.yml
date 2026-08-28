@@ -53,7 +53,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $mingw = (Get-Command g++.exe -ErrorAction Stop).Source | Split-Path
+          # CMake rejects backslashes in cached compiler paths ("invalid
+          # character escape"), so hand it forward slashes.
+          $mingw = ((Get-Command g++.exe -ErrorAction Stop).Source | Split-Path) -replace '\\','/'
           "MINGW_BIN=$mingw" >> $env:GITHUB_ENV
           cmake -S . -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
