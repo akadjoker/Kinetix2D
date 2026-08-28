@@ -42,6 +42,8 @@ enum class ComponentType : uint8_t
     MotionTween,
     MotionStreak,
     CharacterBody,
+    Skeleton,
+    Bone,
     Count
 };
 
@@ -66,6 +68,16 @@ template <class T> struct ComponentMatch
 class Component
 {
   public:
+    // Told when a component leaves its object, just before it is deleted (or
+    // queued for deletion). The scripting layer caches one script handle per
+    // component address and those handles are persistent, so without this the
+    // cache keeps a dead pointer and the next component allocated at the same
+    // address inherits the handle. The engine cannot call into the scripting
+    // library - it is the one that depends on the engine - so the hook is
+    // registered from up there.
+    using RemovedCallback = void (*)(Component* component, void* user);
+    static void SetRemovedCallback(RemovedCallback callback, void* user);
+
     virtual ~Component() = default;
 
     Component(const Component&) = delete;
@@ -96,6 +108,8 @@ class Component
   private:
     friend class GameObject;
     friend class Scene;
+
+    static void notifyRemoved(Component* component);
 
     void attached();
     void detached();

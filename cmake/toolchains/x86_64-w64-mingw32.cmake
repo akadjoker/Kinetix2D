@@ -6,6 +6,11 @@
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
+# The compiler-ABI try_compile re-runs this file in a scratch project that
+# only inherits variables listed here, so without this the guard below fails
+# on a fresh build directory even though the outer configure passed it.
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES K2D_MINGW_ROOT)
+
 if(NOT K2D_MINGW_ROOT)
     set(K2D_MINGW_ROOT "$ENV{K2D_MINGW_ROOT}")
 endif()

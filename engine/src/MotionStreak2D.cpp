@@ -29,8 +29,11 @@ void MotionStreak2D::onUpdate(float dt)
 {
     for (Point& p : mPoints)
         p.age += dt;
-    while (!mPoints.empty() && mPoints.front().age >= mLifetime)
-        mPoints.erase(mPoints.begin());
+    size_t expired = 0;
+    while (expired < mPoints.size() && mPoints[expired].age >= mLifetime)
+        ++expired;
+    if (expired > 0)
+        mPoints.erase(mPoints.begin(), mPoints.begin() + expired);
     if (!owner())
         return;
     const Math::Vec2 pos = owner()->globalPosition();

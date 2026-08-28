@@ -1,8 +1,11 @@
 build/
 build-*/
 .k2d-tools/
+**/.k2d/
+__pycache__/
 bin/
 bin-sanitize/
+documentation/_build/
 
 # Notas internas — fora do git. Os dois guias públicos abaixo fazem parte do projecto.
 docs/*

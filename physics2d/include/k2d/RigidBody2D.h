@@ -55,6 +55,7 @@ namespace k2d
 
     private:
         friend class PhysicsWorld2D;
+           friend class Collider2D;
 
         kx::Body *mBody;
         PhysicsWorld2D *mWorld;
@@ -77,6 +78,7 @@ namespace k2d
         static constexpr std::size_t InvalidWorldIndex = (std::numeric_limits<std::size_t>::max)();
         std::size_t mBodyIndex;
         std::size_t mPendingIndex;
+        std::size_t mDirtyIndex;
     };
 
 }

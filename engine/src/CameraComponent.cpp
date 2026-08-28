@@ -15,14 +15,21 @@ namespace k2d
     void CameraComponent::setFollowTarget(const GameObject *target)
     {
         mFollowTargetName = target ? target->name() : ct::String();
+        mFollowTarget = nullptr;
     }
 
     void CameraComponent::onUpdate(float deltaTime)
     {
         if (!mFollowTargetName.empty() && owner() && owner()->scene())
         {
-            if (GameObject *target = owner()->scene()->find(mFollowTargetName.c_str()))
-                mCamera.setTarget(target->globalPosition());
+            Scene *scene = owner()->scene();
+            if (!mFollowTarget || mFollowVersion != scene->topologyVersion())
+            {
+                mFollowTarget = scene->find(mFollowTargetName.c_str());
+                mFollowVersion = scene->topologyVersion();
+            }
+            if (mFollowTarget)
+                mCamera.setTarget(mFollowTarget->globalPosition());
         }
         mCamera.update(deltaTime, mViewportWidth, mViewportHeight);
     }

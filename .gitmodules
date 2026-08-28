@@ -4,3 +4,6 @@
 [submodule "external/math"]
 	path = external/math
 	url = https://github.com/akadjoker/math.git
+[submodule "external/zen/upstream"]
+	path = external/zen/upstream
+	url = https://github.com/akadjoker/zenpy.git

@@ -15,6 +15,7 @@
 #include "panels/ScriptsPanel.h"
 #include "panels/SettingsPanel.h"
 #include "panels/SceneViewportPanel.h"
+#include "panels/SkeletonPanel.h"
 #include "panels/ScriptEditorPanel.h"
 #include "panels/SpriteEditorPanel.h"
 #include "panels/TileMapPanel.h"
@@ -50,7 +51,15 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
@@ -98,6 +107,48 @@ ct::String relativeToRoot(const ct::String& absolute, const ct::String& root)
     ++start;
     return absolute.substr(start, absolute.size() - start);
 }
+
+std::filesystem::path findEditorTool(const char* name, const char* overrideVariable = nullptr)
+{
+    if (overrideVariable)
+        if (const char* configured = std::getenv(overrideVariable))
+            if (configured[0] && std::filesystem::exists(configured))
+                return std::filesystem::path(configured);
+
+    std::filesystem::path directory = FileSystem::Instance().BasePath();
+    while (!directory.empty())
+    {
+        const std::filesystem::path besideExecutable = directory / name;
+        if (std::filesystem::exists(besideExecutable))
+            return besideExecutable;
+
+        const std::filesystem::path sourceTool = directory / "tools" / name;
+        if (std::filesystem::exists(sourceTool))
+            return sourceTool;
+
+        const std::filesystem::path parent = directory.parent_path();
+        if (parent == directory)
+            break;
+        directory = parent;
+    }
+    return std::filesystem::path();
+}
+
+#if defined(_WIN32)
+std::string quoteWindowsArgument(const std::string& value)
+{
+    std::string quoted("\"");
+    for (const char c : value)
+    {
+        if (c == '\"')
+            quoted += "\\\"";
+        else
+            quoted += c;
+    }
+    quoted += "\"";
+    return quoted;
+}
+#endif
 } // namespace
 
 EditorApplication::~EditorApplication() = default;
@@ -286,6 +337,7 @@ void EditorApplication::createPanels()
     mImageEditor = imageEditor.get();
     mPanels.push_back(ct::detail::move(imageEditor));
     mPanels.push_back(ct::make_unique<AnimatorPanel>(*this));
+    mPanels.push_back(ct::make_unique<SkeletonPanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));
@@ -512,7 +564,7 @@ void EditorApplication::runStandalone()
         return;
 
 #if defined(__unix__) || defined(__APPLE__)
-    const std::filesystem::path runnerPath = std::filesystem::path(FileSystem::Instance().BasePath()) / "k2d_runner";
+    const std::filesystem::path runnerPath = findEditorTool("k2d_runner");
     if (!std::filesystem::exists(runnerPath))
     {
         ct::String message("Runner executable was not found: ");
@@ -543,6 +595,103 @@ void EditorApplication::runStandalone()
 #else
     log("Standalone runner launch is not implemented on this platform");
     mToasts.error("Standalone runner is unavailable on this platform");
+#endif
+}
+
+void EditorApplication::exportWeb(bool runAfterExport)
+{
+    if (!mProject.valid())
+    {
+        mToasts.error("Open a project before exporting for Web");
+        return;
+    }
+    ct::String sceneRelative = relativeToRoot(mCurrentScenePath, mProject.root());
+    if (sceneRelative.empty())
+        sceneRelative = mProject.startupScene();
+    if (sceneRelative.empty())
+    {
+        mToasts.error("Save a scene inside the project before exporting for Web");
+        return;
+    }
+    if (!mCurrentScenePath.empty() && !saveScene(mCurrentScenePath.c_str()))
+        return;
+    if (!EditorFileSystem::exists(EditorFileSystem::join(mProject.root(), sceneRelative.c_str())))
+    {
+        mToasts.error("The Web scene must be inside the project folder");
+        return;
+    }
+
+#if defined(__unix__) || defined(__APPLE__)
+    const std::filesystem::path exporter = findEditorTool("export_web.sh", "K2D_WEB_EXPORTER");
+    if (!std::filesystem::exists(exporter))
+    {
+        ct::String message("Web exporter was not found: ");
+        message += exporter.string().c_str();
+        log(message);
+        mToasts.error("Web exporter script was not found");
+        return;
+    }
+    const pid_t pid = fork();
+    if (pid == 0)
+    {
+        const std::string parentPid = std::to_string(static_cast<long long>(getppid()));
+        if (runAfterExport)
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
+                  "--run", "--parent-pid", parentPid.c_str(), static_cast<char*>(nullptr));
+        else
+            execl(exporter.c_str(), exporter.c_str(), mProject.root().c_str(), "--scene", sceneRelative.c_str(),
+                  static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    if (pid < 0)
+    {
+        mToasts.error("Could not start Web export");
+        return;
+    }
+    ct::String message(runAfterExport ? "Run Web: exporting current scene: " : "Export Web: exporting current scene: ");
+    message += sceneRelative;
+    log(message);
+    mToasts.info(runAfterExport ? "Building current scene for Web" : "Exporting current scene for Web");
+#elif defined(_WIN32)
+    const std::filesystem::path exporter = findEditorTool("export_web.bat", "K2D_WEB_EXPORTER");
+    if (!std::filesystem::exists(exporter))
+    {
+        mToasts.error("Web exporter batch file was not found");
+        return;
+    }
+    const char* commandProcessor = std::getenv("COMSPEC");
+    if (!commandProcessor || !commandProcessor[0])
+        commandProcessor = "cmd.exe";
+    std::string command = quoteWindowsArgument(commandProcessor);
+    command += " /d /s /c \"";
+    command += quoteWindowsArgument(exporter.string());
+    command += " ";
+    command += quoteWindowsArgument(mProject.root().c_str());
+    command += " --scene ";
+    command += quoteWindowsArgument(sceneRelative.c_str());
+    if (runAfterExport)
+    {
+        command += " --run --parent-pid ";
+        command += std::to_string(static_cast<unsigned long>(GetCurrentProcessId()));
+    }
+    command += "\"";
+    std::vector<char> mutableCommand(command.begin(), command.end());
+    mutableCommand.push_back('\0');
+    STARTUPINFOA startup = {};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process = {};
+    if (!CreateProcessA(commandProcessor, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                        &startup, &process))
+    {
+        mToasts.error("Could not start Web export");
+        return;
+    }
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    mToasts.info(runAfterExport ? "Building current scene for Web" : "Exporting current scene for Web");
+#else
+    (void)runAfterExport;
+    mToasts.error("Web export launch is not implemented on this platform");
 #endif
 }
 
@@ -999,6 +1148,7 @@ void EditorApplication::drawWorkspace()
     drawMenuBar();
     drawToolbar();
     drawFileDialog();
+    drawNewProjectNameDialog();
 
     const ImGuiID dockspaceId = ImGui::GetID("Kinetix2D Dockspace");
     if (mDefaultLayoutPending || mLayoutResetRequested)
@@ -1121,6 +1271,17 @@ void EditorApplication::drawMenuBar()
         ImGui::EndMenu();
     }
 
+    if (ImGui::BeginMenu("Project"))
+    {
+        if (ImGui::MenuItem(ICON_MDI_EXPORT " Export Web...", nullptr, false, mProject.valid()))
+            exportWeb(false);
+        if (ImGui::MenuItem(ICON_MDI_WEB " Run Web", nullptr, false, mProject.valid()))
+            exportWeb(true);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Exports bytecode and assets, then serves the game on a free localhost port");
+        ImGui::EndMenu();
+    }
+
     if (ImGui::BeginMenu("Window"))
     {
         for (const ct::Unique<EditorPanel>& panel : mPanels)
@@ -1194,7 +1355,9 @@ void EditorApplication::drawFileDialog()
     switch (purpose)
     {
     case FileDialogPurpose::NewProjectFolder:
-        newProject(path.c_str(), EditorFileSystem::fileName(path).c_str());
+        mNewProjectParentDirectory = path;
+        mNewProjectName[0] = '\0';
+        ImGui::OpenPopup("New Project");
         break;
     case FileDialogPurpose::OpenProject:
         openProject(path.c_str());
@@ -1208,6 +1371,48 @@ void EditorApplication::drawFileDialog()
     default:
         break;
     }
+}
+
+void EditorApplication::drawNewProjectNameDialog()
+{
+    if (!ImGui::BeginPopupModal("New Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::TextUnformatted("Choose a name for the project folder.");
+    ImGui::TextDisabled("Location: %s", mNewProjectParentDirectory.c_str());
+    ImGui::SetNextItemWidth(300.0f);
+    ImGui::InputTextWithHint("Name", "My Game", mNewProjectName, sizeof(mNewProjectName));
+
+    const bool hasName = mNewProjectName[0] != '\0';
+    const bool invalidName = std::strchr(mNewProjectName, '/') || std::strchr(mNewProjectName, '\\') ||
+                             std::strcmp(mNewProjectName, ".") == 0 || std::strcmp(mNewProjectName, "..") == 0;
+    const ct::String projectDirectory = EditorFileSystem::join(mNewProjectParentDirectory, mNewProjectName);
+    const bool alreadyExists = hasName && EditorFileSystem::exists(projectDirectory);
+    if (invalidName)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "The name cannot contain a path separator.");
+    else if (alreadyExists)
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "This project folder already exists.");
+
+    ImGui::TextDisabled("Will create: scenes, assets/scripts and assets/prefabs.");
+    ImGui::BeginDisabled(!hasName || invalidName || alreadyExists);
+    if (ImGui::Button("Create Project"))
+    {
+        if (newProject(mNewProjectParentDirectory.c_str(), mNewProjectName))
+        {
+            mNewProjectParentDirectory.clear();
+            mNewProjectName[0] = '\0';
+            ImGui::CloseCurrentPopup();
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+    {
+        mNewProjectParentDirectory.clear();
+        mNewProjectName[0] = '\0';
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 void EditorApplication::drawStatusBar()

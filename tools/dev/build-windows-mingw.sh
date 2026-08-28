@@ -17,7 +17,7 @@ fi
 toolchain="${repo_root}/cmake/toolchains/x86_64-w64-mingw32.cmake"
 
 if [[ "${mode}" == "zen" ]]; then
-    cmake -S "${repo_root}/external/zen" -B "${build_dir}-zen" -G Ninja \
+    cmake -S "${repo_root}/external/zen/upstream/libzen" -B "${build_dir}-zen" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_TOOLCHAIN_FILE="${toolchain}" \
         -DK2D_MINGW_ROOT="${mingw_root}"

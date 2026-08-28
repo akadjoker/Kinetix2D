@@ -1,30 +1,56 @@
 #include "k2d/ZenScriptComponent.h"
 
 #include "k2d/PhysicsWorld2D.h"
+#include "k2d/BoxCollider2D.h"
+#include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
+#include "k2d/CircleCollider2D.h"
+#include "k2d/EdgeCollider2D.h"
+#include "k2d/PolygonCollider2D.h"
 #include "k2d/RigidBody2D.h"
 #include "k2d/ZenRuntime.h"
 #include "ZenRuntimeInternal.h"
 
+#include <zen/bytecode.h>
+
 #include "k2d/Animation2D.h"
 #include "k2d/AudioEngine.h"
+#include "k2d/AudioPlayer.h"
 #include "k2d/Assets.h"
+#include "k2d/Bone2D.h"
 #include "k2d/Camera2D.h"
 #include "k2d/CameraComponent.h"
+#include "k2d/CapsuleShape.h"
+#include "k2d/CircleShape.h"
+#include "k2d/DirectionalLight2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
 #include "k2d/Input.h"
 #include "k2d/InputActionMap.h"
+#include "k2d/Light2D.h"
+#include "k2d/LightOccluder2D.h"
+#include "k2d/Line2D.h"
+#include "k2d/MotionStreak2D.h"
+#include "k2d/MotionTween2D.h"
+#include "k2d/NavigationAgent2D.h"
+#include "k2d/NavigationRegion2D.h"
+#include "k2d/NinePatchComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/Polygon2D.h"
+#include "k2d/RectShape.h"
 #include "k2d/RenderQueue.h"
 #include "k2d/Scene.h"
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneManager.h"
+#include "k2d/Skeleton2D.h"
 #include "k2d/Serializer.h"
 #include "k2d/SpriteComponent.h"
+#include "k2d/SpriteBatch.h"
+#include "k2d/TileMapComponent.h"
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
+#include "k2d/VirtualPad.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -47,6 +73,7 @@ namespace k2d
 namespace
 {
 Input* gZenInput = nullptr;
+VirtualPad* gZenVirtualPad = nullptr;
 Assets* gZenAssets = nullptr;
 UserData* gZenUserData = nullptr;
 struct ZenGameViewport
@@ -182,6 +209,30 @@ const char* valueToCString(zen::VM* vm, zen::Value v, char* smallBuffer, size_t 
         return ((zen::ObjString*)v.as.obj)->chars;
     (void)vm;
     return "";
+}
+
+// A point list argument is an array of [x, y] pairs, mirroring the engine's
+// own JSON convention for polygons (Serializer.cpp's ReadVec2/WriteVec2) —
+// not a flat list of numbers.
+bool unpackPointArray(zen::Value value, ct::Vector<Math::Vec2>& out)
+{
+    if (!zen::is_array(value))
+        return false;
+    zen::ObjArray* outer = zen::as_array(value);
+    const int32_t count = arr_count(outer);
+    out.clear();
+    for (int32_t i = 0; i < count; ++i)
+    {
+        const zen::Value entry = zen::array_get(outer, i);
+        if (!zen::is_array(entry))
+            return false;
+        zen::ObjArray* pair = zen::as_array(entry);
+        if (arr_count(pair) < 2)
+            return false;
+        out.push_back(Math::Vec2((float)zen::to_number(zen::array_get(pair, 0)),
+                                 (float)zen::to_number(zen::array_get(pair, 1))));
+    }
+    return true;
 }
 
 float drawColorComponent(zen::Value value)
@@ -792,6 +843,15 @@ int natSetGravity(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
+int natGetActiveCamera(zen::VM* vm, zen::Value* args, int)
+{
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    CameraComponent* camera = scene ? scene->activeCamera() : nullptr;
+    args[0] = (camera && state) ? state->instanceFor(state->cameraClass, camera) : zen::val_nil();
+    return 1;
+}
+
 int natGetGravity(zen::VM*, zen::Value* args, int)
 {
     PhysicsWorld2D* world = PhysicsWorld2D::Active();
@@ -811,7 +871,7 @@ int natNodeGetBody(zen::VM* vm, zen::Value* args, int)
     GameObject* node = nodeFromSelf(args);
     ZenRuntime::Impl* state = stateFromVM(vm);
     RigidBody2D* body = node ? node->getComponent<RigidBody2D>() : nullptr;
-    args[0] = (body && state) ? state->instanceFor(state->bodyClass, body) : zen::val_nil();
+    args[0] = (body && state) ? state->instanceFor(state->rigidBodyClass, body) : zen::val_nil();
     return 1;
 }
 
@@ -1148,6 +1208,1956 @@ int natNodeGetSlider(zen::VM* vm, zen::Value* args, int)
     ZenRuntime::Impl* state = stateFromVM(vm);
     UiSlider* slider = node ? node->getComponent<UiSlider>() : nullptr;
     args[0] = (slider && state) ? state->instanceFor(state->sliderClass, slider) : zen::val_nil();
+    return 1;
+}
+
+Component* componentFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<Component>(args[-1]);
+}
+
+int natComponentIsActive(zen::VM*, zen::Value* args, int)
+{
+    Component* component = componentFromSelf(args);
+    args[0] = zen::val_bool(component && component->active());
+    return 1;
+}
+
+int natComponentSetActive(zen::VM*, zen::Value* args, int nargs)
+{
+    if (Component* component = componentFromSelf(args))
+        if (nargs >= 1)
+            component->setActive(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natCharacterGetVelocity(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = componentFromSelf(args) ?
+        static_cast<CharacterBody2D*>(componentFromSelf(args)) : nullptr;
+    const Math::Vec2 velocity = character ? character->velocity() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(velocity.x);
+    args[1] = zen::val_float(velocity.y);
+    return 2;
+}
+
+int natCharacterSetVelocity(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 2)
+        character->setVelocity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natCharacterGetSafeMargin(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_float(character ? character->safeMargin() : 0.0f);
+    return 1;
+}
+
+int natCharacterSetSafeMargin(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 1)
+        character->setSafeMargin((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCharacterGetMaxSlides(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(character ? character->maxSlides() : 0);
+    return 1;
+}
+
+int natCharacterSetMaxSlides(zen::VM*, zen::Value* args, int nargs)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    if (character && nargs >= 1)
+        character->setMaxSlides((int)zen::to_integer(args[0]));
+    return 0;
+}
+
+int natCharacterIsOnFloor(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnFloor());
+    return 1;
+}
+
+int natCharacterIsOnWall(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnWall());
+    return 1;
+}
+
+int natCharacterIsOnCeiling(zen::VM*, zen::Value* args, int)
+{
+    CharacterBody2D* character = static_cast<CharacterBody2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(character && character->isOnCeiling());
+    return 1;
+}
+
+int natColliderGetOffset(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    const Math::Vec2 offset = collider ? collider->offset() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(offset.x);
+    args[1] = zen::val_float(offset.y);
+    return 2;
+}
+
+int natColliderSetOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 2)
+        collider->setOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natColliderIsSensor(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(collider && collider->isSensor());
+    return 1;
+}
+
+int natColliderSetSensor(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 1)
+        collider->setSensor(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natColliderGetFilter(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(collider ? collider->category() : 0);
+    args[1] = zen::val_int(collider ? collider->mask() : 0);
+    return 2;
+}
+
+int natColliderSetFilter(zen::VM*, zen::Value* args, int nargs)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    if (collider && nargs >= 2)
+        collider->setFilter((uint16_t)zen::to_integer(args[0]), (uint16_t)zen::to_integer(args[1]));
+    return 0;
+}
+
+int natColliderShapeCount(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_int(collider ? collider->shapeCount() : 0);
+    return 1;
+}
+
+int natColliderAttached(zen::VM*, zen::Value* args, int)
+{
+    Collider2D* collider = static_cast<Collider2D*>(componentFromSelf(args));
+    args[0] = zen::val_bool(collider && collider->attached());
+    return 1;
+}
+
+int natUiPanelSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    UiPanel* panel = static_cast<UiPanel*>(componentFromSelf(args));
+    if (panel && nargs >= 3)
+    {
+        const unsigned char r = (unsigned char)zen::to_integer(args[0]);
+        const unsigned char g = (unsigned char)zen::to_integer(args[1]);
+        const unsigned char b = (unsigned char)zen::to_integer(args[2]);
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        panel->setColor(Color(r, g, b, a));
+    }
+    return 0;
+}
+
+int natUiLabelSetText(zen::VM* vm, zen::Value* args, int nargs)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    if (label && nargs >= 1)
+    {
+        char small[256];
+        label->setText(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natUiLabelGetText(zen::VM* vm, zen::Value* args, int)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(label ? label->text().c_str() : ""));
+    return 1;
+}
+
+int natUiLabelSetFontSize(zen::VM*, zen::Value* args, int nargs)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    if (label && nargs >= 1)
+        label->setFontSize((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natUiLabelGetFontSize(zen::VM*, zen::Value* args, int)
+{
+    UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
+    args[0] = zen::val_float(label ? label->fontSize() : 0.0f);
+    return 1;
+}
+
+int natSkeletonPlay(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    bool ok = false;
+    if (skeleton && nargs >= 1)
+    {
+        char small[16];
+        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const bool loop = nargs >= 2 ? zen::is_truthy(args[1]) : true;
+        const float speed = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
+        ok = skeleton->play(name, loop, speed);
+    }
+    args[0] = zen::val_bool(ok);
+    return 1;
+}
+
+int natSkeletonStop(zen::VM*, zen::Value* args, int)
+{
+    if (Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]))
+        skeleton->stop();
+    return 0;
+}
+
+int natSkeletonPause(zen::VM*, zen::Value* args, int)
+{
+    if (Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]))
+        skeleton->pause();
+    return 0;
+}
+
+int natSkeletonResume(zen::VM*, zen::Value* args, int)
+{
+    if (Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]))
+        skeleton->resume();
+    return 0;
+}
+
+int natSkeletonSeek(zen::VM*, zen::Value* args, int nargs)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    if (skeleton && nargs >= 1)
+        skeleton->seek((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSkeletonIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    args[0] = zen::val_bool(skeleton && skeleton->playing());
+    return 1;
+}
+
+int natSkeletonCurrent(zen::VM* vm, zen::Value* args, int)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    const char* name = skeleton ? skeleton->currentAnimation() : "";
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(name ? name : ""));
+    return 1;
+}
+
+int natSkeletonGetTime(zen::VM*, zen::Value* args, int)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    args[0] = zen::val_float(skeleton ? skeleton->currentTime() : 0.0f);
+    return 1;
+}
+
+int natSkeletonGetSpeed(zen::VM*, zen::Value* args, int)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    args[0] = zen::val_float(skeleton ? skeleton->speed() : 0.0f);
+    return 1;
+}
+
+int natSkeletonSetSpeed(zen::VM*, zen::Value* args, int nargs)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    if (skeleton && nargs >= 1)
+        skeleton->setSpeed((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSkeletonClipCount(zen::VM*, zen::Value* args, int)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    args[0] = zen::val_int(skeleton ? (int64_t)skeleton->clipCount() : 0);
+    return 1;
+}
+
+int natSkeletonFindBone(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    Bone2D* bone = nullptr;
+    if (skeleton && state && nargs >= 1)
+    {
+        char small[16];
+        bone = skeleton->findBone(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    args[0] = bone ? state->instanceFor(state->boneClass, bone) : zen::val_nil();
+    return 1;
+}
+
+int natSkeletonResetToRest(zen::VM*, zen::Value* args, int)
+{
+    if (Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]))
+        skeleton->resetToRest();
+    return 0;
+}
+
+int natSkeletonSolveIK(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Skeleton2D* skeleton = zen::zen_instance_data<Skeleton2D>(args[-1]);
+    bool ok = false;
+    if (skeleton && nargs >= 3)
+    {
+        char small[16];
+        const char* effector = valueToCString(vm, args[0], small, sizeof(small));
+        const Math::Vec2 target((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+        const int chain = nargs >= 4 ? (int)zen::to_number(args[3]) : 0;
+        const int iterations = nargs >= 5 ? (int)zen::to_number(args[4]) : 8;
+        const float tolerance = nargs >= 6 ? (float)zen::to_number(args[5]) : 0.5f;
+        ok = skeleton->solveIK(effector, target, chain, iterations, tolerance);
+    }
+    args[0] = zen::val_bool(ok);
+    return 1;
+}
+
+int natBoneGetLength(zen::VM*, zen::Value* args, int)
+{
+    Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]);
+    args[0] = zen::val_float(bone ? bone->length() : 0.0f);
+    return 1;
+}
+
+int natBoneSetLength(zen::VM*, zen::Value* args, int nargs)
+{
+    Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]);
+    if (bone && nargs >= 1)
+        bone->setLength((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natBoneGetRestPosition(zen::VM*, zen::Value* args, int)
+{
+    Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]);
+    args[0] = zen::val_float(bone ? bone->restPosition().x : 0.0f);
+    args[1] = zen::val_float(bone ? bone->restPosition().y : 0.0f);
+    return 2;
+}
+
+int natBoneGetRestRotation(zen::VM*, zen::Value* args, int)
+{
+    Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]);
+    args[0] = zen::val_float(bone ? bone->restRotationDegrees() : 0.0f);
+    return 1;
+}
+
+int natBoneSaveRestPose(zen::VM*, zen::Value* args, int)
+{
+    if (Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]))
+        bone->saveRestPose();
+    return 0;
+}
+
+int natBoneResetToRest(zen::VM*, zen::Value* args, int)
+{
+    if (Bone2D* bone = zen::zen_instance_data<Bone2D>(args[-1]))
+        bone->resetToRest();
+    return 0;
+}
+
+int natAudioPlayerPlay(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_int(player ? (int64_t)player->play() : 0);
+    return 1;
+}
+
+int natAudioPlayerStop(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_bool(player && player->stop());
+    return 1;
+}
+
+int natAudioPlayerPause(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_bool(player && player->pause());
+    return 1;
+}
+
+int natAudioPlayerResume(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_bool(player && player->resume());
+    return 1;
+}
+
+int natAudioPlayerIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_bool(player && player->playing());
+    return 1;
+}
+
+int natAudioPlayerGetVolume(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_float(player ? player->volume() : 0.0f);
+    return 1;
+}
+
+int natAudioPlayerSetVolume(zen::VM*, zen::Value* args, int nargs)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    if (player && nargs >= 1)
+        player->setVolume((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natAudioPlayerGetLoop(zen::VM*, zen::Value* args, int)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    args[0] = zen::val_bool(player && player->loop());
+    return 1;
+}
+
+int natAudioPlayerSetLoop(zen::VM*, zen::Value* args, int nargs)
+{
+    AudioPlayer* player = zen::zen_instance_data<AudioPlayer>(args[-1]);
+    if (player && nargs >= 1)
+        player->setLoop(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natLight2DGetColor(zen::VM*, zen::Value* args, int)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    const Color color = light ? light->color() : Color();
+    args[0] = zen::val_float(color.r);
+    args[1] = zen::val_float(color.g);
+    args[2] = zen::val_float(color.b);
+    args[3] = zen::val_float(color.a);
+    return 4;
+}
+
+int natLight2DSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    if (light && nargs >= 3)
+    {
+        const float a = nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f;
+        light->setColor((float)zen::to_number(args[0]), (float)zen::to_number(args[1]),
+                        (float)zen::to_number(args[2]), a);
+    }
+    return 0;
+}
+
+int natLight2DGetEnergy(zen::VM*, zen::Value* args, int)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    args[0] = zen::val_float(light ? light->energy() : 0.0f);
+    return 1;
+}
+
+int natLight2DSetEnergy(zen::VM*, zen::Value* args, int nargs)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    if (light && nargs >= 1)
+        light->setEnergy((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natLight2DGetRadius(zen::VM*, zen::Value* args, int)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    args[0] = zen::val_float(light ? light->radius() : 0.0f);
+    return 1;
+}
+
+int natLight2DSetRadius(zen::VM*, zen::Value* args, int nargs)
+{
+    Light2D* light = zen::zen_instance_data<Light2D>(args[-1]);
+    if (light && nargs >= 1)
+        light->setRadius((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natTileMapGetTile(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    int tile = 0;
+    if (tileMap && nargs >= 2)
+        tile = tileMap->getTile((int)zen::to_number(args[0]), (int)zen::to_number(args[1]));
+    args[0] = zen::val_int(tile);
+    return 1;
+}
+
+int natTileMapSetTile(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    if (tileMap && nargs >= 3)
+        tileMap->setTile((int)zen::to_number(args[0]), (int)zen::to_number(args[1]), (int)zen::to_number(args[2]));
+    return 0;
+}
+
+int natTileMapHasCollision(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    bool solid = false;
+    if (tileMap && nargs >= 2)
+        solid = tileMap->hasCollision((int)zen::to_number(args[0]), (int)zen::to_number(args[1]));
+    args[0] = zen::val_bool(solid);
+    return 1;
+}
+
+int natTileMapSetCollision(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    if (tileMap && nargs >= 3)
+        tileMap->setCollision((int)zen::to_number(args[0]), (int)zen::to_number(args[1]), zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natTileMapGetColumns(zen::VM*, zen::Value* args, int)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    args[0] = zen::val_int(tileMap ? tileMap->columns() : 0);
+    return 1;
+}
+
+int natTileMapGetRows(zen::VM*, zen::Value* args, int)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    args[0] = zen::val_int(tileMap ? tileMap->rows() : 0);
+    return 1;
+}
+
+int natTileMapGetCellSize(zen::VM*, zen::Value* args, int)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    args[0] = zen::val_float(tileMap ? tileMap->cellWidth() : 0.0f);
+    args[1] = zen::val_float(tileMap ? tileMap->cellHeight() : 0.0f);
+    return 2;
+}
+
+// Cell coordinates are in the tilemap's own local grid; the node's full
+// transform (position, rotation, scale) carries them into world space, the
+// same math TileMapComponent::onRender uses to place each tile.
+int natTileMapWorldToCell(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    int cellX = 0;
+    int cellY = 0;
+    if (tileMap && tileMap->owner() && nargs >= 2 && tileMap->cellWidth() != 0.0f && tileMap->cellHeight() != 0.0f)
+    {
+        const Math::Vec2 local = tileMap->owner()->globalTransform().AffineInverse().Transform(
+            (float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        cellX = (int)std::floor(local.x / tileMap->cellWidth());
+        cellY = (int)std::floor(local.y / tileMap->cellHeight());
+    }
+    args[0] = zen::val_int(cellX);
+    args[1] = zen::val_int(cellY);
+    return 2;
+}
+
+int natTileMapCellToWorld(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    Math::Vec2 world(0.0f, 0.0f);
+    if (tileMap && tileMap->owner() && nargs >= 2)
+    {
+        const Math::Vec2 local((float)zen::to_number(args[0]) * tileMap->cellWidth(),
+                               (float)zen::to_number(args[1]) * tileMap->cellHeight());
+        world = tileMap->owner()->globalTransform().Transform(local);
+    }
+    args[0] = zen::val_float(world.x);
+    args[1] = zen::val_float(world.y);
+    return 2;
+}
+
+int natNavAgentSetTarget(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    bool ok = false;
+    if (agent && nargs >= 2)
+        ok = agent->setTargetPosition(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    args[0] = zen::val_bool(ok);
+    return 1;
+}
+
+int natNavAgentGetTarget(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    const Math::Vec2 target = agent ? agent->targetPosition() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(target.x);
+    args[1] = zen::val_float(target.y);
+    return 2;
+}
+
+int natNavAgentRepath(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(agent && agent->repath());
+    return 1;
+}
+
+int natNavAgentClearPath(zen::VM*, zen::Value* args, int)
+{
+    if (NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]))
+        agent->clearPath();
+    return 0;
+}
+
+int natNavAgentHasPath(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(agent && agent->hasPath());
+    return 1;
+}
+
+int natNavAgentIsFinished(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(!agent || agent->isNavigationFinished());
+    return 1;
+}
+
+int natNavAgentNextPosition(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    const Math::Vec2 next = agent ? agent->nextPathPosition() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(next.x);
+    args[1] = zen::val_float(next.y);
+    return 2;
+}
+
+int natNavAgentAdvance(zen::VM*, zen::Value* args, int)
+{
+    if (NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]))
+        agent->advance();
+    return 0;
+}
+
+int natNavAgentPathCount(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_int(agent ? (int64_t)agent->path().size() : 0);
+    return 1;
+}
+
+int natNavAgentPathPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (agent && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& path = agent->path();
+        if (index >= 0 && (std::size_t)index < path.size())
+            point = path[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natNavAgentGetMaxSpeed(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_float(agent ? agent->maxSpeed() : 0.0f);
+    return 1;
+}
+
+int natNavAgentSetMaxSpeed(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setMaxSpeed((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natNavAgentGetAutoMove(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(agent && agent->autoMove());
+    return 1;
+}
+
+int natNavAgentSetAutoMove(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setAutoMove(zen::is_truthy(args[0]));
+    return 0;
+}
+
+
+int natDirectionalLightGetColor(zen::VM*, zen::Value* args, int)
+{
+    DirectionalLight2D* light = zen::zen_instance_data<DirectionalLight2D>(args[-1]);
+    const Color color = light ? light->color() : Color();
+    args[0] = zen::val_float(color.r);
+    args[1] = zen::val_float(color.g);
+    args[2] = zen::val_float(color.b);
+    args[3] = zen::val_float(color.a);
+    return 4;
+}
+
+int natDirectionalLightSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    DirectionalLight2D* light = zen::zen_instance_data<DirectionalLight2D>(args[-1]);
+    if (light && nargs >= 3)
+    {
+        const float a = nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f;
+        light->setColor((float)zen::to_number(args[0]), (float)zen::to_number(args[1]),
+                        (float)zen::to_number(args[2]), a);
+    }
+    return 0;
+}
+
+int natDirectionalLightGetEnergy(zen::VM*, zen::Value* args, int)
+{
+    DirectionalLight2D* light = zen::zen_instance_data<DirectionalLight2D>(args[-1]);
+    args[0] = zen::val_float(light ? light->energy() : 0.0f);
+    return 1;
+}
+
+int natDirectionalLightSetEnergy(zen::VM*, zen::Value* args, int nargs)
+{
+    DirectionalLight2D* light = zen::zen_instance_data<DirectionalLight2D>(args[-1]);
+    if (light && nargs >= 1)
+        light->setEnergy((float)zen::to_number(args[0]));
+    return 0;
+}
+
+// Points are local to the occluder's own transform; RenderQueue applies
+// owner()->globalTransform() at render time, same as LightOccluder2D::onRender.
+int natOccluderSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    LightOccluder2D* occluder = zen::zen_instance_data<LightOccluder2D>(args[-1]);
+    if (occluder && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points) && !points.empty())
+            occluder->setPolygon(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natOccluderPointCount(zen::VM*, zen::Value* args, int)
+{
+    LightOccluder2D* occluder = zen::zen_instance_data<LightOccluder2D>(args[-1]);
+    args[0] = zen::val_int(occluder ? (int64_t)occluder->points().size() : 0);
+    return 1;
+}
+
+int natOccluderGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    LightOccluder2D* occluder = zen::zen_instance_data<LightOccluder2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (occluder && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = occluder->points();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+MotionEase parseMotionEase(const char* name)
+{
+    struct EaseEntry { const char* name; MotionEase ease; };
+    static const EaseEntry table[] = {
+        {"linear", MotionEase::Linear}, {"in_quad", MotionEase::InQuad}, {"out_quad", MotionEase::OutQuad},
+        {"in_out_quad", MotionEase::InOutQuad}, {"in_cubic", MotionEase::InCubic}, {"out_cubic", MotionEase::OutCubic},
+        {"in_out_cubic", MotionEase::InOutCubic}, {"in_sine", MotionEase::InSine}, {"out_sine", MotionEase::OutSine},
+        {"in_out_sine", MotionEase::InOutSine}, {"in_back", MotionEase::InBack}, {"out_back", MotionEase::OutBack},
+        {"in_out_back", MotionEase::InOutBack}, {"in_bounce", MotionEase::InBounce}, {"out_bounce", MotionEase::OutBounce},
+        {"in_out_bounce", MotionEase::InOutBounce}, {"in_elastic", MotionEase::InElastic},
+        {"out_elastic", MotionEase::OutElastic}, {"in_out_elastic", MotionEase::InOutElastic},
+    };
+    for (const EaseEntry& entry : table)
+        if (std::strcmp(name, entry.name) == 0)
+            return entry.ease;
+    return MotionEase::Linear;
+}
+
+MotionTweenProperty parseMotionTweenProperty(const char* name)
+{
+    if (std::strcmp(name, "rotation") == 0)
+        return MotionTweenProperty::Rotation;
+    if (std::strcmp(name, "scale") == 0)
+        return MotionTweenProperty::Scale;
+    return MotionTweenProperty::Position;
+}
+
+MotionTweenLoop parseMotionTweenLoop(const char* name)
+{
+    if (std::strcmp(name, "repeat") == 0)
+        return MotionTweenLoop::Repeat;
+    if (std::strcmp(name, "ping_pong") == 0)
+        return MotionTweenLoop::PingPong;
+    return MotionTweenLoop::None;
+}
+
+const char* motionTweenLoopName(MotionTweenLoop loop)
+{
+    switch (loop)
+    {
+    case MotionTweenLoop::Repeat:
+        return "repeat";
+    case MotionTweenLoop::PingPong:
+        return "ping_pong";
+    default:
+        return "none";
+    }
+}
+
+int natMotionTweenPlay(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    if (tween)
+        tween->play(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natMotionTweenStop(zen::VM*, zen::Value* args, int)
+{
+    if (MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]))
+        tween->stop();
+    return 0;
+}
+
+int natMotionTweenPause(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    if (tween)
+        tween->pause(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natMotionTweenIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_bool(tween && tween->playing());
+    return 1;
+}
+
+int natMotionTweenIsPaused(zen::VM*, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_bool(tween && tween->paused());
+    return 1;
+}
+
+int natMotionTweenGetTime(zen::VM*, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_float(tween ? tween->time() : 0.0f);
+    return 1;
+}
+
+int natMotionTweenGetLoop(zen::VM* vm, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(motionTweenLoopName(tween ? tween->loop() : MotionTweenLoop::None)));
+    return 1;
+}
+
+int natMotionTweenSetLoop(zen::VM* vm, zen::Value* args, int nargs)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    if (tween && nargs >= 1)
+    {
+        char small[16];
+        tween->setLoop(parseMotionTweenLoop(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natMotionTweenGetOneShot(zen::VM*, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_bool(tween && tween->oneShot());
+    return 1;
+}
+
+int natMotionTweenSetOneShot(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    if (tween && nargs >= 1)
+        tween->setOneShot(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natMotionTweenClearTracks(zen::VM*, zen::Value* args, int)
+{
+    if (MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]))
+        tween->clearTracks();
+    return 0;
+}
+
+int natMotionTweenTrackCount(zen::VM*, zen::Value* args, int)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    args[0] = zen::val_int(tween ? (int64_t)tween->trackCount() : 0);
+    return 1;
+}
+
+int natMotionTweenAddTrack(zen::VM* vm, zen::Value* args, int nargs)
+{
+    MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
+    if (tween && nargs >= 6)
+    {
+        char propertyBuf[16];
+        MotionTweenTrack track;
+        track.property = parseMotionTweenProperty(valueToCString(vm, args[0], propertyBuf, sizeof(propertyBuf)));
+        track.from = Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+        track.to = Math::Vec2((float)zen::to_number(args[3]), (float)zen::to_number(args[4]));
+        track.duration = (float)zen::to_number(args[5]);
+        track.delay = nargs >= 7 ? (float)zen::to_number(args[6]) : 0.0f;
+        char easeBuf[16];
+        track.ease =
+            nargs >= 8 ? parseMotionEase(valueToCString(vm, args[7], easeBuf, sizeof(easeBuf))) : MotionEase::OutQuad;
+        track.enabled = nargs >= 9 ? zen::is_truthy(args[8]) : true;
+        tween->addTrack(track);
+    }
+    return 0;
+}
+
+int natMotionStreakReset(zen::VM*, zen::Value* args, int)
+{
+    if (MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]))
+        streak->reset();
+    return 0;
+}
+
+int natMotionStreakGetLifetime(zen::VM*, zen::Value* args, int)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    args[0] = zen::val_float(streak ? streak->lifetime() : 0.0f);
+    return 1;
+}
+
+int natMotionStreakSetLifetime(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    if (streak && nargs >= 1)
+        streak->setLifetime((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotionStreakGetWidth(zen::VM*, zen::Value* args, int)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    args[0] = zen::val_float(streak ? streak->width() : 0.0f);
+    return 1;
+}
+
+int natMotionStreakSetWidth(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    if (streak && nargs >= 1)
+        streak->setWidth((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotionStreakGetMinDistance(zen::VM*, zen::Value* args, int)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    args[0] = zen::val_float(streak ? streak->minDistance() : 0.0f);
+    return 1;
+}
+
+int natMotionStreakSetMinDistance(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    if (streak && nargs >= 1)
+        streak->setMinDistance((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotionStreakGetColor(zen::VM*, zen::Value* args, int)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    const Color color = streak ? streak->color() : Color();
+    args[0] = zen::val_float(color.r);
+    args[1] = zen::val_float(color.g);
+    args[2] = zen::val_float(color.b);
+    args[3] = zen::val_float(color.a);
+    return 4;
+}
+
+int natMotionStreakSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]);
+    if (streak && nargs >= 3)
+    {
+        const float a = nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f;
+        streak->setColor(Color((float)zen::to_number(args[0]), (float)zen::to_number(args[1]),
+                               (float)zen::to_number(args[2]), a));
+    }
+    return 0;
+}
+
+int natSpriteBatchAdd(zen::VM* vm, zen::Value* args, int nargs)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    int index = -1;
+    if (batch && nargs >= 5)
+    {
+        char small[128];
+        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        Texture* texture = gZenAssets ? gZenAssets->GetTexture(name) : nullptr;
+        if (!texture && gZenAssets && name[0])
+            texture = gZenAssets->LoadTexture(name, name, true, false);
+        const Math::Vec2 position((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+        const Math::Vec2 size((float)zen::to_number(args[3]), (float)zen::to_number(args[4]));
+        Color color = Color::White();
+        if (nargs >= 8)
+            color = Color((float)zen::to_number(args[5]) / 255.0f, (float)zen::to_number(args[6]) / 255.0f,
+                          (float)zen::to_number(args[7]) / 255.0f,
+                          nargs >= 9 ? (float)zen::to_number(args[8]) / 255.0f : 1.0f);
+        index = batch->add(texture, position, size, color);
+    }
+    args[0] = zen::val_int(index);
+    return 1;
+}
+
+int natSpriteBatchRemove(zen::VM*, zen::Value* args, int nargs)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    if (batch && nargs >= 1)
+        batch->remove((int)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSpriteBatchClear(zen::VM*, zen::Value* args, int)
+{
+    if (SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]))
+        batch->clear();
+    return 0;
+}
+
+int natSpriteBatchCount(zen::VM*, zen::Value* args, int)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    args[0] = zen::val_int(batch ? batch->count() : 0);
+    return 1;
+}
+
+int natSpriteBatchSetSource(zen::VM*, zen::Value* args, int nargs)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    if (batch && nargs >= 5)
+        batch->setSource((int)zen::to_number(args[0]),
+                         Math::Vec4((float)zen::to_number(args[1]), (float)zen::to_number(args[2]),
+                                    (float)zen::to_number(args[3]), (float)zen::to_number(args[4])));
+    return 0;
+}
+
+int natSpriteBatchSetFlip(zen::VM*, zen::Value* args, int nargs)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    if (batch && nargs >= 3)
+        batch->setFlip((int)zen::to_number(args[0]), zen::is_truthy(args[1]), zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natSpriteBatchSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    SpriteBatch* batch = zen::zen_instance_data<SpriteBatch>(args[-1]);
+    if (batch && nargs >= 5)
+    {
+        if (SpriteBatch::Entry* entry = batch->entryAt((int)zen::to_number(args[0])))
+            entry->color = Color((float)zen::to_number(args[1]) / 255.0f, (float)zen::to_number(args[2]) / 255.0f,
+                                 (float)zen::to_number(args[3]) / 255.0f, (float)zen::to_number(args[4]) / 255.0f);
+    }
+    return 0;
+}
+
+// Points are local to the line's own transform; RenderQueue applies
+// owner()->globalTransform() at render time, same as Line2D::onRender.
+int natLineSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    if (line && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points))
+            line->setPoints(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natLinePointCount(zen::VM*, zen::Value* args, int)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    args[0] = zen::val_int(line ? (int64_t)line->points().size() : 0);
+    return 1;
+}
+
+int natLineGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (line && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = line->points();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natLineGetWidth(zen::VM*, zen::Value* args, int)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    args[0] = zen::val_float(line ? line->width() : 0.0f);
+    return 1;
+}
+
+int natLineSetWidth(zen::VM*, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    if (line && nargs >= 1)
+        line->setWidth((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natLineGetColor(zen::VM*, zen::Value* args, int)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    const Color color = line ? line->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natLineSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    if (line && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        line->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                       (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+// Points are local to the polygon's own transform; RenderQueue applies
+// owner()->globalTransform() at render time, same as Polygon2D::onRender.
+int natPolygonSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    if (polygon && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points) && points.size() >= 3)
+            polygon->setPolygon(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natPolygonPointCount(zen::VM*, zen::Value* args, int)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    args[0] = zen::val_int(polygon ? (int64_t)polygon->polygon().size() : 0);
+    return 1;
+}
+
+int natPolygonGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (polygon && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = polygon->polygon();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natPolygonIsValid(zen::VM*, zen::Value* args, int)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    args[0] = zen::val_bool(polygon && polygon->valid());
+    return 1;
+}
+
+int natPolygonGetColor(zen::VM*, zen::Value* args, int)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    const Color color = polygon ? polygon->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natPolygonSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    Polygon2D* polygon = zen::zen_instance_data<Polygon2D>(args[-1]);
+    if (polygon && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        polygon->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                          (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+int natNinePatchGetSize(zen::VM*, zen::Value* args, int)
+{
+    NinePatchComponent* patch = zen::zen_instance_data<NinePatchComponent>(args[-1]);
+    const Math::Vec2 size = patch ? patch->size() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(size.x);
+    args[1] = zen::val_float(size.y);
+    return 2;
+}
+
+int natNinePatchSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    NinePatchComponent* patch = zen::zen_instance_data<NinePatchComponent>(args[-1]);
+    if (patch && nargs >= 2)
+        patch->setSize(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natNinePatchGetColor(zen::VM*, zen::Value* args, int)
+{
+    NinePatchComponent* patch = zen::zen_instance_data<NinePatchComponent>(args[-1]);
+    const Color color = patch ? patch->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natNinePatchSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    NinePatchComponent* patch = zen::zen_instance_data<NinePatchComponent>(args[-1]);
+    if (patch && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        patch->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                        (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+
+
+ShapeRenderMode parseShapeRenderMode(const char* name)
+{
+    return std::strcmp(name, "line") == 0 ? ShapeRenderMode::Line : ShapeRenderMode::Fill;
+}
+
+const char* shapeRenderModeName(ShapeRenderMode mode)
+{
+    return mode == ShapeRenderMode::Line ? "line" : "fill";
+}
+
+int natCircleShapeGetRadius(zen::VM*, zen::Value* args, int)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    args[0] = zen::val_float(shape ? shape->radius() : 0.0f);
+    return 1;
+}
+
+int natCircleShapeSetRadius(zen::VM*, zen::Value* args, int nargs)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    if (shape && nargs >= 1)
+        shape->setRadius((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCircleShapeGetMode(zen::VM* vm, zen::Value* args, int)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    args[0] =
+        zen::val_obj((zen::Obj*)vm->make_string(shapeRenderModeName(shape ? shape->mode() : ShapeRenderMode::Fill)));
+    return 1;
+}
+
+int natCircleShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    if (shape && nargs >= 1)
+    {
+        char small[8];
+        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natCircleShapeGetLineWidth(zen::VM*, zen::Value* args, int)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    args[0] = zen::val_float(shape ? shape->lineWidth() : 0.0f);
+    return 1;
+}
+
+int natCircleShapeSetLineWidth(zen::VM*, zen::Value* args, int nargs)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    if (shape && nargs >= 1)
+        shape->setLineWidth((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCircleShapeGetColor(zen::VM*, zen::Value* args, int)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    const Color color = shape ? shape->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natCircleShapeSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
+    if (shape && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        shape->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                        (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+int natRectShapeGetSize(zen::VM*, zen::Value* args, int)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    const Math::Vec2 size = shape ? shape->size() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(size.x);
+    args[1] = zen::val_float(size.y);
+    return 2;
+}
+
+int natRectShapeSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    if (shape && nargs >= 2)
+        shape->setSize(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natRectShapeGetMode(zen::VM* vm, zen::Value* args, int)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    args[0] =
+        zen::val_obj((zen::Obj*)vm->make_string(shapeRenderModeName(shape ? shape->mode() : ShapeRenderMode::Fill)));
+    return 1;
+}
+
+int natRectShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    if (shape && nargs >= 1)
+    {
+        char small[8];
+        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natRectShapeGetLineWidth(zen::VM*, zen::Value* args, int)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    args[0] = zen::val_float(shape ? shape->lineWidth() : 0.0f);
+    return 1;
+}
+
+int natRectShapeSetLineWidth(zen::VM*, zen::Value* args, int nargs)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    if (shape && nargs >= 1)
+        shape->setLineWidth((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natRectShapeGetColor(zen::VM*, zen::Value* args, int)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    const Color color = shape ? shape->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natRectShapeSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
+    if (shape && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        shape->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                        (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+int natCapsuleShapeGetSize(zen::VM*, zen::Value* args, int)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    const Math::Vec2 size = shape ? shape->size() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(size.x);
+    args[1] = zen::val_float(size.y);
+    return 2;
+}
+
+int natCapsuleShapeSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    if (shape && nargs >= 2)
+        shape->setSize(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natCapsuleShapeGetMode(zen::VM* vm, zen::Value* args, int)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    args[0] =
+        zen::val_obj((zen::Obj*)vm->make_string(shapeRenderModeName(shape ? shape->mode() : ShapeRenderMode::Fill)));
+    return 1;
+}
+
+int natCapsuleShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    if (shape && nargs >= 1)
+    {
+        char small[8];
+        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natCapsuleShapeGetLineWidth(zen::VM*, zen::Value* args, int)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    args[0] = zen::val_float(shape ? shape->lineWidth() : 0.0f);
+    return 1;
+}
+
+int natCapsuleShapeSetLineWidth(zen::VM*, zen::Value* args, int nargs)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    if (shape && nargs >= 1)
+        shape->setLineWidth((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natCapsuleShapeGetColor(zen::VM*, zen::Value* args, int)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    const Color color = shape ? shape->color() : Color();
+    args[0] = zen::val_int((int64_t)(color.r * 255.0f + 0.5f));
+    args[1] = zen::val_int((int64_t)(color.g * 255.0f + 0.5f));
+    args[2] = zen::val_int((int64_t)(color.b * 255.0f + 0.5f));
+    args[3] = zen::val_int((int64_t)(color.a * 255.0f + 0.5f));
+    return 4;
+}
+
+int natCapsuleShapeSetColor(zen::VM*, zen::Value* args, int nargs)
+{
+    CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
+    if (shape && nargs >= 3)
+    {
+        const unsigned char a = nargs >= 4 ? (unsigned char)zen::to_integer(args[3]) : 255;
+        shape->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
+                        (unsigned char)zen::to_integer(args[2]), a);
+    }
+    return 0;
+}
+
+int natBoxColliderGetSize(zen::VM*, zen::Value* args, int)
+{
+    BoxCollider2D* box = zen::zen_instance_data<BoxCollider2D>(args[-1]);
+    const Math::Vec2 size = box ? box->size() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(size.x);
+    args[1] = zen::val_float(size.y);
+    return 2;
+}
+
+// BoxCollider2D::setSize calls Collider2D::markDirty(), which flags the
+// sibling RigidBody2D for PhysicsWorld2D::rebuildChanged() — the fixture is
+// rebuilt with the new size on the world's next step(), same as the editor.
+int natBoxColliderSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    BoxCollider2D* box = zen::zen_instance_data<BoxCollider2D>(args[-1]);
+    if (box && nargs >= 2)
+        box->setSize(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natCircleColliderGetRadius(zen::VM*, zen::Value* args, int)
+{
+    CircleCollider2D* circle = zen::zen_instance_data<CircleCollider2D>(args[-1]);
+    args[0] = zen::val_float(circle ? circle->radius() : 0.0f);
+    return 1;
+}
+
+// See natBoxColliderSetSize: CircleCollider2D::setRadius() also marks the
+// body dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
+int natCircleColliderSetRadius(zen::VM*, zen::Value* args, int nargs)
+{
+    CircleCollider2D* circle = zen::zen_instance_data<CircleCollider2D>(args[-1]);
+    if (circle && nargs >= 1)
+        circle->setRadius((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natEdgeColliderGetPoints(zen::VM*, zen::Value* args, int)
+{
+    EdgeCollider2D* edge = zen::zen_instance_data<EdgeCollider2D>(args[-1]);
+    const Math::Vec2 start = edge ? edge->start() : Math::Vec2(0.0f);
+    const Math::Vec2 end = edge ? edge->end() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(start.x);
+    args[1] = zen::val_float(start.y);
+    args[2] = zen::val_float(end.x);
+    args[3] = zen::val_float(end.y);
+    return 4;
+}
+
+// See natBoxColliderSetSize: EdgeCollider2D::setPoints() also marks the body
+// dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
+int natEdgeColliderSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    EdgeCollider2D* edge = zen::zen_instance_data<EdgeCollider2D>(args[-1]);
+    if (edge && nargs >= 4)
+        edge->setPoints(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                        Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3])));
+    return 0;
+}
+
+// Points are local to the collider's own transform (the same convention as
+// Polygon2D/LightOccluder2D). setPoints()/setRegular() mark the body dirty,
+// same rebuild-on-next-step() path as the other collider setters above.
+int natPolygonColliderSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    PolygonCollider2D* polygon = zen::zen_instance_data<PolygonCollider2D>(args[-1]);
+    if (polygon && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points) && points.size() >= 3)
+            polygon->setPoints(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natPolygonColliderPointCount(zen::VM*, zen::Value* args, int)
+{
+    PolygonCollider2D* polygon = zen::zen_instance_data<PolygonCollider2D>(args[-1]);
+    args[0] = zen::val_int(polygon ? (int64_t)polygon->points().size() : 0);
+    return 1;
+}
+
+int natPolygonColliderGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    PolygonCollider2D* polygon = zen::zen_instance_data<PolygonCollider2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (polygon && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = polygon->points();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natPolygonColliderSetRegular(zen::VM*, zen::Value* args, int nargs)
+{
+    PolygonCollider2D* polygon = zen::zen_instance_data<PolygonCollider2D>(args[-1]);
+    if (polygon && nargs >= 2)
+        polygon->setRegular((int)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+// Points are local to the collider's own transform, same convention as
+// PolygonCollider2D above; setPoints()/setLoop() mark the body dirty too.
+int natChainColliderSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    ChainCollider2D* chain = zen::zen_instance_data<ChainCollider2D>(args[-1]);
+    if (chain && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points) && points.size() >= 2)
+            chain->setPoints(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natChainColliderPointCount(zen::VM*, zen::Value* args, int)
+{
+    ChainCollider2D* chain = zen::zen_instance_data<ChainCollider2D>(args[-1]);
+    args[0] = zen::val_int(chain ? (int64_t)chain->points().size() : 0);
+    return 1;
+}
+
+int natChainColliderGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    ChainCollider2D* chain = zen::zen_instance_data<ChainCollider2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (chain && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = chain->points();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natChainColliderGetLoop(zen::VM*, zen::Value* args, int)
+{
+    ChainCollider2D* chain = zen::zen_instance_data<ChainCollider2D>(args[-1]);
+    args[0] = zen::val_bool(chain && chain->loop());
+    return 1;
+}
+
+int natChainColliderSetLoop(zen::VM*, zen::Value* args, int nargs)
+{
+    ChainCollider2D* chain = zen::zen_instance_data<ChainCollider2D>(args[-1]);
+    if (chain && nargs >= 1)
+        chain->setLoop(zen::is_truthy(args[0]));
+    return 0;
+}
+
+// Points are local to the region's own transform; NavigationRegion2D::getPath
+// applies owner()->globalTransform() when it walks the baked triangle mesh.
+int natNavRegionSetPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationRegion2D* region = zen::zen_instance_data<NavigationRegion2D>(args[-1]);
+    if (region && nargs >= 1)
+    {
+        ct::Vector<Math::Vec2> points;
+        if (unpackPointArray(args[0], points) && points.size() >= 3)
+            region->setPolygon(points.data(), (int)points.size());
+    }
+    return 0;
+}
+
+int natNavRegionPointCount(zen::VM*, zen::Value* args, int)
+{
+    NavigationRegion2D* region = zen::zen_instance_data<NavigationRegion2D>(args[-1]);
+    args[0] = zen::val_int(region ? (int64_t)region->polygon().size() : 0);
+    return 1;
+}
+
+int natNavRegionGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationRegion2D* region = zen::zen_instance_data<NavigationRegion2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    if (region && nargs >= 1)
+    {
+        const int index = (int)zen::to_number(args[0]);
+        const ct::Vector<Math::Vec2>& points = region->polygon();
+        if (index >= 0 && (std::size_t)index < points.size())
+            point = points[index];
+    }
+    args[0] = zen::val_float(point.x);
+    args[1] = zen::val_float(point.y);
+    return 2;
+}
+
+int natNavRegionIsValid(zen::VM*, zen::Value* args, int)
+{
+    NavigationRegion2D* region = zen::zen_instance_data<NavigationRegion2D>(args[-1]);
+    args[0] = zen::val_bool(region && region->valid());
+    return 1;
+}
+
+
+/* One table behind get_component, add_component, has_component and
+** remove_component: the aliases a script may write live here only. An entry
+** with no `add` is an abstract base — Collider and Light match any of their
+** concrete kinds, so there is nothing single to create. */
+struct ComponentBinding
+{
+    const char* names[3];
+    Component* (*get)(GameObject&);
+    Component* (*add)(GameObject&);
+    bool (*has)(const GameObject&);
+};
+
+template <class T> Component* componentGet(GameObject& node) { return node.getComponent<T>(); }
+template <class T> Component* componentAdd(GameObject& node) { return node.addComponent<T>(); }
+template <class T> bool componentHas(const GameObject& node) { return node.contains<T>(); }
+
+template <ComponentType kType> Component* componentGetRaw(GameObject& node)
+{
+    return node.rawComponent(kType);
+}
+
+template <ComponentType kType> bool componentHasRaw(const GameObject& node)
+{
+    return node.rawComponentCount(kType) > 0;
+}
+
+const ComponentBinding kComponentBindings[] = {
+    {{"RigidBody", "Body", "RigidBody2D"}, &componentGet<RigidBody2D>, &componentAdd<RigidBody2D>, &componentHas<RigidBody2D>},
+    {{"Sprite", "SpriteComponent", nullptr}, &componentGet<SpriteComponent>, &componentAdd<SpriteComponent>, &componentHas<SpriteComponent>},
+    {{"Animation", "Animation2D", nullptr}, &componentGet<Animation2D>, &componentAdd<Animation2D>, &componentHas<Animation2D>},
+    {{"Camera", "CameraComponent", nullptr}, &componentGet<CameraComponent>, &componentAdd<CameraComponent>, &componentHas<CameraComponent>},
+    {{"Particle", "ParticleComponent", nullptr}, &componentGet<ParticleComponent>, &componentAdd<ParticleComponent>, &componentHas<ParticleComponent>},
+    {{"ScriptComponent", nullptr, nullptr}, &componentGet<ZenScriptComponent>, &componentAdd<ZenScriptComponent>, &componentHas<ZenScriptComponent>},
+    {{"CharacterBody", "CharacterBody2D", nullptr}, &componentGet<CharacterBody2D>, &componentAdd<CharacterBody2D>, &componentHas<CharacterBody2D>},
+    {{"Collider", "Collider2D", nullptr}, &componentGetRaw<ComponentType::Collider>, nullptr, &componentHasRaw<ComponentType::Collider>},
+    {{"BoxCollider", "BoxCollider2D", nullptr}, &componentGet<BoxCollider2D>, &componentAdd<BoxCollider2D>, &componentHas<BoxCollider2D>},
+    {{"CircleCollider", "CircleCollider2D", nullptr}, &componentGet<CircleCollider2D>, &componentAdd<CircleCollider2D>, &componentHas<CircleCollider2D>},
+    {{"EdgeCollider", "EdgeCollider2D", nullptr}, &componentGet<EdgeCollider2D>, &componentAdd<EdgeCollider2D>, &componentHas<EdgeCollider2D>},
+    {{"PolygonCollider", "PolygonCollider2D", nullptr}, &componentGet<PolygonCollider2D>, &componentAdd<PolygonCollider2D>, &componentHas<PolygonCollider2D>},
+    {{"ChainCollider", "ChainCollider2D", nullptr}, &componentGet<ChainCollider2D>, &componentAdd<ChainCollider2D>, &componentHas<ChainCollider2D>},
+    {{"TileMap", "TileMapComponent", nullptr}, &componentGet<TileMapComponent>, &componentAdd<TileMapComponent>, &componentHas<TileMapComponent>},
+    {{"SpriteBatch", nullptr, nullptr}, &componentGet<SpriteBatch>, &componentAdd<SpriteBatch>, &componentHas<SpriteBatch>},
+    {{"Polygon2D", nullptr, nullptr}, &componentGet<Polygon2D>, &componentAdd<Polygon2D>, &componentHas<Polygon2D>},
+    {{"Line2D", nullptr, nullptr}, &componentGet<Line2D>, &componentAdd<Line2D>, &componentHas<Line2D>},
+    {{"NinePatch", "NinePatchComponent", nullptr}, &componentGet<NinePatchComponent>, &componentAdd<NinePatchComponent>, &componentHas<NinePatchComponent>},
+    {{"Light", nullptr, nullptr}, &componentGetRaw<ComponentType::Light>, nullptr, &componentHasRaw<ComponentType::Light>},
+    {{"Light2D", nullptr, nullptr}, &componentGet<Light2D>, &componentAdd<Light2D>, &componentHas<Light2D>},
+    {{"DirectionalLight2D", nullptr, nullptr}, &componentGet<DirectionalLight2D>, &componentAdd<DirectionalLight2D>, &componentHas<DirectionalLight2D>},
+    {{"LightOccluder", "LightOccluder2D", nullptr}, &componentGet<LightOccluder2D>, &componentAdd<LightOccluder2D>, &componentHas<LightOccluder2D>},
+    {{"AudioPlayer", nullptr, nullptr}, &componentGet<AudioPlayer>, &componentAdd<AudioPlayer>, &componentHas<AudioPlayer>},
+    {{"CircleShape", nullptr, nullptr}, &componentGet<CircleShape>, &componentAdd<CircleShape>, &componentHas<CircleShape>},
+    {{"RectShape", nullptr, nullptr}, &componentGet<RectShape>, &componentAdd<RectShape>, &componentHas<RectShape>},
+    {{"CapsuleShape", nullptr, nullptr}, &componentGet<CapsuleShape>, &componentAdd<CapsuleShape>, &componentHas<CapsuleShape>},
+    {{"UiCanvas", nullptr, nullptr}, &componentGet<UiCanvas>, &componentAdd<UiCanvas>, &componentHas<UiCanvas>},
+    {{"Panel", "UiPanel", nullptr}, &componentGet<UiPanel>, &componentAdd<UiPanel>, &componentHas<UiPanel>},
+    {{"Label", "UiLabel", nullptr}, &componentGet<UiLabel>, &componentAdd<UiLabel>, &componentHas<UiLabel>},
+    {{"Button", "UiButton", nullptr}, &componentGet<UiButton>, &componentAdd<UiButton>, &componentHas<UiButton>},
+    {{"CheckBox", "UiCheckBox", nullptr}, &componentGet<UiCheckBox>, &componentAdd<UiCheckBox>, &componentHas<UiCheckBox>},
+    {{"Slider", "UiSlider", nullptr}, &componentGet<UiSlider>, &componentAdd<UiSlider>, &componentHas<UiSlider>},
+    {{"NavigationRegion", "NavigationRegion2D", nullptr}, &componentGet<NavigationRegion2D>, &componentAdd<NavigationRegion2D>, &componentHas<NavigationRegion2D>},
+    {{"NavigationAgent", "NavigationAgent2D", nullptr}, &componentGet<NavigationAgent2D>, &componentAdd<NavigationAgent2D>, &componentHas<NavigationAgent2D>},
+    {{"MotionTween", "MotionTween2D", nullptr}, &componentGet<MotionTween2D>, &componentAdd<MotionTween2D>, &componentHas<MotionTween2D>},
+    {{"MotionStreak", "MotionStreak2D", nullptr}, &componentGet<MotionStreak2D>, &componentAdd<MotionStreak2D>, &componentHas<MotionStreak2D>},
+    {{"Skeleton", "Skeleton2D", nullptr}, &componentGet<Skeleton2D>, &componentAdd<Skeleton2D>, &componentHas<Skeleton2D>},
+    {{"Bone", "Bone2D", nullptr}, &componentGet<Bone2D>, &componentAdd<Bone2D>, &componentHas<Bone2D>},
+};
+
+const ComponentBinding* findComponentBinding(const char* name)
+{
+    for (const ComponentBinding& binding : kComponentBindings)
+        for (const char* alias : binding.names)
+            if (alias && !std::strcmp(name, alias))
+                return &binding;
+    return nullptr;
+}
+
+/* Generic component lookup.  The Zen compiler lowers
+** node.get_component<RigidBody>() to node.get_component(RigidBody), so the first
+** native argument is the requested host class. */
+int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    {
+        args[0] = zen::val_nil();
+        return 1;
+    }
+
+    zen::ObjClass* requested = zen::as_class(args[0]);
+    const char* name = requested->name ? requested->name->chars : "";
+
+    const ComponentBinding* binding = findComponentBinding(name);
+    Component* component = binding ? binding->get(*node) : nullptr;
+    args[0] = component ? state->instanceFor(requested, component) : zen::val_nil();
+    return 1;
+}
+
+int natNodeAddComponent(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    {
+        args[0] = zen::val_nil();
+        return 1;
+    }
+
+    zen::ObjClass* requested = zen::as_class(args[0]);
+    const char* name = requested->name ? requested->name->chars : "";
+    const ComponentBinding* binding = findComponentBinding(name);
+    Component* component = (binding && binding->add) ? binding->add(*node) : nullptr;
+    args[0] = component ? state->instanceFor(requested, component) : zen::val_nil();
+    return 1;
+}
+
+int natNodeHasComponent(zen::VM*, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    bool has = false;
+    if (node && nargs >= 1 && zen::is_class(args[0]))
+    {
+        zen::ObjClass* requested = zen::as_class(args[0]);
+        const char* name = requested->name ? requested->name->chars : "";
+        if (const ComponentBinding* binding = findComponentBinding(name))
+            has = binding->has(*node);
+    }
+    args[0] = zen::val_bool(has);
+    return 1;
+}
+
+int natNodeRemoveComponent(zen::VM*, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    bool removed = false;
+    if (node && nargs >= 1 && zen::is_class(args[0]))
+    {
+        zen::ObjClass* requested = zen::as_class(args[0]);
+        const char* name = requested->name ? requested->name->chars : "";
+        if (const ComponentBinding* binding = findComponentBinding(name))
+            if (Component* component = binding->get(*node))
+                removed = node->removeComponent(component);
+    }
+    args[0] = zen::val_bool(removed);
+    return 1;
+}
+
+int natNodeGetId(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    args[0] = zen::val_int(node ? (int64_t)node->id() : 0);
+    return 1;
+}
+
+int natNodeSetName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    if (node && nargs >= 1)
+    {
+        char small[16];
+        node->setName(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natNodeGetTag(zen::VM* vm, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(node ? node->tag().c_str() : ""));
+    return 1;
+}
+
+int natNodeSetTag(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    if (node && nargs >= 1)
+    {
+        char small[16];
+        node->setTag(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natNodeGetGlobalPosition(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    const Math::Vec2 position = node ? node->globalPosition() : Math::Vec2(0.0f);
+    args[0] = zen::val_float(position.x);
+    args[1] = zen::val_float(position.y);
+    return 2;
+}
+
+int natNodeGetRight(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    const Math::Vec2 direction = node ? node->right() : Math::Vec2(1.0f, 0.0f);
+    args[0] = zen::val_float(direction.x);
+    args[1] = zen::val_float(direction.y);
+    return 2;
+}
+
+int natNodeGetUp(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    const Math::Vec2 direction = node ? node->up() : Math::Vec2(0.0f, 1.0f);
+    args[0] = zen::val_float(direction.x);
+    args[1] = zen::val_float(direction.y);
+    return 2;
+}
+
+int natNodeIsActiveInHierarchy(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    args[0] = zen::val_bool(node && node->isActiveInHierarchy());
+    return 1;
+}
+
+int natNodeIsVisibleInHierarchy(zen::VM*, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    args[0] = zen::val_bool(node && node->isVisibleInHierarchy());
+    return 1;
+}
+
+int natNodeGetRoot(zen::VM* vm, zen::Value* args, int)
+{
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    Scene* scene = node ? node->scene() : nullptr;
+    args[0] = (scene && state) ? state->instanceFor(state->nodeClass, &scene->root()) : zen::val_nil();
+    return 1;
+}
+
+int natNodeReparent(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    Scene* scene = node ? node->scene() : nullptr;
+    bool ok = false;
+    if (scene && nargs >= 1)
+    {
+        GameObject* parent = zen::zen_instance_data<GameObject>(args[0]);
+        if (parent)
+            ok = scene->reparent(node, parent);
+    }
+    args[0] = zen::val_bool(ok);
     return 1;
 }
 
@@ -1584,6 +3594,34 @@ int natKeyReleased(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
+int natVirtualKeyAdd(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenVirtualPad && nargs >= 5)
+        gZenVirtualPad->AddVirtualKey(keyCode(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]),
+                                      (float)zen::to_number(args[3]), (float)zen::to_number(args[4]));
+    return 0;
+}
+
+int natVirtualKeysClear(zen::VM*, zen::Value*, int)
+{
+    if (gZenVirtualPad)
+        gZenVirtualPad->ClearVirtualKeys();
+    return 0;
+}
+
+int natVirtualKeysSetVisible(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenVirtualPad && nargs >= 1)
+        gZenVirtualPad->SetVirtualKeysVisible(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natVirtualKeysVisible(zen::VM*, zen::Value* args, int)
+{
+    args[0] = zen::val_bool(gZenVirtualPad && gZenVirtualPad->VirtualKeysVisible());
+    return 1;
+}
+
 int natActionDown(zen::VM* vm, zen::Value* args, int nargs)
 {
     char small[64];
@@ -1940,9 +3978,18 @@ int natWheelY(zen::VM*, zen::Value* args, int)
 }
 } // namespace
 
+// A component is about to leave its object: drop the script handle cached for
+// its address. The handles are persistent objects, so nothing else would ever
+// free them, and the address is reused by the next component allocated there.
+static void forgetRemovedComponent(Component* component, void* user)
+{
+    static_cast<ZenRuntime::Impl*>(user)->forgetInstance(component);
+}
+
 void ZenRuntime::Impl::initialize()
 {
     zen_host_set_writer(&zenHostWriter, nullptr);
+    Component::SetRemovedCallback(&forgetRemovedComponent, this);
 
     vm.open_lib_globals(&zen::zen_lib_base);
     vm.register_lib(&zen::zen_lib_math);
@@ -2024,7 +4071,14 @@ void ZenRuntime::Impl::initialize()
     for (const KeyConstant& entry : keyConstants)
         vm.def_global(entry.name, zen::val_int(static_cast<int>(entry.key)));
 
+    auto component = vm.def_class("Component");
+    component.method("is_active", &natComponentIsActive, 0);
+    component.method("set_active", &natComponentSetActive, 1);
+    component.persistent(true).constructable(false);
+    component.end();
+
     auto scriptComponent = vm.def_class("ScriptComponent");
+    scriptComponent.parent("Component");
     // Set to the host GameObject by ZenScriptComponent before user __init__ runs.
     scriptComponent.field("node");
     scriptComponent.constructable(false);
@@ -2076,10 +4130,26 @@ void ZenRuntime::Impl::initialize()
     node.method("get_button", &natNodeGetButton, 0);
     node.method("get_checkbox", &natNodeGetCheckBox, 0);
     node.method("get_slider", &natNodeGetSlider, 0);
+    node.method("get_component", &natNodeGetComponent, 1);
+    node.method("add_component", &natNodeAddComponent, 1);
+    node.method("has_component", &natNodeHasComponent, 1);
+    node.method("remove_component", &natNodeRemoveComponent, 1);
+    node.method("get_id", &natNodeGetId, 0);
+    node.method("set_name", &natNodeSetName, 1);
+    node.method("get_tag", &natNodeGetTag, 0);
+    node.method("set_tag", &natNodeSetTag, 1);
+    node.method("get_global_position", &natNodeGetGlobalPosition, 0);
+    node.method("get_right", &natNodeGetRight, 0);
+    node.method("get_up", &natNodeGetUp, 0);
+    node.method("is_active_in_hierarchy", &natNodeIsActiveInHierarchy, 0);
+    node.method("is_visible_in_hierarchy", &natNodeIsVisibleInHierarchy, 0);
+    node.method("get_root", &natNodeGetRoot, 0);
+    node.method("reparent", &natNodeReparent, 1);
     node.persistent(true).constructable(false);
     nodeClass = node.end();
 
     auto sprite = vm.def_class("Sprite");
+    sprite.parent("Component");
     sprite.method("set_color", &natSpriteSetColor, 4);
     sprite.method("set_flip", &natSpriteSetFlip, 2);
     sprite.method("set_size", &natSpriteSetSize, 2);
@@ -2090,6 +4160,7 @@ void ZenRuntime::Impl::initialize()
     spriteClass = sprite.end();
 
     auto animation = vm.def_class("Animation");
+    animation.parent("Component");
     animation.method("play", &natAnimationPlay, -1);
     animation.method("stop", &natAnimationStop, 0);
     animation.method("is_playing", &natAnimationIsPlaying, 0);
@@ -2098,6 +4169,7 @@ void ZenRuntime::Impl::initialize()
     animationClass = animation.end();
 
     auto camera = vm.def_class("Camera");
+    camera.parent("Component");
     camera.method("start_shake", &natCameraStartShake, 4);
     camera.method("stop_shake", &natCameraStopShake, 0);
     camera.method("add_trauma", &natCameraAddTrauma, 1);
@@ -2109,23 +4181,27 @@ void ZenRuntime::Impl::initialize()
     camera.persistent(true).constructable(false);
     cameraClass = camera.end();
 
-    auto body = vm.def_class("Body");
-    body.method("get_velocity", &natBodyGetVelocity, 0);
-    body.method("set_velocity", &natBodySetVelocity, 2);
-    body.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
-    body.method("set_angular_velocity", &natBodySetAngularVelocity, 1);
-    body.method("apply_force", &natBodyApplyForce, 2);
-    body.method("apply_impulse", &natBodyApplyImpulse, 2);
-    body.method("apply_torque", &natBodyApplyTorque, 1);
-    body.method("get_gravity_scale", &natBodyGetGravityScale, 0);
-    body.method("set_gravity_scale", &natBodySetGravityScale, 1);
-    body.method("set_type", &natBodySetType, 1);
-    body.method("is_awake", &natBodyIsAwake, 0);
-    body.method("wake", &natBodyWake, 0);
-    body.persistent(true).constructable(false);
-    bodyClass = body.end();
+    auto rigidBody = vm.def_class("RigidBody");
+    rigidBody.parent("Component");
+    rigidBody.method("get_velocity", &natBodyGetVelocity, 0);
+    rigidBody.method("set_velocity", &natBodySetVelocity, 2);
+    rigidBody.method("get_angular_velocity", &natBodyGetAngularVelocity, 0);
+    rigidBody.method("set_angular_velocity", &natBodySetAngularVelocity, 1);
+    rigidBody.method("apply_force", &natBodyApplyForce, 2);
+    rigidBody.method("apply_impulse", &natBodyApplyImpulse, 2);
+    rigidBody.method("apply_torque", &natBodyApplyTorque, 1);
+    rigidBody.method("get_gravity_scale", &natBodyGetGravityScale, 0);
+    rigidBody.method("set_gravity_scale", &natBodySetGravityScale, 1);
+    rigidBody.method("set_type", &natBodySetType, 1);
+    rigidBody.method("is_awake", &natBodyIsAwake, 0);
+    rigidBody.method("wake", &natBodyWake, 0);
+    rigidBody.persistent(true).constructable(false);
+    rigidBodyClass = rigidBody.end();
+    /* Keep Body as a source-compatible alias for older scripts. */
+    vm.def_global("Body", zen::val_obj((zen::Obj*)rigidBodyClass));
 
     auto particle = vm.def_class("Particle");
+    particle.parent("Component");
     particle.method("start", &natParticleStart, 0);
     particle.method("stop", &natParticleStop, 0);
     particle.method("reset", &natParticleReset, 0);
@@ -2135,12 +4211,14 @@ void ZenRuntime::Impl::initialize()
     particleClass = particle.end();
 
     auto button = vm.def_class("Button");
+    button.parent("Component");
     button.method("clicked", &natButtonClicked, 0);
     button.method("set_text", &natButtonSetText, 1);
     button.persistent(true).constructable(false);
     buttonClass = button.end();
 
     auto checkBox = vm.def_class("CheckBox");
+    checkBox.parent("Component");
     checkBox.method("is_checked", &natCheckBoxGetChecked, 0);
     checkBox.method("set_checked", &natCheckBoxSetChecked, 1);
     checkBox.method("changed", &natCheckBoxChanged, 0);
@@ -2148,11 +4226,364 @@ void ZenRuntime::Impl::initialize()
     checkBoxClass = checkBox.end();
 
     auto slider = vm.def_class("Slider");
+    slider.parent("Component");
     slider.method("get_value", &natSliderGetValue, 0);
     slider.method("set_value", &natSliderSetValue, 1);
     slider.method("changed", &natSliderChanged, 0);
     slider.persistent(true).constructable(false);
     sliderClass = slider.end();
+
+    auto defineHandle = [&](const char* name, const char* parent = "Component") -> zen::ObjClass* {
+        auto handle = vm.def_class(name);
+        if (parent)
+            handle.parent(parent);
+        handle.persistent(true).constructable(false);
+        return handle.end();
+    };
+
+    auto characterBody = vm.def_class("CharacterBody");
+    characterBody.parent("Component");
+    characterBody.method("get_velocity", &natCharacterGetVelocity, 0);
+    characterBody.method("set_velocity", &natCharacterSetVelocity, 2);
+    characterBody.method("get_safe_margin", &natCharacterGetSafeMargin, 0);
+    characterBody.method("set_safe_margin", &natCharacterSetSafeMargin, 1);
+    characterBody.method("get_max_slides", &natCharacterGetMaxSlides, 0);
+    characterBody.method("set_max_slides", &natCharacterSetMaxSlides, 1);
+    characterBody.method("is_on_floor", &natCharacterIsOnFloor, 0);
+    characterBody.method("is_on_wall", &natCharacterIsOnWall, 0);
+    characterBody.method("is_on_ceiling", &natCharacterIsOnCeiling, 0);
+    characterBody.persistent(true).constructable(false);
+    zen::ObjClass* characterBodyClass = characterBody.end();
+
+    auto collider = vm.def_class("Collider");
+    collider.parent("Component");
+    collider.method("get_offset", &natColliderGetOffset, 0);
+    collider.method("set_offset", &natColliderSetOffset, 2);
+    collider.method("is_sensor", &natColliderIsSensor, 0);
+    collider.method("set_sensor", &natColliderSetSensor, 1);
+    collider.method("get_filter", &natColliderGetFilter, 0);
+    collider.method("set_filter", &natColliderSetFilter, 2);
+    collider.method("get_shape_count", &natColliderShapeCount, 0);
+    collider.method("is_attached", &natColliderAttached, 0);
+    collider.persistent(true).constructable(false);
+    zen::ObjClass* colliderClass = collider.end();
+
+    auto boxCollider = vm.def_class("BoxCollider");
+    boxCollider.parent("Collider");
+    boxCollider.method("get_size", &natBoxColliderGetSize, 0);
+    boxCollider.method("set_size", &natBoxColliderSetSize, 2);
+    boxCollider.persistent(true).constructable(false);
+    zen::ObjClass* boxColliderClass = boxCollider.end();
+
+    auto circleCollider = vm.def_class("CircleCollider");
+    circleCollider.parent("Collider");
+    circleCollider.method("get_radius", &natCircleColliderGetRadius, 0);
+    circleCollider.method("set_radius", &natCircleColliderSetRadius, 1);
+    circleCollider.persistent(true).constructable(false);
+    zen::ObjClass* circleColliderClass = circleCollider.end();
+
+    auto edgeCollider = vm.def_class("EdgeCollider");
+    edgeCollider.parent("Collider");
+    edgeCollider.method("get_points", &natEdgeColliderGetPoints, 0);
+    edgeCollider.method("set_points", &natEdgeColliderSetPoints, 4);
+    edgeCollider.persistent(true).constructable(false);
+    zen::ObjClass* edgeColliderClass = edgeCollider.end();
+
+    auto polygonCollider = vm.def_class("PolygonCollider");
+    polygonCollider.parent("Collider");
+    polygonCollider.method("set_points", &natPolygonColliderSetPoints, 1);
+    polygonCollider.method("point_count", &natPolygonColliderPointCount, 0);
+    polygonCollider.method("get_point", &natPolygonColliderGetPoint, 1);
+    polygonCollider.method("set_regular", &natPolygonColliderSetRegular, 2);
+    polygonCollider.persistent(true).constructable(false);
+    zen::ObjClass* polygonColliderClass = polygonCollider.end();
+
+    auto chainCollider = vm.def_class("ChainCollider");
+    chainCollider.parent("Collider");
+    chainCollider.method("set_points", &natChainColliderSetPoints, 1);
+    chainCollider.method("point_count", &natChainColliderPointCount, 0);
+    chainCollider.method("get_point", &natChainColliderGetPoint, 1);
+    chainCollider.method("get_loop", &natChainColliderGetLoop, 0);
+    chainCollider.method("set_loop", &natChainColliderSetLoop, 1);
+    chainCollider.persistent(true).constructable(false);
+    zen::ObjClass* chainColliderClass = chainCollider.end();
+
+    (void)characterBodyClass;
+    (void)colliderClass;
+
+    auto panel = vm.def_class("Panel");
+    panel.parent("Component");
+    panel.method("set_color", &natUiPanelSetColor, -1);
+    panel.persistent(true).constructable(false);
+    zen::ObjClass* panelClass = panel.end();
+
+    auto label = vm.def_class("Label");
+    label.parent("Component");
+    label.method("set_text", &natUiLabelSetText, 1);
+    label.method("get_text", &natUiLabelGetText, 0);
+    label.method("set_font_size", &natUiLabelSetFontSize, 1);
+    label.method("get_font_size", &natUiLabelGetFontSize, 0);
+    label.persistent(true).constructable(false);
+    zen::ObjClass* labelClass = label.end();
+
+    // Light is a ComponentType tag shared by two otherwise-unrelated C++
+    // classes (Light2D, DirectionalLight2D) with no common base beneath
+    // Component — unlike Collider, there is no shared field to bind here.
+    // Scripts that know which kind they have already get full access via
+    // get_component<Light2D>() / get_component<DirectionalLight2D>().
+    zen::ObjClass* lightClass = defineHandle("Light");
+    // UiCanvas has no fields at all beyond the Component it inherits — it is
+    // purely a marker that roots a UI subtree.
+    zen::ObjClass* canvasClass = defineHandle("UiCanvas");
+
+    auto circleShape = vm.def_class("CircleShape");
+    circleShape.parent("Component");
+    circleShape.method("get_radius", &natCircleShapeGetRadius, 0);
+    circleShape.method("set_radius", &natCircleShapeSetRadius, 1);
+    circleShape.method("get_mode", &natCircleShapeGetMode, 0);
+    circleShape.method("set_mode", &natCircleShapeSetMode, 1);
+    circleShape.method("get_line_width", &natCircleShapeGetLineWidth, 0);
+    circleShape.method("set_line_width", &natCircleShapeSetLineWidth, 1);
+    circleShape.method("get_color", &natCircleShapeGetColor, 0);
+    circleShape.method("set_color", &natCircleShapeSetColor, -1);
+    circleShape.persistent(true).constructable(false);
+    zen::ObjClass* circleShapeClass = circleShape.end();
+
+    auto rectShape = vm.def_class("RectShape");
+    rectShape.parent("Component");
+    rectShape.method("get_size", &natRectShapeGetSize, 0);
+    rectShape.method("set_size", &natRectShapeSetSize, 2);
+    rectShape.method("get_mode", &natRectShapeGetMode, 0);
+    rectShape.method("set_mode", &natRectShapeSetMode, 1);
+    rectShape.method("get_line_width", &natRectShapeGetLineWidth, 0);
+    rectShape.method("set_line_width", &natRectShapeSetLineWidth, 1);
+    rectShape.method("get_color", &natRectShapeGetColor, 0);
+    rectShape.method("set_color", &natRectShapeSetColor, -1);
+    rectShape.persistent(true).constructable(false);
+    zen::ObjClass* rectShapeClass = rectShape.end();
+
+    auto capsuleShape = vm.def_class("CapsuleShape");
+    capsuleShape.parent("Component");
+    capsuleShape.method("get_size", &natCapsuleShapeGetSize, 0);
+    capsuleShape.method("set_size", &natCapsuleShapeSetSize, 2);
+    capsuleShape.method("get_mode", &natCapsuleShapeGetMode, 0);
+    capsuleShape.method("set_mode", &natCapsuleShapeSetMode, 1);
+    capsuleShape.method("get_line_width", &natCapsuleShapeGetLineWidth, 0);
+    capsuleShape.method("set_line_width", &natCapsuleShapeSetLineWidth, 1);
+    capsuleShape.method("get_color", &natCapsuleShapeGetColor, 0);
+    capsuleShape.method("set_color", &natCapsuleShapeSetColor, -1);
+    capsuleShape.persistent(true).constructable(false);
+    zen::ObjClass* capsuleShapeClass = capsuleShape.end();
+
+    auto navigationRegion = vm.def_class("NavigationRegion");
+    navigationRegion.parent("Component");
+    navigationRegion.method("set_points", &natNavRegionSetPoints, 1);
+    navigationRegion.method("point_count", &natNavRegionPointCount, 0);
+    navigationRegion.method("get_point", &natNavRegionGetPoint, 1);
+    navigationRegion.method("is_valid", &natNavRegionIsValid, 0);
+    navigationRegion.persistent(true).constructable(false);
+    zen::ObjClass* navigationRegionClass = navigationRegion.end();
+
+    auto spriteBatch = vm.def_class("SpriteBatch");
+    spriteBatch.parent("Component");
+    spriteBatch.method("add", &natSpriteBatchAdd, -1);
+    spriteBatch.method("remove", &natSpriteBatchRemove, 1);
+    spriteBatch.method("clear", &natSpriteBatchClear, 0);
+    spriteBatch.method("count", &natSpriteBatchCount, 0);
+    spriteBatch.method("set_source", &natSpriteBatchSetSource, 5);
+    spriteBatch.method("set_flip", &natSpriteBatchSetFlip, 3);
+    spriteBatch.method("set_color", &natSpriteBatchSetColor, -1);
+    spriteBatch.persistent(true).constructable(false);
+    zen::ObjClass* spriteBatchClass = spriteBatch.end();
+
+    auto polygon = vm.def_class("Polygon2D");
+    polygon.parent("Component");
+    polygon.method("set_points", &natPolygonSetPoints, 1);
+    polygon.method("point_count", &natPolygonPointCount, 0);
+    polygon.method("get_point", &natPolygonGetPoint, 1);
+    polygon.method("is_valid", &natPolygonIsValid, 0);
+    polygon.method("get_color", &natPolygonGetColor, 0);
+    polygon.method("set_color", &natPolygonSetColor, -1);
+    polygon.persistent(true).constructable(false);
+    zen::ObjClass* polygonClass = polygon.end();
+
+    auto line = vm.def_class("Line2D");
+    line.parent("Component");
+    line.method("set_points", &natLineSetPoints, 1);
+    line.method("point_count", &natLinePointCount, 0);
+    line.method("get_point", &natLineGetPoint, 1);
+    line.method("get_width", &natLineGetWidth, 0);
+    line.method("set_width", &natLineSetWidth, 1);
+    line.method("get_color", &natLineGetColor, 0);
+    line.method("set_color", &natLineSetColor, -1);
+    line.persistent(true).constructable(false);
+    zen::ObjClass* lineClass = line.end();
+
+    auto ninePatch = vm.def_class("NinePatch");
+    ninePatch.parent("Component");
+    ninePatch.method("get_size", &natNinePatchGetSize, 0);
+    ninePatch.method("set_size", &natNinePatchSetSize, 2);
+    ninePatch.method("get_color", &natNinePatchGetColor, 0);
+    ninePatch.method("set_color", &natNinePatchSetColor, -1);
+    ninePatch.persistent(true).constructable(false);
+    zen::ObjClass* ninePatchClass = ninePatch.end();
+
+    auto directionalLight = vm.def_class("DirectionalLight2D");
+    directionalLight.parent("Component");
+    directionalLight.method("get_color", &natDirectionalLightGetColor, 0);
+    directionalLight.method("set_color", &natDirectionalLightSetColor, -1);
+    directionalLight.method("get_energy", &natDirectionalLightGetEnergy, 0);
+    directionalLight.method("set_energy", &natDirectionalLightSetEnergy, 1);
+    directionalLight.persistent(true).constructable(false);
+    zen::ObjClass* directionalLightClass = directionalLight.end();
+
+    auto occluder = vm.def_class("LightOccluder");
+    occluder.parent("Component");
+    occluder.method("set_points", &natOccluderSetPoints, 1);
+    occluder.method("point_count", &natOccluderPointCount, 0);
+    occluder.method("get_point", &natOccluderGetPoint, 1);
+    occluder.persistent(true).constructable(false);
+    zen::ObjClass* occluderClass = occluder.end();
+
+    auto motionTween = vm.def_class("MotionTween");
+    motionTween.parent("Component");
+    motionTween.method("play", &natMotionTweenPlay, -1);
+    motionTween.method("stop", &natMotionTweenStop, 0);
+    motionTween.method("pause", &natMotionTweenPause, -1);
+    motionTween.method("is_playing", &natMotionTweenIsPlaying, 0);
+    motionTween.method("is_paused", &natMotionTweenIsPaused, 0);
+    motionTween.method("get_time", &natMotionTweenGetTime, 0);
+    motionTween.method("get_loop", &natMotionTweenGetLoop, 0);
+    motionTween.method("set_loop", &natMotionTweenSetLoop, 1);
+    motionTween.method("get_one_shot", &natMotionTweenGetOneShot, 0);
+    motionTween.method("set_one_shot", &natMotionTweenSetOneShot, 1);
+    motionTween.method("clear_tracks", &natMotionTweenClearTracks, 0);
+    motionTween.method("track_count", &natMotionTweenTrackCount, 0);
+    motionTween.method("add_track", &natMotionTweenAddTrack, -1);
+    motionTween.persistent(true).constructable(false);
+    zen::ObjClass* motionTweenClass = motionTween.end();
+
+    auto motionStreak = vm.def_class("MotionStreak");
+    motionStreak.parent("Component");
+    motionStreak.method("reset", &natMotionStreakReset, 0);
+    motionStreak.method("get_lifetime", &natMotionStreakGetLifetime, 0);
+    motionStreak.method("set_lifetime", &natMotionStreakSetLifetime, 1);
+    motionStreak.method("get_width", &natMotionStreakGetWidth, 0);
+    motionStreak.method("set_width", &natMotionStreakSetWidth, 1);
+    motionStreak.method("get_min_distance", &natMotionStreakGetMinDistance, 0);
+    motionStreak.method("set_min_distance", &natMotionStreakSetMinDistance, 1);
+    motionStreak.method("get_color", &natMotionStreakGetColor, 0);
+    motionStreak.method("set_color", &natMotionStreakSetColor, -1);
+    motionStreak.persistent(true).constructable(false);
+    zen::ObjClass* motionStreakClass = motionStreak.end();
+
+    auto tileMap = vm.def_class("TileMap");
+    tileMap.parent("Component");
+    tileMap.method("get_tile", &natTileMapGetTile, 2);
+    tileMap.method("set_tile", &natTileMapSetTile, 3);
+    tileMap.method("has_collision", &natTileMapHasCollision, 2);
+    tileMap.method("set_collision", &natTileMapSetCollision, 3);
+    tileMap.method("get_columns", &natTileMapGetColumns, 0);
+    tileMap.method("get_rows", &natTileMapGetRows, 0);
+    tileMap.method("get_cell_size", &natTileMapGetCellSize, 0);
+    tileMap.method("world_to_cell", &natTileMapWorldToCell, 2);
+    tileMap.method("cell_to_world", &natTileMapCellToWorld, 2);
+    tileMap.persistent(true).constructable(false);
+    zen::ObjClass* tileMapClass = tileMap.end();
+
+    auto light2D = vm.def_class("Light2D");
+    light2D.parent("Component");
+    light2D.method("get_color", &natLight2DGetColor, 0);
+    light2D.method("set_color", &natLight2DSetColor, -1);
+    light2D.method("get_energy", &natLight2DGetEnergy, 0);
+    light2D.method("set_energy", &natLight2DSetEnergy, 1);
+    light2D.method("get_radius", &natLight2DGetRadius, 0);
+    light2D.method("set_radius", &natLight2DSetRadius, 1);
+    light2D.persistent(true).constructable(false);
+    zen::ObjClass* light2DClass = light2D.end();
+
+    auto audioPlayer = vm.def_class("AudioPlayer");
+    audioPlayer.parent("Component");
+    audioPlayer.method("play", &natAudioPlayerPlay, 0);
+    audioPlayer.method("stop", &natAudioPlayerStop, 0);
+    audioPlayer.method("pause", &natAudioPlayerPause, 0);
+    audioPlayer.method("resume", &natAudioPlayerResume, 0);
+    audioPlayer.method("is_playing", &natAudioPlayerIsPlaying, 0);
+    audioPlayer.method("get_volume", &natAudioPlayerGetVolume, 0);
+    audioPlayer.method("set_volume", &natAudioPlayerSetVolume, 1);
+    audioPlayer.method("get_loop", &natAudioPlayerGetLoop, 0);
+    audioPlayer.method("set_loop", &natAudioPlayerSetLoop, 1);
+    audioPlayer.persistent(true).constructable(false);
+    zen::ObjClass* audioPlayerClass = audioPlayer.end();
+
+    auto navigationAgent = vm.def_class("NavigationAgent");
+    navigationAgent.parent("Component");
+    navigationAgent.method("set_target", &natNavAgentSetTarget, 2);
+    navigationAgent.method("get_target", &natNavAgentGetTarget, 0);
+    navigationAgent.method("repath", &natNavAgentRepath, 0);
+    navigationAgent.method("clear_path", &natNavAgentClearPath, 0);
+    navigationAgent.method("has_path", &natNavAgentHasPath, 0);
+    navigationAgent.method("is_finished", &natNavAgentIsFinished, 0);
+    navigationAgent.method("next_position", &natNavAgentNextPosition, 0);
+    navigationAgent.method("advance", &natNavAgentAdvance, 0);
+    navigationAgent.method("path_count", &natNavAgentPathCount, 0);
+    navigationAgent.method("path_point", &natNavAgentPathPoint, 1);
+    navigationAgent.method("get_max_speed", &natNavAgentGetMaxSpeed, 0);
+    navigationAgent.method("set_max_speed", &natNavAgentSetMaxSpeed, 1);
+    navigationAgent.method("get_auto_move", &natNavAgentGetAutoMove, 0);
+    navigationAgent.method("set_auto_move", &natNavAgentSetAutoMove, 1);
+    navigationAgent.persistent(true).constructable(false);
+    zen::ObjClass* navigationAgentClass = navigationAgent.end();
+
+    auto skeleton = vm.def_class("Skeleton");
+    skeleton.parent("Component");
+    skeleton.method("play", &natSkeletonPlay, -1);
+    skeleton.method("stop", &natSkeletonStop, 0);
+    skeleton.method("pause", &natSkeletonPause, 0);
+    skeleton.method("resume", &natSkeletonResume, 0);
+    skeleton.method("seek", &natSkeletonSeek, 1);
+    skeleton.method("is_playing", &natSkeletonIsPlaying, 0);
+    skeleton.method("current", &natSkeletonCurrent, 0);
+    skeleton.method("get_time", &natSkeletonGetTime, 0);
+    skeleton.method("get_speed", &natSkeletonGetSpeed, 0);
+    skeleton.method("set_speed", &natSkeletonSetSpeed, 1);
+    skeleton.method("clip_count", &natSkeletonClipCount, 0);
+    skeleton.method("find_bone", &natSkeletonFindBone, 1);
+    skeleton.method("reset_to_rest", &natSkeletonResetToRest, 0);
+    skeleton.method("solve_ik", &natSkeletonSolveIK, -1);
+    skeleton.persistent(true).constructable(false);
+    zen::ObjClass* skeletonClass = skeleton.end();
+
+    auto bone = vm.def_class("Bone");
+    bone.parent("Component");
+    bone.method("get_length", &natBoneGetLength, 0);
+    bone.method("set_length", &natBoneSetLength, 1);
+    bone.method("get_rest_position", &natBoneGetRestPosition, 0);
+    bone.method("get_rest_rotation", &natBoneGetRestRotation, 0);
+    bone.method("save_rest_pose", &natBoneSaveRestPose, 0);
+    bone.method("reset_to_rest", &natBoneResetToRest, 0);
+    bone.persistent(true).constructable(false);
+    boneClass = bone.end();
+    (void)canvasClass;
+
+    const struct Alias { const char* name; zen::ObjClass* klass; } aliases[] = {
+        {"RigidBody2D", rigidBodyClass}, {"SpriteComponent", spriteClass},
+        {"Animation2D", animationClass}, {"CameraComponent", cameraClass},
+        {"ParticleComponent", particleClass}, {"CharacterBody2D", characterBodyClass},
+        {"Collider2D", colliderClass}, {"BoxCollider2D", boxColliderClass},
+        {"CircleCollider2D", circleColliderClass}, {"EdgeCollider2D", edgeColliderClass},
+        {"PolygonCollider2D", polygonColliderClass}, {"ChainCollider2D", chainColliderClass},
+        {"TileMapComponent", tileMapClass}, {"NinePatchComponent", ninePatchClass},
+        {"LightOccluder2D", occluderClass},
+        {"UiPanel", panelClass}, {"UiLabel", labelClass},
+        {"UiButton", buttonClass}, {"UiCheckBox", checkBoxClass}, {"UiSlider", sliderClass},
+        {"NavigationRegion2D", navigationRegionClass}, {"NavigationAgent2D", navigationAgentClass},
+        {"MotionTween2D", motionTweenClass}, {"MotionStreak2D", motionStreakClass},
+        {"Skeleton2D", skeletonClass}, {"Bone2D", boneClass},
+    };
+    (void)light2DClass;
+    for (const Alias& alias : aliases)
+        vm.def_global(alias.name, zen::val_obj((zen::Obj*)alias.klass));
 
     vm.def_native("get_number", &natGetNumber, -1);
     vm.def_native("set_number", &natSetNumber, 2);
@@ -2181,6 +4612,15 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("key_down", &natKeyDown, 1);
     vm.def_native("key_pressed", &natKeyPressed, 1);
     vm.def_native("key_released", &natKeyReleased, 1);
+    vm.def_native("virtual_key_add", &natVirtualKeyAdd, 5);
+    vm.def_native("virtual_keys_clear", &natVirtualKeysClear, 0);
+    vm.def_native("virtual_keys_set_visible", &natVirtualKeysSetVisible, 1);
+    vm.def_native("virtual_keys_visible", &natVirtualKeysVisible, 0);
+    // Names retained from the previous ZenEngine input module.
+    vm.def_native("input_add_virtual_key", &natVirtualKeyAdd, 5);
+    vm.def_native("input_clear_virtual_keys", &natVirtualKeysClear, 0);
+    vm.def_native("input_set_virtual_keys_visible", &natVirtualKeysSetVisible, 1);
+    vm.def_native("input_get_virtual_keys_visible", &natVirtualKeysVisible, 0);
     vm.def_native("action_down", &natActionDown, 1);
     vm.def_native("action_pressed", &natActionPressed, 1);
     vm.def_native("action_released", &natActionReleased, 1);
@@ -2236,6 +4676,7 @@ void ZenRuntime::Impl::initialize()
 
     vm.def_native("raycast", &natRaycast, -1);
     vm.def_native("body_at", &natBodyAt, 2);
+    vm.def_native("get_active_camera", &natGetActiveCamera, 0);
     vm.def_native("set_gravity", &natSetGravity, 2);
     vm.def_native("get_gravity", &natGetGravity, 0);
 }
@@ -2320,11 +4761,15 @@ bool ZenScriptComponent::loadFile(const char* path)
     }
 
     FileBuffer buffer;
+    // Zen's lexer consumes a C string.  Keep the byte count for bytecode
+    // detection, but always reserve the trailing NUL for source scripts.
     if (!FileSystem::Instance().LoadFile(path, buffer, true))
         return false;
 
     mScriptPath = path;
     mSourceTimestamp = fileTimestamp(path);
+    if (zen::is_bytecode_buffer(buffer.Data(), buffer.Size()))
+        return loadFromBytecode(buffer.Data(), buffer.Size(), path);
     return loadFromSource(buffer.Text(), path);
 }
 
@@ -2343,6 +4788,29 @@ bool ZenScriptComponent::loadFromSource(const char* source, const char* path)
         return false;
 
     ++runtime.mCompileCount;
+    compiled.path = path;
+    compiled.timestamp = mSourceTimestamp;
+    mState->scriptClass = impl.addClass(compiled);
+    mState->classVersion = mState->scriptClass->version;
+    mState->generation = runtime.generation();
+    mState->loaded = true;
+    return true;
+}
+
+bool ZenScriptComponent::loadFromBytecode(const unsigned char* data, std::size_t size, const char* path)
+{
+    ZenRuntime& runtime = ZenRuntime::instance();
+    ZenRuntime::Impl& impl = runtime.impl();
+
+    destroyInstance();
+    mState->scriptClass = nullptr;
+    mState->loaded = false;
+    mState->pending = false;
+
+    ZenScriptClass compiled;
+    if (!impl.loadBytecodeClass(data, size, path, compiled))
+        return false;
+
     compiled.path = path;
     compiled.timestamp = mSourceTimestamp;
     mState->scriptClass = impl.addClass(compiled);
@@ -2997,6 +5465,11 @@ bool ZenScriptsEnabled()
 void SetZenScriptInput(Input* input)
 {
     gZenInput = input;
+}
+
+void SetZenScriptVirtualPad(VirtualPad* pad)
+{
+    gZenVirtualPad = pad;
 }
 
 void SetZenScriptGameViewport(float x, float y, float width, float height)

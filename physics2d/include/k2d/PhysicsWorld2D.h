@@ -118,6 +118,7 @@ class PhysicsWorld2D
     kx::World mWorld;
     ct::Vector<RigidBody2D*> mBodies;
     ct::Vector<RigidBody2D*> mPending;
+    ct::Vector<RigidBody2D*> mDirtyBodies;
     ct::Vector<kx::TileMapCollider*> mTileMaps;
     float mFixedStep;
     float mAccumulator;

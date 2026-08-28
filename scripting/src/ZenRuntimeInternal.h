@@ -62,10 +62,11 @@ struct ZenRuntime::Impl
     zen::ObjClass* animationClass = nullptr;
     zen::ObjClass* cameraClass = nullptr;
     zen::ObjClass* particleClass = nullptr;
-    zen::ObjClass* bodyClass = nullptr;
+    zen::ObjClass* rigidBodyClass = nullptr;
     zen::ObjClass* buttonClass = nullptr;
     zen::ObjClass* checkBoxClass = nullptr;
     zen::ObjClass* sliderClass = nullptr;
+    zen::ObjClass* boneClass = nullptr;
 
     ct::Vector<ZenScriptClass*> classes;
     ct::HashMap<void*, CachedInstance> instances;
@@ -96,6 +97,8 @@ struct ZenRuntime::Impl
 
     void initialize();
     bool compileClass(const char* source, const char* path, ZenScriptClass& out);
+    bool loadBytecodeClass(const unsigned char* data, size_t size, const char* path,
+                           ZenScriptClass& out);
     bool recompileClass(ZenScriptClass& entry, const char* source);
     ZenScriptClass* findClass(const char* path);
     ZenScriptClass* addClass(const ZenScriptClass& entry);

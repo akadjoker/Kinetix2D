@@ -148,7 +148,7 @@ uint64_t PairKey(const Body* a, const Body* b);
 World::World(const Math::Vec2& gravity)
     : mGravity(gravity), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1), mVelocityIterations(8)
 {
-    mProfile = StepProfile{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    mProfile = StepProfile{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     mNarrowMs = 0.0f;
 }
 
@@ -506,8 +506,8 @@ bool World::TestMotion(const Body& body, const Math::Vec2& motion, MotionResult&
     const AABB sweep{Min(start.lowerBound, end.lowerBound) - expansion,
                      Max(start.upperBound, end.upperBound) + expansion};
 
-    ct::Vector<Body*> candidates;
-    QueryAABB(sweep, candidates);
+    mBodyScratch.clear();
+    QueryAABB(sweep, mBodyScratch);
 
     ShapeCastOutput best;
     best.fraction = 1.0f;
@@ -515,9 +515,9 @@ bool World::TestMotion(const Body& body, const Math::Vec2& motion, MotionResult&
     int bestOtherShape = -1;
     Body* bestBody = nullptr;
     const Shape* selfShapes = body.Shapes();
-    for (size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex)
+    for (size_t candidateIndex = 0; candidateIndex < mBodyScratch.size(); ++candidateIndex)
     {
-        Body* other = candidates[candidateIndex];
+        Body* other = mBodyScratch[candidateIndex];
         if (!other || other == &body || other->ShapeCount() == 0)
             continue;
         const Transform otherTransform = other->GetTransform();
@@ -586,12 +586,12 @@ bool World::TestPosition(const Body& body, const Math::Vec2& position, MotionRes
 
     const Transform selfTransform = MakeTransform(position, body.Angle());
     const AABB bounds = ComputeBodyAABB(body, selfTransform);
-    ct::Vector<Body*> candidates;
-    QueryAABB(bounds, candidates);
+    mBodyScratch.clear();
+    QueryAABB(bounds, mBodyScratch);
     const Shape* selfShapes = body.Shapes();
-    for (size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex)
+    for (size_t candidateIndex = 0; candidateIndex < mBodyScratch.size(); ++candidateIndex)
     {
-        Body* other = candidates[candidateIndex];
+        Body* other = mBodyScratch[candidateIndex];
         if (!other || other == &body || other->ShapeCount() == 0)
             continue;
         const Transform otherTransform = other->GetTransform();
@@ -704,23 +704,23 @@ void World::RayCastGather(const Math::Vec2& origin, const Math::Vec2& translatio
     Math::Vec2 endPoint = origin + translation;
     AABB segmentAABB{Min(origin, endPoint), Max(origin, endPoint)};
 
-    ct::Vector<Body*> candidates;
+    mBodyScratch.clear();
     if (mUseTree)
     {
         const_cast<World*>(this)->SyncProxies();
 
-        BodyQueryVisitor visitor{&mTree, &candidates};
+        BodyQueryVisitor visitor{&mTree, &mBodyScratch};
         mTree.Query(&visitor, segmentAABB);
     }
     else
     {
-        candidates = mBodies;
+        mBodyScratch = mBodies;
     }
 
     float bestFraction = 1.0f;
-    for (size_t i = 0; i < candidates.size(); ++i)
+    for (size_t i = 0; i < mBodyScratch.size(); ++i)
     {
-        Body* body = candidates[i];
+        Body* body = mBodyScratch[i];
         if (body->ShapeCount() == 0 || body == ignoreBody)
             continue;
         Transform xf = body->GetTransform();
@@ -846,6 +846,7 @@ void World::SyncProxies()
             continue;
 
         AABB aabb = ComputeBodyAABB(*b);
+        b->mTightAABB = aabb;
 
         if (b->mProxyId == kNullNode)
         {
@@ -864,22 +865,20 @@ void World::SyncProxies()
 
 void World::FindNewPairs()
 {
-    ct::Vector<int32_t> hits;
-
     for (size_t i = 0; i < mMoveBuffer.size(); ++i)
     {
         int32_t queryProxyId = mMoveBuffer[i];
         if (queryProxyId == kNullNode)
             continue;
 
-        hits.clear();
-        PairQueryVisitor visitor{&mTree, queryProxyId, &hits};
+        mPairScratch.clear();
+        PairQueryVisitor visitor{&mTree, queryProxyId, &mPairScratch};
         mTree.Query(&visitor, mTree.GetFatAABB(queryProxyId));
 
         Body* self = static_cast<Body*>(mTree.GetUserData(queryProxyId));
-        for (size_t h = 0; h < hits.size(); ++h)
+        for (size_t h = 0; h < mPairScratch.size(); ++h)
         {
-            Body* other = static_cast<Body*>(mTree.GetUserData(hits[h]));
+            Body* other = static_cast<Body*>(mTree.GetUserData(mPairScratch[h]));
             if (self->Type() != BodyType::Dynamic && other->Type() != BodyType::Dynamic)
                 continue;
             uint64_t key = PairKey(self, other);
@@ -982,9 +981,7 @@ void World::UpdateContactsTree()
             continue;
         }
 
-        AABB tightA = ComputeBodyAABB(*a);
-        AABB tightB = ComputeBodyAABB(*b);
-        if (!TestOverlap(tightA, tightB))
+        if (!TestOverlap(a->TightAABB(), b->TightAABB()))
             continue;
 
         CollidePair(a, b);
@@ -1040,6 +1037,7 @@ void World::Step(float dt)
     InitContactConstraints();
     WarmStartContacts();
 
+    mProfile.solveVelocityContacts = 0.0f;
     for (size_t i = 0; i < mJoints.size(); ++i)
         if (JointIsActive(mJoints[i]))
             mJoints[i]->InitVelocity(dt);
@@ -1080,6 +1078,7 @@ void World::Step(float dt)
         mProfile.narrowphase = mNarrowMs;
         mProfile.broadphase = (float)((t2 - t1) * 1000.0) - mNarrowMs;
         mProfile.solveVelocity = (float)((t3 - t2) * 1000.0);
+        mProfile.solveVelocityJoints = mProfile.solveVelocity - mProfile.solveVelocityContacts;
         mProfile.solvePosition = (float)((t5 - t4) * 1000.0);
     }
 }
@@ -1241,19 +1240,15 @@ void World::SolveContactPositions()
             if (JointIsActive(mJoints[i]))
                 mJoints[i]->SolvePosition();
 
-        for (size_t ci = 0; ci < mContacts.size(); ++ci)
+        for (size_t i = 0; i < mDynamicContacts.size(); ++i)
         {
-            ContactInfo& c = mContacts[ci];
-            if (c.sensor || ContactHasStatic(c) || !ContactIsActive(c))
-                continue;
+            ContactInfo& c = *mDynamicContacts[i];
             for (int i = 0; i < c.manifold.pointCount; ++i)
                 SolveContactPointPosition(c, i, kBaumgarte);
         }
-        for (size_t ci = 0; ci < mContacts.size(); ++ci)
+        for (size_t i = 0; i < mStaticContacts.size(); ++i)
         {
-            ContactInfo& c = mContacts[ci];
-            if (c.sensor || !ContactHasStatic(c) || !ContactIsActive(c))
-                continue;
+            ContactInfo& c = *mStaticContacts[i];
             for (int i = 0; i < c.manifold.pointCount; ++i)
                 SolveContactPointPosition(c, i, kBaumgarte);
         }
@@ -1262,11 +1257,19 @@ void World::SolveContactPositions()
 
 void World::InitContactConstraints()
 {
+    mDynamicContacts.clear();
+    mStaticContacts.clear();
     for (size_t ci = 0; ci < mContacts.size(); ++ci)
     {
         ContactInfo& c = mContacts[ci];
         if (c.sensor)
             continue;
+        if (!ContactIsActive(c))
+            continue;
+        if (ContactHasStatic(c))
+            mStaticContacts.push_back(&c);
+        else
+            mDynamicContacts.push_back(&c);
         Body* a = c.a;
         Body* b = c.b;
 
@@ -1333,12 +1336,9 @@ void World::InitContactConstraints()
 
 void World::WarmStartContacts()
 {
-
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    const auto warmStart = [](ContactInfo* contact)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *contact;
         for (int i = 0; i < c.manifold.pointCount; ++i)
         {
             const ManifoldPoint& mp = c.manifold.points[i];
@@ -1348,7 +1348,12 @@ void World::WarmStartContacts()
             c.b->mLinearVelocity += c.b->mInvMass * impulse;
             c.b->mAngularVelocity += c.b->mInvI * Cross(c.rB[i], impulse);
         }
-    }
+    };
+
+    for (size_t i = 0; i < mDynamicContacts.size(); ++i)
+        warmStart(mDynamicContacts[i]);
+    for (size_t i = 0; i < mStaticContacts.size(); ++i)
+        warmStart(mStaticContacts[i]);
 }
 
 void World::SolveContactVelocitiesOne(ContactInfo& c)
@@ -1406,21 +1411,19 @@ void World::SolveContactVelocitiesOne(ContactInfo& c)
 
 void World::SolveContactVelocities()
 {
-
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    double start = mClock ? mClock() : 0.0;
+    for (size_t i = 0; i < mDynamicContacts.size(); ++i)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || ContactHasStatic(c) || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *mDynamicContacts[i];
         SolveContactVelocitiesOne(c);
     }
-    for (size_t ci = 0; ci < mContacts.size(); ++ci)
+    for (size_t i = 0; i < mStaticContacts.size(); ++i)
     {
-        ContactInfo& c = mContacts[ci];
-        if (c.sensor || !ContactHasStatic(c) || !ContactIsActive(c))
-            continue;
+        ContactInfo& c = *mStaticContacts[i];
         SolveContactVelocitiesOne(c);
     }
+    if (mClock)
+        mProfile.solveVelocityContacts += (float)((mClock() - start) * 1000.0);
 }
 
 void World::StoreContactImpulses()

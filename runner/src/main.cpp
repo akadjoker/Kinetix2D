@@ -25,6 +25,10 @@
 
 #include <SDL.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
+
 #include <ct/json.hpp>
 
 #include <cstdio>
@@ -84,6 +88,46 @@ bool loadJson(const char* path, ct::Json& out)
     ct::Json::Error error;
     out = ct::Json::parse(buffer.Text(), &error);
     return !error;
+}
+
+bool loadBytecodeManifest(const std::filesystem::path& projectRoot)
+{
+    const std::filesystem::path manifestPath = projectRoot / ".k2d" / "web" / "scripts.json";
+    if (!std::filesystem::exists(manifestPath))
+        return true;
+
+    ct::Json manifest;
+    if (!loadJson(manifestPath.string().c_str(), manifest) ||
+        std::strcmp(manifest["format"].as_cstr(""), "k2d-zen-bytecode-bundle") != 0 ||
+        manifest["version"].as_int(0) != 1)
+    {
+        std::fprintf(stderr, "Invalid Zen bytecode manifest: %s\n", manifestPath.string().c_str());
+        return false;
+    }
+
+    ct::String error;
+    const std::filesystem::path bundlePath = projectRoot / ".k2d" / "web" / "scripts.zbc";
+    if (!k2d::ZenRuntime::instance().loadBytecodeBundle(bundlePath.string().c_str(), &error))
+    {
+        std::fprintf(stderr, "Could not load Zen bytecode bundle: %s\n", error.c_str());
+        return false;
+    }
+
+    const ct::Json& scripts = manifest["scripts"];
+    if (!scripts.is_array())
+        return false;
+    for (size_t i = 0; i < scripts.size(); ++i)
+    {
+        const ct::Json& script = scripts[i];
+        const char* path = script["path"].as_cstr("");
+        const char* className = script["class"].as_cstr("");
+        if (!k2d::ZenRuntime::instance().registerBytecodeScript(path, className, &error))
+        {
+            std::fprintf(stderr, "Could not register Zen bytecode script '%s': %s\n", path, error.c_str());
+            return false;
+        }
+    }
+    return true;
 }
 
 void applyRoot(k2d::Scene& scene, const ct::Json& rootJson, k2d::Assets& assets)
@@ -288,6 +332,8 @@ int main(int argc, char** argv)
         k2d::SetZenScriptOutput(&scriptOutput, nullptr);
         k2d::SetZenScriptsEnabled(true);
         configureDefaultInputActions();
+        if (!loadBytecodeManifest(projectRoot))
+            result = 1;
         preloadTextures(sceneJson, assets);
         const ct::Json& rootJson = sceneJson["root"];
         if (!rootJson.is_object())
@@ -295,7 +341,7 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "Invalid scene (missing root object): %s\n", argv[1]);
             result = 1;
         }
-        else if (!k2d::GetSceneManager().Load(scene, assets, argv[1]))
+        else if (result == 0 && !k2d::GetSceneManager().Load(scene, assets, argv[1]))
         {
             std::fprintf(stderr, "Could not load scene: %s\n", argv[1]);
             result = 1;
@@ -331,6 +377,7 @@ int main(int argc, char** argv)
                 virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
                                           SDL_SCANCODE_SPACE, SDL_SCANCODE_LCTRL);
                 configureVirtualPad(sceneJson, virtualPad);
+                k2d::SetZenScriptVirtualPad(&virtualPad);
                 bool profilerVisible = false;
                 while (device.PollEvents())
                 {
@@ -395,6 +442,12 @@ int main(int argc, char** argv)
                     k2d::GetScreenFade().Draw(canvas, width, height);
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
+#if defined(__EMSCRIPTEN__)
+                    // The browser owns the event loop. Asyncify preserves the
+                    // runner state across this yield and schedules the next
+                    // frame without blocking the UI thread.
+                    emscripten_sleep(0);
+#endif
                 }
                 canvas.Shutdown();
                 k2d::GetAudio().SaveSettings(userData);
@@ -413,6 +466,7 @@ int main(int argc, char** argv)
         k2d::SetZenScriptUserData(nullptr);
         k2d::SetZenScriptAssets(nullptr);
         k2d::SetZenScriptInput(nullptr);
+        k2d::SetZenScriptVirtualPad(nullptr);
         k2d::SetUiInput(nullptr);
     }
     userData.setInt("windowDisplayIndex", device.DisplayIndex());

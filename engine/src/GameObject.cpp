@@ -7,9 +7,24 @@
 namespace k2d
 {
 
+    static constexpr float EPSILON = 1e-6f;
+    inline float clamp(float value, float min, float max)
+    {
+        return value < min ? min : (value > max ? max : value);
+    }
+    inline float lerp(float a, float b, float t)
+    {
+        return a + (b - a) * t;
+    }
+    inline float lerpAngle(float a, float b, float t)
+    {
+        float delta = std::fmod(b - a + 180.0f, 360.0f) - 180.0f;
+        return a + delta * t;
+    }
+
     GameObject::GameObject(const char *name)
         : mName(name), mId(0), mFlags(GameObjectActive | GameObjectVisible), mScene(nullptr),
-          mParent(nullptr), mComponents{}, mComponentCallbackDepth(0), mNextComponentId(0),
+          mParent(nullptr), mComponents{}, mUiComponent(nullptr), mComponentCallbackDepth(0), mNextComponentId(0),
           mPosition(0.0f), mRotationDegrees(0.0f), mScale(1.0f, 1.0f), mZIndex(0),
           mLocalDirty(true), mGlobalDirty(true)
     {
@@ -51,6 +66,8 @@ namespace k2d
     void GameObject::setName(const ct::String &name)
     {
         mName = name;
+        if (mScene)
+            mScene->markTopologyChanged();
     }
 
     const ct::String &GameObject::tag() const
@@ -144,7 +161,11 @@ namespace k2d
     void GameObject::dispose()
     {
         if (this != root())
+        {
             mFlags |= GameObjectDispose;
+            if (mScene)
+                mScene->mHasDisposed = true;
+        }
     }
 
     bool GameObject::disposed() const
@@ -306,6 +327,8 @@ namespace k2d
                 tail = tail->mNextSibling;
             tail->mNextSibling = component;
         }
+        if (!mUiComponent && component->uiControl())
+            mUiComponent = component;
         if (mScene)
             mScene->registerComponent(component);
         component->attached();
@@ -316,6 +339,9 @@ namespace k2d
     {
         if (!component || component->mOwner != this)
             return false;
+        // Before anything else, and unconditionally: an object detached from
+        // its scene still has to let a cached script handle go.
+        Component::notifyRemoved(component);
         if (mScene)
             mScene->unregisterComponent(component);
         component->detached();
@@ -340,6 +366,17 @@ namespace k2d
 
     void GameObject::unlinkComponent(Component *component)
     {
+        if (mUiComponent == component)
+        {
+            mUiComponent = nullptr;
+            for (uint8_t i = 0; i < static_cast<uint8_t>(ComponentType::Count) && !mUiComponent; ++i)
+                for (Component *c = mComponents[i]; c; c = c->mNextSibling)
+                    if (c != component && c->uiControl())
+                    {
+                        mUiComponent = c;
+                        break;
+                    }
+        }
         const uint8_t index = static_cast<uint8_t>(component->type());
         Component *&head = mComponents[index];
         if (head == component)
@@ -494,6 +531,13 @@ namespace k2d
         invalidateTransform();
     }
 
+    void GameObject::setPositionAndRotation(const Math::Vec2 &position, float rotationDegrees)
+    {
+        mPosition = position;
+        mRotationDegrees = rotationDegrees;
+        invalidateTransform();
+    }
+
     void GameObject::setScale(const Math::Vec2 &scale)
     {
         mScale = scale;
@@ -508,6 +552,46 @@ namespace k2d
     void GameObject::rotate(float degrees)
     {
         setRotationDegrees(mRotationDegrees + degrees);
+    }
+
+    void GameObject::turn(float degrees, float speed)
+    {
+        float targetRotation = lerpAngle(mRotationDegrees, mRotationDegrees + degrees,  clamp(speed, 0.0f, 1.0f));
+        mRotationDegrees = targetRotation;
+       
+        invalidateTransform();
+    }
+
+    void GameObject::moveTo(const Math::Vec2& position, float rotationDegrees)
+    {
+        float deltaRotation = rotationDegrees - mRotationDegrees;
+        float x = position.x - mPosition.x;
+        float y = position.y - mPosition.y;
+        float cosTheta = std::cos(deltaRotation * 0.01745329251f);
+        float sinTheta = std::sin(deltaRotation * 0.01745329251f);
+        float newX = cosTheta * x - sinTheta * y;
+        float newY = sinTheta * x + cosTheta * y;
+        mPosition.x += newX;
+        mPosition.y += newY;
+        mRotationDegrees = rotationDegrees;
+        invalidateTransform();
+    }
+
+    void GameObject::xadvance(float speed, float angle)
+    {
+        float radians = angle * 0.01745329251f;
+        float dx = std::cos(radians) * speed;
+        float dy = std::sin(radians) * speed;
+        translate(Math::Vec2(dx, dy));
+    }
+
+    void GameObject::advance(float speed)
+    {
+      
+        float radians = mRotationDegrees * 0.01745329251f; // Convert degrees to radians
+        float dx = std::cos(radians) * speed ;
+        float dy = std::sin(radians) * speed ;
+        translate(Math::Vec2(dx, dy));
     }
 
     const Matrix2D &GameObject::localTransform() const

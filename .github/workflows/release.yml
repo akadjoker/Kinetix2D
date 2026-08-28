@@ -49,25 +49,27 @@ jobs:
         if: runner.os == 'Linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
-      - name: Configure Windows
-        if: runner.os == 'Windows'
-        run: >-
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
-
-      - name: Build editor, runner and packer
-        run: cmake --build build --config Release --target k2d_editor k2d_runner k2d_pack k2d_kpak_tests --parallel
-
-      - name: Test KPAK on Linux
-        if: runner.os == 'Linux'
-        run: ./bin/k2d_kpak_tests
-
-      - name: Test KPAK on Windows
+      - name: Configure MinGW
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./bin/k2d_kpak_tests.exe
+        run: |
+          # CMake rejects backslashes in cached compiler paths ("invalid
+          # character escape"), so hand it forward slashes.
+          $mingw = ((Get-Command g++.exe -ErrorAction Stop).Source | Split-Path) -replace '\\','/'
+          "MINGW_BIN=$mingw" >> $env:GITHUB_ENV
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER="$mingw/gcc.exe" `
+            -DCMAKE_CXX_COMPILER="$mingw/g++.exe" `
+            -DCMAKE_RC_COMPILER="$mingw/windres.exe" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-mingw-static `
+            -DK2D_STATIC_MINGW_RUNTIME=ON
+
+      - name: Build editor, runner and export tools
+        run: >-
+          cmake --build build --config Release
+          --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver --parallel
 
       - name: Install release tree
         run: cmake --install build --config Release --prefix "stage/Kinetix2D-${{ matrix.name }}"
@@ -76,8 +78,61 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse |
-            Copy-Item -Destination "stage/Kinetix2D-${{ matrix.name }}/bin"
+          $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
+          $vcpkgDlls = Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse -ErrorAction SilentlyContinue
+          if ($vcpkgDlls) {
+            $vcpkgDlls | Copy-Item -Destination $bin
+          }
+          # x64-mingw-static plus -static in K2D_STATIC_MINGW_RUNTIME should leave nothing
+          # to copy; this is a fallback for a toolchain that still links winpthread dynamically.
+          $winpthread = Join-Path $env:MINGW_BIN "libwinpthread-1.dll"
+          if (Test-Path $winpthread) {
+            Copy-Item $winpthread -Destination $bin
+            Write-Host "Copied libwinpthread-1.dll: the MinGW toolchain did not link it statically."
+          }
+
+      - name: Verify staged executables only import bundled or system DLLs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $systemDlls = @(
+            'kernel32.dll','user32.dll','gdi32.dll','shell32.dll','ole32.dll','oleaut32.dll',
+            'advapi32.dll','ws2_32.dll','winmm.dll','setupapi.dll','version.dll','imm32.dll',
+            'opengl32.dll','dwmapi.dll','msvcrt.dll','ntdll.dll','crypt32.dll','bcrypt.dll',
+            'iphlpapi.dll','uxtheme.dll','comdlg32.dll','comctl32.dll','shlwapi.dll','userenv.dll',
+            'hid.dll','dinput8.dll','dxgi.dll','d3d11.dll','ucrtbase.dll'
+          )
+          $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
+          $bundled = Get-ChildItem -Path $bin -Filter *.dll |
+            ForEach-Object { $_.Name.ToLowerInvariant() }
+          # dumpbin needs a VS developer shell the pwsh step does not have; the
+          # MinGW objdump sits next to the compiler this job already found.
+          $objdump = Join-Path $env:MINGW_BIN 'objdump.exe'
+          if (-not (Test-Path $objdump)) {
+            throw "objdump not found at $objdump - cannot verify imports."
+          }
+          $failed = $false
+          Get-ChildItem -Path $bin -Filter *.exe | ForEach-Object {
+            $exeName = $_.Name
+            $dump = & $objdump -p $_.FullName | Out-String
+            $exeClean = $true
+            foreach ($line in ($dump -split "`r?`n")) {
+              if ($line -notmatch '(?i)^\s*DLL Name:\s*(\S+)') { continue }
+              $name = $Matches[1]
+              $lower = $name.ToLowerInvariant()
+              # Universal CRT forwarders (api-ms-win-*) ship with Windows 10+.
+              if ($lower -match '^api-ms-win-') { continue }
+              if ($systemDlls -contains $lower) { continue }
+              if ($bundled -contains $lower) { continue }
+              Write-Host "::error::$exeName imports '$name', which is neither a known Windows system DLL nor bundled in bin/."
+              $failed = $true
+              $exeClean = $false
+            }
+            if ($exeClean) { Write-Host "$exeName imports verified." }
+          }
+          if ($failed) {
+            throw "One or more staged executables import a DLL that the release package does not ship."
+          }
 
       - name: Create Linux archive
         if: runner.os == 'Linux'

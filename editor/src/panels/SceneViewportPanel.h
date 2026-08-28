@@ -8,6 +8,7 @@
 
 namespace k2d
 {
+class Bone2D;
 class GameObject;
 }
 
@@ -30,6 +31,7 @@ private:
     ImVec2 worldToScreen(float x, float y, const ImVec2 &origin) const;
     Math::Vec2 screenToWorld(const ImVec2 &screen, const ImVec2 &origin) const;
     void handlePrefabDrop(const ImVec2 &origin);
+    void recordBoneKey(GameObject &boneObject);
 
     void drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;
     int hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const;
@@ -48,6 +50,9 @@ private:
     int mGizmoAxis = -1;
     Math::Vec2 mGizmoStartPosition = Math::Vec2(0.0f);
     ImVec2 mGizmoStartMouse = ImVec2(0.0f, 0.0f);
+    Bone2D *mDraggedBone = nullptr;
+    float mDraggedBoneStartRotation = 0.0f;
+    bool mDraggedBoneMoved = false;
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

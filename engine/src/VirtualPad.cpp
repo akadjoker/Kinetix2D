@@ -15,15 +15,6 @@ namespace k2d
 {
     namespace
     {
-        bool defaultVirtualPadEnabled()
-        {
-#if defined(__EMSCRIPTEN__) || defined(__ANDROID__) || defined(__IPHONEOS__)
-            return true;
-#else
-            return false;
-#endif
-        }
-
         float distanceSquared(float x0, float y0, float x1, float y1)
         {
             const float x = x1 - x0;
@@ -49,12 +40,15 @@ namespace k2d
     }
 
     VirtualPad::VirtualPad()
-        : mEnabled(defaultVirtualPadEnabled()), mTexture(nullptr),
+        // Touch controls are opt-in. A game enables them explicitly through
+        // its scene's `virtualPad.enabled` setting, rather than showing an
+        // overlay just because it happens to run on the Web or on a phone.
+        : mEnabled(false), mCustomKeysVisible(true), mTexture(nullptr),
           mLeftKey(-1), mRightKey(-1), mUpKey(-1), mDownKey(-1), mPrimaryKey(-1), mSecondaryKey(-1),
           mScale(1.0f), mOpacity(0.58f), mIdleOpacity(0.14f), mStickOpacity(0.14f),
           mPrimaryOpacity(0.14f), mSecondaryOpacity(0.14f), mStick(0.0f),
           mStickTouchId(0), mStickCaptured(false),
-          mStickUsesMouse(false), mPrimaryDown(false), mSecondaryDown(false)
+          mStickUsesMouse(false), mPrimaryDown(false), mSecondaryDown(false), mCustomKeys(), mRetiredCustomKeys()
     {
     }
 
@@ -76,14 +70,58 @@ namespace k2d
         mSecondaryKey = secondary;
     }
 
+    void VirtualPad::AddVirtualKey(int scancode, float x, float y, float width, float height)
+    {
+        if (scancode < 0 || width <= 0.0f || height <= 0.0f)
+            return;
+        VirtualKey key;
+        key.scancode = scancode;
+        key.x = x;
+        key.y = y;
+        key.width = width;
+        key.height = height;
+        key.down = false;
+        mCustomKeys.push_back(key);
+    }
+
+    void VirtualPad::ClearVirtualKeys()
+    {
+        for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+            mRetiredCustomKeys.push_back(mCustomKeys[i].scancode);
+        mCustomKeys.clear();
+    }
+
     void VirtualPad::Update(Input &input, float screenWidth, float screenHeight, float deltaTime)
     {
         mStick = Math::Vec2(0.0f);
         mPrimaryDown = false;
         mSecondaryDown = false;
+        for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+            mCustomKeys[i].down = false;
 
-        if (mEnabled && screenWidth > 0.0f && screenHeight > 0.0f)
+        if (screenWidth > 0.0f && screenHeight > 0.0f)
         {
+            const auto handleCustomKeys = [this](float x, float y)
+            {
+                for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+                {
+                    VirtualKey &key = mCustomKeys[i];
+                    if (x >= key.x && x <= key.x + key.width && y >= key.y && y <= key.y + key.height)
+                        key.down = true;
+                }
+            };
+
+            for (int index = 0; index < Input::MAX_TOUCH; ++index)
+            {
+                const Input::Touch &touch = input.GetTouch(index);
+                if (touch.active)
+                    handleCustomKeys(touch.x, touch.y);
+            }
+            if (input.MouseDown(0))
+                handleCustomKeys(input.MouseX(), input.MouseY());
+
+            if (mEnabled)
+            {
             const float radius = (screenHeight < screenWidth ? screenHeight : screenWidth) * 0.115f * mScale;
             const float margin = radius * 0.55f;
             const float stickX = margin + radius;
@@ -173,15 +211,31 @@ namespace k2d
                     stickPointerActive = true;
                 }
             }
-
+            }
         }
 
-        input.SetVirtualKey(mLeftKey, mStick.x < -0.35f);
-        input.SetVirtualKey(mRightKey, mStick.x > 0.35f);
-        input.SetVirtualKey(mUpKey, mStick.y < -0.35f);
-        input.SetVirtualKey(mDownKey, mStick.y > 0.35f);
-        input.SetVirtualKey(mPrimaryKey, mPrimaryDown);
-        input.SetVirtualKey(mSecondaryKey, mSecondaryDown);
+        const auto customKeyDown = [this](int scancode)
+        {
+            for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+                if (mCustomKeys[i].scancode == scancode && mCustomKeys[i].down)
+                    return true;
+            return false;
+        };
+        input.SetVirtualKey(mLeftKey, mStick.x < -0.35f || customKeyDown(mLeftKey));
+        input.SetVirtualKey(mRightKey, mStick.x > 0.35f || customKeyDown(mRightKey));
+        input.SetVirtualKey(mUpKey, mStick.y < -0.35f || customKeyDown(mUpKey));
+        input.SetVirtualKey(mDownKey, mStick.y > 0.35f || customKeyDown(mDownKey));
+        input.SetVirtualKey(mPrimaryKey, mPrimaryDown || customKeyDown(mPrimaryKey));
+        input.SetVirtualKey(mSecondaryKey, mSecondaryDown || customKeyDown(mSecondaryKey));
+        for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+        {
+            const int key = mCustomKeys[i].scancode;
+            if (key != mLeftKey && key != mRightKey && key != mUpKey && key != mDownKey && key != mPrimaryKey && key != mSecondaryKey)
+                input.SetVirtualKey(key, customKeyDown(key));
+        }
+        for (std::size_t i = 0; i < mRetiredCustomKeys.size(); ++i)
+            input.SetVirtualKey(mRetiredCustomKeys[i], false);
+        mRetiredCustomKeys.clear();
 
         const float step = (deltaTime > 0.0f ? deltaTime : 0.0f) * 5.0f;
         const auto fadeTo = [step](float &current, float target)
@@ -198,7 +252,10 @@ namespace k2d
 
     void VirtualPad::Draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const
     {
-        if (!mEnabled || !mTexture || screenWidth <= 0.0f || screenHeight <= 0.0f)
+        if (screenWidth <= 0.0f || screenHeight <= 0.0f)
+            return;
+
+        if (!mEnabled && (!mCustomKeysVisible || mCustomKeys.empty()))
             return;
 
         const float radius = (screenHeight < screenWidth ? screenHeight : screenWidth) * 0.115f * mScale;
@@ -209,26 +266,38 @@ namespace k2d
         const float secondaryX = primaryX - radius * 2.15f;
         const float buttonRadius = radius * 0.66f;
         const float knobRadius = radius * 0.58f;
-        const Color stickColor(1.0f, 1.0f, 1.0f, mStickOpacity);
-
         canvas.SetOrtho(screenWidth, screenHeight);
         RenderQueue overlay;
         RenderItem &item = overlay.AddItem(0);
-        addAtlasRect(item, *mTexture, stickX - radius, stickY - radius, radius * 2.0f, radius * 2.0f,
-                     0.0f, 0.0f, 256.0f, 256.0f, stickColor);
-        addAtlasRect(item, *mTexture,
-                     stickX + mStick.x * (radius - knobRadius) - knobRadius,
-                     stickY + mStick.y * (radius - knobRadius) - knobRadius,
-                     knobRadius * 2.0f, knobRadius * 2.0f,
-                     256.0f, 0.0f, 256.0f, 256.0f, stickColor);
-        addAtlasRect(item, *mTexture, secondaryX - buttonRadius, stickY - buttonRadius,
-                     buttonRadius * 2.0f, buttonRadius * 2.0f,
-                     0.0f, 256.0f, 170.0f, 170.0f,
-                     Color(1.0f, 1.0f, 1.0f, mSecondaryOpacity));
-        addAtlasRect(item, *mTexture, primaryX - buttonRadius, stickY - buttonRadius,
-                     buttonRadius * 2.0f, buttonRadius * 2.0f,
-                     256.0f, 256.0f, 170.0f, 170.0f,
-                     Color(1.0f, 1.0f, 1.0f, mPrimaryOpacity));
+        if (mEnabled && mTexture)
+        {
+            const Color stickColor(1.0f, 1.0f, 1.0f, mStickOpacity);
+            addAtlasRect(item, *mTexture, stickX - radius, stickY - radius, radius * 2.0f, radius * 2.0f,
+                         0.0f, 0.0f, 256.0f, 256.0f, stickColor);
+            addAtlasRect(item, *mTexture,
+                         stickX + mStick.x * (radius - knobRadius) - knobRadius,
+                         stickY + mStick.y * (radius - knobRadius) - knobRadius,
+                         knobRadius * 2.0f, knobRadius * 2.0f,
+                         256.0f, 0.0f, 256.0f, 256.0f, stickColor);
+            addAtlasRect(item, *mTexture, secondaryX - buttonRadius, stickY - buttonRadius,
+                         buttonRadius * 2.0f, buttonRadius * 2.0f,
+                         0.0f, 256.0f, 170.0f, 170.0f,
+                         Color(1.0f, 1.0f, 1.0f, mSecondaryOpacity));
+            addAtlasRect(item, *mTexture, primaryX - buttonRadius, stickY - buttonRadius,
+                         buttonRadius * 2.0f, buttonRadius * 2.0f,
+                         256.0f, 256.0f, 170.0f, 170.0f,
+                         Color(1.0f, 1.0f, 1.0f, mPrimaryOpacity));
+        }
+        if (mCustomKeysVisible)
+            for (std::size_t i = 0; i < mCustomKeys.size(); ++i)
+            {
+                const VirtualKey &key = mCustomKeys[i];
+                RenderCommand command = RenderCommand::MakeRect(0, key.x, key.y, key.width, key.height);
+                command.pivotX = 0.0f;
+                command.pivotY = 0.0f;
+                command.color = key.down ? Color(1.0f, 0.55f, 0.2f, 0.78f) : Color(0.12f, 0.18f, 0.30f, 0.64f);
+                item.commands.push_back(command);
+            }
         overlay.Flush(canvas);
     }
 }
