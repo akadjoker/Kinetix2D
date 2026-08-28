@@ -2,6 +2,7 @@
 #include <k2d/AudioPlayer.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/Assets.h>
+#include <k2d/Bone2D.h>
 #include <k2d/Camera2D.h>
 #include <k2d/CameraComponent.h>
 #include <k2d/CapsuleShape.h>
@@ -17,6 +18,7 @@
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
 #include <k2d/SceneManager.h>
+#include <k2d/Skeleton2D.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/Serializer.h>
 #include <k2d/SpriteComponent.h>
@@ -297,6 +299,1173 @@ static bool testGenericAngleBracketCalls()
     return ok;
 }
 
+static bool testActiveCamera()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* aObject = scene.createObject("cam_a");
+    k2d::CameraComponent* aCam = aObject->addComponent<k2d::CameraComponent>();
+    k2d::GameObject* bObject = scene.createObject("cam_b");
+    k2d::CameraComponent* bCam = bObject->addComponent<k2d::CameraComponent>();
+    bCam->setRenderPriority(5);
+
+    k2d::GameObject* object = scene.createObject("probe");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Probe(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        cam = get_active_camera()\n"
+        "        set_flag(\"got\", cam != None)\n"
+        "        cam.add_trauma(0.8)\n"
+        "        self.node.get_root().find(\"cam_b\").get_camera().set_active(False)\n"
+        "        fallback = get_active_camera()\n"
+        "        set_flag(\"got_fallback\", fallback != None)\n"
+        "        fallback.add_trauma(0.5)\n",
+        "active_camera");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("got", false);
+    ok = ok && k2d::ZenBlackboard::getBool("got_fallback", false);
+    ok = ok && bCam->camera().trauma.value > 0.0f;
+    ok = ok && aCam->camera().trauma.value > 0.0f;
+    ok = ok && !bCam->active();
+    ok = ok && scene.activeCamera() == aCam;
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testNodeApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* parent = scene.createObject("parent");
+    parent->setPosition(Math::Vec2(10.0f, 20.0f));
+    k2d::GameObject* object = scene.createObject("child", parent);
+    object->setPosition(Math::Vec2(5.0f, 7.0f));
+    object->setTag("enemy");
+    k2d::GameObject* other = scene.createObject("other");
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Api(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        n = self.node\n"
+        "        set_flag(\"id\", n.get_id() != 0)\n"
+        "        set_string(\"tag\", n.get_tag())\n"
+        "        n.set_tag(\"boss\")\n"
+        "        n.set_name(\"renamed\")\n"
+        "        set_string(\"name\", n.get_name())\n"
+        "        gx, gy = n.get_global_position()\n"
+        "        set_number(\"gx\", gx)\n"
+        "        set_number(\"gy\", gy)\n"
+        "        rx, ry = n.get_right()\n"
+        "        set_number(\"rx\", rx)\n"
+        "        set_flag(\"in_hierarchy\", n.is_active_in_hierarchy())\n"
+        "        set_flag(\"no_sprite\", not n.has_component<Sprite>())\n"
+        "        s = n.add_component<Sprite>()\n"
+        "        set_flag(\"added\", s != None)\n"
+        "        set_flag(\"now_has\", n.has_component<Sprite>())\n"
+        "        set_flag(\"removed\", n.remove_component<Sprite>())\n"
+        "        set_flag(\"gone\", not n.has_component<Sprite>())\n"
+        "        set_flag(\"abstract_add\", n.add_component<Collider>() == None)\n"
+        "        root = n.get_root()\n"
+        "        set_flag(\"root\", root != None)\n"
+        "        set_flag(\"reparented\", n.reparent(root.find(\"other\")))\n",
+        "node_api");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("id", false);
+    ok = ok && k2d::ZenBlackboard::getString("tag") == ct::String("enemy");
+    ok = ok && object->tag() == ct::String("boss");
+    ok = ok && k2d::ZenBlackboard::getString("name") == ct::String("renamed");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("gx"), 15.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("gy"), 27.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("rx"), 1.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("in_hierarchy", false);
+    ok = ok && k2d::ZenBlackboard::getBool("no_sprite", false);
+    ok = ok && k2d::ZenBlackboard::getBool("added", false);
+    ok = ok && k2d::ZenBlackboard::getBool("now_has", false);
+    ok = ok && k2d::ZenBlackboard::getBool("removed", false);
+    ok = ok && k2d::ZenBlackboard::getBool("gone", false);
+    ok = ok && k2d::ZenBlackboard::getBool("abstract_add", false);
+    ok = ok && k2d::ZenBlackboard::getBool("root", false);
+    ok = ok && k2d::ZenBlackboard::getBool("reparented", false);
+    ok = ok && object->parent() == other;
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testSkeleton()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* root = scene.createObject("rig");
+    k2d::Skeleton2D* skeleton = root->addComponent<k2d::Skeleton2D>();
+    k2d::GameObject* upper = scene.createObject("upper_arm", root);
+    k2d::Bone2D* upperBone = upper->addComponent<k2d::Bone2D>();
+    upperBone->setLength(40.0f);
+    upper->setPosition(Math::Vec2(5.0f, 7.0f));
+    upperBone->saveRestPose();
+
+    k2d::BoneAnimationClip clip;
+    clip.name = "wave";
+    clip.duration = 1.0f;
+    skeleton->addClip(clip);
+
+    k2d::ZenScriptComponent* script = root->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Rig(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_component<Skeleton>()\n"
+        "        set_flag(\"has_skeleton\", s != None)\n"
+        "        set_number(\"clips\", s.clip_count())\n"
+        "        set_flag(\"played\", s.play(\"wave\", True, 2.0))\n"
+        "        set_flag(\"playing\", s.is_playing())\n"
+        "        set_string(\"current\", s.current())\n"
+        "        set_number(\"speed\", s.get_speed())\n"
+        "        s.pause()\n"
+        "        set_flag(\"paused\", not s.is_playing())\n"
+        "        b = s.find_bone(\"upper_arm\")\n"
+        "        set_flag(\"has_bone\", b != None)\n"
+        "        set_number(\"bone_length\", b.get_length())\n"
+        "        rx, ry = b.get_rest_position()\n"
+        "        set_number(\"rest_x\", rx)\n"
+        "        set_number(\"rest_y\", ry)\n"
+        "        b.set_length(60.0)\n"
+        "        set_number(\"new_length\", b.get_length())\n"
+        "        set_flag(\"missing_bone\", s.find_bone(\"nope\") == None)\n",
+        "skeleton");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_skeleton", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("clips"), 1.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("played", false);
+    ok = ok && k2d::ZenBlackboard::getBool("playing", false);
+    ok = ok && k2d::ZenBlackboard::getString("current") == ct::String("wave");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("speed"), 2.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("paused", false);
+    ok = ok && k2d::ZenBlackboard::getBool("has_bone", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("bone_length"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("rest_x"), 5.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("rest_y"), 7.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("new_length"), 60.0f);
+    ok = ok && nearEqual(upperBone->length(), 60.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("missing_bone", false);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testAudioPlayerApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("jukebox");
+    k2d::AudioPlayer* player = object->addComponent<k2d::AudioPlayer>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Jukebox(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        p = self.node.get_component<AudioPlayer>()\n"
+        "        set_flag(\"has_player\", p != None)\n"
+        "        set_flag(\"idle\", not p.is_playing())\n"
+        "        p.set_volume(0.5)\n"
+        "        set_number(\"volume\", p.get_volume())\n"
+        "        p.set_loop(True)\n"
+        "        set_flag(\"loop\", p.get_loop())\n"
+        "        set_flag(\"stop_noop\", not p.stop())\n"
+        "        set_flag(\"pause_noop\", not p.pause())\n",
+        "audio_player");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_player", false);
+    ok = ok && k2d::ZenBlackboard::getBool("idle", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("volume"), 0.5f);
+    ok = ok && k2d::ZenBlackboard::getBool("loop", false);
+    ok = ok && k2d::ZenBlackboard::getBool("stop_noop", false);
+    ok = ok && k2d::ZenBlackboard::getBool("pause_noop", false);
+    ok = ok && nearEqual(player->volume(), 0.5f);
+    ok = ok && player->loop();
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testLight2DApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("torch");
+    k2d::Light2D* light = object->addComponent<k2d::Light2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Torch(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        l = self.node.get_component<Light2D>()\n"
+        "        set_flag(\"has_light\", l != None)\n"
+        "        l.set_color(1.0, 0.5, 0.25, 0.75)\n"
+        "        r, g, b, a = l.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n"
+        "        set_number(\"a\", a)\n"
+        "        l.set_energy(2.5)\n"
+        "        set_number(\"energy\", l.get_energy())\n"
+        "        l.set_radius(120.0)\n"
+        "        set_number(\"radius\", l.get_radius())\n",
+        "light2d");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_light", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 1.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 0.5f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 0.25f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("a"), 0.75f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("energy"), 2.5f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("radius"), 120.0f);
+    ok = ok && nearEqual(light->color().r, 1.0f) && nearEqual(light->color().g, 0.5f) &&
+         nearEqual(light->color().b, 0.25f) && nearEqual(light->color().a, 0.75f);
+    ok = ok && nearEqual(light->energy(), 2.5f);
+    ok = ok && nearEqual(light->radius(), 120.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testTileMapApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("grid");
+    object->setPosition(Math::Vec2(100.0f, 50.0f));
+    k2d::TileMapComponent* tileMap = object->addComponent<k2d::TileMapComponent>();
+    tileMap->setCellSize(32.0f, 32.0f);
+    tileMap->setMapSize(4, 3);
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Grid(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        t = self.node.get_component<TileMap>()\n"
+        "        set_flag(\"has_tilemap\", t != None)\n"
+        "        set_number(\"columns\", t.get_columns())\n"
+        "        set_number(\"rows\", t.get_rows())\n"
+        "        cw, ch = t.get_cell_size()\n"
+        "        set_number(\"cw\", cw)\n"
+        "        set_number(\"ch\", ch)\n"
+        "        t.set_tile(2, 1, 5)\n"
+        "        set_number(\"tile\", t.get_tile(2, 1))\n"
+        "        t.set_collision(2, 1, True)\n"
+        "        set_flag(\"solid\", t.has_collision(2, 1))\n"
+        "        wx, wy = t.cell_to_world(2, 1)\n"
+        "        set_number(\"wx\", wx)\n"
+        "        set_number(\"wy\", wy)\n"
+        "        cx, cy = t.world_to_cell(wx, wy)\n"
+        "        set_number(\"cx\", cx)\n"
+        "        set_number(\"cy\", cy)\n",
+        "tilemap");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_tilemap", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("columns"), 4.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("rows"), 3.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("cw"), 32.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("ch"), 32.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("tile"), 5.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("solid", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("wx"), 164.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("wy"), 82.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("cx"), 2.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("cy"), 1.0f);
+    ok = ok && tileMap->getTile(2, 1) == 5;
+    ok = ok && tileMap->hasCollision(2, 1);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testNavigationAgentApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* floor = scene.createObject("floor");
+    k2d::NavigationRegion2D* region = floor->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(200.0f, 0.0f), Math::Vec2(200.0f, 200.0f),
+                                  Math::Vec2(0.0f, 200.0f)};
+    region->setPolygon(polygon, 4);
+
+    k2d::GameObject* object = scene.createObject("walker");
+    object->setPosition(Math::Vec2(20.0f, 20.0f));
+    k2d::NavigationAgent2D* agent = object->addComponent<k2d::NavigationAgent2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Walker(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        a = self.node.get_component<NavigationAgent>()\n"
+        "        set_flag(\"has_agent\", a != None)\n"
+        "        a.set_max_speed(500.0)\n"
+        "        set_number(\"max_speed\", a.get_max_speed())\n"
+        "        a.set_auto_move(True)\n"
+        "        set_flag(\"auto_move\", a.get_auto_move())\n"
+        "        set_flag(\"reached\", a.set_target(150.0, 150.0))\n"
+        "        set_flag(\"has_path\", a.has_path())\n"
+        "        set_number(\"path_count\", a.path_count())\n"
+        "        set_flag(\"not_finished\", not a.is_finished())\n"
+        "        px, py = a.path_point(a.path_count() - 1)\n"
+        "        set_number(\"px\", px)\n"
+        "        set_number(\"py\", py)\n"
+        "        tx, ty = a.get_target()\n"
+        "        set_number(\"tx\", tx)\n"
+        "        set_number(\"ty\", ty)\n",
+        "nav_agent");
+
+    // Frame 1 runs the script's on_start (sets the target and repaths).
+    // The agent's own onUpdate registered before the script, so auto-move
+    // only visibly displaces the object from frame 2 onward.
+    scene.update(0.016f);
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_agent", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("max_speed"), 500.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("auto_move", false);
+    ok = ok && k2d::ZenBlackboard::getBool("reached", false);
+    ok = ok && k2d::ZenBlackboard::getBool("has_path", false);
+    ok = ok && k2d::ZenBlackboard::getNumber("path_count") >= 1.0;
+    ok = ok && k2d::ZenBlackboard::getBool("not_finished", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("px"), 150.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("py"), 150.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("tx"), 150.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("ty"), 150.0f);
+    ok = ok && nearEqual(agent->maxSpeed(), 500.0f);
+    ok = ok && agent->autoMove();
+    ok = ok && nearEqual(agent->targetPosition().x, 150.0f) && nearEqual(agent->targetPosition().y, 150.0f);
+    ok = ok && object->position().x > 21.0f && object->position().y > 21.0f;
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testDirectionalLightApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("sun");
+    k2d::DirectionalLight2D* light = object->addComponent<k2d::DirectionalLight2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Sun(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        l = self.node.get_component<DirectionalLight2D>()\n"
+        "        set_flag(\"has_light\", l != None)\n"
+        "        l.set_color(0.2, 0.4, 0.6, 0.8)\n"
+        "        r, g, b, a = l.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n"
+        "        set_number(\"a\", a)\n"
+        "        l.set_energy(3.0)\n"
+        "        set_number(\"energy\", l.get_energy())\n",
+        "directional_light");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_light", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 0.2f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 0.4f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 0.6f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("a"), 0.8f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("energy"), 3.0f);
+    ok = ok && nearEqual(light->color().r, 0.2f) && nearEqual(light->color().g, 0.4f) &&
+         nearEqual(light->color().b, 0.6f) && nearEqual(light->color().a, 0.8f);
+    ok = ok && nearEqual(light->energy(), 3.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testLightOccluderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("wall");
+    k2d::LightOccluder2D* occluder = object->addComponent<k2d::LightOccluder2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Wall(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        o = self.node.get_component<LightOccluder>()\n"
+        "        set_flag(\"has_occluder\", o != None)\n"
+        "        o.set_points([[0, 0], [10, 0], [10, 20], [0, 20]])\n"
+        "        set_number(\"count\", o.point_count())\n"
+        "        x2, y2 = o.get_point(2)\n"
+        "        set_number(\"x2\", x2)\n"
+        "        set_number(\"y2\", y2)\n",
+        "occluder");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_occluder", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 4.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x2"), 10.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y2"), 20.0f);
+    ok = ok && occluder->points().size() == 4;
+    ok = ok && nearEqual(occluder->points()[2].x, 10.0f) && nearEqual(occluder->points()[2].y, 20.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testMotionTweenApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("mover");
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::MotionTween2D* tween = object->addComponent<k2d::MotionTween2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Mover(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        t = self.node.get_component<MotionTween>()\n"
+        "        set_flag(\"has_tween\", t != None)\n"
+        "        t.set_one_shot(False)\n"
+        "        set_flag(\"one_shot\", t.get_one_shot())\n"
+        "        t.set_loop(\"repeat\")\n"
+        "        set_string(\"loop\", t.get_loop())\n"
+        "        t.add_track(\"position\", 0.0, 0.0, 100.0, 0.0, 1.0, 0.0, \"linear\")\n"
+        "        set_number(\"tracks\", t.track_count())\n"
+        "        t.play(True)\n"
+        "        set_flag(\"playing\", t.is_playing())\n"
+        "        set_flag(\"not_paused\", not t.is_paused())\n"
+        "        set_number(\"time0\", t.get_time())\n",
+        "motion_tween");
+
+    // Frame 1 runs on_start (builds the track and plays). The tween's own
+    // onUpdate was registered before the script's, so the position track
+    // only visibly advances the object from frame 2 onward.
+    scene.update(0.016f);
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_tween", false);
+    ok = ok && !k2d::ZenBlackboard::getBool("one_shot", true);
+    ok = ok && k2d::ZenBlackboard::getString("loop") == ct::String("repeat");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("tracks"), 1.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("playing", false);
+    ok = ok && k2d::ZenBlackboard::getBool("not_paused", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("time0"), 0.0f);
+    ok = ok && !tween->oneShot();
+    ok = ok && tween->loop() == k2d::MotionTweenLoop::Repeat;
+    ok = ok && tween->trackCount() == 1;
+    ok = ok && tween->playing();
+    ok = ok && nearEqual(object->position().x, 1.6f) && nearEqual(object->position().y, 0.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testMotionStreakApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("blade");
+    k2d::MotionStreak2D* streak = object->addComponent<k2d::MotionStreak2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Blade(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_component<MotionStreak>()\n"
+        "        set_flag(\"has_streak\", s != None)\n"
+        "        s.set_lifetime(0.25)\n"
+        "        set_number(\"lifetime\", s.get_lifetime())\n"
+        "        s.set_width(40.0)\n"
+        "        set_number(\"width\", s.get_width())\n"
+        "        s.set_min_distance(2.0)\n"
+        "        set_number(\"min_distance\", s.get_min_distance())\n"
+        "        s.set_color(1.0, 0.0, 0.0, 1.0)\n"
+        "        r, g, b, a = s.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        s.reset()\n",
+        "motion_streak");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_streak", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("lifetime"), 0.25f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("width"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("min_distance"), 2.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 1.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 0.0f);
+    ok = ok && nearEqual(streak->lifetime(), 0.25f);
+    ok = ok && nearEqual(streak->width(), 40.0f);
+    ok = ok && nearEqual(streak->minDistance(), 2.0f);
+    ok = ok && nearEqual(streak->color().r, 1.0f) && nearEqual(streak->color().g, 0.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testSpriteBatchApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("particles");
+    k2d::SpriteBatch* batch = object->addComponent<k2d::SpriteBatch>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Particles(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        b = self.node.get_component<SpriteBatch>()\n"
+        "        set_flag(\"has_batch\", b != None)\n"
+        "        i0 = b.add(\"missing_sprite.png\", 10.0, 20.0, 8.0, 8.0, 255, 0, 0, 128)\n"
+        "        b.add(\"missing_sprite.png\", 0.0, 0.0, 4.0, 4.0)\n"
+        "        set_number(\"count\", b.count())\n"
+        "        b.set_source(i0, 1.0, 2.0, 16.0, 16.0)\n"
+        "        b.set_flip(i0, True, False)\n"
+        "        b.set_color(i0, 0, 255, 0, 255)\n"
+        "        b.remove(1)\n"
+        "        set_number(\"count_after_remove\", b.count())\n",
+        "sprite_batch");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_batch", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 2.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count_after_remove"), 1.0f);
+    ok = ok && batch->count() == 1;
+    const k2d::SpriteBatch::Entry* entry = batch->entry(0);
+    ok = ok && entry != nullptr;
+    if (entry)
+    {
+        ok = ok && nearEqual(entry->position.x, 10.0f) && nearEqual(entry->position.y, 20.0f);
+        ok = ok && nearEqual(entry->size.x, 8.0f) && nearEqual(entry->size.y, 8.0f);
+        ok = ok && nearEqual(entry->source.x, 1.0f) && nearEqual(entry->source.y, 2.0f) &&
+             nearEqual(entry->source.z, 16.0f) && nearEqual(entry->source.w, 16.0f);
+        ok = ok && entry->flags == 1;
+        ok = ok && nearEqual(entry->color.r, 0.0f) && nearEqual(entry->color.g, 1.0f) &&
+             nearEqual(entry->color.b, 0.0f) && nearEqual(entry->color.a, 1.0f);
+    }
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testLine2DApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("laser");
+    k2d::Line2D* line = object->addComponent<k2d::Line2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Laser(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        l = self.node.get_component<Line2D>()\n"
+        "        set_flag(\"has_line\", l != None)\n"
+        "        l.set_points([[0, 0], [50, 0], [50, 30]])\n"
+        "        set_number(\"count\", l.point_count())\n"
+        "        x1, y1 = l.get_point(1)\n"
+        "        set_number(\"x1\", x1)\n"
+        "        set_number(\"y1\", y1)\n"
+        "        l.set_width(6.0)\n"
+        "        set_number(\"width\", l.get_width())\n"
+        "        l.set_color(0, 255, 128, 200)\n"
+        "        r, g, b, a = l.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n"
+        "        set_number(\"a\", a)\n",
+        "line2d");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_line", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 3.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x1"), 50.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y1"), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("width"), 6.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 255.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 128.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("a"), 200.0f);
+    ok = ok && line->points().size() == 3;
+    ok = ok && nearEqual(line->points()[2].x, 50.0f) && nearEqual(line->points()[2].y, 30.0f);
+    ok = ok && nearEqual(line->width(), 6.0f);
+    ok = ok && nearEqual(line->color().r, 0.0f) && nearEqual(line->color().g, 1.0f) &&
+         nearEqual(line->color().b, 128.0f / 255.0f) && nearEqual(line->color().a, 200.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testPolygon2DApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("shard");
+    k2d::Polygon2D* polygon = object->addComponent<k2d::Polygon2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Shard(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        p = self.node.get_component<Polygon2D>()\n"
+        "        set_flag(\"has_polygon\", p != None)\n"
+        "        set_flag(\"invalid_before\", not p.is_valid())\n"
+        "        p.set_points([[0, 0], [40, 0], [40, 40], [0, 40]])\n"
+        "        set_number(\"count\", p.point_count())\n"
+        "        set_flag(\"valid_after\", p.is_valid())\n"
+        "        x2, y2 = p.get_point(2)\n"
+        "        set_number(\"x2\", x2)\n"
+        "        set_number(\"y2\", y2)\n"
+        "        p.set_color(10, 20, 30, 255)\n"
+        "        r, g, b, a = p.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n",
+        "polygon2d");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_polygon", false);
+    ok = ok && k2d::ZenBlackboard::getBool("invalid_before", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 4.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("valid_after", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x2"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y2"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 10.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 20.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 30.0f);
+    ok = ok && polygon->polygon().size() == 4;
+    ok = ok && polygon->valid();
+    ok = ok && !polygon->triangles().empty();
+    ok = ok && nearEqual(polygon->color().r, 10.0f / 255.0f) && nearEqual(polygon->color().g, 20.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testNinePatchApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("dialog");
+    k2d::NinePatchComponent* patch = object->addComponent<k2d::NinePatchComponent>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Dialog(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        n = self.node.get_component<NinePatch>()\n"
+        "        set_flag(\"has_patch\", n != None)\n"
+        "        n.set_size(240.0, 96.0)\n"
+        "        w, h = n.get_size()\n"
+        "        set_number(\"w\", w)\n"
+        "        set_number(\"h\", h)\n"
+        "        n.set_color(200, 210, 220, 255)\n"
+        "        r, g, b, a = n.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n",
+        "nine_patch");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_patch", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("w"), 240.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("h"), 96.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 200.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 210.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 220.0f);
+    ok = ok && nearEqual(patch->size().x, 240.0f) && nearEqual(patch->size().y, 96.0f);
+    ok = ok && nearEqual(patch->color().r, 200.0f / 255.0f) && nearEqual(patch->color().g, 210.0f / 255.0f) &&
+         nearEqual(patch->color().b, 220.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testCircleShapeApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("ping");
+    k2d::CircleShape* shape = object->addComponent<k2d::CircleShape>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Ping(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_component<CircleShape>()\n"
+        "        set_flag(\"has_shape\", s != None)\n"
+        "        s.set_radius(48.0)\n"
+        "        set_number(\"radius\", s.get_radius())\n"
+        "        s.set_mode(\"line\")\n"
+        "        set_string(\"mode\", s.get_mode())\n"
+        "        s.set_line_width(3.0)\n"
+        "        set_number(\"line_width\", s.get_line_width())\n"
+        "        s.set_color(255, 128, 0, 200)\n"
+        "        r, g, b, a = s.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n"
+        "        set_number(\"a\", a)\n",
+        "circle_shape");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_shape", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("radius"), 48.0f);
+    ok = ok && k2d::ZenBlackboard::getString("mode") == ct::String("line");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("line_width"), 3.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 255.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 128.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("a"), 200.0f);
+    ok = ok && nearEqual(shape->radius(), 48.0f);
+    ok = ok && shape->mode() == k2d::ShapeRenderMode::Line;
+    ok = ok && nearEqual(shape->lineWidth(), 3.0f);
+    ok = ok && nearEqual(shape->color().r, 1.0f) && nearEqual(shape->color().g, 128.0f / 255.0f) &&
+         nearEqual(shape->color().b, 0.0f) && nearEqual(shape->color().a, 200.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testRectShapeApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("box_gizmo");
+    k2d::RectShape* shape = object->addComponent<k2d::RectShape>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class BoxGizmo(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_component<RectShape>()\n"
+        "        set_flag(\"has_shape\", s != None)\n"
+        "        s.set_size(64.0, 32.0)\n"
+        "        w, h = s.get_size()\n"
+        "        set_number(\"w\", w)\n"
+        "        set_number(\"h\", h)\n"
+        "        s.set_mode(\"line\")\n"
+        "        set_string(\"mode\", s.get_mode())\n"
+        "        s.set_line_width(2.0)\n"
+        "        set_number(\"line_width\", s.get_line_width())\n"
+        "        s.set_color(10, 20, 30, 255)\n"
+        "        r, g, b, a = s.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n",
+        "rect_shape");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_shape", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("w"), 64.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("h"), 32.0f);
+    ok = ok && k2d::ZenBlackboard::getString("mode") == ct::String("line");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("line_width"), 2.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 10.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 20.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 30.0f);
+    ok = ok && nearEqual(shape->size().x, 64.0f) && nearEqual(shape->size().y, 32.0f);
+    ok = ok && shape->mode() == k2d::ShapeRenderMode::Line;
+    ok = ok && nearEqual(shape->lineWidth(), 2.0f);
+    ok = ok && nearEqual(shape->color().r, 10.0f / 255.0f) && nearEqual(shape->color().g, 20.0f / 255.0f) &&
+         nearEqual(shape->color().b, 30.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testCapsuleShapeApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("capsule_gizmo");
+    k2d::CapsuleShape* shape = object->addComponent<k2d::CapsuleShape>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class CapsuleGizmo(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        s = self.node.get_component<CapsuleShape>()\n"
+        "        set_flag(\"has_shape\", s != None)\n"
+        "        s.set_size(20.0, 60.0)\n"
+        "        w, h = s.get_size()\n"
+        "        set_number(\"w\", w)\n"
+        "        set_number(\"h\", h)\n"
+        "        s.set_mode(\"fill\")\n"
+        "        set_string(\"mode\", s.get_mode())\n"
+        "        s.set_line_width(1.5)\n"
+        "        set_number(\"line_width\", s.get_line_width())\n"
+        "        s.set_color(5, 6, 7, 255)\n"
+        "        r, g, b, a = s.get_color()\n"
+        "        set_number(\"r\", r)\n"
+        "        set_number(\"g\", g)\n"
+        "        set_number(\"b\", b)\n",
+        "capsule_shape");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_shape", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("w"), 20.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("h"), 60.0f);
+    ok = ok && k2d::ZenBlackboard::getString("mode") == ct::String("fill");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("line_width"), 1.5f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("r"), 5.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("g"), 6.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("b"), 7.0f);
+    ok = ok && nearEqual(shape->size().x, 20.0f) && nearEqual(shape->size().y, 60.0f);
+    ok = ok && shape->mode() == k2d::ShapeRenderMode::Fill;
+    ok = ok && nearEqual(shape->lineWidth(), 1.5f);
+    ok = ok && nearEqual(shape->color().r, 5.0f / 255.0f) && nearEqual(shape->color().g, 6.0f / 255.0f) &&
+         nearEqual(shape->color().b, 7.0f / 255.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testBoxColliderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("crate");
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    k2d::BoxCollider2D* box = object->addComponent<k2d::BoxCollider2D>();
+    box->setSize(Math::Vec2(20.0f, 20.0f));
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundBefore;
+    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
+    const bool missedBefore = foundBefore.empty();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Crate(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        c = self.node.get_component<BoxCollider>()\n"
+        "        set_flag(\"has_collider\", c != None)\n"
+        "        c.set_size(200.0, 200.0)\n"
+        "        w, h = c.get_size()\n"
+        "        set_number(\"w\", w)\n"
+        "        set_number(\"h\", h)\n",
+        "box_collider");
+
+    scene.update(0.016f);
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundAfter;
+    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
+    bool hitAfter = false;
+    for (size_t i = 0; i < foundAfter.size(); ++i)
+        if (foundAfter[i] == object)
+            hitAfter = true;
+
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_collider", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("w"), 200.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("h"), 200.0f);
+    ok = ok && nearEqual(box->size().x, 200.0f) && nearEqual(box->size().y, 200.0f);
+    ok = ok && missedBefore;
+    ok = ok && hitAfter;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testCircleColliderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("orb");
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    k2d::CircleCollider2D* circle = object->addComponent<k2d::CircleCollider2D>();
+    circle->setRadius(10.0f);
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundBefore;
+    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
+    const bool missedBefore = foundBefore.empty();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Orb(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        c = self.node.get_component<CircleCollider>()\n"
+        "        set_flag(\"has_collider\", c != None)\n"
+        "        c.set_radius(80.0)\n"
+        "        set_number(\"radius\", c.get_radius())\n",
+        "circle_collider");
+
+    scene.update(0.016f);
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundAfter;
+    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
+    bool hitAfter = false;
+    for (size_t i = 0; i < foundAfter.size(); ++i)
+        if (foundAfter[i] == object)
+            hitAfter = true;
+
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_collider", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("radius"), 80.0f);
+    ok = ok && nearEqual(circle->radius(), 80.0f);
+    ok = ok && missedBefore;
+    ok = ok && hitAfter;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testEdgeColliderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("wire");
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    k2d::EdgeCollider2D* edge = object->addComponent<k2d::EdgeCollider2D>();
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundBefore;
+    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
+    const bool missedBefore = foundBefore.empty();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Wire(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        e = self.node.get_component<EdgeCollider>()\n"
+        "        set_flag(\"has_collider\", e != None)\n"
+        "        e.set_points(100.0, 100.0, 200.0, 100.0)\n"
+        "        sx, sy, ex, ey = e.get_points()\n"
+        "        set_number(\"sx\", sx)\n"
+        "        set_number(\"sy\", sy)\n"
+        "        set_number(\"ex\", ex)\n"
+        "        set_number(\"ey\", ey)\n",
+        "edge_collider");
+
+    scene.update(0.016f);
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundAfter;
+    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
+    bool hitAfter = false;
+    for (size_t i = 0; i < foundAfter.size(); ++i)
+        if (foundAfter[i] == object)
+            hitAfter = true;
+
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_collider", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sx"), 100.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sy"), 100.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("ex"), 200.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("ey"), 100.0f);
+    ok = ok && nearEqual(edge->start().x, 100.0f) && nearEqual(edge->start().y, 100.0f);
+    ok = ok && nearEqual(edge->end().x, 200.0f) && nearEqual(edge->end().y, 100.0f);
+    ok = ok && missedBefore;
+    ok = ok && hitAfter;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testPolygonColliderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("shard");
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    k2d::PolygonCollider2D* polygon = object->addComponent<k2d::PolygonCollider2D>();
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    // Default is a regular square of circumradius 16 with a vertex on +x, so
+    // a probe at x=20 (between the old and new radius) misses it.
+    ct::Vector<k2d::GameObject*> foundBefore;
+    world.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundBefore);
+    const bool missedBefore = foundBefore.empty();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Shard(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        p = self.node.get_component<PolygonCollider>()\n"
+        "        set_flag(\"has_collider\", p != None)\n"
+        "        p.set_points([[-40, -40], [40, -40], [40, 40], [-40, 40]])\n"
+        "        set_number(\"count\", p.point_count())\n"
+        "        x2, y2 = p.get_point(2)\n"
+        "        set_number(\"x2\", x2)\n"
+        "        set_number(\"y2\", y2)\n"
+        "        p.set_regular(6, 24.0)\n"
+        "        set_number(\"regular_count\", p.point_count())\n",
+        "polygon_collider");
+
+    scene.update(0.016f);
+    world.step(1.0f / 60.0f);
+
+    // The final state after on_start is the regular hexagon (circumradius
+    // 24, also with a vertex on +x) which now reaches the same probe point.
+    ct::Vector<k2d::GameObject*> foundAfter;
+    world.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundAfter);
+    bool hitAfter = false;
+    for (size_t i = 0; i < foundAfter.size(); ++i)
+        if (foundAfter[i] == object)
+            hitAfter = true;
+
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_collider", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 4.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x2"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y2"), 40.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("regular_count"), 6.0f);
+    ok = ok && polygon->points().size() == 6;
+    ok = ok && missedBefore;
+    ok = ok && hitAfter;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testChainColliderApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("fence");
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    k2d::ChainCollider2D* chain = object->addComponent<k2d::ChainCollider2D>();
+
+    k2d::PhysicsWorld2D world;
+    world.build(scene.root());
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundBefore;
+    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
+    const bool missedBefore = foundBefore.empty();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Fence(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        c = self.node.get_component<ChainCollider>()\n"
+        "        set_flag(\"has_collider\", c != None)\n"
+        "        c.set_points([[100, 100], [200, 100], [200, 200]])\n"
+        "        set_number(\"count\", c.point_count())\n"
+        "        x1, y1 = c.get_point(1)\n"
+        "        set_number(\"x1\", x1)\n"
+        "        set_number(\"y1\", y1)\n"
+        "        c.set_loop(True)\n"
+        "        set_flag(\"loop\", c.get_loop())\n",
+        "chain_collider");
+
+    scene.update(0.016f);
+    world.step(1.0f / 60.0f);
+
+    ct::Vector<k2d::GameObject*> foundAfter;
+    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
+    bool hitAfter = false;
+    for (size_t i = 0; i < foundAfter.size(); ++i)
+        if (foundAfter[i] == object)
+            hitAfter = true;
+
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_collider", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 3.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x1"), 200.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y1"), 100.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("loop", false);
+    ok = ok && chain->points().size() == 3;
+    ok = ok && chain->loop();
+    ok = ok && missedBefore;
+    ok = ok && hitAfter;
+
+    k2d::PhysicsWorld2D::SetActive(nullptr);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testNavigationRegionApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* floor = scene.createObject("floor");
+    k2d::NavigationRegion2D* region = floor->addComponent<k2d::NavigationRegion2D>();
+
+    k2d::GameObject* walker = scene.createObject("walker");
+    walker->setPosition(Math::Vec2(10.0f, 10.0f));
+    k2d::NavigationAgent2D* agent = walker->addComponent<k2d::NavigationAgent2D>();
+
+    k2d::ZenScriptComponent* script = floor->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Floor(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        r = self.node.get_component<NavigationRegion>()\n"
+        "        set_flag(\"has_region\", r != None)\n"
+        "        set_flag(\"invalid_before\", not r.is_valid())\n"
+        "        r.set_points([[0, 0], [100, 0], [100, 100], [0, 100]])\n"
+        "        set_number(\"count\", r.point_count())\n"
+        "        set_flag(\"valid_after\", r.is_valid())\n"
+        "        x2, y2 = r.get_point(2)\n"
+        "        set_number(\"x2\", x2)\n"
+        "        set_number(\"y2\", y2)\n",
+        "navigation_region");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_region", false);
+    ok = ok && k2d::ZenBlackboard::getBool("invalid_before", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("count"), 4.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("valid_after", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("x2"), 100.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("y2"), 100.0f);
+    ok = ok && region->polygon().size() == 4;
+    ok = ok && region->valid();
+    ok = ok && !region->triangles().empty();
+
+    // Prove the reshaped region is live for pathfinding, not just a stored
+    // point list: an agent inside the new polygon should find a real path.
+    ok = ok && agent->setTargetPosition(Math::Vec2(80.0f, 80.0f));
+    ok = ok && agent->hasPath();
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testAllComponentHandles()
 {
     k2d::ZenBlackboard::clear();
@@ -335,6 +1504,8 @@ static bool testAllComponentHandles()
     object->addComponent<k2d::NavigationAgent2D>();
     object->addComponent<k2d::MotionTween2D>();
     object->addComponent<k2d::MotionStreak2D>();
+    object->addComponent<k2d::Skeleton2D>();
+    object->addComponent<k2d::Bone2D>();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
@@ -376,6 +1547,8 @@ static bool testAllComponentHandles()
         "        self.check(\"navigation_agent\", self.node.get_component<NavigationAgent>())\n"
         "        self.check(\"motion_tween\", self.node.get_component<MotionTween>())\n"
         "        self.check(\"motion_streak\", self.node.get_component<MotionStreak>())\n"
+        "        self.check(\"skeleton\", self.node.get_component<Skeleton>())\n"
+        "        self.check(\"bone\", self.node.get_component<Bone>())\n"
         "    def check(self, name, component):\n"
         "        set_flag(name, component != None)\n"
         "        if component != None:\n"
@@ -391,7 +1564,8 @@ static bool testAllComponentHandles()
                            "chain_collider", "tile_map", "sprite_batch", "polygon", "line", "nine_patch", "light",
                            "light_2d", "directional_light", "occluder", "audio", "circle_shape", "rect_shape",
                            "capsule_shape", "canvas", "panel", "label", "button", "checkbox", "slider",
-                           "navigation_region", "navigation_agent", "motion_tween", "motion_streak"};
+                           "navigation_region", "navigation_agent", "motion_tween", "motion_streak",
+                           "skeleton", "bone"};
     for (const char* name : names)
     {
         ok = ok && k2d::ZenBlackboard::getBool(name, false);
@@ -1019,6 +2193,30 @@ int main()
     const bool components = testComponents();
     const bool genericAngleBrackets = testGenericAngleBracketCalls();
     const bool allComponentHandles = testAllComponentHandles();
+    const bool skeletonOk = testSkeleton();
+    const bool audioPlayerApi = testAudioPlayerApi();
+    const bool light2DApi = testLight2DApi();
+    const bool tileMapApi = testTileMapApi();
+    const bool navigationAgentApi = testNavigationAgentApi();
+    const bool directionalLightApi = testDirectionalLightApi();
+    const bool lightOccluderApi = testLightOccluderApi();
+    const bool motionTweenApi = testMotionTweenApi();
+    const bool motionStreakApi = testMotionStreakApi();
+    const bool spriteBatchApi = testSpriteBatchApi();
+    const bool line2DApi = testLine2DApi();
+    const bool polygon2DApi = testPolygon2DApi();
+    const bool ninePatchApi = testNinePatchApi();
+    const bool circleShapeApi = testCircleShapeApi();
+    const bool rectShapeApi = testRectShapeApi();
+    const bool capsuleShapeApi = testCapsuleShapeApi();
+    const bool boxColliderApi = testBoxColliderApi();
+    const bool circleColliderApi = testCircleColliderApi();
+    const bool edgeColliderApi = testEdgeColliderApi();
+    const bool polygonColliderApi = testPolygonColliderApi();
+    const bool chainColliderApi = testChainColliderApi();
+    const bool navigationRegionApi = testNavigationRegionApi();
+    const bool nodeApi = testNodeApi();
+    const bool activeCamera = testActiveCamera();
     const bool inputOk = testInput();
     const bool fadeVirtualInput = testFadeAndVirtualInput();
     const bool audioApi = testAudioApi();
@@ -1036,18 +2234,39 @@ int main()
 
     std::printf(
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
-        "generic_angle_brackets=%s all_component_handles=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
+        "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
+        "navigation_agent=%s directional_light=%s light_occluder=%s motion_tween=%s motion_streak=%s sprite_batch=%s "
+        "line_2d=%s polygon_2d=%s nine_patch=%s "
+        "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
+        "polygon_collider=%s chain_collider=%s navigation_region=%s "
+        "node_api=%s active_camera=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
         "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
         components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
+        skeletonOk ? "pass" : "fail", audioPlayerApi ? "pass" : "fail", light2DApi ? "pass" : "fail",
+        tileMapApi ? "pass" : "fail", navigationAgentApi ? "pass" : "fail",
+        directionalLightApi ? "pass" : "fail", lightOccluderApi ? "pass" : "fail", motionTweenApi ? "pass" : "fail",
+        motionStreakApi ? "pass" : "fail", spriteBatchApi ? "pass" : "fail", line2DApi ? "pass" : "fail",
+        polygon2DApi ? "pass" : "fail", ninePatchApi ? "pass" : "fail",
+        circleShapeApi ? "pass" : "fail", rectShapeApi ? "pass" : "fail", capsuleShapeApi ? "pass" : "fail",
+        boxColliderApi ? "pass" : "fail", circleColliderApi ? "pass" : "fail", edgeColliderApi ? "pass" : "fail",
+        polygonColliderApi ? "pass" : "fail", chainColliderApi ? "pass" : "fail", navigationRegionApi ? "pass" : "fail",
+        nodeApi ? "pass" : "fail", activeCamera ? "pass" : "fail",
         inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
         audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
         destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
         ui ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
-                        allComponentHandles &&
+                        allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
+                        navigationAgentApi &&
+                        directionalLightApi && lightOccluderApi && motionTweenApi && motionStreakApi &&
+                        spriteBatchApi && line2DApi && polygon2DApi && ninePatchApi &&
+                        circleShapeApi && rectShapeApi && capsuleShapeApi &&
+                        boxColliderApi && circleColliderApi && edgeColliderApi && polygonColliderApi &&
+                        chainColliderApi && navigationRegionApi &&
+                        nodeApi && activeCamera &&
                         inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
                         serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;
     k2d::FileSystem::Instance().Shutdown();

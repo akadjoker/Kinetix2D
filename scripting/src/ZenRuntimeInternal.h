@@ -66,6 +66,7 @@ struct ZenRuntime::Impl
     zen::ObjClass* buttonClass = nullptr;
     zen::ObjClass* checkBoxClass = nullptr;
     zen::ObjClass* sliderClass = nullptr;
+    zen::ObjClass* boneClass = nullptr;
 
     ct::Vector<ZenScriptClass*> classes;
     ct::HashMap<void*, CachedInstance> instances;
