@@ -115,16 +115,20 @@ jobs:
           Get-ChildItem -Path $bin -Filter *.exe | ForEach-Object {
             $exeName = $_.Name
             $dump = & $objdump -p $_.FullName | Out-String
+            $exeClean = $true
             foreach ($line in ($dump -split "`r?`n")) {
               if ($line -notmatch '(?i)^\s*DLL Name:\s*(\S+)') { continue }
               $name = $Matches[1]
               $lower = $name.ToLowerInvariant()
+              # Universal CRT forwarders (api-ms-win-*) ship with Windows 10+.
+              if ($lower -match '^api-ms-win-') { continue }
               if ($systemDlls -contains $lower) { continue }
               if ($bundled -contains $lower) { continue }
               Write-Host "::error::$exeName imports '$name', which is neither a known Windows system DLL nor bundled in bin/."
               $failed = $true
+              $exeClean = $false
             }
-            Write-Host "$exeName imports verified."
+            if ($exeClean) { Write-Host "$exeName imports verified." }
           }
           if ($failed) {
             throw "One or more staged executables import a DLL that the release package does not ship."
