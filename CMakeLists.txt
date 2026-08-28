@@ -29,11 +29,13 @@ if(K2D_ENABLE_SANITIZERS)
     endif()
 endif()
 
-# MinGW's GCC runtime is otherwise a DLL dependency (libgcc_s_seh-1.dll),
-# which makes a copied runner fail on a clean Windows machine. SDL and other
-# third-party DLLs remain app-local and are copied by the release workflow.
+# MinGW's GCC runtime is otherwise a DLL dependency (libgcc_s_seh-1.dll,
+# libstdc++-6.dll, and libwinpthread-1.dll on posix-threaded toolchains),
+# which makes a copied runner fail on a clean Windows machine. -static pulls
+# all three into the binary; SDL and other third-party DLLs, if any remain
+# for a given toolchain, stay app-local and are copied by the release workflow.
 if(MINGW AND K2D_STATIC_MINGW_RUNTIME)
-    add_link_options(-static-libgcc -static-libstdc++)
+    add_link_options(-static-libgcc -static-libstdc++ -static)
 endif()
 
 
