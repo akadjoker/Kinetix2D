@@ -1,79 +1,52 @@
-# libzen — vendored copy
+# libzen — submodule
 
-Zen is the scripting language Kinetix2D embeds for game behaviour (`scripting/`,
-see `scripting/README.md`). This is a copy, not a submodule — unlike
-`external/containers` and `external/math`, which are — and
-`external/zen/CMakeLists.txt` is Kinetix2D's own.
+Zen is the scripting language Kinetix2D embeds for game behaviour
+(`scripting/`, see `scripting/README.md`). It used to be a vendored copy kept in
+step by hand; it is now a submodule, like `external/containers` and
+`external/math`.
 
 | | |
 |---|---|
-| Upstream repo | `https://github.com/akadjoker/zenpy` — directory `libzen/` |
-| Commit | `a284b7c895da356883805b45b22c89f42c61a6a4` (`a284b7c`), branch `physics-box2d` |
-| Date | 2026-08-24 |
-| Mirror | `https://github.com/akadjoker/zenpy_lib` — same files, standalone repo |
-| License | zlib, see `LICENSE` |
+| Upstream | `https://github.com/akadjoker/zenpy` — submodule at `upstream/` |
+| License | zlib, see `upstream/LICENSE` |
 
-`include/` and `src/` are byte for byte identical to upstream, except for the
-files listed below. Radion vendors the same commit, so the three copies can be
-diffed against each other directly — mind that Radion omits three modules where
-Kinetix2D omits one.
+A fresh clone needs `git submodule update --init --recursive`; the build stops
+with a readable error otherwise.
 
-## Deliberately absent
+## What this directory owns
 
-- `src/builtin_numpy.cpp`
+Only `CMakeLists.txt`, and only two lines of it: the guard above, and
 
-Leaving a module out needs no change to the library: imports resolve through a
-runtime registry, so a module that was never registered simply is not there.
-`CMakeLists.txt` globs `src/*.cpp`, so removing the file removes it from the
-build. Radion drops `builtin_http.cpp` and `builtin_net.cpp` as well; Kinetix2D
-keeps and registers both.
+    set(ZEN_HOST_OUTPUT ON CACHE BOOL "" FORCE)
 
-Note that shipping a `builtin_*.cpp` is not the same as exposing it. The VM only
-answers `import <name>` for modules passed to `register_lib`, and
-`scripting/src/ZenScriptComponent.cpp` registers `base` (as globals), `math`,
-`time`, `json`, `net` and `http`.
+before `add_subdirectory(upstream/libzen)`. Upstream's own CMake builds the
+library — every platform decision (`ws2_32` on Windows, `log` on Android, the
+MSVC flag split) lives there, so there is nothing here to drift.
 
-`io`, `os`, `path` and `struct` are compiled in and left unregistered on purpose
-— see the note in `scripting/README.md`. They build, so registering one later
-costs a single line and no rebuild of the copy.
+`ZEN_HOST_OUTPUT` compiles in `zen_host_output.cpp`, a writer hook that
+`print()` and runtime errors go through, so the editor can route them into its
+Console. `zenconf.h` includes its header under the option and its `#if
+!defined(zen_write)` guards then leave the platform defaults alone. The option
+is off upstream by default and the implementation is compiled only under it, so
+forgetting it here would be a link error in `ZenScriptComponent`, not a writer
+that is silently never consulted.
 
-## Changes carried here
+`builtin_numpy.cpp` is built and never registered. That costs nothing: the VM
+only answers `import <name>` for modules passed to `register_lib`, and nothing
+references `zen_lib_numpy`, so the linker drops the object. Same for `io`, `os`,
+`path` and `struct`, which are compiled in and left unregistered on purpose —
+see the note in `scripting/README.md`. `ZenScriptComponent.cpp` registers `base`
+(as globals), `math`, `time`, `json`, `net` and `http`.
 
-`sync.sh` and `UPSTREAM.md` — this file and the copy script, not upstream.
+## Changing the VM
 
-`zen_host_output.h` / `zen_host_output.cpp` — not upstream. A writer hook that
-`print()` and error output go through, so the editor can route them into its
-Console instead of stdout. `CMakeLists.txt` force-includes the header
-(`-include zen/zen_host_output.h`) so the `zen_write*` macros reach every
-translation unit.
-
-## Keeping the copy in sync
-
-Upstream is the source of truth. A bug found here is fixed in `zenpy/libzen`
-first, then copied outwards:
-
-```
-zenpy/libzen  ->  zenpy_lib  ->  Kinetix2D external/zen
-```
-
-`sync.sh` does the copy, taking the whole of upstream's `include/` and `src/`, keeping the two
-files this repo owns and skipping the module left out above. It prints the upstream commit for
-the table:
+Upstream is the source of truth and the only place to change. A bug found here
+is fixed in `zenpy/libzen`, pushed, and then picked up by bumping the submodule:
 
 ```sh
-external/zen/sync.sh              # assumes zenpy sits next to Kinetix2D
-external/zen/sync.sh /path/to/zenpy
+git -C external/zen/upstream pull origin main
+git add external/zen/upstream
 ```
 
-To check what has drifted without copying:
-
-```sh
-diff -rq external/zen/include <zenpy>/libzen/include   # expect only zen_host_output.h
-diff -rq external/zen/src     <zenpy>/libzen/src       # expect only numpy and zen_host_output
-```
-
-One VM-level bug is known and belongs upstream, not here: `VM::run` resets
-`main_fiber_` (`frame_count = 1`, `frame->base = stack`), so compiling and
-running a module from inside a native called by a running script corrupts the
-caller's frames. Kinetix2D works around it by deferring the compile out of the
-VM instead of patching the copy — see `ZenScriptComponent::loadFile`.
+Run zenpy's own suite there before bumping, then Kinetix2D's `k2d_zen_*` from
+inside `bin/`.
