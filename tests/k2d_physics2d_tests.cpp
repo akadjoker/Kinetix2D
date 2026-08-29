@@ -6,6 +6,7 @@
 #include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
 #include <k2d/GearJoint2D.h>
+#include <k2d/MaskContour2D.h>
 #include <k2d/MotorJoint2D.h>
 #include <k2d/MouseJoint2D.h>
 #include <k2d/PolygonCollider2D.h>
@@ -925,6 +926,98 @@ static bool testSerializerRoundTrip()
     return ok;
 }
 
+static bool testMaskContourTrace()
+{
+    const int width = 64;
+    const int height = 64;
+    ct::Vector<unsigned char> pixels((std::size_t)(width * height * 4), (unsigned char)255);
+
+    auto setAlpha = [&](int x, int y, unsigned char a) { pixels[(std::size_t)(y * width + x) * 4 + 3] = a; };
+
+    for (int y = 12; y < 52; ++y)
+        for (int x = 12; x < 52; ++x)
+            setAlpha(x, y, 0);
+
+    for (int y = 15; y < 21; ++y)
+        for (int x = 15; x < 21; ++x)
+            setAlpha(x, y, 255);
+
+    k2d::MaskContourOptions options;
+    options.threshold = 127;
+    options.simplifyTolerance = 1.0f;
+    options.scale = 1.0f;
+    options.minArea = 4.0f;
+
+    ct::Vector<ct::Vector<Math::Vec2>> loops;
+    const int loopCount = k2d::TraceMaskContours(pixels.data(), width, height, 4, options, loops);
+
+    bool ok = loopCount == 2 && loops.size() == 2;
+
+    int holeIndex = -1;
+    int islandIndex = -1;
+    for (std::size_t i = 0; ok && i < loops.size(); ++i)
+    {
+        float minX = loops[i][0].x;
+        float maxX = loops[i][0].x;
+        for (std::size_t j = 1; j < loops[i].size(); ++j)
+        {
+            if (loops[i][j].x < minX)
+                minX = loops[i][j].x;
+            if (loops[i][j].x > maxX)
+                maxX = loops[i][j].x;
+        }
+        if (maxX - minX > 20.0f)
+            holeIndex = (int)i;
+        else
+            islandIndex = (int)i;
+    }
+
+    ok = ok && holeIndex >= 0 && islandIndex >= 0;
+    ok = ok && loops[(std::size_t)holeIndex].size() == 4;
+    ok = ok && loops[(std::size_t)islandIndex].size() == 4;
+
+    std::printf("  mask_trace: loops=%d hole_points=%d island_points=%d\n", loopCount,
+                holeIndex >= 0 ? (int)loops[(std::size_t)holeIndex].size() : -1,
+                islandIndex >= 0 ? (int)loops[(std::size_t)islandIndex].size() : -1);
+
+    if (!ok)
+        return false;
+
+    k2d::Scene scene;
+    k2d::GameObject* shore = scene.createObject("shoreline");
+    shore->setPosition(Math::Vec2(0.0f, 0.0f));
+    shore->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    k2d::ChainCollider2D* holeChain = shore->addComponent<k2d::ChainCollider2D>();
+    holeChain->setPoints(loops[(std::size_t)holeIndex].data(), (int)loops[(std::size_t)holeIndex].size());
+    holeChain->setLoop(true);
+
+    k2d::ChainCollider2D* islandChain = shore->addComponent<k2d::ChainCollider2D>();
+    islandChain->setPoints(loops[(std::size_t)islandIndex].data(), (int)loops[(std::size_t)islandIndex].size());
+    islandChain->setLoop(true);
+
+    k2d::GameObject* boat = scene.createObject("boat");
+    boat->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::RigidBody2D* boatBody = boat->addComponent<k2d::RigidBody2D>();
+    boatBody->setBodyType(k2d::BodyType::Dynamic);
+    boatBody->setBullet(true);
+    boatBody->setVelocity(Math::Vec2(4000.0f, 0.0f));
+    boat->addComponent<k2d::CircleCollider2D>()->setRadius(3.0f);
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+
+    for (int i = 0; i < 180; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const bool insideHole = std::fabs(boat->position().x) <= 20.5f && std::fabs(boat->position().y) <= 20.5f;
+
+    std::printf("  mask_trace: boat position=(%.2f, %.2f) inside_hole=%s\n", boat->position().x, boat->position().y,
+                insideHole ? "yes" : "no");
+
+    return ok && insideHole;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -953,12 +1046,13 @@ int main()
     const bool revoluteJoint = testRevoluteJointMotorRotates();
     const bool jointSerialized = testJointSerializerRoundTrip();
     const bool jointAuthoringFlow = testSceneJointAuthoringFlow();
+    const bool maskContour = testMaskContourTrace();
 
     std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
-                "joint_authoring_flow=%s\n",
+                "joint_authoring_flow=%s mask_contour=%s\n",
                 falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -968,11 +1062,11 @@ int main()
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail", chain ? "pass" : "fail",
                 compound ? "pass" : "fail", serialized ? "pass" : "fail", distanceJoint ? "pass" : "fail",
                 revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail",
-                jointAuthoringFlow ? "pass" : "fail");
+                jointAuthoringFlow ? "pass" : "fail", maskContour ? "pass" : "fail");
     return falls && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
-                   jointSerialized && jointAuthoringFlow
+                   jointSerialized && jointAuthoringFlow && maskContour
                ? 0
                : 1;
 }

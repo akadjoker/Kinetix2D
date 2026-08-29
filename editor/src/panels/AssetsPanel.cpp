@@ -2,8 +2,13 @@
 
 #include "core/EditorApplication.h"
 
+#include <k2d/ChainCollider2D.h>
 #include <k2d/FileSystem.h>
+#include <k2d/GameObject.h>
+#include <k2d/MaskContour2D.h>
 #include <k2d/Pixmap.h>
+#include <k2d/RigidBody2D.h>
+#include <k2d/Scene.h>
 #include <k2d/Texture.h>
 #include <IconsMaterialDesignIcons.h>
 
@@ -199,6 +204,7 @@ AssetsPanel::~AssetsPanel()
     for (auto& entry : mThumbnailCache)
         delete entry.value;
     mThumbnailCache.clear();
+    delete mMaskPixmap;
 }
 
 void AssetsPanel::navigateTo(const ct::String& directory)
@@ -495,6 +501,139 @@ void AssetsPanel::generateBumpMap(const EditorFileEntry& entry)
     }
 }
 
+void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
+{
+    delete mMaskPixmap;
+    mMaskPixmap = new Pixmap();
+    if (!mMaskPixmap->Load(entry.path.c_str()))
+    {
+        delete mMaskPixmap;
+        mMaskPixmap = nullptr;
+        app().log("Generate Collision Shape failed: could not read image");
+        app().toasts().error("Could not read image");
+        return;
+    }
+
+    mMaskImagePath = entry.path;
+    mMaskThreshold = 127;
+    mMaskScale = 1.0f;
+    mMaskSimplifyTolerance = 1.0f;
+    mMaskMinArea = 16.0f;
+    recomputeMaskContours();
+    ImGui::OpenPopup("Generate Collision Shape");
+}
+
+void AssetsPanel::recomputeMaskContours()
+{
+    mMaskLoops.clear();
+    mMaskPointCount = 0;
+    if (!mMaskPixmap)
+        return;
+
+    MaskContourOptions options;
+    options.threshold = (unsigned char)mMaskThreshold;
+    options.simplifyTolerance = mMaskSimplifyTolerance;
+    options.scale = mMaskScale;
+    options.minArea = mMaskMinArea;
+
+    TraceMaskContours(mMaskPixmap->Pixels(), mMaskPixmap->Width(), mMaskPixmap->Height(), 4, options, mMaskLoops);
+    for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        mMaskPointCount += (int)mMaskLoops[i].size();
+}
+
+void AssetsPanel::createCollisionShapeFromMask()
+{
+    if (!mMaskPixmap || mMaskLoops.empty())
+        return;
+
+    const EditorApplication::SceneChange before = app().beginChange();
+
+    GameObject* parent = app().selection().resolve(app().scene());
+    if (!parent)
+        parent = &app().scene().root();
+
+    const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(mMaskImagePath));
+    GameObject* created = app().scene().createObject(name.c_str(), parent);
+    if (!created)
+        return;
+
+    created->setPosition(Math::Vec2(0.0f, 0.0f));
+    created->addComponent<RigidBody2D>()->setBodyType(BodyType::Static);
+    for (size_t i = 0; i < mMaskLoops.size(); ++i)
+    {
+        ChainCollider2D* chain = created->addComponent<ChainCollider2D>();
+        chain->setPoints(mMaskLoops[i].data(), (int)mMaskLoops[i].size());
+        chain->setLoop(true);
+    }
+
+    app().selection().select(created);
+    app().commitChange("Generate Collision Shape", before);
+
+    ct::String message("Generated shape: ");
+    message += name;
+    app().log(message);
+    app().toasts().success(message);
+}
+
+void AssetsPanel::drawGenerateCollisionShapePopup()
+{
+    if (!ImGui::BeginPopupModal("Generate Collision Shape", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    if (!mMaskPixmap)
+    {
+        ImGui::TextDisabled("No image loaded.");
+        if (ImGui::Button("Close"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+
+    ImGui::TextDisabled("Mask: %s (%dx%d)", EditorFileSystem::fileName(mMaskImagePath).c_str(),
+                        mMaskPixmap->Width(), mMaskPixmap->Height());
+
+    bool changed = false;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::SliderInt("Threshold", &mMaskThreshold, 0, 255))
+        changed = true;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::DragFloat("Scale (units/pixel)", &mMaskScale, 0.05f, 0.01f, 64.0f, "%.2f"))
+        changed = true;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::DragFloat("Simplify Tolerance", &mMaskSimplifyTolerance, 0.05f, 0.0f, 64.0f, "%.2f"))
+        changed = true;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::DragFloat("Min Area", &mMaskMinArea, 0.5f, 0.0f, 100000.0f, "%.1f"))
+        changed = true;
+
+    if (changed)
+        recomputeMaskContours();
+
+    ImGui::Separator();
+    ImGui::Text("%d loops, %d points", (int)mMaskLoops.size(), mMaskPointCount);
+    if (mMaskLoops.empty())
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "No shape found at this threshold.");
+
+    ImGui::BeginDisabled(mMaskLoops.empty());
+    if (ImGui::Button("Create"))
+    {
+        createCollisionShapeFromMask();
+        delete mMaskPixmap;
+        mMaskPixmap = nullptr;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+    {
+        delete mMaskPixmap;
+        mMaskPixmap = nullptr;
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
 void AssetsPanel::drawEntryContextMenu(const EditorFileEntry& entry)
 {
     if (ImGui::BeginPopupContextItem())
@@ -516,6 +655,8 @@ void AssetsPanel::drawEntryContextMenu(const EditorFileEntry& entry)
                     app().openImageEditor(entry.path.c_str());
                 if (ImGui::MenuItem(ICON_MDI_TEXTURE " Generate Bump Map"))
                     generateBumpMap(entry);
+                if (ImGui::MenuItem(ICON_MDI_VECTOR_POLYGON " Generate Collision Shape"))
+                    requestGenerateCollisionShape(entry);
             }
         }
         ImGui::Separator();
@@ -825,6 +966,7 @@ void AssetsPanel::drawContents()
     drawNewScriptPopup();
     drawNewFolderPopup();
     drawRenamePopup();
+    drawGenerateCollisionShapePopup();
 }
 
 } // namespace k2d::editor

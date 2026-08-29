@@ -7,11 +7,14 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
+#include <mathc.h>
+
 #include <cstring>
 
 namespace k2d
 {
 class Texture;
+class Pixmap;
 }
 
 namespace k2d::editor
@@ -62,9 +65,13 @@ private:
     void drawNewScriptPopup();
     void drawNewFolderPopup();
     void drawRenamePopup();
+    void drawGenerateCollisionShapePopup();
     void requestNewScript(const ct::String &directory);
     void requestNewFolder(const ct::String &directory);
     void requestRename(const EditorFileEntry &entry);
+    void requestGenerateCollisionShape(const EditorFileEntry &entry);
+    void recomputeMaskContours();
+    void createCollisionShapeFromMask();
 
     void navigateTo(const ct::String &directory);
     void refreshEntries();
@@ -90,6 +97,15 @@ private:
     char mNewFolderName[64] = "new_folder";
     ct::String mRenamePath;
     char mRenameName[256] = {};
+
+    Pixmap *mMaskPixmap = nullptr;
+    ct::String mMaskImagePath;
+    int mMaskThreshold = 127;
+    float mMaskScale = 1.0f;
+    float mMaskSimplifyTolerance = 1.0f;
+    float mMaskMinArea = 16.0f;
+    ct::Vector<ct::Vector<Math::Vec2>> mMaskLoops;
+    int mMaskPointCount = 0;
 };
 
 }

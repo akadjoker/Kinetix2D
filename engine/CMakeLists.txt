@@ -163,6 +163,7 @@ add_library(k2d STATIC
     src/Profiler.cpp
     src/ProfilerUI.cpp
     src/Geometry2D.cpp
+    src/MaskContour2D.cpp
     src/Manifold2D.cpp
     src/Collide2D.cpp
     src/RayCast2D.cpp
