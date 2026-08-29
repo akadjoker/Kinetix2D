@@ -1149,7 +1149,7 @@ static bool testBoxColliderApi()
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("crate");
-    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::BoxCollider2D* box = object->addComponent<k2d::BoxCollider2D>();
     box->setSize(Math::Vec2(20.0f, 20.0f));
 
@@ -1198,7 +1198,7 @@ static bool testCircleColliderApi()
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("orb");
-    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::CircleCollider2D* circle = object->addComponent<k2d::CircleCollider2D>();
     circle->setRadius(10.0f);
 
@@ -1244,7 +1244,7 @@ static bool testEdgeColliderApi()
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("wire");
-    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::EdgeCollider2D* edge = object->addComponent<k2d::EdgeCollider2D>();
 
     scene.setSimulationEnabled(true);
@@ -1297,7 +1297,7 @@ static bool testPolygonColliderApi()
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("shard");
-    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::PolygonCollider2D* polygon = object->addComponent<k2d::PolygonCollider2D>();
 
     scene.setSimulationEnabled(true);
@@ -1354,7 +1354,7 @@ static bool testChainColliderApi()
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
     k2d::GameObject* object = scene.createObject("fence");
-    object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    object->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::ChainCollider2D* chain = object->addComponent<k2d::ChainCollider2D>();
 
     scene.setSimulationEnabled(true);

@@ -3,14 +3,21 @@
 #include <k2d/CharacterBody2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/Collider2D.h>
+#include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
+#include <k2d/GearJoint2D.h>
+#include <k2d/MotorJoint2D.h>
+#include <k2d/MouseJoint2D.h>
 #include <k2d/PolygonCollider2D.h>
+#include <k2d/RevoluteJoint2D.h>
+#include <k2d/WheelJoint2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
 #include <k2d/TileMapComponent.h>
+#include <k2d/TileMapCollider2D.h>
 
 #include <cmath>
 #include <cstdio>
@@ -21,7 +28,7 @@ static bool nearEqual(float a, float b, float tolerance = 1.0f)
 }
 
 static k2d::GameObject* makeBox(k2d::Scene& scene, const char* name, const Math::Vec2& position, const Math::Vec2& size,
-                                kx::BodyType type)
+                                k2d::BodyType type)
 {
     k2d::GameObject* object = scene.createObject(name);
     object->setPosition(position);
@@ -37,13 +44,13 @@ static k2d::GameObject* makeBox(k2d::Scene& scene, const char* name, const Math:
 static bool testBoxFallsAndRests()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     scene.setSimulationEnabled(true);
 
-    bool ok = scene.physicsBodyCount() == 2;
+    bool ok = scene.bodyCount() == 2;
 
     for (int i = 0; i < 180; ++i)
         scene.update(1.0f / 60.0f);
@@ -52,7 +59,7 @@ static bool testBoxFallsAndRests()
     ok = ok && nearEqual(box->position().y, expectedRest, 2.0f);
     ok = ok && nearEqual(box->position().x, 0.0f, 1.0f);
 
-    std::printf("  falls: bodies=%d y=%.1f (expected ~%.1f)\n", (int)scene.physicsBodyCount(), box->position().y,
+    std::printf("  falls: bodies=%d y=%.1f (expected ~%.1f)\n", (int)scene.bodyCount(), box->position().y,
                 expectedRest);
     return ok;
 }
@@ -66,16 +73,18 @@ static bool testPaintedTileMapCollision()
     map->setCellSize(16.0f, 16.0f);
     map->setMapSize(5, 5);
     map->setCollision(0, 0, true);
+    mapObject->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    mapObject->addComponent<k2d::TileMapCollider2D>();
 
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(8.0f, 0.0f), Math::Vec2(16.0f, 16.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(8.0f, 0.0f), Math::Vec2(16.0f, 16.0f), k2d::BodyType::Dynamic);
     scene.setSimulationEnabled(true);
     for (int i = 0; i < 180; ++i)
         scene.update(1.0f / 60.0f);
 
-    const bool ok = scene.physicsBodyCount() == 2 && nearEqual(box->position().y, 192.0f, 2.0f) &&
+    const bool ok = scene.bodyCount() == 2 && nearEqual(box->position().y, 192.0f, 2.0f) &&
                     scene.objectAtPoint(Math::Vec2(8.0f, 208.0f)) == mapObject;
-    std::printf("  tilemap: bodies=%d y=%.1f\n", (int)scene.physicsBodyCount(), box->position().y);
+    std::printf("  tilemap: bodies=%d y=%.1f\n", (int)scene.bodyCount(), box->position().y);
     return ok;
 }
 
@@ -103,8 +112,8 @@ static bool testContactCallbackFires()
 {
     k2d::Scene scene;
     k2d::GameObject* floor =
-        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
-    makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
+    makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     ContactLog log;
     scene.setCollisionCallback(&onContact, &log);
@@ -116,7 +125,7 @@ static bool testContactCallbackFires()
     const bool ok = log.begins > 0 && log.lastOther != nullptr &&
                     (log.lastOther == floor || log.lastOther->name() == ct::String("box"));
 
-    std::printf("  contacts: begins=%d ends=%d contacts_now=%d\n", log.begins, log.ends, (int)scene.physicsContactCount());
+    std::printf("  contacts: begins=%d ends=%d contacts_now=%d\n", log.begins, log.ends, (int)scene.contactCount());
     return ok;
 }
 
@@ -126,21 +135,21 @@ static bool testSensorReportsWithoutBlocking()
     k2d::GameObject* trigger = scene.createObject("trigger");
     trigger->setPosition(Math::Vec2(0.0f, 150.0f));
     k2d::RigidBody2D* triggerBody = trigger->addComponent<k2d::RigidBody2D>();
-    triggerBody->setBodyType(kx::BodyType::Static);
+    triggerBody->setBodyType(k2d::BodyType::Static);
     k2d::BoxCollider2D* triggerShape = trigger->addComponent<k2d::BoxCollider2D>();
     triggerShape->setSize(Math::Vec2(400.0f, 20.0f));
     triggerShape->setSensor(true);
 
-    makeBox(scene, "floor", Math::Vec2(0.0f, 400.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 400.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     ContactLog log;
     scene.setCollisionCallback(&onContact, &log);
     scene.setSimulationEnabled(true);
 
-    bool ok = triggerShape->shapeIndex() == 0 && triggerBody->body() &&
-              triggerBody->body()->IsSensor(triggerShape->shapeIndex());
+    bool ok = triggerShape->shapeIndex() == 0 && triggerBody->inWorld() &&
+              triggerBody->IsSensor(triggerShape->shapeIndex());
 
     for (int i = 0; i < 240; ++i)
         scene.update(1.0f / 60.0f);
@@ -156,7 +165,7 @@ static bool testRaycastAndQueries()
 {
     k2d::Scene scene;
     k2d::GameObject* wall =
-        makeBox(scene, "wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 200.0f), kx::BodyType::Static);
+        makeBox(scene, "wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 200.0f), k2d::BodyType::Static);
 
     scene.setGravity(Math::Vec2(0.0f, 0.0f));
     scene.setSimulationEnabled(true);
@@ -182,9 +191,9 @@ static bool testCharacterBodyMotion()
 {
     k2d::Scene scene;
     k2d::GameObject* wall =
-        makeBox(scene, "wall", Math::Vec2(0.0f, 0.0f), Math::Vec2(20.0f, 160.0f), kx::BodyType::Static);
+        makeBox(scene, "wall", Math::Vec2(0.0f, 0.0f), Math::Vec2(20.0f, 160.0f), k2d::BodyType::Static);
     k2d::GameObject* player =
-        makeBox(scene, "player", Math::Vec2(-80.0f, 0.0f), Math::Vec2(20.0f, 20.0f), kx::BodyType::Kinematic);
+        makeBox(scene, "player", Math::Vec2(-80.0f, 0.0f), Math::Vec2(20.0f, 20.0f), k2d::BodyType::Kinematic);
     k2d::CharacterBody2D* character = player->addComponent<k2d::CharacterBody2D>();
 
     scene.setGravity(Math::Vec2(0.0f, 0.0f));
@@ -197,7 +206,7 @@ static bool testCharacterBodyMotion()
               nearEqual(player->position().x, -20.5f, 2.0f);
 
     player->setPosition(Math::Vec2(-80.0f, -40.0f));
-    player->getComponent<k2d::RigidBody2D>()->body()->SetPosition(player->globalPosition());
+    player->getComponent<k2d::RigidBody2D>()->SetPosition(player->globalPosition());
     character->setVelocity(Math::Vec2(4800.0f, 2400.0f));
     const bool slid = character->moveAndSlide();
     ok = ok && slid && character->isOnWall() && character->velocity().x < 1.0f && character->velocity().y > 2000.0f;
@@ -214,7 +223,7 @@ static bool testStaticBodyFollowsItsTransform()
 {
     k2d::Scene scene;
     k2d::GameObject* platform =
-        makeBox(scene, "platform", Math::Vec2(0.0f, 300.0f), Math::Vec2(200.0f, 20.0f), kx::BodyType::Static);
+        makeBox(scene, "platform", Math::Vec2(0.0f, 300.0f), Math::Vec2(200.0f, 20.0f), k2d::BodyType::Static);
 
     scene.setSimulationEnabled(true);
     scene.update(1.0f / 60.0f);
@@ -239,7 +248,7 @@ static bool testImpulseAndVelocity()
 {
     k2d::Scene scene;
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     k2d::RigidBody2D* body = box->getComponent<k2d::RigidBody2D>();
     body->setGravityScale(0.0f);
     body->setVelocity(Math::Vec2(100.0f, 0.0f));
@@ -263,9 +272,9 @@ static bool testFixedStepIsDeterministic()
     for (int run = 0; run < 2; ++run)
     {
         k2d::Scene scene;
-        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
         k2d::GameObject* box =
-            makeBox(scene, "box", Math::Vec2(13.0f, -200.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+            makeBox(scene, "box", Math::Vec2(13.0f, -200.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
         box->setRotationDegrees(20.0f);
 
         scene.setSimulationEnabled(true);
@@ -282,29 +291,29 @@ static bool testFixedStepIsDeterministic()
 static bool testDestroyingAnObjectRemovesItsBody()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     k2d::GameObject* doomed =
-        makeBox(scene, "doomed", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "doomed", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     k2d::GameObject* keeper =
-        makeBox(scene, "keeper", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "keeper", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     scene.setSimulationEnabled(true);
-    bool ok = scene.physicsBodyCount() == 3;
+    bool ok = scene.bodyCount() == 3;
 
     for (int i = 0; i < 30; ++i)
         scene.update(1.0f / 60.0f);
 
     scene.destroy(doomed);
-    ok = ok && scene.physicsBodyCount() == 3;
+    ok = ok && scene.bodyCount() == 3;
     scene.update(1.0f / 60.0f);
-    ok = ok && scene.physicsBodyCount() == 2;
+    ok = ok && scene.bodyCount() == 2;
 
     for (int i = 0; i < 150; ++i)
         scene.update(1.0f / 60.0f);
 
     ok = ok && nearEqual(keeper->position().y, 260.0f, 2.0f);
 
-    std::printf("  destroy: bodies=%d keeper_y=%.1f (no dangling body)\n", (int)scene.physicsBodyCount(),
+    std::printf("  destroy: bodies=%d keeper_y=%.1f (no dangling body)\n", (int)scene.bodyCount(),
                 keeper->position().y);
     return ok;
 }
@@ -312,32 +321,32 @@ static bool testDestroyingAnObjectRemovesItsBody()
 static bool testObjectSpawnedDuringPlayGetsABody()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
 
     scene.setSimulationEnabled(true);
-    bool ok = scene.physicsBodyCount() == 1;
+    bool ok = scene.bodyCount() == 1;
 
     scene.update(1.0f / 60.0f);
 
     k2d::GameObject* late =
-        makeBox(scene, "late", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "late", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     for (int i = 0; i < 180; ++i)
         scene.update(1.0f / 60.0f);
 
-    ok = ok && scene.physicsBodyCount() == 2;
+    ok = ok && scene.bodyCount() == 2;
     ok = ok && nearEqual(late->position().y, 260.0f, 2.0f);
 
-    std::printf("  late_spawn: bodies=%d y=%.1f (fell and landed)\n", (int)scene.physicsBodyCount(), late->position().y);
+    std::printf("  late_spawn: bodies=%d y=%.1f (fell and landed)\n", (int)scene.bodyCount(), late->position().y);
     return ok;
 }
 
 static bool testColliderChangeRebuildsTheBody()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     scene.setSimulationEnabled(true);
 
@@ -351,7 +360,7 @@ static bool testColliderChangeRebuildsTheBody()
         scene.update(1.0f / 60.0f);
 
     ok = ok && nearEqual(box->position().y, 220.0f, 3.0f);
-    ok = ok && scene.physicsBodyCount() == 2;
+    ok = ok && scene.bodyCount() == 2;
 
     std::printf("  collider_change: taller box now rests at y=%.1f (was 260)\n", box->position().y);
     return ok;
@@ -361,7 +370,7 @@ static bool testBodyTypeAndDensityApplyLive()
 {
     k2d::Scene scene;
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     k2d::RigidBody2D* body = box->getComponent<k2d::RigidBody2D>();
 
     scene.setSimulationEnabled(true);
@@ -372,12 +381,12 @@ static bool testBodyTypeAndDensityApplyLive()
     const float fellTo = box->position().y;
     bool ok = fellTo > 100.0f;
 
-    body->setBodyType(kx::BodyType::Static);
+    body->setBodyType(k2d::BodyType::Static);
     for (int i = 0; i < 60; ++i)
         scene.update(1.0f / 60.0f);
 
     ok = ok && nearEqual(box->position().y, fellTo, 0.001f);
-    ok = ok && body->body() && body->body()->Type() == kx::BodyType::Static;
+    ok = ok && body->inWorld() && body->bodyType() == k2d::BodyType::Static;
 
     std::printf("  live_type: fell to %.1f then froze at %.1f\n", fellTo, box->position().y);
     return ok;
@@ -387,20 +396,20 @@ static bool testColliderDirtyUsesOwningWorld()
 {
     k2d::Scene sceneA;
     k2d::GameObject* objectA =
-        makeBox(sceneA, "box_a", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(sceneA, "box_a", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     sceneA.setSimulationEnabled(true);
     k2d::RigidBody2D* rigidBodyA = objectA->getComponent<k2d::RigidBody2D>();
-    const float oldExtent = rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x;
+    const float oldExtent = rigidBodyA->Shapes()[0].polygon.vertices[0].x;
 
     k2d::Scene sceneB;
     sceneB.setSimulationEnabled(true);
 
     objectA->getComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(80.0f, 80.0f));
     sceneB.update(1.0f / 60.0f);
-    bool ok = nearEqual(rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x, oldExtent);
+    bool ok = nearEqual(rigidBodyA->Shapes()[0].polygon.vertices[0].x, oldExtent);
 
     sceneA.update(1.0f / 60.0f);
-    ok = ok && !nearEqual(rigidBodyA->body()->Shapes()[0].polygon.vertices[0].x, oldExtent);
+    ok = ok && !nearEqual(rigidBodyA->Shapes()[0].polygon.vertices[0].x, oldExtent);
 
     std::printf("  collider_world: rebuilt_in_owner=%s\n", ok ? "yes" : "no");
     return ok;
@@ -410,11 +419,11 @@ static bool testFiltersKeepShapesApart()
 {
     k2d::Scene scene;
     k2d::GameObject* floor =
-        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+        makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     floor->getComponent<k2d::BoxCollider2D>()->setFilter(0x0001, 0xFFFF);
 
     k2d::GameObject* ghost =
-        makeBox(scene, "ghost", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "ghost", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     ghost->getComponent<k2d::BoxCollider2D>()->setFilter(0x0002, 0x0004);
 
     scene.setSimulationEnabled(true);
@@ -432,7 +441,7 @@ static bool testObjectAtPointFindsStatics()
 {
     k2d::Scene scene;
     k2d::GameObject* ground =
-        makeBox(scene, "ground", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+        makeBox(scene, "ground", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
 
     scene.setSimulationEnabled(true);
     scene.update(1.0f / 60.0f);
@@ -447,10 +456,10 @@ static bool testObjectAtPointFindsStatics()
 static bool testCircleCollider()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
 
     k2d::GameObject* ball = scene.createObject("ball");
-    ball->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Dynamic);
+    ball->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Dynamic);
     ball->addComponent<k2d::CircleCollider2D>()->setRadius(20.0f);
 
     scene.setSimulationEnabled(true);
@@ -468,11 +477,11 @@ static bool testEdgeCollider()
     k2d::Scene scene;
     k2d::GameObject* ground = scene.createObject("ground");
     ground->setPosition(Math::Vec2(0.0f, 300.0f));
-    ground->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    ground->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     ground->addComponent<k2d::EdgeCollider2D>()->setPoints(Math::Vec2(-300.0f, 0.0f), Math::Vec2(300.0f, 0.0f));
 
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     scene.setSimulationEnabled(true);
     for (int i = 0; i < 240; ++i)
@@ -487,10 +496,10 @@ static bool testEdgeCollider()
 static bool testPolygonCollider()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
 
     k2d::GameObject* hex = scene.createObject("hex");
-    hex->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Dynamic);
+    hex->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Dynamic);
     k2d::PolygonCollider2D* shape = hex->addComponent<k2d::PolygonCollider2D>();
     shape->setRegular(6, 25.0f);
 
@@ -510,7 +519,7 @@ static bool testChainCollider()
     k2d::Scene scene;
     k2d::GameObject* ground = scene.createObject("ground");
     ground->setPosition(Math::Vec2(0.0f, 300.0f));
-    ground->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    ground->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
 
     const Math::Vec2 points[4] = {Math::Vec2(-300.0f, 40.0f), Math::Vec2(-100.0f, 0.0f), Math::Vec2(100.0f, 0.0f),
                                   Math::Vec2(300.0f, 40.0f)};
@@ -518,7 +527,7 @@ static bool testChainCollider()
     chain->setPoints(points, 4);
 
     k2d::GameObject* box =
-        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "box", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     scene.setSimulationEnabled(true);
     for (int i = 0; i < 240; ++i)
@@ -534,11 +543,11 @@ static bool testChainCollider()
 static bool testCompoundBodyKeepsShapesApart()
 {
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 400.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 400.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
 
     k2d::GameObject* dumbbell = scene.createObject("dumbbell");
     k2d::RigidBody2D* body = dumbbell->addComponent<k2d::RigidBody2D>();
-    body->setBodyType(kx::BodyType::Dynamic);
+    body->setBodyType(k2d::BodyType::Dynamic);
 
     k2d::BoxCollider2D* bar = dumbbell->addComponent<k2d::BoxCollider2D>();
     bar->setSize(Math::Vec2(80.0f, 20.0f));
@@ -550,13 +559,183 @@ static bool testCompoundBodyKeepsShapesApart()
 
     scene.setSimulationEnabled(true);
 
-    bool ok = body->body() && body->body()->ShapeCount() == 2;
+    bool ok = body->inWorld() && body->ShapeCount() == 2;
     ok = ok && bar->shapeIndex() == 0 && weight->shapeIndex() == 1;
-    ok = ok && body->body() && !body->body()->IsSensor(bar->shapeIndex());
-    ok = ok && body->body() && body->body()->IsSensor(weight->shapeIndex());
+    ok = ok && body->inWorld() && !body->IsSensor(bar->shapeIndex());
+    ok = ok && body->inWorld() && body->IsSensor(weight->shapeIndex());
 
     std::printf("  compound: shapes=%d bar=%d(solid) weight=%d(sensor)\n",
-                body->body() ? body->body()->ShapeCount() : -1, bar->shapeIndex(), weight->shapeIndex());
+                body->inWorld() ? body->ShapeCount() : -1, bar->shapeIndex(), weight->shapeIndex());
+    return ok;
+}
+
+static bool testDistanceJointKeepsDistance()
+{
+    k2d::Scene scene;
+    k2d::GameObject* anchorBox = scene.createObject("anchorBox");
+    anchorBox->setPosition(Math::Vec2(-50.0f, 0.0f));
+    anchorBox->addComponent<k2d::RigidBody2D>();
+    anchorBox->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(20.0f, 20.0f));
+
+    k2d::GameObject* hangingBox = scene.createObject("hangingBox");
+    hangingBox->setPosition(Math::Vec2(50.0f, 0.0f));
+    hangingBox->addComponent<k2d::RigidBody2D>();
+    hangingBox->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(20.0f, 20.0f));
+
+    k2d::DistanceJoint2D* joint = anchorBox->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("hangingBox");
+    joint->setLength(100.0f);
+
+    scene.setGravity(Math::Vec2(0.0f, 980.0f));
+    scene.setSimulationEnabled(true);
+
+    for (int i = 0; i < 120; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const float dx = hangingBox->position().x - anchorBox->position().x;
+    const float dy = hangingBox->position().y - anchorBox->position().y;
+    const float distance = std::sqrt(dx * dx + dy * dy);
+    const bool ok = nearEqual(distance, 100.0f, 3.0f);
+
+    std::printf("  distance_joint: distance=%.2f (expected ~100.0)\n", distance);
+    return ok;
+}
+
+static bool testRevoluteJointMotorRotates()
+{
+    k2d::Scene scene;
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+
+    k2d::GameObject* hub = scene.createObject("hub");
+    hub->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    hub->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(10.0f, 10.0f));
+
+    k2d::GameObject* arm = scene.createObject("arm");
+    arm->setPosition(Math::Vec2(50.0f, 0.0f));
+    arm->addComponent<k2d::RigidBody2D>();
+    arm->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(80.0f, 10.0f));
+
+    k2d::RevoluteJoint2D* joint = hub->addComponent<k2d::RevoluteJoint2D>();
+    joint->setTargetName("arm");
+    joint->setMotor(true, 4.0f, 1.0e6f);
+
+    scene.setSimulationEnabled(true);
+    for (int i = 0; i < 60; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const bool ok = std::fabs(arm->rotationDegrees()) > 1.0f;
+    std::printf("  revolute_joint: arm_rotation=%.2f deg\n", arm->rotationDegrees());
+    return ok;
+}
+
+static bool testJointSerializerRoundTrip()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject* anchor = source.createObject("anchor");
+    anchor->addComponent<k2d::RigidBody2D>();
+
+    k2d::DistanceJoint2D* distance = anchor->addComponent<k2d::DistanceJoint2D>();
+    distance->setTargetName("other");
+    distance->setCollideConnected(true);
+    distance->setLocalAnchorA(Math::Vec2(1.0f, 2.0f));
+    distance->setLocalAnchorB(Math::Vec2(-1.0f, -2.0f));
+    distance->setLength(120.0f);
+    distance->setLengthRange(80.0f, 160.0f);
+    distance->setSpring(3.0f, 0.4f);
+
+    k2d::RevoluteJoint2D* revolute = anchor->addComponent<k2d::RevoluteJoint2D>();
+    revolute->setTargetName("other");
+    revolute->setLocalAnchorA(Math::Vec2(2.0f, 0.0f));
+    revolute->setLocalAnchorB(Math::Vec2(-2.0f, 0.0f));
+    revolute->setReferenceAngle(0.3f);
+    revolute->setMotor(true, 1.5f, 500.0f);
+    revolute->setLimits(true, -0.5f, 0.5f);
+
+    k2d::WheelJoint2D* wheel = anchor->addComponent<k2d::WheelJoint2D>();
+    wheel->setTargetName("other");
+    wheel->setLocalAnchorA(Math::Vec2(0.5f, 0.5f));
+    wheel->setLocalAnchorB(Math::Vec2(-0.5f, -0.5f));
+    wheel->setLocalAxisA(Math::Vec2(0.0f, 1.0f));
+    wheel->setMotor(true, 2.0f, 300.0f);
+    wheel->setSpring(5.0f, 0.6f);
+
+    k2d::MotorJoint2D* motor = anchor->addComponent<k2d::MotorJoint2D>();
+    motor->setTargetName("other");
+    motor->setLinearOffset(Math::Vec2(3.0f, 4.0f));
+    motor->setAngularOffset(0.2f);
+    motor->setMaxForce(200.0f);
+    motor->setMaxTorque(150.0f);
+    motor->setCorrectionFactor(0.5f);
+
+    k2d::MouseJoint2D* mouse = anchor->addComponent<k2d::MouseJoint2D>();
+    mouse->setCollideConnected(true);
+    mouse->setTarget(Math::Vec2(10.0f, -10.0f));
+    mouse->setMaxForce(999.0f);
+    mouse->setSpring(6.0f, 0.8f);
+
+    k2d::GearJoint2D* gear = anchor->addComponent<k2d::GearJoint2D>();
+    gear->setJointA("anchor", 0);
+    gear->setJointB("anchor", 1);
+    gear->setRatio(2.5f);
+
+    const ct::Json json = k2d::Serializer::WriteObject(*anchor);
+
+    k2d::Scene target;
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(target, json);
+    bool ok = loaded != nullptr;
+    if (!loaded)
+        return false;
+
+    k2d::DistanceJoint2D* outDistance = loaded->getComponent<k2d::DistanceJoint2D>();
+    ok = ok && outDistance && outDistance->targetName() == ct::String("other") && outDistance->collideConnected();
+    ok = ok && outDistance && nearEqual(outDistance->localAnchorA().x, 1.0f, 0.001f) &&
+         nearEqual(outDistance->localAnchorA().y, 2.0f, 0.001f);
+    ok = ok && outDistance && nearEqual(outDistance->localAnchorB().x, -1.0f, 0.001f);
+    ok = ok && outDistance && nearEqual(outDistance->length(), 120.0f, 0.001f);
+    ok = ok && outDistance && nearEqual(outDistance->minLength(), 80.0f, 0.001f) &&
+         nearEqual(outDistance->maxLength(), 160.0f, 0.001f);
+    ok = ok && outDistance && nearEqual(outDistance->springFrequency(), 3.0f, 0.001f) &&
+         nearEqual(outDistance->springDamping(), 0.4f, 0.001f);
+
+    k2d::RevoluteJoint2D* outRevolute = loaded->getComponent<k2d::RevoluteJoint2D>();
+    ok = ok && outRevolute && nearEqual(outRevolute->referenceAngle(), 0.3f, 0.001f);
+    ok = ok && outRevolute && outRevolute->motorEnabled() && nearEqual(outRevolute->motorSpeed(), 1.5f, 0.001f) &&
+         nearEqual(outRevolute->maxMotorTorque(), 500.0f, 0.001f);
+    ok = ok && outRevolute && outRevolute->limitEnabled() && nearEqual(outRevolute->lowerAngle(), -0.5f, 0.001f) &&
+         nearEqual(outRevolute->upperAngle(), 0.5f, 0.001f);
+
+    k2d::WheelJoint2D* outWheel = loaded->getComponent<k2d::WheelJoint2D>();
+    ok = ok && outWheel && nearEqual(outWheel->localAxisA().y, 1.0f, 0.001f);
+    ok = ok && outWheel && outWheel->motorEnabled() && nearEqual(outWheel->motorSpeed(), 2.0f, 0.001f) &&
+         nearEqual(outWheel->maxMotorTorque(), 300.0f, 0.001f);
+    ok = ok && outWheel && nearEqual(outWheel->springFrequency(), 5.0f, 0.001f) &&
+         nearEqual(outWheel->springDamping(), 0.6f, 0.001f);
+
+    k2d::MotorJoint2D* outMotor = loaded->getComponent<k2d::MotorJoint2D>();
+    ok = ok && outMotor && nearEqual(outMotor->linearOffset().x, 3.0f, 0.001f) &&
+         nearEqual(outMotor->linearOffset().y, 4.0f, 0.001f);
+    ok = ok && outMotor && nearEqual(outMotor->angularOffset(), 0.2f, 0.001f);
+    ok = ok && outMotor && nearEqual(outMotor->maxForce(), 200.0f, 0.001f) &&
+         nearEqual(outMotor->maxTorque(), 150.0f, 0.001f);
+    ok = ok && outMotor && nearEqual(outMotor->correctionFactor(), 0.5f, 0.001f);
+
+    k2d::MouseJoint2D* outMouse = loaded->getComponent<k2d::MouseJoint2D>();
+    ok = ok && outMouse && outMouse->collideConnected();
+    ok = ok && outMouse && nearEqual(outMouse->target().x, 10.0f, 0.001f) && nearEqual(outMouse->target().y, -10.0f, 0.001f);
+    ok = ok && outMouse && nearEqual(outMouse->maxForce(), 999.0f, 0.001f);
+    ok = ok && outMouse && nearEqual(outMouse->springFrequency(), 6.0f, 0.001f) &&
+         nearEqual(outMouse->springDamping(), 0.8f, 0.001f);
+
+    k2d::GearJoint2D* outGear = loaded->getComponent<k2d::GearJoint2D>();
+    ok = ok && outGear && outGear->jointATargetName() == ct::String("anchor") && outGear->jointAIndex() == 0;
+    ok = ok && outGear && outGear->jointBTargetName() == ct::String("anchor") && outGear->jointBIndex() == 1;
+    ok = ok && outGear && nearEqual(outGear->ratio(), 2.5f, 0.001f);
+
+    std::printf("  joint_serializer: distance=%s revolute=%s wheel=%s motor=%s mouse=%s gear=%s\n",
+                outDistance ? "ok" : "missing", outRevolute ? "ok" : "missing", outWheel ? "ok" : "missing",
+                outMotor ? "ok" : "missing", outMouse ? "ok" : "missing", outGear ? "ok" : "missing");
     return ok;
 }
 
@@ -569,7 +748,7 @@ static bool testSerializerRoundTrip()
     object->setPosition(Math::Vec2(30.0f, -40.0f));
 
     k2d::RigidBody2D* body = object->addComponent<k2d::RigidBody2D>();
-    body->setBodyType(kx::BodyType::Kinematic);
+    body->setBodyType(k2d::BodyType::Kinematic);
     body->setDensity(2.5f);
     body->setFriction(0.8f);
     body->setRestitution(0.4f);
@@ -616,7 +795,7 @@ static bool testSerializerRoundTrip()
         return false;
 
     k2d::RigidBody2D* outBody = loaded->getComponent<k2d::RigidBody2D>();
-    ok = ok && outBody && outBody->bodyType() == kx::BodyType::Kinematic;
+    ok = ok && outBody && outBody->bodyType() == k2d::BodyType::Kinematic;
     ok = ok && outBody && nearEqual(outBody->density(), 2.5f, 0.001f);
     ok = ok && outBody && nearEqual(outBody->friction(), 0.8f, 0.001f);
     ok = ok && outBody && nearEqual(outBody->restitution(), 0.4f, 0.001f);
@@ -652,13 +831,13 @@ static bool testSerializerRoundTrip()
     ok = ok && outChain && outChain->points().size() == 3 && outChain->loop();
 
     target.setSimulationEnabled(true);
-    ok = ok && target.physicsBodyCount() == 1;
-    ok = ok && outBody && outBody->body() && outBody->body()->ShapeCount() == 7;
+    ok = ok && target.bodyCount() == 1;
+    ok = ok && outBody && outBody->inWorld() && outBody->ShapeCount() == 7;
     ok = ok && outChain && outChain->shapeCount() == 3;
 
     std::printf("  serializer: colliders=%d shapes=%d character=%s (chain owns %d)\n",
                 (int)loaded->componentCount<k2d::Collider2D>(),
-                outBody && outBody->body() ? outBody->body()->ShapeCount() : -1, outCharacter ? "yes" : "no",
+                outBody && outBody->inWorld() ? outBody->ShapeCount() : -1, outCharacter ? "yes" : "no",
                 outChain ? outChain->shapeCount() : -1);
     return ok;
 }
@@ -687,11 +866,14 @@ int main()
     const bool chain = testChainCollider();
     const bool compound = testCompoundBodyKeepsShapesApart();
     const bool serialized = testSerializerRoundTrip();
+    const bool distanceJoint = testDistanceJointKeepsDistance();
+    const bool revoluteJoint = testRevoluteJointMotorRotates();
+    const bool jointSerialized = testJointSerializerRoundTrip();
 
     std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
-                "chain=%s compound=%s serializer=%s\n",
+                "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s\n",
                 falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -699,10 +881,12 @@ int main()
                 liveType ? "pass" : "fail", colliderWorld ? "pass" : "fail", filters ? "pass" : "fail",
                 pointQuery ? "pass" : "fail",
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail", chain ? "pass" : "fail",
-                compound ? "pass" : "fail", serialized ? "pass" : "fail");
+                compound ? "pass" : "fail", serialized ? "pass" : "fail", distanceJoint ? "pass" : "fail",
+                revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail");
     return falls && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
-                   circle && edge && polygon && chain && compound && serialized
+                   circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
+                   jointSerialized
                ? 0
                : 1;
 }

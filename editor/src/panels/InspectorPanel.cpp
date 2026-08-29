@@ -32,9 +32,17 @@
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CharacterBody2D.h>
 #include <k2d/CircleCollider2D.h>
+#include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
+#include <k2d/GearJoint2D.h>
+#include <k2d/Joint2D.h>
+#include <k2d/MotorJoint2D.h>
+#include <k2d/MouseJoint2D.h>
 #include <k2d/PolygonCollider2D.h>
+#include <k2d/RevoluteJoint2D.h>
 #include <k2d/RigidBody2D.h>
+#include <k2d/TileMapCollider2D.h>
+#include <k2d/WheelJoint2D.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
 #include <IconsMaterialDesignIcons.h>
@@ -76,6 +84,7 @@ const char* componentName(ComponentType type)
                                   "AudioPlayer",
                                   "RigidBody2D",
                                   "Collider2D",
+                                  "Joint2D",
                                   "CircleShape",
                                   "RectShape",
                                   "CapsuleShape",
@@ -109,8 +118,22 @@ const char* componentName(const Component& component)
         return "PolygonCollider2D";
     if (dynamic_cast<const ChainCollider2D*>(&component))
         return "ChainCollider2D";
+    if (dynamic_cast<const TileMapCollider2D*>(&component))
+        return "TileMapCollider2D";
     if (dynamic_cast<const DirectionalLight2D*>(&component))
         return "DirectionalLight2D";
+    if (dynamic_cast<const DistanceJoint2D*>(&component))
+        return "DistanceJoint2D";
+    if (dynamic_cast<const RevoluteJoint2D*>(&component))
+        return "RevoluteJoint2D";
+    if (dynamic_cast<const WheelJoint2D*>(&component))
+        return "WheelJoint2D";
+    if (dynamic_cast<const MotorJoint2D*>(&component))
+        return "MotorJoint2D";
+    if (dynamic_cast<const MouseJoint2D*>(&component))
+        return "MouseJoint2D";
+    if (dynamic_cast<const GearJoint2D*>(&component))
+        return "GearJoint2D";
     return componentName(component.type());
 }
 
@@ -126,6 +149,20 @@ const char* componentDescription(const Component& component)
         return "Physical convex polygon collision shape.";
     if (dynamic_cast<const ChainCollider2D*>(&component))
         return "Physical chain of segments, useful for terrain.";
+    if (dynamic_cast<const TileMapCollider2D*>(&component))
+        return "Adds a box per merged run of solid cells from the sibling TileMapComponent.";
+    if (dynamic_cast<const DistanceJoint2D*>(&component))
+        return "Keeps two bodies within a fixed or spring-loaded distance range.";
+    if (dynamic_cast<const RevoluteJoint2D*>(&component))
+        return "Hinges two bodies around a shared point, with optional motor and limits.";
+    if (dynamic_cast<const WheelJoint2D*>(&component))
+        return "Suspension joint: a body slides along an axis with a spring, plus optional motor.";
+    if (dynamic_cast<const MotorJoint2D*>(&component))
+        return "Drives one body toward an offset from another, useful for scripted movement.";
+    if (dynamic_cast<const MouseJoint2D*>(&component))
+        return "Pulls this object's body toward a moving target point.";
+    if (dynamic_cast<const GearJoint2D*>(&component))
+        return "Couples two RevoluteJoint2D hinges with a fixed ratio.";
     switch (component.type())
     {
     case ComponentType::Sprite:
@@ -1200,12 +1237,12 @@ void drawCameraProperties(EditorApplication& app, CameraComponent& cameraCompone
 void drawRigidBodyProperties(EditorApplication& app, RigidBody2D& body)
 {
     static const char* kTypes[] = {"Static", "Kinematic", "Dynamic"};
-    int typeIndex = body.bodyType() == kx::BodyType::Static ? 0 : body.bodyType() == kx::BodyType::Kinematic ? 1 : 2;
+    int typeIndex = body.bodyType() == k2d::BodyType::Static ? 0 : body.bodyType() == k2d::BodyType::Kinematic ? 1 : 2;
     if (ImGui::Combo("Body Type", &typeIndex, kTypes, 3))
     {
-        const kx::BodyType picked = typeIndex == 0   ? kx::BodyType::Static
-                                    : typeIndex == 1 ? kx::BodyType::Kinematic
-                                                     : kx::BodyType::Dynamic;
+        const k2d::BodyType picked = typeIndex == 0   ? k2d::BodyType::Static
+                                    : typeIndex == 1 ? k2d::BodyType::Kinematic
+                                                     : k2d::BodyType::Dynamic;
         applyInstant(app, "Set Body Type", [&] { body.setBodyType(picked); });
     }
 
@@ -1368,6 +1405,201 @@ void drawChainColliderProperties(EditorApplication& app, ChainCollider2D& collid
     pointListEditor(app, collider.points(), 2, "Move Collider Point", [&](const ct::Vector<Math::Vec2>& points)
                     { collider.setPoints(points.data(), static_cast<int>(points.size())); });
     drawColliderShared(app, collider);
+}
+
+void drawTileMapColliderProperties(EditorApplication& app, TileMapCollider2D& collider)
+{
+    ImGui::TextDisabled("Adds a box per merged run of solid cells from the sibling TileMapComponent.");
+    drawColliderShared(app, collider);
+}
+
+void drawJointShared(EditorApplication& app, Joint2D& joint)
+{
+    char nameBuffer[128];
+    std::snprintf(nameBuffer, sizeof(nameBuffer), "%s", joint.targetName().c_str());
+    if (ImGui::InputText("Target Object", nameBuffer, sizeof(nameBuffer)))
+        applyInstant(app, "Set Joint Target", [&] { joint.setTargetName(nameBuffer); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Name of the other GameObject's RigidBody2D, resolved once when Play starts");
+
+    bool collideConnected = joint.collideConnected();
+    if (ImGui::Checkbox("Collide Connected", &collideConnected))
+        applyInstant(app, "Set Joint Collide Connected", [&] { joint.setCollideConnected(collideConnected); });
+
+    ImGui::TextDisabled(joint.isConnected() ? "Connected" : "Not connected (Play only)");
+}
+
+void drawDistanceJointProperties(EditorApplication& app, DistanceJoint2D& joint)
+{
+    Math::Vec2 anchorA = joint.localAnchorA();
+    if (dragVec2(app, "Local Anchor A", anchorA, 0.5f, "Set Distance Joint Anchor A"))
+        joint.setLocalAnchorA(anchorA);
+    Math::Vec2 anchorB = joint.localAnchorB();
+    if (dragVec2(app, "Local Anchor B", anchorB, 0.5f, "Set Distance Joint Anchor B"))
+        joint.setLocalAnchorB(anchorB);
+
+    float length = joint.length();
+    if (dragFloatProperty(app, "Length", length, 0.5f, "Set Distance Joint Length", 0.0f, 100000.0f))
+        joint.setLength(length);
+
+    float minLength = joint.minLength();
+    float maxLength = joint.maxLength();
+    bool rangeChanged = false;
+    rangeChanged |= dragFloatProperty(app, "Min Length", minLength, 0.5f, "Set Distance Joint Min Length", 0.0f, 100000.0f);
+    rangeChanged |= dragFloatProperty(app, "Max Length", maxLength, 0.5f, "Set Distance Joint Max Length", 0.0f, 100000.0f);
+    if (rangeChanged)
+        applyInstant(app, "Set Distance Joint Length Range", [&] { joint.setLengthRange(minLength, maxLength); });
+
+    float frequency = joint.springFrequency();
+    float damping = joint.springDamping();
+    bool springChanged = false;
+    springChanged |= dragFloatProperty(app, "Spring Frequency", frequency, 0.05f, "Set Distance Joint Spring", 0.0f, 60.0f);
+    springChanged |= dragFloatProperty(app, "Spring Damping", damping, 0.01f, "Set Distance Joint Spring", 0.0f, 5.0f);
+    if (springChanged)
+        applyInstant(app, "Set Distance Joint Spring", [&] { joint.setSpring(frequency, damping); });
+
+    drawJointShared(app, joint);
+}
+
+void drawRevoluteJointProperties(EditorApplication& app, RevoluteJoint2D& joint)
+{
+    Math::Vec2 anchorA = joint.localAnchorA();
+    if (dragVec2(app, "Local Anchor A", anchorA, 0.5f, "Set Revolute Joint Anchor A"))
+        joint.setLocalAnchorA(anchorA);
+    Math::Vec2 anchorB = joint.localAnchorB();
+    if (dragVec2(app, "Local Anchor B", anchorB, 0.5f, "Set Revolute Joint Anchor B"))
+        joint.setLocalAnchorB(anchorB);
+    float referenceAngle = joint.referenceAngle();
+    if (dragFloatProperty(app, "Reference Angle", referenceAngle, 0.01f, "Set Revolute Joint Reference Angle", -6.3f, 6.3f))
+        joint.setReferenceAngle(referenceAngle);
+
+    bool motorEnabled = joint.motorEnabled();
+    float motorSpeed = joint.motorSpeed();
+    float maxMotorTorque = joint.maxMotorTorque();
+    bool motorChanged = ImGui::Checkbox("Motor Enabled", &motorEnabled);
+    motorChanged |= dragFloatProperty(app, "Motor Speed", motorSpeed, 0.05f, "Set Revolute Joint Motor", -1000.0f, 1000.0f);
+    motorChanged |= dragFloatProperty(app, "Max Motor Torque", maxMotorTorque, 1.0f, "Set Revolute Joint Motor", 0.0f, 1.0e7f);
+    if (motorChanged)
+        applyInstant(app, "Set Revolute Joint Motor", [&] { joint.setMotor(motorEnabled, motorSpeed, maxMotorTorque); });
+
+    bool limitEnabled = joint.limitEnabled();
+    float lowerAngle = joint.lowerAngle();
+    float upperAngle = joint.upperAngle();
+    bool limitChanged = ImGui::Checkbox("Limit Enabled", &limitEnabled);
+    limitChanged |= dragFloatProperty(app, "Lower Angle", lowerAngle, 0.01f, "Set Revolute Joint Limits", -6.3f, 6.3f);
+    limitChanged |= dragFloatProperty(app, "Upper Angle", upperAngle, 0.01f, "Set Revolute Joint Limits", -6.3f, 6.3f);
+    if (limitChanged)
+        applyInstant(app, "Set Revolute Joint Limits", [&] { joint.setLimits(limitEnabled, lowerAngle, upperAngle); });
+
+    drawJointShared(app, joint);
+}
+
+void drawWheelJointProperties(EditorApplication& app, WheelJoint2D& joint)
+{
+    Math::Vec2 anchorA = joint.localAnchorA();
+    if (dragVec2(app, "Local Anchor A", anchorA, 0.5f, "Set Wheel Joint Anchor A"))
+        joint.setLocalAnchorA(anchorA);
+    Math::Vec2 anchorB = joint.localAnchorB();
+    if (dragVec2(app, "Local Anchor B", anchorB, 0.5f, "Set Wheel Joint Anchor B"))
+        joint.setLocalAnchorB(anchorB);
+    Math::Vec2 axis = joint.localAxisA();
+    if (dragVec2(app, "Local Axis A", axis, 0.05f, "Set Wheel Joint Axis"))
+        joint.setLocalAxisA(axis);
+
+    bool motorEnabled = joint.motorEnabled();
+    float motorSpeed = joint.motorSpeed();
+    float maxMotorTorque = joint.maxMotorTorque();
+    bool motorChanged = ImGui::Checkbox("Motor Enabled", &motorEnabled);
+    motorChanged |= dragFloatProperty(app, "Motor Speed", motorSpeed, 0.05f, "Set Wheel Joint Motor", -1000.0f, 1000.0f);
+    motorChanged |= dragFloatProperty(app, "Max Motor Torque", maxMotorTorque, 1.0f, "Set Wheel Joint Motor", 0.0f, 1.0e7f);
+    if (motorChanged)
+        applyInstant(app, "Set Wheel Joint Motor", [&] { joint.setMotor(motorEnabled, motorSpeed, maxMotorTorque); });
+
+    float frequency = joint.springFrequency();
+    float damping = joint.springDamping();
+    bool springChanged = false;
+    springChanged |= dragFloatProperty(app, "Spring Frequency", frequency, 0.05f, "Set Wheel Joint Spring", 0.0f, 60.0f);
+    springChanged |= dragFloatProperty(app, "Spring Damping", damping, 0.01f, "Set Wheel Joint Spring", 0.0f, 5.0f);
+    if (springChanged)
+        applyInstant(app, "Set Wheel Joint Spring", [&] { joint.setSpring(frequency, damping); });
+
+    drawJointShared(app, joint);
+}
+
+void drawMotorJointProperties(EditorApplication& app, MotorJoint2D& joint)
+{
+    Math::Vec2 linearOffset = joint.linearOffset();
+    if (dragVec2(app, "Linear Offset", linearOffset, 0.5f, "Set Motor Joint Linear Offset"))
+        joint.setLinearOffset(linearOffset);
+    float angularOffset = joint.angularOffset();
+    if (dragFloatProperty(app, "Angular Offset", angularOffset, 0.01f, "Set Motor Joint Angular Offset", -6.3f, 6.3f))
+        joint.setAngularOffset(angularOffset);
+    float maxForce = joint.maxForce();
+    if (dragFloatProperty(app, "Max Force", maxForce, 1.0f, "Set Motor Joint Max Force", 0.0f, 1.0e7f))
+        joint.setMaxForce(maxForce);
+    float maxTorque = joint.maxTorque();
+    if (dragFloatProperty(app, "Max Torque", maxTorque, 1.0f, "Set Motor Joint Max Torque", 0.0f, 1.0e7f))
+        joint.setMaxTorque(maxTorque);
+    float correction = joint.correctionFactor();
+    if (dragFloatProperty(app, "Correction Factor", correction, 0.01f, "Set Motor Joint Correction Factor", 0.0f, 1.0f))
+        joint.setCorrectionFactor(correction);
+
+    drawJointShared(app, joint);
+}
+
+void drawMouseJointProperties(EditorApplication& app, MouseJoint2D& joint)
+{
+    ImGui::TextDisabled("Pulls this object's RigidBody2D toward Target. No target object needed.");
+    Math::Vec2 target = joint.target();
+    if (dragVec2(app, "Target", target, 0.5f, "Set Mouse Joint Target"))
+        joint.setTarget(target);
+    float maxForce = joint.maxForce();
+    if (dragFloatProperty(app, "Max Force", maxForce, 1.0f, "Set Mouse Joint Max Force", 0.0f, 1.0e7f))
+        joint.setMaxForce(maxForce);
+
+    float frequency = joint.springFrequency();
+    float damping = joint.springDamping();
+    bool springChanged = false;
+    springChanged |= dragFloatProperty(app, "Spring Frequency", frequency, 0.05f, "Set Mouse Joint Spring", 0.0f, 60.0f);
+    springChanged |= dragFloatProperty(app, "Spring Damping", damping, 0.01f, "Set Mouse Joint Spring", 0.0f, 5.0f);
+    if (springChanged)
+        applyInstant(app, "Set Mouse Joint Spring", [&] { joint.setSpring(frequency, damping); });
+
+    bool collideConnected = joint.collideConnected();
+    if (ImGui::Checkbox("Collide Connected", &collideConnected))
+        applyInstant(app, "Set Joint Collide Connected", [&] { joint.setCollideConnected(collideConnected); });
+}
+
+void drawGearJointProperties(EditorApplication& app, GearJoint2D& joint)
+{
+    char nameA[128];
+    std::snprintf(nameA, sizeof(nameA), "%s", joint.jointATargetName().c_str());
+    int indexA = joint.jointAIndex();
+    bool changedA = ImGui::InputText("Joint A Object", nameA, sizeof(nameA));
+    changedA |= ImGui::InputInt("Joint A Index", &indexA);
+    if (changedA)
+        applyInstant(app, "Set Gear Joint A", [&] { joint.setJointA(nameA, indexA); });
+
+    char nameB[128];
+    std::snprintf(nameB, sizeof(nameB), "%s", joint.jointBTargetName().c_str());
+    int indexB = joint.jointBIndex();
+    bool changedB = ImGui::InputText("Joint B Object", nameB, sizeof(nameB));
+    changedB |= ImGui::InputInt("Joint B Index", &indexB);
+    if (changedB)
+        applyInstant(app, "Set Gear Joint B", [&] { joint.setJointB(nameB, indexB); });
+
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Each names a GameObject and which RevoluteJoint2D on it (0-based)");
+
+    float ratio = joint.ratio();
+    if (dragFloatProperty(app, "Ratio", ratio, 0.05f, "Set Gear Joint Ratio", -100.0f, 100.0f))
+        joint.setRatio(ratio);
+
+    bool collideConnected = joint.collideConnected();
+    if (ImGui::Checkbox("Collide Connected", &collideConnected))
+        applyInstant(app, "Set Joint Collide Connected", [&] { joint.setCollideConnected(collideConnected); });
+
+    ImGui::TextDisabled(joint.isConnected() ? "Connected" : "Not connected (Play only)");
 }
 
 void drawZenScriptOverrides(EditorApplication& app, ZenScriptComponent& script)
@@ -2259,6 +2491,22 @@ void drawComponentProperties(EditorApplication& app, Component& component)
             drawPolygonColliderProperties(app, *polygon);
         else if (ChainCollider2D* chain = dynamic_cast<ChainCollider2D*>(&component))
             drawChainColliderProperties(app, *chain);
+        else if (TileMapCollider2D* tileMap = dynamic_cast<TileMapCollider2D*>(&component))
+            drawTileMapColliderProperties(app, *tileMap);
+        break;
+    case ComponentType::Joint:
+        if (DistanceJoint2D* distance = dynamic_cast<DistanceJoint2D*>(&component))
+            drawDistanceJointProperties(app, *distance);
+        else if (RevoluteJoint2D* revolute = dynamic_cast<RevoluteJoint2D*>(&component))
+            drawRevoluteJointProperties(app, *revolute);
+        else if (WheelJoint2D* wheel = dynamic_cast<WheelJoint2D*>(&component))
+            drawWheelJointProperties(app, *wheel);
+        else if (MotorJoint2D* motor = dynamic_cast<MotorJoint2D*>(&component))
+            drawMotorJointProperties(app, *motor);
+        else if (MouseJoint2D* mouse = dynamic_cast<MouseJoint2D*>(&component))
+            drawMouseJointProperties(app, *mouse);
+        else if (GearJoint2D* gear = dynamic_cast<GearJoint2D*>(&component))
+            drawGearJointProperties(app, *gear);
         break;
     case ComponentType::Script:
         if (ZenScriptComponent* script = dynamic_cast<ZenScriptComponent*>(&component))
@@ -2607,7 +2855,7 @@ void InspectorPanel::drawContents()
                 if (!body)
                     body = object->addComponent<RigidBody2D>();
                 if (body)
-                    body->setBodyType(kx::BodyType::Kinematic);
+                    body->setBodyType(k2d::BodyType::Kinematic);
                 object->addComponent<CharacterBody2D>();
                 app().commitChange("Add Character Body Component", addBefore);
             }
@@ -2644,6 +2892,49 @@ void InspectorPanel::drawContents()
                                                 Math::Vec2(60.0f, 0.0f)};
                 chain->setPoints(defaults, 3);
                 app().commitChange("Add Chain Collider Component", addBefore);
+            }
+            if (componentMenuItem("TileMap Collider", "Collision from the sibling TileMapComponent's solid cells."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<TileMapCollider2D>();
+                app().commitChange("Add TileMap Collider Component", addBefore);
+            }
+            ImGui::Separator();
+            if (componentMenuItem("Distance Joint", "Keeps two bodies within a fixed or spring distance range."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<DistanceJoint2D>();
+                app().commitChange("Add Distance Joint Component", addBefore);
+            }
+            if (componentMenuItem("Revolute Joint", "Hinges two bodies, with optional motor and limits."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<RevoluteJoint2D>();
+                app().commitChange("Add Revolute Joint Component", addBefore);
+            }
+            if (componentMenuItem("Wheel Joint", "Suspension joint sliding along an axis with a spring."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<WheelJoint2D>();
+                app().commitChange("Add Wheel Joint Component", addBefore);
+            }
+            if (componentMenuItem("Motor Joint", "Drives one body toward an offset from another."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<MotorJoint2D>();
+                app().commitChange("Add Motor Joint Component", addBefore);
+            }
+            if (componentMenuItem("Mouse Joint", "Pulls this object's body toward a moving target point."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<MouseJoint2D>();
+                app().commitChange("Add Mouse Joint Component", addBefore);
+            }
+            if (componentMenuItem("Gear Joint", "Couples two Revolute Joints with a fixed ratio."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<GearJoint2D>();
+                app().commitChange("Add Gear Joint Component", addBefore);
             }
             ImGui::EndMenu();
         }

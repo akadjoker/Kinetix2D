@@ -47,7 +47,6 @@
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
 
-#include <kx/world.h>
 
 #include <SDL.h>
 
@@ -518,11 +517,8 @@ void EditorApplication::applyPhysicsSettings()
     const PhysicsSettings& physics = mProject.physics();
     mRuntimeScene.setGravity(effectiveGravity());
     mRuntimeScene.setFixedTimeStep(physics.fixedTimeStep);
-    if (kx::World* world = mRuntimeScene.physicsWorld())
-    {
-        world->SetVelocityIterations(physics.velocityIterations);
-        world->SetTreeBroadphase(physics.treeBroadphase);
-    }
+    mRuntimeScene.setVelocityIterations(physics.velocityIterations);
+    mRuntimeScene.setTreeBroadphase(physics.treeBroadphase);
 }
 
 void EditorApplication::stopPlay()
@@ -902,7 +898,7 @@ void EditorApplication::createPhysicsExampleScene()
     RectShape* groundShape = ground->addComponent<RectShape>();
     groundShape->setSize(Math::Vec2(800.0f, 40.0f));
     groundShape->setColor(90, 105, 125, 255);
-    ground->addComponent<RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    ground->addComponent<RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     ground->addComponent<BoxCollider2D>()->setSize(Math::Vec2(800.0f, 40.0f));
 
     GameObject* ball = mScene.createObject("Ball");

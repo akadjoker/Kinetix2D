@@ -156,28 +156,44 @@ add_library(k2d STATIC
     src/MotionStreak2D.cpp
     src/Serializer.cpp
     src/Prefab.cpp
-    ${CMAKE_SOURCE_DIR}/physics/src/triangulate.cpp
+    src/Triangulate2D.cpp
     src/TileMapComponent.cpp
     src/ParallaxLayer2D.cpp
     src/ParallaxLayerComponent.cpp
     src/Profiler.cpp
     src/ProfilerUI.cpp
-    src/ScenePhysics.cpp
+    src/Geometry2D.cpp
+    src/Manifold2D.cpp
+    src/Collide2D.cpp
+    src/RayCast2D.cpp
+    src/ShapeCast2D.cpp
+    src/DynamicTree2D.cpp
+    src/SceneBodies.cpp
+    src/SceneSolver.cpp
+    src/SceneQueries.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/BoxCollider2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/ChainCollider2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/CharacterBody2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/CircleCollider2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/Collider2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/DistanceJoint2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/EdgeCollider2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/GearJoint2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/ImageShape2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/Joint2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/MotorJoint2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/MouseJoint2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/Physics2DSerializer.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/PolygonCollider2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/RevoluteJoint2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/RigidBody2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/TileMapCollider2D.cpp
+    ${CMAKE_SOURCE_DIR}/physics2d/src/WheelJoint2D.cpp
 )
 
 target_include_directories(k2d PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/external/stb
-    ${CMAKE_SOURCE_DIR}/physics/include
     ${CMAKE_SOURCE_DIR}/physics2d/include
     ${CMAKE_SOURCE_DIR}/external/containers/include
 )
@@ -189,7 +205,7 @@ endif()
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
 
-target_link_libraries(k2d PUBLIC mathc k2d_miniaudio kx)
+target_link_libraries(k2d PUBLIC mathc k2d_miniaudio)
 target_link_libraries(k2d PRIVATE miniz)
 if(K2D_NATIVE_GLES3)
     if(ANDROID)

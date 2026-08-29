@@ -1,0 +1,288 @@
+{
+  "root": {
+    "name": "Scene",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "water",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          628.5,
+          811.25
+        ],
+        "rotation": 0.0,
+        "scale": [
+          43.40999984741211,
+          13.890000343322754
+        ],
+        "components": [
+          {
+            "type": "Sprite",
+            "data": {
+              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/4_TILEAG4.PCX.png",
+              "normalMap": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/4_TILEAG4.PCX_normal.png",
+              "size": [
+                32.0,
+                33.5
+              ],
+              "pivot": [
+                0.5,
+                0.5
+              ],
+              "tiling": [
+                1.0,
+                1.0
+              ],
+              "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "lightMask": 1,
+              "flipX": false,
+              "flipY": false,
+              "ySort": false,
+              "blendMode": 0,
+              "water": {
+                "strength": 0.15000000596046448,
+                "normalScale": 11.050000190734863,
+                "flowA": [
+                  0.07999999821186066,
+                  0.30000001192092896
+                ],
+                "flowB": [
+                  -0.054999999701976776,
+                  0.07000000029802322
+                ],
+                "tint": [
+                  0.7799999713897705,
+                  0.9200000166893005,
+                  1.0,
+                  1.0
+                ],
+                "highlight": 0.23999999463558197
+              }
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "back",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.25,
+          478.25
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Sprite",
+            "data": {
+              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/3_Mapa_puerto.png",
+              "size": [
+                1280.0,
+                960.0
+              ],
+              "pivot": [
+                0.5,
+                0.5
+              ],
+              "tiling": [
+                1.0,
+                1.0
+              ],
+              "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "lightMask": 1,
+              "flipX": false,
+              "flipY": false,
+              "ySort": false,
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": [
+          {
+            "name": "grua",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 0,
+            "position": [
+              11.018623352050781,
+              162.3611297607422
+            ],
+            "rotation": 0.0,
+            "scale": [
+              1.0,
+              1.0
+            ],
+            "components": [
+              {
+                "type": "Sprite",
+                "data": {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/10_Recorte_grua.png",
+                  "size": [
+                    400.0,
+                    500.0
+                  ],
+                  "pivot": [
+                    0.5,
+                    0.5
+                  ],
+                  "tiling": [
+                    1.0,
+                    1.0
+                  ],
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "lightMask": 1,
+                  "flipX": false,
+                  "flipY": false,
+                  "ySort": false,
+                  "blendMode": 0
+                }
+              }
+            ],
+            "children": []
+          },
+          {
+            "name": "casa",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 0,
+            "position": [
+              289.0342712402344,
+              -131.61996459960938
+            ],
+            "rotation": 0.0,
+            "scale": [
+              1.0,
+              1.0
+            ],
+            "components": [
+              {
+                "type": "Sprite",
+                "data": {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/14_Mapa_1.png",
+                  "size": [
+                    169.0,
+                    87.0
+                  ],
+                  "pivot": [
+                    0.5,
+                    0.5
+                  ],
+                  "tiling": [
+                    1.0,
+                    1.0
+                  ],
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "lightMask": 1,
+                  "flipX": false,
+                  "flipY": false,
+                  "ySort": false,
+                  "blendMode": 0
+                }
+              }
+            ],
+            "children": []
+          },
+          {
+            "name": "canto",
+            "tag": "",
+            "active": true,
+            "visible": true,
+            "locked": false,
+            "zIndex": 0,
+            "position": [
+              -432.29962158203125,
+              -118.8924331665039
+            ],
+            "rotation": 0.0,
+            "scale": [
+              1.0,
+              1.0
+            ],
+            "components": [
+              {
+                "type": "Sprite",
+                "data": {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/12_Verja.png",
+                  "size": [
+                    141.0,
+                    136.0
+                  ],
+                  "pivot": [
+                    0.5,
+                    0.5
+                  ],
+                  "tiling": [
+                    1.0,
+                    1.0
+                  ],
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "lightMask": 1,
+                  "flipX": false,
+                  "flipY": false,
+                  "ySort": false,
+                  "blendMode": 0
+                }
+              }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@
 #include "k2d/RenderQueue.h"
 #include "k2d/Texture.h"
 
-#include "kx/internal/triangulate.h"
+#include "k2d/Triangulate2D.h"
 
 namespace k2d
 {
@@ -28,7 +28,7 @@ namespace k2d
         const int maxTriangles = count - 2;
         ct::Vector<Math::Vec2> triangles;
         triangles.resize((size_t)maxTriangles * 3);
-        int triangleCount = kx::Triangulate(mPolygon.data(), count, triangles.data(), maxTriangles);
+        int triangleCount = Triangulate(mPolygon.data(), count, triangles.data(), maxTriangles);
         for (int i = 0; i < triangleCount * 3; ++i)
             mTriangles.push_back(triangles[i]);
     }

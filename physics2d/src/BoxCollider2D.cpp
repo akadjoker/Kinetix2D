@@ -1,4 +1,5 @@
 #include "k2d/BoxCollider2D.h"
+#include "k2d/RigidBody2D.h"
 
 namespace k2d
 {
@@ -18,7 +19,7 @@ namespace k2d
         markDirty();
     }
 
-    int BoxCollider2D::addTo(kx::Body &body, float density, float scaleX, float scaleY) const
+    int BoxCollider2D::addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const
     {
         float halfWidth = mSize.x * 0.5f * scaleX;
         float halfHeight = mSize.y * 0.5f * scaleY;

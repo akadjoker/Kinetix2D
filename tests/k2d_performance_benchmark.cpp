@@ -3,7 +3,6 @@
 #include <k2d/RenderQueue.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
-#include <kx/kx.h>
 
 #include <algorithm>
 #include <chrono>
@@ -45,11 +44,6 @@ class BenchmarkComponent final : public k2d::Component
 double elapsedMs(Clock::time_point start, Clock::time_point end)
 {
     return std::chrono::duration<double, std::milli>(end - start).count();
-}
-
-double profileClock()
-{
-    return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
 }
 
 void printStats(const char* name, std::vector<double>& samples)
@@ -106,45 +100,6 @@ void benchmarkScene()
     printStats("scene_render_queue", renderSamples);
 }
 
-void benchmarkPhysics()
-{
-    constexpr int bodyCount = 1000;
-    constexpr int warmupFrames = 30;
-    constexpr int sampleFrames = 120;
-
-    kx::World world(Math::Vec2(0.0f, 0.0f));
-    world.SetTimeSource(profileClock);
-    for (int i = 0; i < bodyCount; ++i)
-    {
-        const float x = (i % 50) * 1.5f;
-        const float y = (i / 50) * 1.5f;
-        world.CreateBox(Math::Vec2(x, y), 0.8f, 0.8f, 1.0f);
-    }
-
-    for (int i = 0; i < warmupFrames; ++i)
-        world.Step(1.0f / 60.0f);
-
-    std::vector<double> samples;
-    samples.reserve(sampleFrames);
-    for (int i = 0; i < sampleFrames; ++i)
-    {
-        auto start = Clock::now();
-        world.Step(1.0f / 60.0f);
-        samples.push_back(elapsedMs(start, Clock::now()));
-    }
-
-    std::printf("physics_bodies=%d physics_contacts=%zu\n", bodyCount, world.ContactCount());
-    const kx::StepProfile& profile = world.Profile();
-    std::printf("physics_profile_integrate_ms=%.4f physics_profile_broadphase_ms=%.4f "
-                "physics_profile_narrowphase_ms=%.4f physics_profile_solve_velocity_ms=%.4f "
-                "physics_profile_solve_velocity_joints_ms=%.4f "
-                "physics_profile_solve_velocity_contacts_ms=%.4f "
-                "physics_profile_solve_position_ms=%.4f\n",
-                profile.integrate, profile.broadphase, profile.narrowphase, profile.solveVelocity,
-                profile.solveVelocityJoints, profile.solveVelocityContacts, profile.solvePosition);
-    printStats("physics_step", samples);
-}
-
 void benchmarkPhysics2D()
 {
     constexpr int bodyCount = 1000;
@@ -175,7 +130,7 @@ void benchmarkPhysics2D()
         samples.push_back(elapsedMs(start, Clock::now()));
     }
 
-    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", scene.physicsBodyCount(), scene.physicsContactCount());
+    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", scene.bodyCount(), scene.contactCount());
     printStats("physics2d_step", samples);
 }
 } // namespace
@@ -183,7 +138,6 @@ void benchmarkPhysics2D()
 int main()
 {
     benchmarkScene();
-    benchmarkPhysics();
     benchmarkPhysics2D();
     return 0;
 }

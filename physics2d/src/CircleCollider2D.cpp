@@ -1,4 +1,5 @@
 #include "k2d/CircleCollider2D.h"
+#include "k2d/RigidBody2D.h"
 
 namespace k2d
 {
@@ -18,7 +19,7 @@ namespace k2d
         markDirty();
     }
 
-    int CircleCollider2D::addTo(kx::Body &body, float density, float scaleX, float scaleY) const
+    int CircleCollider2D::addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const
     {
         const float scale = scaleX > scaleY ? scaleX : scaleY;
         const float radius = mRadius * scale;

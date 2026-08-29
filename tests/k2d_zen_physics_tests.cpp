@@ -16,7 +16,7 @@ static bool nearEqual(double a, double b, double tolerance = 1.0)
 }
 
 static k2d::GameObject* makeBox(k2d::Scene& scene, const char* name, const Math::Vec2& position, const Math::Vec2& size,
-                                kx::BodyType type)
+                                k2d::BodyType type)
 {
     k2d::GameObject* object = scene.createObject(name);
     object->setPosition(position);
@@ -32,7 +32,7 @@ static bool testBodyHandleDrivesTheSimulation()
 
     k2d::Scene scene;
     k2d::GameObject* object =
-        makeBox(scene, "rocket", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "rocket", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     bool ok = script->loadSource("class Rocket:\n"
@@ -72,7 +72,7 @@ static bool testImpulseFromScript()
 
     k2d::Scene scene;
     k2d::GameObject* object =
-        makeBox(scene, "jumper", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "jumper", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
     object->addComponent<k2d::ZenScriptComponent>()->loadSource(
         "class Jumper:\n"
         "    def __init__(self, node):\n"
@@ -107,9 +107,9 @@ static bool testCollisionCallbackReachesScripts()
     k2d::ZenBlackboard::clear();
 
     k2d::Scene scene;
-    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
     k2d::GameObject* faller =
-        makeBox(scene, "faller", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+        makeBox(scene, "faller", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     faller->addComponent<k2d::ZenScriptComponent>()->loadSource(
         "class Faller:\n"
@@ -144,7 +144,7 @@ static bool testSensorReportsToScript()
     k2d::Scene scene;
     k2d::GameObject* trigger = scene.createObject("trigger");
     trigger->setPosition(Math::Vec2(0.0f, 150.0f));
-    trigger->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
+    trigger->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     k2d::BoxCollider2D* sensorShape = trigger->addComponent<k2d::BoxCollider2D>();
     sensorShape->setSize(Math::Vec2(400.0f, 20.0f));
     sensorShape->setSensor(true);
@@ -161,8 +161,8 @@ static bool testSensorReportsToScript()
         "            set_string(\"left\", other.get_name())\n",
         "trigger");
 
-    makeBox(scene, "floor", Math::Vec2(0.0f, 500.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
-    makeBox(scene, "diver", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
+    makeBox(scene, "floor", Math::Vec2(0.0f, 500.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
+    makeBox(scene, "diver", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
 
     k2d::RouteZenScriptCollisions(scene);
     scene.setSimulationEnabled(true);
@@ -184,7 +184,7 @@ static bool testRaycastAndGravityFromScript()
     k2d::ZenBlackboard::clear();
 
     k2d::Scene scene;
-    makeBox(scene, "wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 200.0f), kx::BodyType::Static);
+    makeBox(scene, "wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 200.0f), k2d::BodyType::Static);
 
     k2d::GameObject* scanner = scene.createObject("scanner");
     scanner->addComponent<k2d::ZenScriptComponent>()->loadSource("class Scanner:\n"
@@ -244,9 +244,9 @@ static bool testCharacterMovementBindings()
     k2d::ZenBlackboard::clear();
 
     k2d::Scene scene;
-    makeBox(scene, "wall", Math::Vec2(0.0f, 0.0f), Math::Vec2(20.0f, 160.0f), kx::BodyType::Static);
+    makeBox(scene, "wall", Math::Vec2(0.0f, 0.0f), Math::Vec2(20.0f, 160.0f), k2d::BodyType::Static);
     k2d::GameObject* player =
-        makeBox(scene, "player", Math::Vec2(-80.0f, 0.0f), Math::Vec2(20.0f, 20.0f), kx::BodyType::Kinematic);
+        makeBox(scene, "player", Math::Vec2(-80.0f, 0.0f), Math::Vec2(20.0f, 20.0f), k2d::BodyType::Kinematic);
     player->addComponent<k2d::CharacterBody2D>();
     player->addComponent<k2d::ZenScriptComponent>()->loadSource(
         "class Player:\n"

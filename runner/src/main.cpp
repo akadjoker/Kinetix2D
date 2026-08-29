@@ -18,7 +18,6 @@
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
 
-#include <kx/world.h>
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
 #include <k2d/UserData.h>
@@ -355,11 +354,8 @@ int main(int argc, char** argv)
         scene.setFixedTimeStep(physicsConfig.fixedTimeStep);
         k2d::RouteZenScriptCollisions(scene);
         scene.setSimulationEnabled(true);
-        if (kx::World* world = scene.physicsWorld())
-        {
-            world->SetVelocityIterations(physicsConfig.velocityIterations);
-            world->SetTreeBroadphase(physicsConfig.treeBroadphase);
-        }
+        scene.setVelocityIterations(physicsConfig.velocityIterations);
+        scene.setTreeBroadphase(physicsConfig.treeBroadphase);
 
         if (result == 0)
         {

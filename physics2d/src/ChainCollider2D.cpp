@@ -1,4 +1,5 @@
 #include "k2d/ChainCollider2D.h"
+#include "k2d/RigidBody2D.h"
 
 namespace k2d
 {
@@ -21,7 +22,7 @@ namespace k2d
         markDirty();
     }
 
-    int ChainCollider2D::addTo(kx::Body &body, float, float scaleX, float scaleY) const
+    int ChainCollider2D::addTo(RigidBody2D &body, float, float scaleX, float scaleY) const
     {
         if (mPoints.size() < 2)
             return 0;

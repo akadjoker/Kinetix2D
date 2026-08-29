@@ -10,7 +10,7 @@ namespace k2d
     public:
         BoxCollider2D();
 
-        int addTo(kx::Body &body, float density, float scaleX, float scaleY) const override;
+        int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const override;
 
         const Math::Vec2 &size() const { return mSize; }
         void setSize(const Math::Vec2 &size);

@@ -4,8 +4,6 @@
 #include "k2d/RigidBody2D.h"
 #include "k2d/Scene.h"
 
-#include <kx/world.h>
-
 #include <cmath>
 
 namespace k2d
@@ -23,7 +21,7 @@ Math::Vec2 globalPositionFromLocal(const GameObject& object, float x, float y)
 
 CharacterBody2D::CharacterBody2D()
     : Component(Type, ComponentEventNone), mVelocity(0.0f, 0.0f), mUpDirection(0.0f, -1.0f), mFloorNormal(0.0f, 0.0f),
-      mSlideCollisions(), mSafeMargin(kx::kLinearSlop), mFloorMaxAngleDegrees(45.0f), mMaxSlides(4),
+      mSlideCollisions(), mSafeMargin(kLinearSlop), mFloorMaxAngleDegrees(45.0f), mMaxSlides(4),
       mMotionMode(MotionMode::Floating), mOnFloor(false), mOnWall(false), mOnCeiling(false)
 {
 }
@@ -31,7 +29,7 @@ CharacterBody2D::CharacterBody2D()
 void CharacterBody2D::onAwake()
 {
     if (RigidBody2D* body = rigidBody())
-        body->setBodyType(kx::BodyType::Kinematic);
+        body->setBodyType(BodyType::Kinematic);
 }
 
 RigidBody2D* CharacterBody2D::rigidBody() const
@@ -56,12 +54,11 @@ CollisionInfo CharacterBody2D::moveAndCollide(const Math::Vec2& motion, bool tes
     collision.self = owner();
     RigidBody2D* rigid = rigidBody();
     Scene* scene = owner() ? owner()->scene() : nullptr;
-    kx::World* world = scene ? scene->physicsWorld() : nullptr;
-    if (!rigid || !rigid->body() || !world || rigid->bodyType() != kx::BodyType::Kinematic)
+    if (!rigid || !rigid->inWorld() || !scene || rigid->bodyType() != BodyType::Kinematic)
         return collision;
 
-    kx::MotionResult result;
-    world->TestMotion(*rigid->body(), motion, result, mSafeMargin);
+    MotionResult result;
+    scene->testMotion(*rigid, motion, result, mSafeMargin);
     collision.hit = result.hit;
     collision.other = Scene::objectForBody(result.body);
     collision.point = result.point;
@@ -74,8 +71,8 @@ CollisionInfo CharacterBody2D::moveAndCollide(const Math::Vec2& motion, bool tes
 
     if (!testOnly)
     {
-        const Math::Vec2 target = rigid->body()->Position() + result.travel;
-        rigid->body()->SetPosition(target);
+        const Math::Vec2 target = rigid->Position() + result.travel;
+        rigid->SetPosition(target);
         applyWorldPosition(target);
     }
     return collision;
@@ -94,22 +91,20 @@ bool CharacterBody2D::placeFree(float x, float y) const
 {
     RigidBody2D* rigid = rigidBody();
     Scene* scene = owner() ? owner()->scene() : nullptr;
-    kx::World* world = scene ? scene->physicsWorld() : nullptr;
-    if (!rigid || !rigid->body() || !world)
+    if (!rigid || !rigid->inWorld() || !scene)
         return true;
-    kx::MotionResult result;
-    return !world->TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+    MotionResult result;
+    return !scene->testPosition(*rigid, globalPositionFromLocal(*owner(), x, y), result);
 }
 
 GameObject* CharacterBody2D::placeMeeting(float x, float y) const
 {
     RigidBody2D* rigid = rigidBody();
     Scene* scene = owner() ? owner()->scene() : nullptr;
-    kx::World* world = scene ? scene->physicsWorld() : nullptr;
-    if (!rigid || !rigid->body() || !world)
+    if (!rigid || !rigid->inWorld() || !scene)
         return nullptr;
-    kx::MotionResult result;
-    world->TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+    MotionResult result;
+    scene->testPosition(*rigid, globalPositionFromLocal(*owner(), x, y), result);
     return Scene::objectForBody(result.body);
 }
 

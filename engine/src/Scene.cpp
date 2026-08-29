@@ -1,7 +1,9 @@
 #include "k2d/Scene.h"
 
 #include "k2d/CameraComponent.h"
+#include "k2d/Collider2D.h"
 #include "k2d/Input.h"
+#include "k2d/Joint2D.h"
 #include "k2d/Profiler.h"
 #include "k2d/RigidBody2D.h"
 #include "k2d/UiControls.h"
@@ -11,16 +13,19 @@ namespace k2d
 
     Scene::Scene()
         : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
-          mHasDisposed(false), mPhysics(createPhysics()), mRenderCamera(nullptr), mRenderViewportWidth(0.0f),
-          mRenderViewportHeight(0.0f)
+          mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
+          mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1),
+          mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
+          mCollisionCallbackUser(nullptr), mSimulationEnabled(false), mHasDirtyBodies(false)
     {
         mRoot.mScene = this;
+        mNarrowMs = 0.0f;
     }
 
     Scene::~Scene()
     {
         // Bodies must go before the objects their user data points at.
-        teardownPhysics();
+        clearBodies();
         mRoot.deleteChildrenRaw();
         mRoot.mScene = nullptr;
     }
@@ -157,7 +162,7 @@ namespace k2d
         flushDisposed();
         compactComponentLists();
         updateUi();
-        physicsStep(deltaTime);
+        stepBodies(deltaTime);
     }
 
     void Scene::setRenderCamera(const Camera2D *camera, float viewportWidth, float viewportHeight)
@@ -190,7 +195,7 @@ namespace k2d
 
     void Scene::clear()
     {
-        clearPhysics();
+        clearBodies();
         mRoot.deleteChildrenRaw();
         mAllComponents.clear();
         mLateUpdateComponents.clear();
@@ -251,7 +256,16 @@ namespace k2d
         if (UiControl *control = component->uiControl())
             mUiControls.push_back(control);
         if (component->mType == ComponentType::RigidBody && simulationEnabled())
-            attachPhysicsBody(*static_cast<RigidBody2D *>(component));
+            attachBody(*static_cast<RigidBody2D *>(component));
+        if (component->mType == ComponentType::Collider && simulationEnabled())
+        {
+            GameObject *object = component->owner();
+            RigidBody2D *rigidBody = object ? object->getComponent<RigidBody2D>() : nullptr;
+            if (rigidBody && rigidBody->inWorld())
+                markBodyDirty(*rigidBody);
+        }
+        if (component->mType == ComponentType::Joint)
+            mJoints.push_back(static_cast<Joint2D *>(component));
     }
 
     void Scene::unregisterComponent(Component *component)
@@ -281,8 +295,31 @@ namespace k2d
                     mUiControls[i] = nullptr;
                     break;
                 }
+        if (component->mType == ComponentType::Collider)
+        {
+            GameObject *object = component->owner();
+            RigidBody2D *rigidBody = object ? object->getComponent<RigidBody2D>() : nullptr;
+            if (rigidBody && rigidBody->inWorld())
+                markBodyDirty(*rigidBody);
+        }
         if (component->mType == ComponentType::RigidBody)
-            detachPhysicsBody(*static_cast<RigidBody2D *>(component));
+            detachBody(*static_cast<RigidBody2D *>(component));
+        if (component->mType == ComponentType::Joint)
+        {
+            Joint2D *joint = static_cast<Joint2D *>(component);
+            for (std::size_t i = 0; i < mJoints.size(); ++i)
+            {
+                if (mJoints[i] == joint)
+                {
+                    mJoints[i] = mJoints.back();
+                    mJoints.pop_back();
+                    break;
+                }
+            }
+            for (std::size_t i = 0; i < mJoints.size(); ++i)
+                if (mJoints[i]->dependsOnJoint(joint))
+                    mJoints[i]->invalidate();
+        }
     }
 
     void Scene::compactComponentLists()

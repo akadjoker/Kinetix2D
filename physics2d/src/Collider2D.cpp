@@ -18,7 +18,7 @@ namespace k2d
         const size_t count = object->componentCount<RigidBody2D>();
         for (size_t i = 0; i < count; ++i)
             if (RigidBody2D *rigidBody = object->getComponentAt<RigidBody2D>(i))
-                scene->markPhysicsDirty(*rigidBody);
+                scene->markBodyDirty(*rigidBody);
     }
 
     Collider2D::Collider2D()

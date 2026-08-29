@@ -12,7 +12,7 @@ namespace k2d
     public:
         ChainCollider2D();
 
-        int addTo(kx::Body &body, float density, float scaleX, float scaleY) const override;
+        int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const override;
 
         const ct::Vector<Math::Vec2> &points() const { return mPoints; }
         void setPoints(const Math::Vec2 *points, int count);

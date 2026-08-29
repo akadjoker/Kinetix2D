@@ -9,7 +9,6 @@
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
 
-#include <kx/debugdraw.h>
 
 #include <cstdint>
 
@@ -114,8 +113,8 @@ void GamePanel::renderScene(int width, int height)
         // depth state a material/shadow pass may have changed.
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
-        scene.debugDrawPhysics(mCanvas,
-                               kx::DebugDrawShapes | kx::DebugDrawAABBs | kx::DebugDrawContacts | kx::DebugDrawJoints);
+        scene.debugDrawBodies(mCanvas, k2d::DebugDrawShapes | k2d::DebugDrawAABBs | k2d::DebugDrawContacts |
+                                           k2d::DebugDrawJoints);
     }
     GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
 

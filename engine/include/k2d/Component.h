@@ -28,6 +28,7 @@ enum class ComponentType : uint8_t
     AudioPlayer,
     RigidBody,
     Collider,
+    Joint,
     CircleShape,
     RectShape,
     CapsuleShape,

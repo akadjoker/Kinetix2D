@@ -128,8 +128,8 @@ void SettingsPanel::drawPhysics()
     if (app().runtimeScene().simulationEnabled())
     {
         ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.4f, 1.0f), ICON_MDI_PLAY " Simulating");
-        ImGui::Text("%d bodies, %d contacts", static_cast<int>(app().runtimeScene().physicsBodyCount()),
-                    static_cast<int>(app().runtimeScene().physicsContactCount()));
+        ImGui::Text("%d bodies, %d contacts", static_cast<int>(app().runtimeScene().bodyCount()),
+                    static_cast<int>(app().runtimeScene().contactCount()));
         ImGui::TextDisabled("Changes above apply to the running simulation immediately.");
     }
     else

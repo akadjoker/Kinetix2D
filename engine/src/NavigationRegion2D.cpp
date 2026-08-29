@@ -3,7 +3,7 @@
 #include "k2d/GameObject.h"
 #include "k2d/Navigation2D.h"
 
-#include "kx/internal/triangulate.h"
+#include "k2d/Triangulate2D.h"
 
 #include <cmath>
 #include <limits>
@@ -76,7 +76,7 @@ void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
         mPolygon.push_back(points[i]);
     ct::Vector<Math::Vec2> baked;
     baked.resize(static_cast<size_t>(count - 2) * 3u);
-    const int triangleCount = kx::Triangulate(mPolygon.data(), count, baked.data(), count - 2);
+    const int triangleCount = Triangulate(mPolygon.data(), count, baked.data(), count - 2);
     for (int i = 0; i < triangleCount * 3; ++i)
         mTriangles.push_back(baked[i]);
 }

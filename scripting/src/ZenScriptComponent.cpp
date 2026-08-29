@@ -1061,11 +1061,11 @@ int natBodySetType(zen::VM* vm, zen::Value* args, int nargs)
         char small[16];
         const char* name = valueToCString(vm, args[0], small, sizeof(small));
         if (std::strcmp(name, "static") == 0)
-            body->setBodyType(kx::BodyType::Static);
+            body->setBodyType(k2d::BodyType::Static);
         else if (std::strcmp(name, "kinematic") == 0)
-            body->setBodyType(kx::BodyType::Kinematic);
+            body->setBodyType(k2d::BodyType::Kinematic);
         else
-            body->setBodyType(kx::BodyType::Dynamic);
+            body->setBodyType(k2d::BodyType::Dynamic);
     }
     args[0] = zen::val_nil();
     return 1;
@@ -1074,7 +1074,7 @@ int natBodySetType(zen::VM* vm, zen::Value* args, int nargs)
 int natBodyIsAwake(zen::VM*, zen::Value* args, int)
 {
     RigidBody2D* body = bodyFromSelf(args);
-    args[0] = zen::val_bool(body && body->body() && body->body()->IsAwake());
+    args[0] = zen::val_bool(body && body->inWorld() && body->IsAwake());
     return 1;
 }
 
