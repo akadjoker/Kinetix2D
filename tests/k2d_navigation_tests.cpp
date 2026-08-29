@@ -14,6 +14,7 @@
 #include <k2d/Steering2D.h>
 #include <k2d/Wander2D.h>
 
+#include <cmath>
 #include <cstdio>
 
 namespace
@@ -626,6 +627,137 @@ bool TestSceneTracksSteeringComponents()
 }
 } // namespace
 
+// The failure mode this pins: a target that can never be reached used to
+// bypass the interval and run a full pathfind every single frame.
+bool TestUnreachableTargetIsStillThrottled()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("walkable_unreachable");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(200.0f, 0.0f), Math::Vec2(200.0f, 200.0f),
+                                  Math::Vec2(0.0f, 200.0f)};
+    region->setPolygon(polygon, 4);
+
+    // Parked well outside the mesh: every path request must fail.
+    k2d::GameObject* player = scene.createObject("offmesh_player");
+    player->setPosition(Math::Vec2(900.0f, 900.0f));
+
+    k2d::GameObject* agentObject = scene.createObject("chaser_unreachable");
+    agentObject->setPosition(Math::Vec2(10.0f, 10.0f));
+    k2d::NavigationAgent2D* agent = agentObject->addComponent<k2d::NavigationAgent2D>();
+    agent->setRepathInterval(0.25f);
+    agent->setFollowTargetName("offmesh_player");
+
+    for (int i = 0; i < 60; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const uint32_t repaths = agent->repathCount();
+    const bool ok = repaths >= 1 && repaths <= 6 && !agent->hasPath();
+    std::printf("navigation unreachable throttle: repaths=%u %s\n", static_cast<unsigned>(repaths),
+                ok ? "pass" : "fail");
+    return ok;
+}
+
+// A follow target that names nothing must not re-walk the tree every frame.
+// There is no counter for find(), so this asserts the observable half: the
+// agent stays put and costs no paths at all.
+bool TestMissingFollowTargetCostsNothing()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("walkable_missing");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(200.0f, 0.0f), Math::Vec2(200.0f, 200.0f),
+                                  Math::Vec2(0.0f, 200.0f)};
+    region->setPolygon(polygon, 4);
+
+    k2d::GameObject* agentObject = scene.createObject("chaser_missing");
+    agentObject->setPosition(Math::Vec2(10.0f, 10.0f));
+    k2d::NavigationAgent2D* agent = agentObject->addComponent<k2d::NavigationAgent2D>();
+    agent->setFollowTargetName("nobody_by_this_name");
+
+    for (int i = 0; i < 60; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const bool ok = agent->repathCount() == 0 && !agent->hasPath() &&
+                    std::fabs(agentObject->position().x - 10.0f) < 0.001f &&
+                    std::fabs(agentObject->position().y - 10.0f) < 0.001f;
+    std::printf("navigation missing target: repaths=%u stayed=%s\n",
+                static_cast<unsigned>(agent->repathCount()), ok ? "pass" : "fail");
+    return ok;
+}
+
+// An agent under a rotated parent must still reach its waypoint: path deltas
+// are global while translate() adds in the parent's frame.
+bool TestAgentUnderRotatedParent()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("walkable_parented");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(-400.0f, -400.0f), Math::Vec2(400.0f, -400.0f),
+                                  Math::Vec2(400.0f, 400.0f), Math::Vec2(-400.0f, 400.0f)};
+    region->setPolygon(polygon, 4);
+
+    k2d::GameObject* pivot = scene.createObject("pivot");
+    pivot->setPosition(Math::Vec2(50.0f, -20.0f));
+    pivot->setRotationDegrees(90.0f);
+
+    k2d::GameObject* agentObject = scene.createObject("parented_agent", pivot);
+    agentObject->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::NavigationAgent2D* agent = agentObject->addComponent<k2d::NavigationAgent2D>();
+    agent->setMaxSpeed(120.0f);
+    agent->setAutoMove(true);
+
+    const Math::Vec2 goal(200.0f, 150.0f);
+    agent->setTargetPosition(goal);
+
+    const Math::Vec2 start = agentObject->globalPosition();
+    const float startDistance = k2d::Distance(start, goal);
+    for (int i = 0; i < 240; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const Math::Vec2 end = agentObject->globalPosition();
+    const float endDistance = k2d::Distance(end, goal);
+    // The agent stops within pathDesiredDistance (8 by default) of the final
+    // waypoint, so "arrived" is that tolerance, not zero. Before the fix it
+    // orbited and the distance never shrank at all.
+    const bool ok = endDistance <= agent->pathDesiredDistance() + 1.0f && endDistance < startDistance * 0.2f;
+    std::printf("navigation parented agent: %.1f -> %.1f from goal %s\n", startDistance, endDistance,
+                ok ? "pass" : "fail");
+    return ok;
+}
+
+// An agent saved with no target must not load pointing at the world origin.
+bool TestAgentTargetPresenceRoundTrip()
+{
+    k2d::Scene source;
+    k2d::GameObject* object = source.createObject("saved_agent");
+    k2d::NavigationAgent2D* agent = object->addComponent<k2d::NavigationAgent2D>();
+    agent->setMaxSpeed(77.0f);
+    const bool untargetedBefore = !agent->hasTarget();
+
+    const ct::Json json = k2d::Serializer::WriteObject(*object);
+    k2d::Scene target;
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(target, json);
+    k2d::NavigationAgent2D* out = loaded ? loaded->getComponent<k2d::NavigationAgent2D>() : nullptr;
+    const bool untargetedAfter = out && !out->hasTarget();
+
+    k2d::Scene source2;
+    k2d::GameObject* object2 = source2.createObject("saved_agent2");
+    k2d::NavigationAgent2D* agent2 = object2->addComponent<k2d::NavigationAgent2D>();
+    agent2->setTargetPosition(Math::Vec2(33.0f, -44.0f));
+    const ct::Json json2 = k2d::Serializer::WriteObject(*object2);
+    k2d::Scene target2;
+    k2d::GameObject* loaded2 = k2d::Serializer::ReadObject(target2, json2);
+    k2d::NavigationAgent2D* out2 = loaded2 ? loaded2->getComponent<k2d::NavigationAgent2D>() : nullptr;
+    const bool targetedSurvives = out2 && out2->hasTarget() && std::fabs(out2->targetPosition().x - 33.0f) < 0.001f &&
+                                  std::fabs(out2->targetPosition().y + 44.0f) < 0.001f;
+
+    const bool ok = untargetedBefore && untargetedAfter && targetedSurvives;
+    std::printf("navigation agent target round trip: untargeted=%s targeted=%s\n",
+                untargetedAfter ? "pass" : "fail", targetedSurvives ? "pass" : "fail");
+    return ok;
+}
+
 int main()
 {
     k2d::Scene scene;
@@ -667,7 +799,13 @@ int main()
     std::printf("navigation: concave=%s outside=%s agent=%s triangles=%d waypoints=%d\n", concavePath ? "pass" : "fail",
                outsideRejected ? "pass" : "fail", agentPath ? "pass" : "fail",
                static_cast<int>(region->triangles().size() / 3), static_cast<int>(agent->path().size()));
-    return concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
+    const bool unreachableThrottle = TestUnreachableTargetIsStillThrottled();
+    const bool missingTarget = TestMissingFollowTargetCostsNothing();
+    const bool parentedAgent = TestAgentUnderRotatedParent();
+    const bool agentRoundTrip = TestAgentTargetPresenceRoundTrip();
+
+    return unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
+           concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
                    outsideMesh && steeringForces && steeringNeutral && separationSpread && separationSources &&
                    obstacleAside && steeringList

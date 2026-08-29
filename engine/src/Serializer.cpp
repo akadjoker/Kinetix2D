@@ -473,6 +473,9 @@ void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
 {
     const NavigationAgent2D& agent = static_cast<const NavigationAgent2D&>(component);
+    // Without hasTarget there is no representation for "no target", so every
+    // agent would load pointing at the world origin and walk to it.
+    data.set("hasTarget", ct::Json(agent.hasTarget()));
     data.set("target", WriteVec2(agent.targetPosition()));
     data.set("pathDesiredDistance", ct::Json(static_cast<double>(agent.pathDesiredDistance())));
     data.set("maxSpeed", ct::Json(static_cast<double>(agent.maxSpeed())));
@@ -497,8 +500,15 @@ void ReadNavigationAgent(Component& component, const ct::Json& data, Assets*)
     agent.setRepathInterval(static_cast<float>(data["repathInterval"].as_double(0.25)));
     agent.setRepathMoveThreshold(static_cast<float>(data["repathMoveThreshold"].as_double(16.0)));
     agent.setFollowTargetName(data["followTarget"].as_cstr(""));
+    // Older scenes have no hasTarget key; they always wrote a target, so treat
+    // a missing key as "targeted" to keep them behaving as before.
     if (const ct::Json* target = data.find("target"))
-        agent.setTargetPosition(ReadVec2(*target));
+    {
+        if (data["hasTarget"].as_bool(true))
+            agent.setTargetPosition(ReadVec2(*target));
+        else
+            agent.clearTarget();
+    }
 }
 
 Component* CreateLine(GameObject& owner)

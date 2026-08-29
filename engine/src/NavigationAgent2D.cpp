@@ -124,7 +124,10 @@ void NavigationAgent2D::updateFollowTarget(float deltaTime)
     if (!hasFollowTarget() || !owner() || !owner()->scene())
         return;
     Scene* scene = owner()->scene();
-    if (!mFollowTarget || mFollowVersion != scene->topologyVersion())
+    // Gate purely on the version, never on mFollowTarget being null: a name
+    // that resolves to nothing would otherwise re-walk the whole tree every
+    // frame. Steering2D::resolve() has this right; this did not.
+    if (mFollowVersion != scene->topologyVersion())
     {
         mFollowTarget = scene->find(mFollowTargetName.c_str());
         mFollowVersion = scene->topologyVersion();
@@ -132,13 +135,24 @@ void NavigationAgent2D::updateFollowTarget(float deltaTime)
     if (!mFollowTarget)
         return;
     const Math::Vec2 candidate = mFollowTarget->globalPosition();
+    // A failed search leaves no path, so retrying on "no path" alone bypasses
+    // the interval and runs a full pathfind every frame for as long as the
+    // target stays unreachable. The interval governs both cases.
+    mRepathTimer += deltaTime;
     if (!hasPath())
     {
-        retarget(candidate, false);
-        mRepathTimer = 0.0f;
+        if (mRepathTimer >= mRepathInterval || !mHasPathedTarget)
+        {
+            retarget(candidate, false);
+            mRepathTimer = 0.0f;
+        }
+        else
+        {
+            mTarget = candidate;
+            mHasTarget = true;
+        }
         return;
     }
-    mRepathTimer += deltaTime;
     if (mRepathTimer >= mRepathInterval)
     {
         retarget(candidate, false);
@@ -147,6 +161,25 @@ void NavigationAgent2D::updateFollowTarget(float deltaTime)
     }
     mTarget = candidate;
     mHasTarget = true;
+}
+
+// Paths and steering are global-space, but GameObject::translate adds in the
+// parent's frame. Under a rotated or scaled parent the two disagree and the
+// agent orbits its waypoint instead of reaching it.
+void NavigationAgent2D::translateGlobal(const Math::Vec2& offset)
+{
+    GameObject* object = owner();
+    if (!object)
+        return;
+    GameObject* parent = object->parent();
+    if (!parent || !parent->parent())
+    {
+        object->translate(offset);
+        return;
+    }
+    const Matrix2D inverse = parent->globalTransform().AffineInverse();
+    const Math::Vec2 origin = inverse.Transform(Math::Vec2(0.0f, 0.0f));
+    object->translate(inverse.Transform(offset) - origin);
 }
 
 void NavigationAgent2D::onUpdate(float deltaTime)
@@ -168,7 +201,11 @@ void NavigationAgent2D::onUpdate(float deltaTime)
         if (mOrientToPath)
         {
             constexpr float kRadiansToDegrees = 57.2957795131f;
-            const float wanted = std::atan2(delta.y, delta.x) * kRadiansToDegrees + mRotationOffsetDegrees;
+            // delta is global; setRotationDegrees writes the local angle, so a
+            // rotated parent has to be discounted or the facing is skewed.
+            const float parentRotation = owner()->parent() ? owner()->parent()->globalRotationDegrees() : 0.0f;
+            const float wanted =
+                std::atan2(delta.y, delta.x) * kRadiansToDegrees + mRotationOffsetDegrees - parentRotation;
             const float current = owner()->rotationDegrees();
             float angleDelta = std::fmod(wanted - current + 180.0f, 360.0f);
             if (angleDelta < 0.0f)
@@ -191,7 +228,7 @@ void NavigationAgent2D::onUpdate(float deltaTime)
         if (!following)
             return;
         const float distance = Min(length, mMaxSpeed * deltaTime);
-        owner()->translate(delta * (distance / length));
+        translateGlobal(delta * (distance / length));
         advance();
         return;
     }
@@ -206,7 +243,7 @@ void NavigationAgent2D::onUpdate(float deltaTime)
     if (speed > 0.0001f)
     {
         const float step = following ? Min(length, speed * deltaTime) : speed * deltaTime;
-        owner()->translate(desired * (step / speed));
+        translateGlobal(desired * (step / speed));
     }
     advance();
 }

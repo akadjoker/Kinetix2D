@@ -22,6 +22,12 @@ class NavigationAgent2D final : public Component
     {
         return mTarget;
     }
+    bool hasTarget() const { return mHasTarget; }
+    void clearTarget()
+    {
+        mHasTarget = false;
+        clearPath();
+    }
     bool repath();
     // The follow target's live position, using the pointer already resolved
     // under the topology gate. Scripts must not cache a node handle instead:
@@ -115,6 +121,11 @@ class NavigationAgent2D final : public Component
   protected:
     void onAwake() override;
     void onUpdate(float deltaTime) override;
+
+  private:
+    void translateGlobal(const Math::Vec2 &offset);
+
+  protected:
 
   private:
     bool retarget(const Math::Vec2& position, bool forceRepath);
