@@ -711,6 +711,14 @@ void EditorApplication::tickEditPreview(GameObject& object, float deltaTime)
             anim->Advance(deltaTime);
     }
 
+    const size_t cameraCount = object.componentCount<CameraComponent>();
+    for (size_t i = 0; i < cameraCount; ++i)
+    {
+        CameraComponent* camera = object.getComponentAt<CameraComponent>(i);
+        if (camera && camera->active())
+            camera->syncFromOwner();
+    }
+
     for (size_t i = 0; i < object.childCount(); ++i)
         tickEditPreview(*object.child(i), deltaTime);
 }

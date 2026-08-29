@@ -38,10 +38,21 @@ namespace k2d
         const ct::String &followTargetName() const { return mFollowTargetName; }
         bool hasFollowTarget() const { return !mFollowTargetName.empty(); }
 
+        // The node's transform is the camera's position/rotation, exactly like
+        // any other component. Called every Play frame from onUpdate and every
+        // edit-time preview tick, so dragging the node moves the camera view in
+        // both modes. Position is left alone once a target is being followed -
+        // Camera2D::update() then owns it (smoothing/dead zone) and the result
+        // is written back onto the node below, the same way physics writes its
+        // result back onto a dynamic body's transform.
+        void syncFromOwner();
+
     protected:
         void onUpdate(float deltaTime) override;
 
     private:
+        void writeBackToOwner();
+
         Camera2D mCamera;
         float mViewportWidth;
         float mViewportHeight;
@@ -49,6 +60,7 @@ namespace k2d
         ct::String mFollowTargetName;
         GameObject *mFollowTarget = nullptr;
         uint32_t mFollowVersion = 0;
+        bool mPositionSeeded = false;
     };
 
 }

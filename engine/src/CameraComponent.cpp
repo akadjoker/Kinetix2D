@@ -18,8 +18,40 @@ namespace k2d
         mFollowTarget = nullptr;
     }
 
+    void CameraComponent::syncFromOwner()
+    {
+        GameObject *object = owner();
+        if (!object)
+            return;
+        if (!mCamera.targetEnabled || !mPositionSeeded)
+        {
+            mCamera.position = object->globalPosition();
+            mPositionSeeded = true;
+        }
+        mCamera.rotationDegrees = object->rotationDegrees();
+    }
+
+    void CameraComponent::writeBackToOwner()
+    {
+        GameObject *object = owner();
+        if (!object || !mCamera.targetEnabled)
+            return;
+        GameObject *parent = object->parent();
+        if (parent && parent->parent())
+        {
+            const Math::Vec2 parentPosition = parent->globalPosition();
+            object->setPosition(
+                Math::Vec2(mCamera.position.x - parentPosition.x, mCamera.position.y - parentPosition.y));
+        }
+        else
+        {
+            object->setPosition(mCamera.position);
+        }
+    }
+
     void CameraComponent::onUpdate(float deltaTime)
     {
+        syncFromOwner();
         if (!mFollowTargetName.empty() && owner() && owner()->scene())
         {
             Scene *scene = owner()->scene();
@@ -32,6 +64,7 @@ namespace k2d
                 mCamera.setTarget(mFollowTarget->globalPosition());
         }
         mCamera.update(deltaTime, mViewportWidth, mViewportHeight);
+        writeBackToOwner();
     }
 
     void CameraComponent::setViewport(float width, float height)

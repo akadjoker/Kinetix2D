@@ -1076,6 +1076,19 @@ void ReadCamera(Component& component, const ct::Json& data, Assets*)
     Camera2D& camera = cameraComponent.camera();
     camera.position = ReadVec2(data["position"]);
     camera.rotationDegrees = (float)data["rotationDegrees"].as_double(0.0);
+    // Pre-migration scenes authored the camera's view through this field instead
+    // of the node's own transform. If the node is still at the origin, adopt the
+    // saved view as its transform so nothing jumps to (0,0) under the new model;
+    // a node already placed on purpose is left alone.
+    if (GameObject* owner = cameraComponent.owner())
+    {
+        const bool ownerAtOrigin = owner->position().x == 0.0f && owner->position().y == 0.0f;
+        const bool cameraElsewhere = camera.position.x != 0.0f || camera.position.y != 0.0f;
+        if (ownerAtOrigin && cameraElsewhere)
+            owner->setPosition(camera.position);
+        if (ownerAtOrigin && camera.rotationDegrees != 0.0f && owner->rotationDegrees() == 0.0f)
+            owner->setRotationDegrees(camera.rotationDegrees);
+    }
     camera.zoom = ReadVec2(data["zoom"], Math::Vec2(1.0f, 1.0f));
     camera.offset = ReadVec2(data["offset"]);
     camera.limitEnabled = data["limitEnabled"].as_bool(false);

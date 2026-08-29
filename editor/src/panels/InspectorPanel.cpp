@@ -1149,13 +1149,11 @@ void drawCameraProperties(EditorApplication& app, CameraComponent& cameraCompone
 
     Camera2D& camera = cameraComponent.camera();
 
-    Math::Vec2 position = camera.position;
-    if (dragVec2(app, "Position", position, 0.5f, "Move Camera"))
-        camera.position = position;
-
-    float rotation = camera.rotationDegrees;
-    if (dragFloatProperty(app, "Rotation", rotation, 0.5f, "Rotate Camera"))
-        camera.rotationDegrees = rotation;
+    ImGui::TextDisabled("Position (%.1f, %.1f)  Rotation %.1f", camera.position.x, camera.position.y,
+                        camera.rotationDegrees);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Move/rotate this object like any other node - the camera follows its transform.\n"
+                          "While following a target, this instead shows the live smoothed view.");
 
     Math::Vec2 zoom = camera.zoom;
     if (dragVec2(app, "Zoom", zoom, 0.01f, "Zoom Camera"))

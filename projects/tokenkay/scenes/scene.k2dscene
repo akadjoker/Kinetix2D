@@ -264,7 +264,7 @@
         "children": []
       },
       {
-        "name": "20_Lancha_neumatica",
+        "name": "boat",
         "tag": "",
         "active": true,
         "visible": true,
@@ -332,8 +332,8 @@
           {
             "type": "Camera",
             "data": {
-              "viewportWidth": 0.0,
-              "viewportHeight": 0.0,
+              "viewportWidth": 640.0,
+              "viewportHeight": 480.0,
               "renderPriority": 0,
               "position": [
                 0.0,
@@ -352,10 +352,10 @@
               "limits": [
                 0.0,
                 0.0,
-                64.5,
-                0.0
+                1282.5,
+                960.5
               ],
-              "smoothingEnabled": false,
+              "smoothingEnabled": true,
               "smoothingSpeed": 5.0,
               "deadZoneEnabled": false,
               "deadZone": [
