@@ -154,6 +154,53 @@ int TraceMaskContours(const unsigned char *pixels, int width, int height, int bp
             solidBuffer[(std::size_t)y * (std::size_t)width + (std::size_t)x] =
                 SampleSolid(pixels, width, bpp, x, y, threshold) ? 1 : 0;
 
+    const float insetPixels = options.scale > 0.0f ? options.agentRadius / options.scale : options.agentRadius;
+    if (insetPixels > 0.0f)
+    {
+        // Chamfer 3-4 distance from every walkable cell to the nearest solid
+        // one, in thirds of a pixel, then close everything the body cannot fit
+        // in. Two sweeps, no allocation per cell.
+        const int far = 0x3FFFFFFF;
+        ct::Vector<int> distance((std::size_t)width * (std::size_t)height, 0);
+        for (std::size_t i = 0; i < distance.size(); ++i)
+            distance[i] = solidBuffer[i] ? 0 : far;
+
+        auto at = [&](int x, int y) -> int
+        {
+            if (x < 0 || y < 0 || x >= width || y >= height)
+                return options.outsideIsSolid ? 0 : far;
+            return distance[(std::size_t)y * (std::size_t)width + (std::size_t)x];
+        };
+        auto relax = [&](int x, int y, int candidate)
+        {
+            int& cell = distance[(std::size_t)y * (std::size_t)width + (std::size_t)x];
+            if (candidate < cell)
+                cell = candidate;
+        };
+
+        for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x)
+            {
+                relax(x, y, at(x - 1, y - 1) + 4);
+                relax(x, y, at(x, y - 1) + 3);
+                relax(x, y, at(x + 1, y - 1) + 4);
+                relax(x, y, at(x - 1, y) + 3);
+            }
+        for (int y = height - 1; y >= 0; --y)
+            for (int x = width - 1; x >= 0; --x)
+            {
+                relax(x, y, at(x + 1, y + 1) + 4);
+                relax(x, y, at(x, y + 1) + 3);
+                relax(x, y, at(x - 1, y + 1) + 4);
+                relax(x, y, at(x + 1, y) + 3);
+            }
+
+        const int limit = (int)(insetPixels * 3.0f + 0.5f);
+        for (std::size_t i = 0; i < distance.size(); ++i)
+            if (distance[i] < limit)
+                solidBuffer[i] = 1;
+    }
+
     auto solid = [&](int x, int y) -> bool
     {
         if (x < 0 || y < 0 || x >= width || y >= height)

@@ -1453,6 +1453,63 @@ static bool testChainBlocksBothSides()
     return blockedInside && blockedOutside && freeAway && sweptStopped;
 }
 
+static bool testMaskAgentRadiusShrinksTheWalkableArea()
+{
+    const int width = 64;
+    const int height = 64;
+    ct::Vector<unsigned char> pixels((std::size_t)(width * height * 4), (unsigned char)255);
+    auto setAlpha = [&](int x, int y, unsigned char a) { pixels[(std::size_t)(y * width + x) * 4 + 3] = a; };
+
+    // A 40x40 room, and a 4px corridor leading off it that nothing wider than
+    // two units can walk down.
+    for (int y = 12; y < 52; ++y)
+        for (int x = 12; x < 52; ++x)
+            setAlpha(x, y, 0);
+    for (int y = 30; y < 34; ++y)
+        for (int x = 52; x < 62; ++x)
+            setAlpha(x, y, 0);
+
+    k2d::MaskContourOptions options;
+    options.threshold = 127;
+    options.simplifyTolerance = 0.0f;
+    options.scale = 1.0f;
+    options.minArea = 1.0f;
+
+    const auto extent = [&](const ct::Vector<ct::Vector<Math::Vec2>>& loops, float& outWidth)
+    {
+        float minX = 1e9f, maxX = -1e9f;
+        for (std::size_t i = 0; i < loops.size(); ++i)
+            for (std::size_t j = 0; j < loops[i].size(); ++j)
+            {
+                if (loops[i][j].x < minX)
+                    minX = loops[i][j].x;
+                if (loops[i][j].x > maxX)
+                    maxX = loops[i][j].x;
+            }
+        outWidth = maxX - minX;
+    };
+
+    ct::Vector<ct::Vector<Math::Vec2>> wide;
+    k2d::TraceMaskContours(pixels.data(), width, height, 4, options, wide);
+    float wideSpan = 0.0f;
+    extent(wide, wideSpan);
+
+    options.agentRadius = 3.0f;
+    ct::Vector<ct::Vector<Math::Vec2>> narrow;
+    k2d::TraceMaskContours(pixels.data(), width, height, 4, options, narrow);
+    float narrowSpan = 0.0f;
+    extent(narrow, narrowSpan);
+
+    // The corridor is gone, so the traced area no longer reaches out to it,
+    // and the room itself has pulled in from every wall.
+    const bool corridorClosed = narrowSpan < wideSpan - 8.0f;
+    const bool stillWalkable = !narrow.empty();
+    const bool ok = corridorClosed && stillWalkable;
+    std::printf("  mask agent radius: span %.1f -> %.1f, loops %d -> %d %s\n", wideSpan, narrowSpan,
+                (int)wide.size(), (int)narrow.size(), ok ? "pass" : "fail");
+    return ok;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -1491,6 +1548,7 @@ int main()
     const bool jointDeadBody = testJointSurvivesDestroyedBody();
     const bool colliderZero = testColliderResizedToZero();
     const bool maskEdges = testMaskContourEdgeCases();
+    const bool maskRadius = testMaskAgentRadiusShrinksTheWalkableArea();
     const bool steeringSerialized = testSteeringSerializerRoundTrip();
 
     std::printf("physics2d: falls=%s parent_transform=%s character_open=%s chain_two_sided=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
@@ -1498,7 +1556,7 @@ int main()
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
                 "joint_authoring_flow=%s mask_contour=%s no_collider=%s chain_min_points=%s joint_self=%s "
-                "joint_dead_body=%s collider_zero=%s mask_edges=%s steering_serializer=%s\n",
+                "joint_dead_body=%s collider_zero=%s mask_edges=%s mask_agent_radius=%s steering_serializer=%s\n",
                 falls ? "pass" : "fail", parentTransform ? "pass" : "fail", characterOpen ? "pass" : "fail", chainTwoSided ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -1510,13 +1568,13 @@ int main()
                 revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail",
                 jointAuthoringFlow ? "pass" : "fail", maskContour ? "pass" : "fail",
                 noCollider ? "pass" : "fail", chainMinPoints ? "pass" : "fail", jointSelf ? "pass" : "fail",
-                jointDeadBody ? "pass" : "fail", colliderZero ? "pass" : "fail", maskEdges ? "pass" : "fail",
+                jointDeadBody ? "pass" : "fail", colliderZero ? "pass" : "fail", maskEdges ? "pass" : "fail", maskRadius ? "pass" : "fail",
                 steeringSerialized ? "pass" : "fail");
     return falls && parentTransform && characterOpen && chainTwoSided && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
                    jointSerialized && jointAuthoringFlow && maskContour && noCollider && chainMinPoints &&
-                   jointSelf && jointDeadBody && colliderZero && maskEdges && steeringSerialized
+                   jointSelf && jointDeadBody && colliderZero && maskEdges && maskRadius && steeringSerialized
                ? 0
                : 1;
 }

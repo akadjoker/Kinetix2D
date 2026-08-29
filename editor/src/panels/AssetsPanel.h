@@ -109,7 +109,12 @@ private:
     float mMaskSimplifyTolerance = 1.0f;
     float mMaskMinArea = 16.0f;
     bool mMaskOutsideSolid = true;
+    float mMaskAgentRadius = 0.0f;
     ct::Vector<ct::Vector<Math::Vec2>> mMaskLoops;
+    // Traced a second time with the walkable area eroded by the agent radius.
+    // Colliders want the real wall; a navigation mesh wants the line a body
+    // can actually stand on, which is a whole radius further in.
+    ct::Vector<ct::Vector<Math::Vec2>> mMaskNavLoops;
     int mMaskPointCount = 0;
     int mMaskGenerateMode = 0;
 };

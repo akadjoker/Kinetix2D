@@ -573,6 +573,7 @@ void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
 
     mMaskImagePath = entry.path;
     mMaskThreshold = 127;
+    mMaskAgentRadius = 0.0f;
     mMaskScale = 1.0f;
     mMaskSimplifyTolerance = 1.0f;
     mMaskMinArea = 16.0f;
@@ -585,6 +586,7 @@ void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
 void AssetsPanel::recomputeMaskContours()
 {
     mMaskLoops.clear();
+    mMaskNavLoops.clear();
     mMaskPointCount = 0;
     if (!mMaskPixmap)
         return;
@@ -597,6 +599,17 @@ void AssetsPanel::recomputeMaskContours()
     options.outsideIsSolid = mMaskOutsideSolid;
 
     TraceMaskContours(mMaskPixmap->Pixels(), mMaskPixmap->Width(), mMaskPixmap->Height(), 4, options, mMaskLoops);
+
+    if (mMaskAgentRadius > 0.0f)
+    {
+        options.agentRadius = mMaskAgentRadius;
+        TraceMaskContours(mMaskPixmap->Pixels(), mMaskPixmap->Width(), mMaskPixmap->Height(), 4, options,
+                          mMaskNavLoops);
+    }
+    else
+    {
+        mMaskNavLoops = mMaskLoops;
+    }
     for (size_t i = 0; i < mMaskLoops.size(); ++i)
         mMaskPointCount += (int)mMaskLoops[i].size();
 }
@@ -659,13 +672,18 @@ void AssetsPanel::createCollisionShapeFromMask()
         }
     }
 
-    if (mMaskGenerateMode == 1 || mMaskGenerateMode == 2)
+    if ((mMaskGenerateMode == 1 || mMaskGenerateMode == 2) && mMaskNavLoops.empty())
+    {
+        app().toasts().info("Nothing walkable is left at this agent radius");
+        app().log("Nothing walkable is left at this agent radius");
+    }
+    else if (mMaskGenerateMode == 1 || mMaskGenerateMode == 2)
     {
         size_t outlineIndex = 0;
         double outlineArea = 0.0;
-        for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        for (size_t i = 0; i < mMaskNavLoops.size(); ++i)
         {
-            const double area = std::fabs(loopSignedArea(mMaskLoops[i]));
+            const double area = std::fabs(loopSignedArea(mMaskNavLoops[i]));
             if (area > outlineArea)
             {
                 outlineArea = area;
@@ -676,21 +694,21 @@ void AssetsPanel::createCollisionShapeFromMask()
         // Only loops INSIDE the outline are holes. A second, disjoint island
         // would otherwise be handed to the triangulator as a hole lying outside
         // the polygon, which bakes nothing and leaves the region unusable.
-        const ct::Vector<Math::Vec2>& outlineLoop = mMaskLoops[outlineIndex];
+        const ct::Vector<Math::Vec2>& outlineLoop = mMaskNavLoops[outlineIndex];
         ct::Vector<const Math::Vec2*> holePtrs;
         ct::Vector<int> holeCounts;
         int skipped = 0;
-        for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        for (size_t i = 0; i < mMaskNavLoops.size(); ++i)
         {
             if (i == outlineIndex)
                 continue;
-            if (!loopContainsPoint(outlineLoop, mMaskLoops[i][0]))
+            if (!loopContainsPoint(outlineLoop, mMaskNavLoops[i][0]))
             {
                 ++skipped;
                 continue;
             }
-            holePtrs.push_back(mMaskLoops[i].data());
-            holeCounts.push_back((int)mMaskLoops[i].size());
+            holePtrs.push_back(mMaskNavLoops[i].data());
+            holeCounts.push_back((int)mMaskNavLoops[i].size());
         }
         if (skipped > 0)
         {
@@ -702,7 +720,7 @@ void AssetsPanel::createCollisionShapeFromMask()
         }
 
         NavigationRegion2D* region = created->addComponent<NavigationRegion2D>();
-        region->setPolygonWithHoles(mMaskLoops[outlineIndex].data(), (int)mMaskLoops[outlineIndex].size(),
+        region->setPolygonWithHoles(mMaskNavLoops[outlineIndex].data(), (int)mMaskNavLoops[outlineIndex].size(),
                                      holePtrs.data(), holeCounts.data(), (int)holePtrs.size());
     }
 
@@ -758,6 +776,15 @@ void AssetsPanel::drawGenerateCollisionShapePopup()
     ImGui::SetNextItemWidth(220.0f);
     if (ImGui::DragFloat("Min Area", &mMaskMinArea, 0.5f, 0.0f, 100000.0f, "%.1f"))
         changed = true;
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::BeginDisabled(mMaskGenerateMode == 0);
+    if (ImGui::DragFloat("Agent Radius", &mMaskAgentRadius, 0.5f, 0.0f, 512.0f, "%.1f"))
+        changed = true;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Shrinks the navigation mesh by the radius of whatever walks on it, so a path\n"
+                          "never hugs a wall closer than a body can stand and a gap too narrow to fit\n"
+                          "through closes. Colliders are always traced on the real wall.");
     if (ImGui::Checkbox("Outside Is Solid", &mMaskOutsideSolid))
         changed = true;
     if (ImGui::IsItemHovered())
