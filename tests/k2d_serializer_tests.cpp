@@ -1,6 +1,12 @@
 
 #include <k2d/k2d.h>
 
+#include <k2d/ChainCollider2D.h>
+#include <k2d/DistanceJoint2D.h>
+#include <k2d/NavigationRegion2D.h>
+#include <k2d/Physics2DSerializer.h>
+#include <k2d/RigidBody2D.h>
+
 #include <cstdio>
 #include <cmath>
 #include <cstring>
@@ -583,6 +589,92 @@ bool TestParticleComponentRoundTrip()
     return ok;
 }
 
+
+// One round trip can hide a field that is written in a form the reader
+// normalises: the damage only shows on the second save. Compare the two dumps.
+bool TestDoubleRoundTripIsStable()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject* anchor = source.createObject("anchor");
+    anchor->setPosition({0.0f, 0.0f});
+    anchor->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    k2d::GameObject* terrain = source.createObject("terrain");
+    terrain->setPosition({10.0f, -5.0f});
+    terrain->setRotationDegrees(15.0f);
+    terrain->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    k2d::ChainCollider2D* chain = terrain->addComponent<k2d::ChainCollider2D>();
+    const Math::Vec2 chainPoints[] = {Math::Vec2(-60.0f, 0.0f), Math::Vec2(-20.0f, 18.0f), Math::Vec2(20.0f, -12.0f),
+                                      Math::Vec2(60.0f, 4.0f)};
+    chain->setPoints(chainPoints, 4);
+    chain->setLoop(true);
+    chain->setFilter(0x0004, 0x00FF);
+    chain->setOffset({3.0f, -7.0f});
+
+    k2d::DistanceJoint2D* joint = terrain->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("anchor");
+    joint->setLocalAnchorA({4.0f, 5.0f});
+    joint->setLocalAnchorB({-6.0f, 2.0f});
+    joint->setLength(87.5f);
+    joint->setLengthRange(40.0f, 120.0f);
+    joint->setSpring(3.5f, 0.25f);
+    joint->setCollideConnected(true);
+
+    k2d::NavigationRegion2D* region = terrain->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 outline[] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(160.0f, 0.0f), Math::Vec2(160.0f, 160.0f),
+                                  Math::Vec2(0.0f, 160.0f)};
+    const Math::Vec2 holeA[] = {Math::Vec2(20.0f, 20.0f), Math::Vec2(60.0f, 20.0f), Math::Vec2(60.0f, 60.0f),
+                                Math::Vec2(20.0f, 60.0f)};
+    const Math::Vec2 holeB[] = {Math::Vec2(100.0f, 100.0f), Math::Vec2(140.0f, 100.0f), Math::Vec2(120.0f, 140.0f)};
+    const Math::Vec2* holes[] = {holeA, holeB};
+    const int holeCounts[] = {4, 3};
+    region->setPolygonWithHoles(outline, 4, holes, holeCounts, 2);
+
+    const ct::String firstText = k2d::Serializer::WriteObject(*terrain).dump();
+
+    ct::Json::Error err;
+    ct::Json firstJson = ct::Json::parse(firstText, &err);
+    k2d::Scene firstScene;
+    k2d::GameObject* firstCopy = k2d::Serializer::ReadObject(firstScene, firstJson);
+    bool ok = firstCopy != nullptr;
+
+    const ct::String secondText = ok ? k2d::Serializer::WriteObject(*firstCopy).dump() : ct::String();
+    ct::Json secondJson = ct::Json::parse(secondText, &err);
+    k2d::Scene secondScene;
+    k2d::GameObject* secondCopy = ok ? k2d::Serializer::ReadObject(secondScene, secondJson) : nullptr;
+    ok = ok && secondCopy != nullptr;
+
+    const ct::String thirdText = ok ? k2d::Serializer::WriteObject(*secondCopy).dump() : ct::String();
+
+    const bool stable = ok && firstText == secondText && secondText == thirdText;
+    ok = ok && stable;
+
+    k2d::ChainCollider2D* finalChain = ok ? secondCopy->getComponent<k2d::ChainCollider2D>() : nullptr;
+    ok = ok && finalChain && finalChain->points().size() == 4 && finalChain->loop() &&
+         finalChain->category() == 0x0004 && finalChain->mask() == 0x00FF &&
+         NearVec2(finalChain->offset(), {3.0f, -7.0f});
+    for (size_t i = 0; ok && i < 4; ++i)
+        ok = ok && NearVec2(finalChain->points()[i], chainPoints[i]);
+
+    k2d::DistanceJoint2D* finalJoint = ok ? secondCopy->getComponent<k2d::DistanceJoint2D>() : nullptr;
+    ok = ok && finalJoint && finalJoint->targetName() == ct::String("anchor") && finalJoint->collideConnected() &&
+         Near(finalJoint->length(), 87.5f) && Near(finalJoint->minLength(), 40.0f) &&
+         Near(finalJoint->maxLength(), 120.0f) && Near(finalJoint->springFrequency(), 3.5f) &&
+         Near(finalJoint->springDamping(), 0.25f) && NearVec2(finalJoint->localAnchorA(), {4.0f, 5.0f}) &&
+         NearVec2(finalJoint->localAnchorB(), {-6.0f, 2.0f});
+
+    k2d::NavigationRegion2D* finalRegion = ok ? secondCopy->getComponent<k2d::NavigationRegion2D>() : nullptr;
+    ok = ok && finalRegion && finalRegion->polygon().size() == 4 && finalRegion->holes().size() == 2 &&
+         finalRegion->holes()[0].size() == 4 && finalRegion->holes()[1].size() == 3 && finalRegion->valid();
+
+    std::printf("Serializer double round trip: stable=%s chain=%s joint=%s region=%s bytes=%d\n",
+                stable ? "pass" : "fail", finalChain ? "yes" : "no", finalJoint ? "yes" : "no",
+                finalRegion ? "yes" : "no", static_cast<int>(firstText.size()));
+    return ok;
+}
 } // namespace
 
 int main()
@@ -601,6 +693,7 @@ int main()
     bool occluder = TestOccluderRoundTrip();
     bool camera = TestCameraRoundTrip();
     bool particle = TestParticleComponentRoundTrip();
+    bool doubleRoundTrip = TestDoubleRoundTripIsStable();
 
     std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s unregistered_skipped=%s\n",
                 roundTrip ? "pass" : "fail", defaults ? "pass" : "fail", animationFramePath ? "pass" : "fail",
@@ -611,9 +704,11 @@ int main()
                 ninePatch ? "pass" : "fail", spriteBatch ? "pass" : "fail", animation ? "pass" : "fail",
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
+    std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
 
     return (roundTrip && defaults && animationFramePath && unregistered && tileMap && polygonLine && primitiveShapes &&
-            ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle)
+            ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
+            doubleRoundTrip)
                ? 0
                : 1;
 }

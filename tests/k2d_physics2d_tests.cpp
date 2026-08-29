@@ -1,3 +1,4 @@
+#include <k2d/Arrive2D.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CharacterBody2D.h>
@@ -5,10 +6,12 @@
 #include <k2d/Collider2D.h>
 #include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
+#include <k2d/Flee2D.h>
 #include <k2d/GearJoint2D.h>
 #include <k2d/MaskContour2D.h>
 #include <k2d/MotorJoint2D.h>
 #include <k2d/MouseJoint2D.h>
+#include <k2d/ObstacleAvoidance2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RevoluteJoint2D.h>
 #include <k2d/WheelJoint2D.h>
@@ -18,7 +21,11 @@
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
 #include <k2d/TileMapComponent.h>
+#include <k2d/Seek2D.h>
+#include <k2d/Separation2D.h>
+#include <k2d/Steering2D.h>
 #include <k2d/TileMapCollider2D.h>
+#include <k2d/Wander2D.h>
 
 #include <cmath>
 #include <cstdio>
@@ -1069,6 +1076,306 @@ static bool testBodyUnderTransformedParent()
     return movedInWorld && bodyAgrees;
 }
 
+
+static bool testBodyWithoutColliderGetsDefaultBox()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
+
+    k2d::GameObject* bare = scene.createObject("bare");
+    bare->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::RigidBody2D* body = bare->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Dynamic);
+
+    scene.setSimulationEnabled(true);
+
+    bool ok = body->ShapeCount() == 1;
+    for (int i = 0; i < 180; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const float expectedRest = 300.0f - 20.0f - 16.0f;
+    ok = ok && nearEqual(bare->position().y, expectedRest, 2.0f);
+
+    std::printf("  no_collider: shapes=%d rest_y=%.1f (expected %.1f)\n", body->ShapeCount(), bare->position().y,
+                expectedRest);
+    return ok;
+}
+
+static bool testChainColliderMinimumPoints()
+{
+    k2d::Scene scene;
+    k2d::GameObject* open = scene.createObject("open_chain");
+    open->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    const Math::Vec2 twoPoints[] = {Math::Vec2(-40.0f, 0.0f), Math::Vec2(40.0f, 0.0f)};
+    open->addComponent<k2d::ChainCollider2D>()->setPoints(twoPoints, 2);
+
+    k2d::GameObject* looped = scene.createObject("looped_chain");
+    k2d::ChainCollider2D* loopCollider = looped->addComponent<k2d::ChainCollider2D>();
+    loopCollider->setPoints(twoPoints, 2);
+    loopCollider->setLoop(true);
+    looped->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    scene.setSimulationEnabled(true);
+
+    k2d::RigidBody2D* openBody = open->getComponent<k2d::RigidBody2D>();
+    k2d::RigidBody2D* loopBody = looped->getComponent<k2d::RigidBody2D>();
+
+    // Two points make exactly one segment; closing that loop needs three, so
+    // the body falls back to the default box instead of getting no shape.
+    bool ok = openBody->ShapeCount() == 1;
+    ok = ok && loopBody->ShapeCount() == 1;
+    ok = ok && loopCollider->shapeIndex() < 0;
+
+    for (int i = 0; i < 30; ++i)
+        scene.update(1.0f / 60.0f);
+    ok = ok && scene.bodyCount() == 2;
+
+    std::printf("  chain_min_points: open_shapes=%d loop_shapes=%d loop_attached=%s\n", openBody->ShapeCount(),
+                loopBody->ShapeCount(), loopCollider->attached() ? "yes" : "no");
+    return ok;
+}
+
+static bool testJointToItsOwnBodyStaysUnconnected()
+{
+    k2d::Scene scene;
+    k2d::GameObject* box =
+        makeBox(scene, "self", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
+    k2d::DistanceJoint2D* joint = box->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("self");
+
+    scene.setSimulationEnabled(true);
+    for (int i = 0; i < 60; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const bool finite = std::isfinite(box->position().x) && std::isfinite(box->position().y);
+    const bool ok = !joint->isConnected() && finite;
+
+    std::printf("  joint_self_target: connected=%s position=(%.1f, %.1f)\n", joint->isConnected() ? "yes" : "no",
+                box->position().x, box->position().y);
+    return ok;
+}
+
+static bool testJointSurvivesDestroyedBody()
+{
+    k2d::Scene scene;
+    k2d::GameObject* anchor =
+        makeBox(scene, "anchor", Math::Vec2(0.0f, 0.0f), Math::Vec2(10.0f, 10.0f), k2d::BodyType::Static);
+    k2d::GameObject* hanging =
+        makeBox(scene, "hanging", Math::Vec2(0.0f, 120.0f), Math::Vec2(20.0f, 20.0f), k2d::BodyType::Dynamic);
+
+    k2d::DistanceJoint2D* joint = anchor->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("hanging");
+
+    scene.setSimulationEnabled(true);
+    for (int i = 0; i < 30; ++i)
+        scene.update(1.0f / 60.0f);
+
+    bool ok = joint->isConnected();
+
+    scene.destroy(hanging);
+    for (int i = 0; i < 30; ++i)
+        scene.update(1.0f / 60.0f);
+
+    ok = ok && !joint->isConnected() && scene.bodyCount() == 1;
+    ok = ok && std::isfinite(anchor->position().x) && std::isfinite(anchor->position().y);
+
+    std::printf("  joint_dead_body: connected_after_destroy=%s bodies=%d\n", joint->isConnected() ? "yes" : "no",
+                (int)scene.bodyCount());
+    return ok;
+}
+
+static bool testColliderResizedToZero()
+{
+    k2d::Scene scene;
+    makeBox(scene, "floor", Math::Vec2(0.0f, 300.0f), Math::Vec2(600.0f, 40.0f), k2d::BodyType::Static);
+    k2d::GameObject* box =
+        makeBox(scene, "shrinking", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), k2d::BodyType::Dynamic);
+
+    scene.setSimulationEnabled(true);
+    for (int i = 0; i < 120; ++i)
+        scene.update(1.0f / 60.0f);
+
+    box->getComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(0.0f, 0.0f));
+    for (int i = 0; i < 120; ++i)
+        scene.update(1.0f / 60.0f);
+
+    k2d::RigidBody2D* body = box->getComponent<k2d::RigidBody2D>();
+    bool ok = body->ShapeCount() == 1;
+    ok = ok && std::isfinite(box->position().x) && std::isfinite(box->position().y);
+    // A degenerate box is clamped to a minimum extent, so it still lands on the
+    // floor instead of tunnelling through it or producing a NaN mass.
+    ok = ok && nearEqual(box->position().y, 280.0f, 2.0f);
+    ok = ok && std::isfinite(body->Mass());
+
+    std::printf("  collider_zero_size: shapes=%d rest_y=%.2f mass=%.3f\n", body->ShapeCount(), box->position().y,
+                body->Mass());
+    return ok;
+}
+
+static bool testMaskContourEdgeCases()
+{
+    const int width = 32;
+    const int height = 32;
+
+    ct::Vector<unsigned char> opaque((std::size_t)(width * height * 4), (unsigned char)255);
+    ct::Vector<unsigned char> transparent((std::size_t)(width * height * 4), (unsigned char)255);
+    for (int i = 0; i < width * height; ++i)
+        transparent[(std::size_t)i * 4 + 3] = 0;
+
+    ct::Vector<unsigned char> sliver((std::size_t)(1 * height * 4), (unsigned char)255);
+    for (int y = 0; y < height; ++y)
+        sliver[(std::size_t)y * 4 + 3] = (y >= 8 && y < 24) ? 0 : 255;
+
+    ct::Vector<unsigned char> margin((std::size_t)(width * height * 4), (unsigned char)255);
+    for (int y = 0; y < height; ++y)
+        for (int x = 0; x < width; ++x)
+        {
+            const bool inside = x >= 8 && x < 24 && y >= 8 && y < 24;
+            margin[(std::size_t)(y * width + x) * 4 + 3] = inside ? 255 : 0;
+        }
+
+    k2d::MaskContourOptions options;
+    options.threshold = 127;
+    options.simplifyTolerance = 1.0f;
+    options.scale = 1.0f;
+    options.minArea = 4.0f;
+
+    ct::Vector<ct::Vector<Math::Vec2>> loops;
+
+    // A uniform mask has one boundary or none depending on which side counts as
+    // land: the traced loop is always the image border, never a crash.
+    options.outsideIsSolid = true;
+    const int opaqueSolid = k2d::TraceMaskContours(opaque.data(), width, height, 4, options, loops);
+    const int transparentSolid = k2d::TraceMaskContours(transparent.data(), width, height, 4, options, loops);
+    const int transparentSolidLoops = (int)loops.size();
+    const int sliverSolid = k2d::TraceMaskContours(sliver.data(), 1, height, 4, options, loops);
+
+    options.outsideIsSolid = false;
+    const int opaqueOpen = k2d::TraceMaskContours(opaque.data(), width, height, 4, options, loops);
+    const int transparentOpen = k2d::TraceMaskContours(transparent.data(), width, height, 4, options, loops);
+    const int transparentOpenLoops = (int)loops.size();
+    const int sliverOpen = k2d::TraceMaskContours(sliver.data(), 1, height, 4, options, loops);
+
+    options.outsideIsSolid = true;
+    ct::Vector<ct::Vector<Math::Vec2>> solidOutside;
+    const int marginSolid = k2d::TraceMaskContours(margin.data(), width, height, 4, options, solidOutside);
+
+    options.outsideIsSolid = false;
+    ct::Vector<ct::Vector<Math::Vec2>> openOutside;
+    const int marginOpen = k2d::TraceMaskContours(margin.data(), width, height, 4, options, openOutside);
+
+    const auto spansWholeImage = [&](const ct::Vector<ct::Vector<Math::Vec2>>& traced)
+    {
+        for (std::size_t i = 0; i < traced.size(); ++i)
+        {
+            float minX = traced[i][0].x;
+            float maxX = traced[i][0].x;
+            for (std::size_t j = 1; j < traced[i].size(); ++j)
+            {
+                if (traced[i][j].x < minX)
+                    minX = traced[i][j].x;
+                if (traced[i][j].x > maxX)
+                    maxX = traced[i][j].x;
+            }
+            if (maxX - minX >= (float)width - 0.5f)
+                return true;
+        }
+        return false;
+    };
+
+    const bool solidHasBorder = spansWholeImage(solidOutside);
+    const bool openHasBorder = spansWholeImage(openOutside);
+
+    bool ok = opaqueSolid == 0 && transparentSolid == 1 && transparentSolidLoops == 1;
+    ok = ok && opaqueOpen == 1 && transparentOpen == 0 && transparentOpenLoops == 0;
+    // One pixel across encloses no area, whichever side is land.
+    ok = ok && sliverSolid == 0 && sliverOpen == 0;
+    ok = ok && marginSolid == 2 && marginOpen == 1;
+    ok = ok && solidHasBorder && !openHasBorder;
+
+    std::printf("  mask_edges: opaque=%d/%d transparent=%d/%d sliver=%d/%d (solid/open) "
+                "margin_solid=%d(border=%s) margin_open=%d(border=%s)\n",
+                opaqueSolid, opaqueOpen, transparentSolid, transparentOpen, sliverSolid, sliverOpen, marginSolid,
+                solidHasBorder ? "yes" : "no", marginOpen, openHasBorder ? "yes" : "no");
+    return ok;
+}
+
+
+static bool testSteeringSerializerRoundTrip()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject* walker = source.createObject("walker");
+
+    k2d::Seek2D* seek = walker->addComponent<k2d::Seek2D>();
+    seek->setTargetName("prize");
+    seek->setWeight(1.5f);
+
+    k2d::Flee2D* flee = walker->addComponent<k2d::Flee2D>();
+    flee->setTargetPosition(Math::Vec2(12.0f, -34.0f));
+    flee->setRadius(220.0f);
+    flee->setWeight(0.75f);
+
+    k2d::Arrive2D* arrive = walker->addComponent<k2d::Arrive2D>();
+    arrive->setTargetPosition(Math::Vec2(400.0f, 250.0f));
+    arrive->setSlowRadius(180.0f);
+    arrive->setStopRadius(12.0f);
+
+    k2d::Wander2D* wander = walker->addComponent<k2d::Wander2D>();
+    wander->setRadius(30.0f);
+    wander->setDistance(70.0f);
+    wander->setJitter(4.5f);
+
+    k2d::Separation2D* separation = walker->addComponent<k2d::Separation2D>();
+    separation->setRadius(64.0f);
+    separation->setMask(0x00F0);
+
+    k2d::ObstacleAvoidance2D* avoidance = walker->addComponent<k2d::ObstacleAvoidance2D>();
+    avoidance->setLookAhead(0.8f);
+    avoidance->setMask(0x0003);
+
+    const ct::String firstText = k2d::Serializer::WriteObject(*walker).dump();
+
+    ct::Json::Error err;
+    ct::Json parsed = ct::Json::parse(firstText, &err);
+    k2d::Scene target;
+    k2d::GameObject* copy = k2d::Serializer::ReadObject(target, parsed);
+    bool ok = copy != nullptr;
+
+    const ct::String secondText = ok ? k2d::Serializer::WriteObject(*copy).dump() : ct::String();
+    ok = ok && firstText == secondText;
+    ok = ok && target.steeringCount() == 6;
+
+    k2d::Seek2D* copySeek = ok ? copy->getComponent<k2d::Seek2D>() : nullptr;
+    ok = ok && copySeek && copySeek->targetName() == ct::String("prize") && nearEqual(copySeek->weight(), 1.5f, 0.001f);
+
+    k2d::Flee2D* copyFlee = ok ? copy->getComponent<k2d::Flee2D>() : nullptr;
+    ok = ok && copyFlee && nearEqual(copyFlee->radius(), 220.0f, 0.001f) &&
+         nearEqual(copyFlee->weight(), 0.75f, 0.001f) && nearEqual(copyFlee->targetPosition().x, 12.0f, 0.001f) &&
+         nearEqual(copyFlee->targetPosition().y, -34.0f, 0.001f);
+
+    k2d::Arrive2D* copyArrive = ok ? copy->getComponent<k2d::Arrive2D>() : nullptr;
+    ok = ok && copyArrive && nearEqual(copyArrive->slowRadius(), 180.0f, 0.001f) &&
+         nearEqual(copyArrive->stopRadius(), 12.0f, 0.001f);
+
+    k2d::Wander2D* copyWander = ok ? copy->getComponent<k2d::Wander2D>() : nullptr;
+    ok = ok && copyWander && nearEqual(copyWander->radius(), 30.0f, 0.001f) &&
+         nearEqual(copyWander->distance(), 70.0f, 0.001f) && nearEqual(copyWander->jitter(), 4.5f, 0.001f);
+
+    k2d::Separation2D* copySeparation = ok ? copy->getComponent<k2d::Separation2D>() : nullptr;
+    ok = ok && copySeparation && nearEqual(copySeparation->radius(), 64.0f, 0.001f) &&
+         copySeparation->mask() == 0x00F0;
+
+    k2d::ObstacleAvoidance2D* copyAvoidance = ok ? copy->getComponent<k2d::ObstacleAvoidance2D>() : nullptr;
+    ok = ok && copyAvoidance && nearEqual(copyAvoidance->lookAhead(), 0.8f, 0.001f) &&
+         copyAvoidance->mask() == 0x0003;
+
+    std::printf("  steering_serializer: components=%d stable=%s\n", (int)target.steeringCount(),
+                firstText == secondText ? "yes" : "no");
+    return ok;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
@@ -1099,12 +1406,20 @@ int main()
     const bool jointSerialized = testJointSerializerRoundTrip();
     const bool jointAuthoringFlow = testSceneJointAuthoringFlow();
     const bool maskContour = testMaskContourTrace();
+    const bool noCollider = testBodyWithoutColliderGetsDefaultBox();
+    const bool chainMinPoints = testChainColliderMinimumPoints();
+    const bool jointSelf = testJointToItsOwnBodyStaysUnconnected();
+    const bool jointDeadBody = testJointSurvivesDestroyedBody();
+    const bool colliderZero = testColliderResizedToZero();
+    const bool maskEdges = testMaskContourEdgeCases();
+    const bool steeringSerialized = testSteeringSerializerRoundTrip();
 
     std::printf("physics2d: falls=%s parent_transform=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
-                "joint_authoring_flow=%s mask_contour=%s\n",
+                "joint_authoring_flow=%s mask_contour=%s no_collider=%s chain_min_points=%s joint_self=%s "
+                "joint_dead_body=%s collider_zero=%s mask_edges=%s steering_serializer=%s\n",
                 falls ? "pass" : "fail", parentTransform ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -1114,11 +1429,15 @@ int main()
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail", chain ? "pass" : "fail",
                 compound ? "pass" : "fail", serialized ? "pass" : "fail", distanceJoint ? "pass" : "fail",
                 revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail",
-                jointAuthoringFlow ? "pass" : "fail", maskContour ? "pass" : "fail");
+                jointAuthoringFlow ? "pass" : "fail", maskContour ? "pass" : "fail",
+                noCollider ? "pass" : "fail", chainMinPoints ? "pass" : "fail", jointSelf ? "pass" : "fail",
+                jointDeadBody ? "pass" : "fail", colliderZero ? "pass" : "fail", maskEdges ? "pass" : "fail",
+                steeringSerialized ? "pass" : "fail");
     return falls && parentTransform && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
-                   jointSerialized && jointAuthoringFlow && maskContour
+                   jointSerialized && jointAuthoringFlow && maskContour && noCollider && chainMinPoints &&
+                   jointSelf && jointDeadBody && colliderZero && maskEdges && steeringSerialized
                ? 0
                : 1;
 }

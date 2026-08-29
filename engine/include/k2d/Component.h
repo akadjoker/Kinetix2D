@@ -46,6 +46,7 @@ enum class ComponentType : uint8_t
     Skeleton,
     Bone,
     ParallaxLayer,
+    Steering,
     Count
 };
 

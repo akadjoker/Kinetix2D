@@ -19,6 +19,7 @@ namespace k2d
     class UiControl;
     class RigidBody2D;
     class Joint2D;
+    class Steering2D;
     class TileMapComponent;
 
     enum DebugDrawFlags : unsigned
@@ -91,12 +92,24 @@ namespace k2d
 
         GameObject *raycast(const Math::Vec2 &origin, const Math::Vec2 &direction, float distance,
                             Math::Vec2 *outPoint = nullptr, Math::Vec2 *outNormal = nullptr,
-                            const GameObject *ignore = nullptr);
+                            const GameObject *ignore = nullptr, uint16_t categoryMask = 0xFFFF);
         GameObject *objectAtPoint(const Math::Vec2 &point);
         void overlapCircle(const Math::Vec2 &center, float radius, ct::Vector<GameObject *> &out);
         bool testMotion(RigidBody2D &body, const Math::Vec2 &motion, MotionResult &out,
                         float safeMargin = kLinearSlop) const;
         bool testPosition(RigidBody2D &body, const Math::Vec2 &position, MotionResult &out) const;
+
+        // Sums the weighted forces of the object's own steering components.
+        Math::Vec2 steeringForce(const GameObject &object, const Math::Vec2 &velocity, float deltaTime) const;
+        std::size_t steeringCount() const { return mSteerings.size(); }
+        Steering2D *steeringAt(std::size_t index) const;
+
+        // Steering neighbours come from the physics broadphase, so only objects
+        // with a body and a collider can be seen. The result lives in a
+        // scene-owned scratch list and is valid until the next call.
+        std::size_t queryNeighbours(const GameObject &self, const Math::Vec2 &center, float radius,
+                                    uint16_t mask) const;
+        GameObject *neighbourAt(std::size_t index) const;
 
         std::size_t bodyCount() const { return mBodies.size(); }
         std::size_t contactCount() const { return mContacts.size(); }
@@ -124,6 +137,10 @@ namespace k2d
         void flushDisposed();
         GameObject *findRecursive(const GameObject *from, const char *name) const;
         void collectDisposed(GameObject *object, ct::Vector<GameObject *> &out);
+
+        // The tree is only stale for queries made outside the step, so one sync
+        // per frame serves every agent instead of one sync per agent.
+        void syncBroadphaseOnce() const;
 
         void attachBody(RigidBody2D &rigidBody);
         void detachBody(RigidBody2D &rigidBody);
@@ -183,6 +200,7 @@ namespace k2d
         ct::Vector<Component *> mRenderComponents;
         ct::Vector<CameraComponent *> mCameras;
         ct::Vector<UiControl *> mUiControls;
+        ct::Vector<Steering2D *> mSteerings;
         const Camera2D *mRenderCamera;
         float mRenderViewportWidth;
         float mRenderViewportHeight;
@@ -209,6 +227,10 @@ namespace k2d
         ct::HashMap<RigidBody2D *, unsigned char> mTouchingActive;
         mutable ct::Vector<RayCastHit> mRayScratch;
         mutable ct::Vector<RigidBody2D *> mBodyScratch;
+        mutable ct::Vector<RigidBody2D *> mNeighbourBodies;
+        mutable ct::Vector<GameObject *> mNeighbours;
+        uint32_t mFrameStamp;
+        mutable uint32_t mBroadphaseStamp;
         ct::Vector<BulletSweep> mBulletSweeps;
         int mVelocityIterations;
 

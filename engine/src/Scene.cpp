@@ -6,6 +6,7 @@
 #include "k2d/Joint2D.h"
 #include "k2d/Profiler.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Steering2D.h"
 #include "k2d/UiControls.h"
 
 namespace k2d
@@ -14,7 +15,8 @@ namespace k2d
     Scene::Scene()
         : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
           mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
-          mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1),
+          mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
+          mBroadphaseStamp(0),
           mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
           mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
           mSimulationEnabled(false), mHasDirtyBodies(false)
@@ -152,6 +154,7 @@ namespace k2d
     void Scene::update(float deltaTime)
     {
         ProfileScope profileScope("scene.update");
+        ++mFrameStamp;
         // Capture the counts: components added from an update begin on the next
         // frame. Removed components become null entries until compaction, so a
         // callback can never invalidate the list being iterated.
@@ -215,6 +218,9 @@ namespace k2d
         mRenderComponents.clear();
         mCameras.clear();
         mUiControls.clear();
+        mSteerings.clear();
+        mNeighbourBodies.clear();
+        mNeighbours.clear();
         mObjectCount = 0;
         mNextId = 1;
         mComponentListsDirty = false;
@@ -279,6 +285,8 @@ namespace k2d
         }
         if (component->mType == ComponentType::Joint)
             mJoints.push_back(static_cast<Joint2D *>(component));
+        if (component->mType == ComponentType::Steering)
+            mSteerings.push_back(static_cast<Steering2D *>(component));
     }
 
     void Scene::unregisterComponent(Component *component)
@@ -315,6 +323,13 @@ namespace k2d
             if (rigidBody && rigidBody->inWorld())
                 markBodyDirty(*rigidBody);
         }
+        if (component->mType == ComponentType::Steering)
+            for (std::size_t i = 0; i < mSteerings.size(); ++i)
+                if (mSteerings[i] == component)
+                {
+                    mSteerings[i] = nullptr;
+                    break;
+                }
         if (component->mType == ComponentType::RigidBody)
             detachBody(*static_cast<RigidBody2D *>(component));
         if (component->mType == ComponentType::Joint)
@@ -371,6 +386,11 @@ namespace k2d
             if (mUiControls[uiRead])
                 mUiControls[uiWrite++] = mUiControls[uiRead];
         mUiControls.resize(uiWrite);
+        std::size_t steeringWrite = 0;
+        for (std::size_t steeringRead = 0; steeringRead < mSteerings.size(); ++steeringRead)
+            if (mSteerings[steeringRead])
+                mSteerings[steeringWrite++] = mSteerings[steeringRead];
+        mSteerings.resize(steeringWrite);
         mComponentListsDirty = false;
     }
 

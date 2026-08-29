@@ -153,28 +153,61 @@ void NavigationAgent2D::onUpdate(float deltaTime)
 {
     updateFollowTarget(deltaTime);
     advance();
-    if (!hasPath() || !owner())
+    if (!owner())
         return;
-    const Math::Vec2 delta = nextPathPosition() - owner()->globalPosition();
-    const float length = std::sqrt(delta.x * delta.x + delta.y * delta.y);
-    if (length <= 0.0001f)
-        return;
-    if (mOrientToPath)
+
+    const bool following = hasPath();
+    Math::Vec2 delta(0.0f, 0.0f);
+    float length = 0.0f;
+    if (following)
     {
-        constexpr float kRadiansToDegrees = 57.2957795131f;
-        const float wanted = std::atan2(delta.y, delta.x) * kRadiansToDegrees + mRotationOffsetDegrees;
-        const float current = owner()->rotationDegrees();
-        float angleDelta = std::fmod(wanted - current + 180.0f, 360.0f);
-        if (angleDelta < 0.0f)
-            angleDelta += 360.0f;
-        angleDelta -= 180.0f;
-        const float alpha = mRotationLerpSpeed <= 0.0f ? 1.0f : 1.0f - std::exp(-mRotationLerpSpeed * deltaTime);
-        owner()->setRotationDegrees(current + angleDelta * alpha);
+        delta = nextPathPosition() - owner()->globalPosition();
+        length = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+        if (length <= 0.0001f)
+            return;
+        if (mOrientToPath)
+        {
+            constexpr float kRadiansToDegrees = 57.2957795131f;
+            const float wanted = std::atan2(delta.y, delta.x) * kRadiansToDegrees + mRotationOffsetDegrees;
+            const float current = owner()->rotationDegrees();
+            float angleDelta = std::fmod(wanted - current + 180.0f, 360.0f);
+            if (angleDelta < 0.0f)
+                angleDelta += 360.0f;
+            angleDelta -= 180.0f;
+            const float alpha = mRotationLerpSpeed <= 0.0f ? 1.0f : 1.0f - std::exp(-mRotationLerpSpeed * deltaTime);
+            owner()->setRotationDegrees(current + angleDelta * alpha);
+        }
     }
     if (!mAutoMove)
         return;
-    const float distance = Min(length, mMaxSpeed * deltaTime);
-    owner()->translate(delta * (distance / length));
+
+    const Math::Vec2 pathDesire = following ? delta * (mMaxSpeed / length) : Math::Vec2(0.0f, 0.0f);
+    Scene *scene = owner()->scene();
+    const Math::Vec2 steering =
+        scene ? scene->steeringForce(*owner(), pathDesire, deltaTime) : Math::Vec2(0.0f, 0.0f);
+
+    if (steering.x == 0.0f && steering.y == 0.0f)
+    {
+        if (!following)
+            return;
+        const float distance = Min(length, mMaxSpeed * deltaTime);
+        owner()->translate(delta * (distance / length));
+        advance();
+        return;
+    }
+
+    Math::Vec2 desired = pathDesire + steering * mMaxSpeed;
+    float speed = desired.Length();
+    if (speed > mMaxSpeed)
+    {
+        desired = desired * (mMaxSpeed / speed);
+        speed = mMaxSpeed;
+    }
+    if (speed > 0.0001f)
+    {
+        const float step = following ? Min(length, speed * deltaTime) : speed * deltaTime;
+        owner()->translate(desired * (step / speed));
+    }
     advance();
 }
 } // namespace k2d

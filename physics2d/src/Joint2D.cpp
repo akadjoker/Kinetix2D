@@ -46,6 +46,11 @@ void Joint2D::resolve()
         mBodyB = target ? target->getComponent<RigidBody2D>() : nullptr;
     }
 
+    // A joint anchored to its own body constrains nothing and would divide by
+    // its own inverse mass twice in the solver.
+    if (mBodyB == mBodyA)
+        mBodyB = nullptr;
+
     // Both or neither: isConnected() and the solver only test mBodyB, so a
     // joint on an object with no RigidBody2D would otherwise report connected
     // and null-deref mBodyA on the first solve.

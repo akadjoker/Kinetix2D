@@ -7,6 +7,7 @@
 #include "k2d/GameObject.h"
 #include "k2d/Joint2D.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Steering2D.h"
 
 #include <cmath>
 #include <limits>
@@ -659,7 +660,8 @@ bool Scene::testPosition(RigidBody2D& body, const Math::Vec2& position, MotionRe
 }
 
 GameObject* Scene::raycast(const Math::Vec2& origin, const Math::Vec2& direction, float distance,
-                           Math::Vec2* outPoint, Math::Vec2* outNormal, const GameObject* ignore)
+                           Math::Vec2* outPoint, Math::Vec2* outNormal, const GameObject* ignore,
+                           uint16_t categoryMask)
 {
     const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
     if (length < 0.0001f || distance <= 0.0f)
@@ -667,16 +669,10 @@ GameObject* Scene::raycast(const Math::Vec2& origin, const Math::Vec2& direction
 
     const Math::Vec2 translation(direction.x / length * distance, direction.y / length * distance);
 
-    const RigidBody2D* ignoreBody = nullptr;
-    if (ignore)
-    {
-        for (size_t i = 0; i < mBodies.size(); ++i)
-            if (mBodies[i] && mBodies[i]->owner() == ignore)
-                ignoreBody = mBodies[i];
-    }
+    const RigidBody2D* ignoreBody = ignore ? ignore->getComponent<RigidBody2D>() : nullptr;
 
     RayCastHit hit;
-    if (!rayCastClosest(origin, translation, hit, 0xFFFF, false, ignoreBody))
+    if (!rayCastClosest(origin, translation, hit, categoryMask, false, ignoreBody))
         return nullptr;
 
     if (outPoint)
@@ -707,6 +703,86 @@ void Scene::overlapCircle(const Math::Vec2& center, float radius, ct::Vector<Gam
 GameObject* Scene::objectForBody(const RigidBody2D* body)
 {
     return body ? const_cast<RigidBody2D*>(body)->owner() : nullptr;
+}
+
+void Scene::syncBroadphaseOnce() const
+{
+    if (!mUseTree || mBroadphaseStamp == mFrameStamp)
+        return;
+    const_cast<Scene*>(this)->syncProxies();
+    mBroadphaseStamp = mFrameStamp;
+}
+
+Steering2D* Scene::steeringAt(std::size_t index) const
+{
+    return index < mSteerings.size() ? mSteerings[index] : nullptr;
+}
+
+Math::Vec2 Scene::steeringForce(const GameObject& object, const Math::Vec2& velocity, float deltaTime) const
+{
+    Math::Vec2 total(0.0f, 0.0f);
+    const Math::Vec2 position = object.globalPosition();
+    for (Component* component = object.mComponents[static_cast<uint8_t>(ComponentType::Steering)]; component;
+         component = component->mNextSibling)
+    {
+        if (!component->active())
+            continue;
+        Steering2D* steering = static_cast<Steering2D*>(component);
+        const Math::Vec2 contribution = steering->force(deltaTime, position, velocity) * steering->weight();
+        if (std::isfinite(contribution.x) && std::isfinite(contribution.y))
+            total += contribution;
+    }
+    return total;
+}
+
+std::size_t Scene::queryNeighbours(const GameObject& self, const Math::Vec2& center, float radius,
+                                   uint16_t mask) const
+{
+    mNeighbours.clear();
+    if (radius <= 0.0f || mask == 0)
+        return 0;
+
+    const float radiusSquared = radius * radius;
+    const Math::Vec2 extent(radius, radius);
+    const AABB bounds{center - extent, center + extent};
+
+    mNeighbourBodies.clear();
+    if (mUseTree)
+    {
+        syncBroadphaseOnce();
+        BodyQueryVisitor visitor{&mTree, &mNeighbourBodies};
+        mTree.Query(&visitor, bounds);
+    }
+    else
+    {
+        mNeighbourBodies = mBodies;
+    }
+
+    for (size_t i = 0; i < mNeighbourBodies.size(); ++i)
+    {
+        RigidBody2D* body = mNeighbourBodies[i];
+        GameObject* object = body ? body->owner() : nullptr;
+        if (!object || object == &self)
+            continue;
+
+        const Transform xf = body->GetTransform();
+        for (int s = 0; s < body->ShapeCount(); ++s)
+        {
+            if ((body->ShapeFilter(s).category & mask) == 0)
+                continue;
+            const Math::Vec2 closest = ClosestPointOnShape(body->Shapes()[(size_t)s], xf, center);
+            if (DistanceSquared(center, closest) > radiusSquared)
+                continue;
+            mNeighbours.push_back(object);
+            break;
+        }
+    }
+    return mNeighbours.size();
+}
+
+GameObject* Scene::neighbourAt(std::size_t index) const
+{
+    return index < mNeighbours.size() ? mNeighbours[index] : nullptr;
 }
 
 void Scene::debugDrawBodies(CanvasRenderer& canvas, unsigned flags)
