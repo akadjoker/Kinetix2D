@@ -15,6 +15,7 @@
 #include <k2d/Light2D.h>
 #include <k2d/LightOccluder2D.h>
 #include <k2d/Line2D.h>
+#include <k2d/Formation2D.h>
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
@@ -140,7 +141,13 @@ const char* componentName(ComponentType type)
                                   "Skeleton2D",
                                   "Bone2D",
                                   "ParallaxLayer",
-                                  "Steering2D"};
+                                  "Steering2D",
+                                  "Formation2D"};
+    // This list is indexed by ComponentType. Adding to the enum without adding
+    // here used to leave the new component reading "Unknown" in the inspector
+    // with nothing to say so.
+    static_assert(sizeof(names) / sizeof(names[0]) == static_cast<std::size_t>(ComponentType::Count),
+                  "componentName is missing an entry for a ComponentType");
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
 }
@@ -280,6 +287,8 @@ const char* componentDescription(const Component& component)
         return "Walkable polygon baked as a local triangle navigation mesh.";
     case ComponentType::NavigationAgent:
         return "Requests paths in NavigationRegion2D and optionally follows them.";
+    case ComponentType::Formation:
+        return "Gives this member its own place in the group's formation and sends its agent there.";
     case ComponentType::CharacterBody:
         return "Script-driven kinematic movement using this object's RigidBody2D and Collider2D components.";
     default:
@@ -750,6 +759,66 @@ void drawNavigationRegionProperties(EditorApplication& app, NavigationRegion2D& 
                     { region.setPolygon(points.data(), static_cast<int>(points.size())); });
     ImGui::TextDisabled("%d triangle(s) baked, %d hole(s)", static_cast<int>(region.triangles().size() / 3),
                         static_cast<int>(region.holes().size()));
+}
+
+void drawFormationProperties(EditorApplication& app, Formation2D& formation)
+{
+    char groupBuffer[128];
+    std::snprintf(groupBuffer, sizeof(groupBuffer), "%s", formation.groupTag().c_str());
+    if (ImGui::InputText("Group Tag", groupBuffer, sizeof(groupBuffer)))
+        applyInstant(app, "Set Formation Group", [&] { formation.setGroupTag(groupBuffer); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Every object with this Tag and a Formation2D is a member. Slots are handed\n"
+                          "out in creation order, so nothing has to be numbered by hand.");
+
+    char anchorBuffer[128];
+    std::snprintf(anchorBuffer, sizeof(anchorBuffer), "%s", formation.anchorName().c_str());
+    if (ImGui::InputText("Anchor", anchorBuffer, sizeof(anchorBuffer)))
+        applyInstant(app, "Set Formation Anchor", [&] { formation.setAnchorName(anchorBuffer); });
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            if (GameObject* dragged = findById(app.scene().root(), draggedId))
+                applyInstant(app, "Set Formation Anchor", [&] { formation.setAnchorName(dragged->name().c_str()); });
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Drag the node the group forms around, or type its name.");
+
+    int shape = static_cast<int>(formation.shape());
+    if (ImGui::Combo("Shape", &shape, "Surround\0Abreast\0Wedge\0Single File\0"))
+        applyInstant(app, "Set Formation Shape",
+                     [&] { formation.setShape(static_cast<Formation2D::Shape>(shape)); });
+
+    float spacing = formation.spacing();
+    if (dragFloatProperty(app, "Spacing", spacing, 0.5f, "Set Formation Spacing", 0.0f, 4096.0f))
+        formation.setSpacing(spacing);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Surround uses it as the radius of the ring; the others as the gap between places.");
+
+    float interval = formation.updateInterval();
+    if (dragFloatProperty(app, "Update Interval", interval, 0.05f, "Set Formation Update Interval", 0.0f, 60.0f))
+        formation.setUpdateInterval(interval);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("How often the place is recomputed. The agent only repaths when it really moved.");
+
+    if (const GameObject* anchor = app.scene().find(formation.anchorName().c_str()))
+    {
+        (void)anchor;
+        ImGui::Text("Slot %d of %d", formation.slot() + 1, formation.memberCount());
+    }
+    else if (!formation.anchorName().empty())
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "Anchor '%s' not found", formation.anchorName().c_str());
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "No anchor: this member stays put");
+    }
+    ImGui::TextDisabled("Needs a NavigationAgent2D on this object.");
 }
 
 void drawNavigationAgentProperties(EditorApplication& app, NavigationAgent2D& agent)
@@ -2754,6 +2823,9 @@ void drawComponentProperties(EditorApplication& app, Component& component)
     case ComponentType::NavigationRegion:
         drawNavigationRegionProperties(app, static_cast<NavigationRegion2D&>(component));
         break;
+    case ComponentType::Formation:
+        drawFormationProperties(app, static_cast<Formation2D&>(component));
+        break;
     case ComponentType::NavigationAgent:
         drawNavigationAgentProperties(app, static_cast<NavigationAgent2D&>(component));
         break;
@@ -3320,6 +3392,14 @@ void InspectorPanel::drawContents()
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<NavigationAgent2D>();
                 app().commitChange("Add Navigation Agent 2D", addBefore);
+            }
+            if (componentMenuItem("Formation 2D",
+                                  "Gives this member its own place around the group's anchor, so a group "
+                                  "surrounds instead of queueing."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<Formation2D>();
+                app().commitChange("Add Formation 2D", addBefore);
             }
             ImGui::EndMenu();
         }
