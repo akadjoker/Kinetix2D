@@ -14,6 +14,7 @@ class Bone2D;
 class Collider2D;
 class GameObject;
 class SpriteBatch;
+class CameraComponent;
 }
 
 namespace k2d::editor
@@ -48,6 +49,7 @@ private:
     void applyColliderPointDrag(Collider2D &collider, int index, const Math::Vec2 &localPoint);
 
     void drawSpriteBatchEntries(ImDrawList &drawList, GameObject &object, SpriteBatch &batch, const ImVec2 &origin) const;
+    void drawCameraGizmo(ImDrawList &drawList, CameraComponent &camera, const ImVec2 &origin) const;
     int hitTestBatchEntry(GameObject &object, SpriteBatch &batch, const ImVec2 &mouse, const ImVec2 &origin) const;
 
     void ensureFramebuffer(int width, int height);

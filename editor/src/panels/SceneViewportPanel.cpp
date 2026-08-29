@@ -15,6 +15,7 @@
 #include <k2d/RigidBody2D.h>
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
+#include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Prefab.h>
@@ -635,6 +636,30 @@ void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object,
         drawColliders(drawList, *object.child(i), origin);
 }
 
+void SceneViewportPanel::drawCameraGizmo(ImDrawList& drawList, CameraComponent& camera, const ImVec2& origin) const
+{
+    float minX, minY, maxX, maxY;
+    camera.visibleRect(minX, minY, maxX, maxY);
+    if (maxX > minX && maxY > minY)
+    {
+        const ImVec2 corners[4] = {worldToScreen(minX, minY, origin), worldToScreen(maxX, minY, origin),
+                                   worldToScreen(maxX, maxY, origin), worldToScreen(minX, maxY, origin)};
+        drawList.AddPolyline(corners, 4, IM_COL32(90, 200, 255, 220), ImDrawFlags_Closed, 1.6f);
+        drawList.AddText(ImVec2(corners[0].x + 4.0f, corners[0].y + 4.0f), IM_COL32(90, 200, 255, 220), "Viewport");
+    }
+
+    const Camera2D& camera2D = camera.camera();
+    if (camera2D.limitEnabled)
+    {
+        const Math::Vec4& limits = camera2D.limits;
+        const ImVec2 corners[4] = {
+            worldToScreen(limits.x, limits.y, origin), worldToScreen(limits.z, limits.y, origin),
+            worldToScreen(limits.z, limits.w, origin), worldToScreen(limits.x, limits.w, origin)};
+        drawList.AddPolyline(corners, 4, IM_COL32(255, 170, 60, 220), ImDrawFlags_Closed, 1.6f);
+        drawList.AddText(ImVec2(corners[0].x + 4.0f, corners[0].y - 16.0f), IM_COL32(255, 170, 60, 220), "Limits");
+    }
+}
+
 void SceneViewportPanel::pickObject(GameObject& object, const ImVec2& mouse, const ImVec2& origin, GameObject*& best,
                                     float& bestDistance)
 {
@@ -835,6 +860,9 @@ void SceneViewportPanel::drawContents()
     }
     if (selectedBatch)
         drawSpriteBatchEntries(drawList, *selected, *selectedBatch, origin);
+    if (selected)
+        if (CameraComponent* selectedCamera = selected->getComponent<CameraComponent>())
+            drawCameraGizmo(drawList, *selectedCamera, origin);
     drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,

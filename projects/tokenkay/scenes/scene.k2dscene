@@ -131,7 +131,27 @@
               "ySort": false,
               "blendMode": 0
             }
-          },
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "forgraudn",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          641.1834716796875,
+          478.79412841796875
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
           {
             "type": "SpriteBatch",
             "data": {
@@ -139,12 +159,92 @@
                 {
                   "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/10_Recorte_grua.png",
                   "position": [
+                    -186.5,
+                    -86.0
+                  ],
+                  "size": [
+                    400.0,
+                    499.0
+                  ],
+                  "source": [
+                    0.0,
+                    0.0,
                     0.0,
                     0.0
                   ],
+                  "color": 4294967295,
+                  "flipX": false,
+                  "flipY": false
+                },
+                {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/12_Verja.png",
+                  "position": [
+                    -504.5,
+                    -187.0
+                  ],
                   "size": [
-                    32.0,
-                    32.0
+                    141.0,
+                    136.0
+                  ],
+                  "source": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "color": 4294967295,
+                  "flipX": false,
+                  "flipY": false
+                },
+                {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/15_Mapa_2.png",
+                  "position": [
+                    213.5,
+                    89.0
+                  ],
+                  "size": [
+                    170.0,
+                    115.0
+                  ],
+                  "source": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "color": 4294967295,
+                  "flipX": false,
+                  "flipY": false
+                },
+                {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/16_Mapa_1.png",
+                  "position": [
+                    -551.0,
+                    115.0
+                  ],
+                  "size": [
+                    78.0,
+                    48.0
+                  ],
+                  "source": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "color": 4294967295,
+                  "flipX": false,
+                  "flipY": false
+                },
+                {
+                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/14_Mapa_1.png",
+                  "position": [
+                    204.0,
+                    -175.5
+                  ],
+                  "size": [
+                    169.0,
+                    87.0
                   ],
                   "source": [
                     0.0,
@@ -158,6 +258,124 @@
                 }
               ],
               "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "20_Lancha_neumatica",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          922.318603515625,
+          877.3351440429688
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Sprite",
+            "data": {
+              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/20_Lancha_neumatica.png",
+              "size": [
+                142.0,
+                86.0
+              ],
+              "pivot": [
+                0.5,
+                0.5
+              ],
+              "tiling": [
+                1.0,
+                1.0
+              ],
+              "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "lightMask": 1,
+              "flipX": false,
+              "flipY": false,
+              "ySort": false,
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "camera",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 0.0,
+              "viewportHeight": 0.0,
+              "renderPriority": 0,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": true,
+              "limits": [
+                0.0,
+                0.0,
+                64.5,
+                0.0
+              ],
+              "smoothingEnabled": false,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5,
+              "followTarget": ""
             }
           }
         ],
