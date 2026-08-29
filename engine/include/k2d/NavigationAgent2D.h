@@ -39,6 +39,11 @@ class NavigationAgent2D final : public Component
     {
         mFollowTargetName = name ? name : "";
         mFollowTarget = nullptr;
+        // Dropping the pointer is not enough: the resolve is gated on the
+        // topology version, so a name set after this frame's resolve would
+        // stay unresolved for as long as the tree did not change, and the
+        // agent would silently never path again.
+        mFollowVersion = kUnresolvedFollowVersion;
     }
     const ct::String& followTargetName() const
     {
@@ -151,7 +156,9 @@ class NavigationAgent2D final : public Component
     uint32_t mRepathCount = 0;
     ct::String mFollowTargetName;
     GameObject* mFollowTarget = nullptr;
-    uint32_t mFollowVersion = 0;
+    static const uint32_t kUnresolvedFollowVersion = 0xFFFFFFFFu;
+
+    uint32_t mFollowVersion = kUnresolvedFollowVersion;
     bool mHasTarget = false;
     void recordVelocity(const Math::Vec2 &before, float deltaTime);
     void applySteeringForce(Math::Vec2 force, float deltaTime);

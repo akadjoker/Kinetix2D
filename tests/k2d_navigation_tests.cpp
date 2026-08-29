@@ -490,6 +490,37 @@ bool TestAgentWithoutSteeringIsUnchanged()
     return identical && arrived;
 }
 
+bool TestFollowTargetSetAfterResolve()
+{
+    const float dt = 1.0f / 60.0f;
+    k2d::Scene scene;
+    makeField(scene, 400.0f);
+    k2d::GameObject* prey = makeWalker(scene, "prey", Math::Vec2(360.0f, 300.0f), false);
+    k2d::GameObject* hunter = makeWalker(scene, "hunter", Math::Vec2(20.0f, 20.0f), false);
+    k2d::NavigationAgent2D* agent = hunter->addComponent<k2d::NavigationAgent2D>();
+    agent->setAutoMove(true);
+    agent->setMaxSpeed(120.0f);
+    agent->setFollowTargetName("prey");
+
+    // One frame so the agent resolves the name and stamps the topology
+    // version, then set the same name again the way a script does from
+    // on_start. The stamp must not survive, or the agent never paths again.
+    scene.update(dt);
+    agent->setFollowTargetName("prey");
+
+    // The prey then runs elsewhere. Only a fresh path can reach it, so a stale
+    // one carried over from before the name was set does not save the agent.
+    prey->setPosition(Math::Vec2(40.0f, 360.0f));
+    for (int frame = 0; frame < 400; ++frame)
+        scene.update(dt);
+
+    const float remaining = k2d::Distance(hunter->globalPosition(), prey->globalPosition());
+    const bool ok = remaining < 20.0f && agent->repathCount() > 1;
+    std::printf("navigation follow target after resolve: gap=%.1f repaths=%u %s\n", remaining,
+                agent->repathCount(), ok ? "pass" : "fail");
+    return ok;
+}
+
 bool TestSeparationSpreadsACrowd()
 {
     const float dt = 1.0f / 60.0f;
@@ -901,6 +932,7 @@ int main()
     const bool outsideMesh = TestPathEndpointsOutsideTheMesh();
     const bool steeringForces = TestSteeringForceShapes();
     const bool steeringNeutral = TestAgentWithoutSteeringIsUnchanged();
+    const bool followAfterResolve = TestFollowTargetSetAfterResolve();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
     const bool obstacleAside = TestObstacleAvoidanceSteersAside();
@@ -922,7 +954,7 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && separationSpread && separationSources &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && separationSpread && separationSources &&
                    obstacleAside && steeringList
                ? 0
                : 1;
