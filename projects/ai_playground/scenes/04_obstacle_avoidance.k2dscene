@@ -1,0 +1,417 @@
+{
+  "root": {
+    "name": "Scene",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Camera",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 1280.0,
+              "viewportHeight": 720.0,
+              "renderPriority": 0,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": false,
+              "limits": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "smoothingEnabled": true,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Floor",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "NavigationRegion2D",
+            "data": {
+              "points": [
+                [
+                  40,
+                  40
+                ],
+                [
+                  1240,
+                  40
+                ],
+                [
+                  1240,
+                  680
+                ],
+                [
+                  40,
+                  680
+                ]
+              ],
+              "holes": []
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Target",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1160.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 10.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1.0,
+                0.9,
+                0.2,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Seeker",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          120.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.3,
+                1.0,
+                0.4,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 14.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 130.0,
+              "autoMove": true,
+              "orientToPath": true,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0,
+              "target": [
+                1160.0,
+                360.0
+              ]
+            }
+          },
+          {
+            "type": "Seek2D",
+            "data": {
+              "weight": 0.6,
+              "target": "Target",
+              "targetPosition": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          {
+            "type": "ObstacleAvoidance2D",
+            "data": {
+              "weight": 2.5,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "lookAhead": 0.7,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "ObstacleA",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          550.0,
+          220.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                40.0,
+                380.0
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.5,
+                0.5,
+                0.6,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "static",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "size": [
+                40.0,
+                380.0
+              ]
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "ObstacleB",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          850.0,
+          500.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                40.0,
+                380.0
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.5,
+                0.5,
+                0.6,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "static",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "size": [
+                40.0,
+                380.0
+              ]
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  "physics": {
+    "gravity": [
+      0.0,
+      0.0
+    ]
+  }
+}

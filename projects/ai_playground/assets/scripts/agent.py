@@ -25,8 +25,8 @@ class Agent(ScriptComponent):
     sight_cone = 60
     attack_range = 90
     flee_distance = 480
-    world_width = 1284
-    world_height = 960
+    world_width = 1280
+    world_height = 720
 
     def on_start(self):
         self.agent = self.node.get_component<NavigationAgent>()

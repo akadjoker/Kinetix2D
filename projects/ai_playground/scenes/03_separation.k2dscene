@@ -1,0 +1,842 @@
+{
+  "root": {
+    "name": "Scene",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Camera",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 1280.0,
+              "viewportHeight": 720.0,
+              "renderPriority": 0,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": false,
+              "limits": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "smoothingEnabled": true,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Probe",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/separation_probe.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent0",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          643.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.9,
+                0.15017110386358792,
+                0.1496579093789528,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          642.1213203435597,
+          362.12132034355966
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.7535533905932739,
+                -0.08291174543712221,
+                0.5290278425821834,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          363.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.4000000000000001,
+                -0.03311144369002972,
+                0.8328150155245118,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          637.8786796564403,
+          362.12132034355966
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.04644660940672629,
+                0.2703996677516913,
+                0.8830650223713028,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent4",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          637.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                -0.09999999999999998,
+                0.6498288961364118,
+                0.6503420906210473,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent5",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          637.8786796564403,
+          357.87867965644034
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.04644660940672618,
+                0.8829117454371223,
+                0.27097215741781666,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent6",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          357.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.3999999999999999,
+                0.83311144369003,
+                -0.03281501552451194,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "agent7",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          642.1213203435597,
+          357.87867965644034
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.7535533905932736,
+                0.5296003322483088,
+                -0.08306502237130281,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "kinematic",
+              "density": 1.0,
+              "friction": 0.3,
+              "restitution": 0.0,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 0.0,
+              "fixedRotation": true,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "sensor": false,
+              "category": 1,
+              "mask": 65535,
+              "radius": 18.0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 120.0,
+              "autoMove": true,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  "physics": {
+    "gravity": [
+      0.0,
+      0.0
+    ]
+  }
+}

@@ -1,0 +1,407 @@
+{
+  "root": {
+    "name": "Scene",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Camera",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          512.0,
+          384.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 1280.0,
+              "viewportHeight": 720.0,
+              "renderPriority": 0,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": false,
+              "limits": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "smoothingEnabled": true,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5,
+              "followTarget": "player"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Floor",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "NavigationRegion2D",
+            "data": {
+              "points": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  1280,
+                  0
+                ],
+                [
+                  1280,
+                  720
+                ],
+                [
+                  0,
+                  720
+                ]
+              ],
+              "holes": []
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "player",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          512.0,
+          384.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/player.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "guard0",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          150.0,
+          150.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1.0,
+                0.3,
+                0.3,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 1.0,
+              "autoMove": false,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/agent.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "guard1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1130.0,
+          150.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1.0,
+                0.5,
+                0.2,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 1.0,
+              "autoMove": false,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/agent.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "guard2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          150.0,
+          620.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.9,
+                0.2,
+                0.6,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 1.0,
+              "autoMove": false,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/agent.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "guard3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1130.0,
+          620.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0.8,
+                0.5,
+                1.0,
+                1.0
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "NavigationAgent2D",
+            "data": {
+              "pathDesiredDistance": 8.0,
+              "maxSpeed": 1.0,
+              "autoMove": false,
+              "orientToPath": false,
+              "rotationLerpSpeed": 12.0,
+              "rotationOffsetDegrees": 0.0,
+              "followTarget": "",
+              "repathInterval": 0.25,
+              "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/agent.py"
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  "physics": {
+    "gravity": [
+      0.0,
+      0.0
+    ]
+  }
+}
