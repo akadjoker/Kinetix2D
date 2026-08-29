@@ -16,6 +16,8 @@
 
 #include <cmath>
 #include <limits>
+#include <k2d/CircleCollider2D.h>
+
 #include <cstdio>
 
 namespace
@@ -497,6 +499,66 @@ bool TestAgentWithoutSteeringIsUnchanged()
     return identical && arrived;
 }
 
+bool TestDynamicAgentsDoNotOverlap()
+{
+    const float dt = 1.0f / 60.0f;
+    const float radius = 14.0f;
+
+    // Three agents converging on one spot. A kinematic agent translates and
+    // walks through its neighbours; a dynamic one hands the movement to the
+    // solver, which is the only thing that can actually keep them apart.
+    const auto run = [&](k2d::BodyType type)
+    {
+        k2d::Scene scene;
+        makeField(scene, 400.0f);
+        k2d::GameObject* agents[3];
+        const Math::Vec2 spawns[3] = {Math::Vec2(20.0f, 20.0f), Math::Vec2(20.0f, 90.0f), Math::Vec2(90.0f, 20.0f)};
+        for (int i = 0; i < 3; ++i)
+        {
+            char name[16];
+            std::snprintf(name, sizeof(name), "runner%d", i);
+            agents[i] = scene.createObject(name);
+            agents[i]->setPosition(spawns[i]);
+            k2d::RigidBody2D* body = agents[i]->addComponent<k2d::RigidBody2D>();
+            body->setBodyType(type);
+            body->setFixedRotation(true);
+            body->setLinearDamping(6.0f);
+            agents[i]->addComponent<k2d::CircleCollider2D>()->setRadius(radius);
+            k2d::NavigationAgent2D* agent = agents[i]->addComponent<k2d::NavigationAgent2D>();
+            agent->setMaxSpeed(120.0f);
+            agent->setAutoMove(true);
+            agent->setTargetPosition(Math::Vec2(340.0f, 340.0f));
+        }
+
+        scene.setSimulationEnabled(true);
+        float deepest = 0.0f;
+        for (int frame = 0; frame < 400; ++frame)
+        {
+            scene.update(dt);
+            if (frame < 60)
+                continue;
+            for (int a = 0; a < 3; ++a)
+                for (int b = a + 1; b < 3; ++b)
+                {
+                    const float overlap =
+                        2.0f * radius - k2d::Distance(agents[a]->globalPosition(), agents[b]->globalPosition());
+                    if (overlap > deepest)
+                        deepest = overlap;
+                }
+        }
+        return deepest;
+    };
+
+    const float kinematic = run(k2d::BodyType::Kinematic);
+    const float dynamic = run(k2d::BodyType::Dynamic);
+    // The solver settles contacts to within its linear slop rather than to
+    // nothing, so the bar is "not visibly inside each other", not zero.
+    const bool ok = dynamic < radius * 0.1f && kinematic > radius;
+    std::printf("navigation dynamic agents keep apart: deepest overlap kinematic=%.1f dynamic=%.2f %s\n", kinematic,
+                dynamic, ok ? "pass" : "fail");
+    return ok;
+}
+
 bool TestFollowTargetSetAfterResolve()
 {
     const float dt = 1.0f / 60.0f;
@@ -947,6 +1009,7 @@ int main()
     const bool steeringForces = TestSteeringForceShapes();
     const bool steeringNeutral = TestAgentWithoutSteeringIsUnchanged();
     const bool followAfterResolve = TestFollowTargetSetAfterResolve();
+    const bool crowdApart = TestDynamicAgentsDoNotOverlap();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
     const bool obstacleAside = TestObstacleAvoidanceSteersAside();
@@ -968,7 +1031,8 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && separationSpread && separationSources &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && separationSpread &&
+           separationSources &&
                    obstacleAside && steeringList
                ? 0
                : 1;
