@@ -206,11 +206,21 @@ void Scene::pushTransforms()
     for (size_t i = 0; i < mBodies.size(); ++i)
     {
         RigidBody2D *rigidBody = mBodies[i];
-        if (!rigidBody || rigidBody->bodyType() == BodyType::Dynamic)
+        if (!rigidBody)
             continue;
         GameObject *object = rigidBody->owner();
         if (!object)
             continue;
+
+        if (rigidBody->bodyType() == BodyType::Dynamic)
+        {
+            // The solver owns a dynamic body's position, but a fixed-rotation
+            // body is one it may not turn, so its angle belongs to whoever set
+            // it - an agent facing along its path, most of all.
+            if (rigidBody->fixedRotation())
+                rigidBody->SetAngle(object->globalRotationDegrees() * kDegToRad);
+            continue;
+        }
 
         rigidBody->SetPosition(object->globalPosition());
         rigidBody->SetAngle(object->rotationDegrees() * kDegToRad);
@@ -231,6 +241,7 @@ void Scene::pullTransforms()
 
         const Math::Vec2 worldPosition = rigidBody->Position();
         const float worldAngle = rigidBody->Angle() * kRadToDeg;
+        const bool keepRotation = rigidBody->bodyType() == BodyType::Dynamic && rigidBody->fixedRotation();
 
         GameObject *parent = object->parent();
         if (parent && parent->parent())
@@ -239,7 +250,14 @@ void Scene::pullTransforms()
             // scaled parent otherwise leaves the body drawn away from where it
             // simulates, and the angle needs the parent's rotation removed too.
             const Math::Vec2 localPosition = parent->globalTransform().AffineInverse().Transform(worldPosition);
-            object->setPositionAndRotation(localPosition, worldAngle - parent->globalRotationDegrees());
+            if (keepRotation)
+                object->setPosition(localPosition);
+            else
+                object->setPositionAndRotation(localPosition, worldAngle - parent->globalRotationDegrees());
+        }
+        else if (keepRotation)
+        {
+            object->setPosition(worldPosition);
         }
         else
         {

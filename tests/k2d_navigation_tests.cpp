@@ -499,6 +499,39 @@ bool TestAgentWithoutSteeringIsUnchanged()
     return identical && arrived;
 }
 
+bool TestDynamicAgentFacesItsPath()
+{
+    const float dt = 1.0f / 60.0f;
+    k2d::Scene scene;
+    makeField(scene, 400.0f);
+
+    k2d::GameObject* runner = scene.createObject("facing_runner");
+    runner->setPosition(Math::Vec2(200.0f, 20.0f));
+    k2d::RigidBody2D* body = runner->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Dynamic);
+    body->setFixedRotation(true);
+    body->setLinearDamping(6.0f);
+    runner->addComponent<k2d::CircleCollider2D>()->setRadius(10.0f);
+    k2d::NavigationAgent2D* agent = runner->addComponent<k2d::NavigationAgent2D>();
+    agent->setMaxSpeed(120.0f);
+    agent->setAutoMove(true);
+    agent->setOrientToPath(true);
+    agent->setTargetPosition(Math::Vec2(200.0f, 380.0f));
+
+    scene.setSimulationEnabled(true);
+    for (int frame = 0; frame < 120; ++frame)
+        scene.update(dt);
+
+    // Walking due south, so it should be facing 90 degrees. Due east would
+    // mean the facing was never written at all - which is what a body angle
+    // pinned at zero looks like.
+    const float facing = runner->rotationDegrees();
+    const bool ok = std::fabs(facing - 90.0f) < 20.0f && runner->globalPosition().y > 100.0f;
+    std::printf("navigation dynamic agent faces its path: y=%.1f facing=%.1f deg (want ~90) %s\n",
+                runner->globalPosition().y, facing, ok ? "pass" : "fail");
+    return ok;
+}
+
 bool TestDynamicAgentsDoNotOverlap()
 {
     const float dt = 1.0f / 60.0f;
@@ -1010,6 +1043,7 @@ int main()
     const bool steeringNeutral = TestAgentWithoutSteeringIsUnchanged();
     const bool followAfterResolve = TestFollowTargetSetAfterResolve();
     const bool crowdApart = TestDynamicAgentsDoNotOverlap();
+    const bool dynamicFacing = TestDynamicAgentFacesItsPath();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
     const bool obstacleAside = TestObstacleAvoidanceSteersAside();
@@ -1031,7 +1065,7 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && separationSpread &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && dynamicFacing && separationSpread &&
            separationSources &&
                    obstacleAside && steeringList
                ? 0
