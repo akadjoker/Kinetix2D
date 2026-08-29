@@ -65,6 +65,7 @@ class NavigationRegion2D final : public Component
     mutable ct::Vector<unsigned char> mClosed;
     mutable ct::Vector<int> mOpen;
     mutable ct::Vector<int> mReverse;
+    mutable ct::Vector<int> mCorridor;
     ct::Vector<Math::Vec2> mPolygon;
     ct::Vector<ct::Vector<Math::Vec2>> mHoles;
     ct::Vector<Math::Vec2> mTriangles;

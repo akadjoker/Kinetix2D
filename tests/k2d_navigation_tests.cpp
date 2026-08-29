@@ -839,6 +839,35 @@ bool TestWanderSurvivesBadDeltaTime()
     return ok;
 }
 
+// Triangle centroids are not a path: a straight run across an open region used
+// to zigzag through the middle of every triangle it crossed. String pulling
+// must collapse that to a single straight segment.
+bool TestStraightPathHasNoZigzag()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("open_field");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    ct::Vector<Math::Vec2> outline;
+    for (int i = 0; i <= 10; ++i)
+        outline.push_back(Math::Vec2(i * 40.0f, 0.0f));
+    for (int i = 10; i >= 0; --i)
+        outline.push_back(Math::Vec2(i * 40.0f, 120.0f));
+    region->setPolygon(outline.data(), (int)outline.size());
+
+    ct::Vector<Math::Vec2> path;
+    const bool found =
+        k2d::Navigation2D::GetPath(scene, Math::Vec2(10.0f, 60.0f), Math::Vec2(390.0f, 60.0f), path);
+
+    const bool straight = found && path.size() == 2;
+    bool onLine = found;
+    for (size_t i = 0; i < path.size(); ++i)
+        onLine = onLine && std::fabs(path[i].y - 60.0f) < 1.0f;
+
+    std::printf("navigation straight path: waypoints=%d triangles=%d %s\n", (int)path.size(),
+                (int)(region->triangles().size() / 3), (straight && onLine) ? "pass" : "fail");
+    return straight && onLine;
+}
+
 int main()
 {
     k2d::Scene scene;
@@ -880,6 +909,7 @@ int main()
     std::printf("navigation: concave=%s outside=%s agent=%s triangles=%d waypoints=%d\n", concavePath ? "pass" : "fail",
                outsideRejected ? "pass" : "fail", agentPath ? "pass" : "fail",
                static_cast<int>(region->triangles().size() / 3), static_cast<int>(agent->path().size()));
+    const bool straightPath = TestStraightPathHasNoZigzag();
     const bool sensorSeparation = TestSeparationIgnoresSensors();
     const bool dynamicBody = TestDynamicBodyAgentMoves();
     const bool wanderNaN = TestWanderSurvivesBadDeltaTime();
@@ -888,7 +918,7 @@ int main()
     const bool parentedAgent = TestAgentUnderRotatedParent();
     const bool agentRoundTrip = TestAgentTargetPresenceRoundTrip();
 
-    return sensorSeparation && dynamicBody && wanderNaN &&
+    return straightPath && sensorSeparation && dynamicBody && wanderNaN &&
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&

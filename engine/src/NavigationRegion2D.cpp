@@ -38,6 +38,32 @@ bool contains(const NavigationRegion2D::Face& face, const Math::Vec2& point)
     return (a >= -0.001f && b >= -0.001f && c >= -0.001f) || (a <= 0.001f && b <= 0.001f && c <= 0.001f);
 }
 
+// The corridor's shared edge between two adjacent faces, ordered so that
+// `left` is on the left of the direction of travel.
+bool portalBetween(const NavigationRegion2D::Face& a, const NavigationRegion2D::Face& b, const Math::Vec2& apex,
+                   Math::Vec2& left, Math::Vec2& right)
+{
+    Math::Vec2 shared[2];
+    int count = 0;
+    for (int ia = 0; ia < 3 && count < 2; ++ia)
+        for (int ib = 0; ib < 3; ++ib)
+            if (distanceSq(a.points[ia], b.points[ib]) < 0.001f)
+            {
+                shared[count++] = a.points[ia];
+                break;
+            }
+    if (count < 2)
+        return false;
+    left = shared[0];
+    right = shared[1];
+    if (cross(apex, left, right) < 0.0f)
+    {
+        left = shared[1];
+        right = shared[0];
+    }
+    return true;
+}
+
 bool sharesEdge(const NavigationRegion2D::Face& a, const NavigationRegion2D::Face& b)
 {
     int shared = 0;
@@ -253,10 +279,89 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
     mReverse.clear();
     for (int face = end; face >= 0; face = mParent[face])
         mReverse.push_back(face);
+
+    // The corridor of triangles is not the path: emitting their centroids
+    // makes the agent zigzag between the middle of each triangle. Pull a
+    // string through the portals instead and only turn at real corners.
+    mCorridor.clear();
+    for (size_t i = mReverse.size(); i-- > 0;)
+        mCorridor.push_back(mReverse[i]);
+
     outPath.push_back(from);
-    for (size_t i = mReverse.size() - 1; i-- > 1;)
-        outPath.push_back(transform.Transform(mFaces[mReverse[i]].center));
+
+    Math::Vec2 apex = localFrom;
+    Math::Vec2 portalLeft = localFrom;
+    Math::Vec2 portalRight = localFrom;
+    size_t leftIndex = 0;
+    size_t rightIndex = 0;
+
+    for (size_t i = 1; i <= mCorridor.size(); ++i)
+    {
+        Math::Vec2 left = localTo;
+        Math::Vec2 right = localTo;
+        if (i < mCorridor.size() &&
+            !portalBetween(mFaces[mCorridor[i - 1]], mFaces[mCorridor[i]], apex, left, right))
+            continue;
+
+        if (cross(apex, portalRight, right) <= 0.0f)
+        {
+            if (distanceSq(apex, portalRight) < 0.001f || cross(apex, portalLeft, right) > 0.0f)
+            {
+                portalRight = right;
+                rightIndex = i;
+            }
+            else
+            {
+                outPath.push_back(transform.Transform(portalLeft));
+                apex = portalLeft;
+                portalRight = apex;
+                portalLeft = apex;
+                i = leftIndex;
+                rightIndex = leftIndex;
+                continue;
+            }
+        }
+
+        if (cross(apex, portalLeft, left) >= 0.0f)
+        {
+            if (distanceSq(apex, portalLeft) < 0.001f || cross(apex, portalRight, left) < 0.0f)
+            {
+                portalLeft = left;
+                leftIndex = i;
+            }
+            else
+            {
+                outPath.push_back(transform.Transform(portalRight));
+                apex = portalRight;
+                portalLeft = apex;
+                portalRight = apex;
+                i = rightIndex;
+                leftIndex = rightIndex;
+                continue;
+            }
+        }
+    }
+
     outPath.push_back(to);
+
+    // The funnel can leave a vertex that lies on the segment it joins, which
+    // is a turn the agent does not need to make.
+    size_t kept = 1;
+    for (size_t i = 1; i + 1 < outPath.size(); ++i)
+    {
+        const Math::Vec2& previous = outPath[kept - 1];
+        const Math::Vec2& current = outPath[i];
+        const Math::Vec2& next = outPath[i + 1];
+        const float area = (current.x - previous.x) * (next.y - previous.y) -
+                           (current.y - previous.y) * (next.x - previous.x);
+        if (std::fabs(area) < 0.01f)
+            continue;
+        outPath[kept++] = current;
+    }
+    if (outPath.size() > 1)
+        outPath[kept++] = outPath[outPath.size() - 1];
+    while (outPath.size() > kept)
+        outPath.pop_back();
     return true;
 }
 
