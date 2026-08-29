@@ -967,12 +967,18 @@ void EditorApplication::preloadTextures(const ct::Json& node)
     }
 }
 
-GameObject* EditorApplication::createSpriteNodeFromImage(const ct::String& imagePath, GameObject* parent,
-                                                          const Math::Vec2* worldPosition)
+Texture* EditorApplication::loadOrGetTexture(const ct::String& imagePath)
 {
     Texture* texture = mAssets.GetTexture(imagePath.c_str());
     if (!texture)
         texture = mAssets.LoadTexture(imagePath.c_str(), imagePath.c_str(), true, false);
+    return texture;
+}
+
+GameObject* EditorApplication::createSpriteNodeFromImage(const ct::String& imagePath, GameObject* parent,
+                                                          const Math::Vec2* worldPosition)
+{
+    Texture* texture = loadOrGetTexture(imagePath);
     if (!texture)
     {
         log("Sprite drop failed: could not load image");

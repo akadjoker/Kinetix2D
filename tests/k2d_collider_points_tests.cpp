@@ -2,6 +2,8 @@
 #include <k2d/ChainCollider2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
+#include <k2d/Serializer.h>
+#include <k2d/SpriteBatch.h>
 
 #include <cmath>
 #include <cstdio>
@@ -86,6 +88,66 @@ static bool testBuildShapesWithoutSimulation()
     return before == 0 && after == 4 && !scene.simulationEnabled();
 }
 
+static bool testSpriteBatchEntryEditing()
+{
+    k2d::Scene scene;
+    k2d::GameObject *object = scene.createObject("scatter_owner");
+    object->setPosition(Math::Vec2(100.0f, -50.0f));
+    object->setRotationDegrees(30.0f);
+    object->setScale(Math::Vec2(2.0f, 3.0f));
+
+    k2d::SpriteBatch *batch = object->addComponent<k2d::SpriteBatch>();
+    const int first = batch->add(nullptr, Math::Vec2(4.0f, -6.0f), Math::Vec2(32.0f, 48.0f), 0xFFEECC11u);
+    batch->setSource(first, Math::Vec4(0.0f, 0.0f, 32.0f, 48.0f));
+    const int second = batch->add(nullptr, Math::Vec2(-12.5f, 20.0f), Math::Vec2(16.0f, 16.0f));
+    batch->setSource(second, Math::Vec4(16.0f, 0.0f, 16.0f, 16.0f));
+
+    const ViewportTransform viewport{Math::Vec2(-25.0f, 60.0f), 0.8f};
+    const Math::Vec2 origin(320.0f, 180.0f);
+
+    bool allRoundTrip = true;
+    for (int i = 0; i < batch->count(); ++i)
+    {
+        const k2d::SpriteBatch::Entry *entry = batch->entry(i);
+        const Math::Vec2 centre(entry->position.x + entry->size.x * 0.5f, entry->position.y + entry->size.y * 0.5f);
+
+        const Math::Vec2 screen = objectLocalToScreen(*object, viewport, origin, centre);
+        const Math::Vec2 recovered = screenToObjectLocal(*object, viewport, origin, screen);
+
+        const bool roundTrip = Near(recovered.x, centre.x, 0.001f) && Near(recovered.y, centre.y, 0.001f);
+        if (!roundTrip)
+        {
+            std::printf("spritebatch_entries: entry %d failed round-trip: centre=(%f,%f) recovered=(%f,%f)\n", i,
+                       centre.x, centre.y, recovered.x, recovered.y);
+        }
+        allRoundTrip = allRoundTrip && roundTrip;
+    }
+
+    const ct::Json written = k2d::Serializer::WriteObject(*object);
+    k2d::Scene copyScene;
+    k2d::GameObject *copy = k2d::Serializer::ReadObject(copyScene, written);
+    k2d::SpriteBatch *copyBatch = copy ? copy->getComponent<k2d::SpriteBatch>() : nullptr;
+
+    bool serialized = copyBatch != nullptr && copyBatch->count() == batch->count();
+    for (int i = 0; serialized && i < batch->count(); ++i)
+    {
+        const k2d::SpriteBatch::Entry *src = batch->entry(i);
+        const k2d::SpriteBatch::Entry *dst = copyBatch->entry(i);
+        serialized = serialized && dst != nullptr &&
+                     Near(src->position.x, dst->position.x, 0.001f) && Near(src->position.y, dst->position.y, 0.001f) &&
+                     Near(src->size.x, dst->size.x, 0.001f) && Near(src->size.y, dst->size.y, 0.001f) &&
+                     Near(src->source.x, dst->source.x, 0.001f) && Near(src->source.y, dst->source.y, 0.001f) &&
+                     Near(src->source.z, dst->source.z, 0.001f) && Near(src->source.w, dst->source.w, 0.001f) &&
+                     src->color.Packed() == dst->color.Packed();
+    }
+    if (!serialized)
+        std::printf("spritebatch_entries: serializer round-trip failed\n");
+
+    std::printf("spritebatch_entries: round_trip=%s serialize=%s\n", allRoundTrip ? "pass" : "fail",
+               serialized ? "pass" : "fail");
+    return allRoundTrip && serialized;
+}
+
 int main()
 {
     k2d::Scene scene;
@@ -126,8 +188,9 @@ int main()
     }
 
     const bool built = testBuildShapesWithoutSimulation();
+    const bool spriteBatch = testSpriteBatchEntryEditing();
 
     std::printf("collider_points: round_trip=%s build_without_play=%s\n", allRoundTrip ? "pass" : "fail",
                 built ? "pass" : "fail");
-    return allRoundTrip && built ? 0 : 1;
+    return allRoundTrip && built && spriteBatch ? 0 : 1;
 }

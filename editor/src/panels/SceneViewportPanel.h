@@ -13,6 +13,7 @@ namespace k2d
 class Bone2D;
 class Collider2D;
 class GameObject;
+class SpriteBatch;
 }
 
 namespace k2d::editor
@@ -46,6 +47,9 @@ private:
                              const ImVec2 &origin) const;
     void applyColliderPointDrag(Collider2D &collider, int index, const Math::Vec2 &localPoint);
 
+    void drawSpriteBatchEntries(ImDrawList &drawList, GameObject &object, SpriteBatch &batch, const ImVec2 &origin) const;
+    int hitTestBatchEntry(GameObject &object, SpriteBatch &batch, const ImVec2 &mouse, const ImVec2 &origin) const;
+
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
     void renderScene(int width, int height);
@@ -67,6 +71,9 @@ private:
     Collider2D *mDraggedPointCollider = nullptr;
     int mDraggedPointIndex = -1;
     ct::Vector<Math::Vec2> mPointDragScratch;
+
+    SpriteBatch *mDraggedBatch = nullptr;
+    int mDraggedBatchIndex = -1;
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

@@ -1899,18 +1899,10 @@ void drawSpriteBatchProperties(EditorApplication& app, SpriteBatch& batch)
             Texture* newTexture = nullptr;
             if (textureField(app, "Texture", entry->texture, newTexture))
                 applyInstant(app, "Set Batch Entry Texture", [&] { entry->texture = newTexture; });
-            if (dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry"))
-            {
-            }
-            if (dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry"))
-            {
-            }
-            if (dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source"))
-            {
-            }
-            if (colorEdit(app, "Color", entry->color, "Recolor Batch Entry"))
-            {
-            }
+            dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry");
+            dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry");
+            dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source");
+            colorEdit(app, "Color", entry->color, "Recolor Batch Entry");
 
             bool flipX = (entry->flags & 0x1u) != 0;
             bool flipY = (entry->flags & 0x2u) != 0;

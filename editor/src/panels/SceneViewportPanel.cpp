@@ -1,6 +1,7 @@
 #include "SceneViewportPanel.h"
 
 #include "core/EditorApplication.h"
+#include "core/EditorFileSystem.h"
 #include "panels/AssetsPanel.h"
 #include "widgets/EditorToolbar.h"
 
@@ -19,6 +20,7 @@
 #include <k2d/Prefab.h>
 #include <k2d/Scene.h>
 #include <k2d/Skeleton2D.h>
+#include <k2d/SpriteBatch.h>
 #include <IconsMaterialDesignIcons.h>
 
 #include <cstdint>
@@ -56,6 +58,8 @@ constexpr float kGizmoCenterRadius = 8.0f;
 constexpr float kGizmoRingRadius = 46.0f;
 constexpr float kPointHandleHalfSize = 3.5f;
 constexpr float kPointHandleHitRadius = 6.0f;
+constexpr float kBatchHandleHalfSize = 4.5f;
+constexpr float kBatchHandleHitRadius = 8.0f;
 constexpr float kDegToRad = 0.01745329251f;
 
 int colliderPointCount(const Collider2D &collider)
@@ -269,6 +273,67 @@ void SceneViewportPanel::applyColliderPointDrag(Collider2D& collider, int index,
     }
 }
 
+int SceneViewportPanel::hitTestBatchEntry(GameObject& object, SpriteBatch& batch, const ImVec2& mouse,
+                                          const ImVec2& origin) const
+{
+    const int count = batch.count();
+    for (int i = 0; i < count; ++i)
+    {
+        const SpriteBatch::Entry* entry = batch.entry(i);
+        if (!entry)
+            continue;
+        const Math::Vec2 center(entry->position.x + entry->size.x * 0.5f, entry->position.y + entry->size.y * 0.5f);
+        const ImVec2 screen = objectLocalToScreen(object, center, origin);
+        const float dx = mouse.x - screen.x;
+        const float dy = mouse.y - screen.y;
+        if (dx * dx + dy * dy <= kBatchHandleHitRadius * kBatchHandleHitRadius)
+            return i;
+    }
+    return -1;
+}
+
+void SceneViewportPanel::drawSpriteBatchEntries(ImDrawList& drawList, GameObject& object, SpriteBatch& batch,
+                                                const ImVec2& origin) const
+{
+    const int count = batch.count();
+    const ImVec2 mousePos = ImGui::GetIO().MousePos;
+    const Math::Vec2 localMouse = screenToObjectLocal(object, mousePos, origin);
+
+    for (int i = 0; i < count; ++i)
+    {
+        const SpriteBatch::Entry* entry = batch.entry(i);
+        if (!entry)
+            continue;
+
+        const ImVec2 corners[4] = {
+            objectLocalToScreen(object, Math::Vec2(entry->position.x, entry->position.y), origin),
+            objectLocalToScreen(object, Math::Vec2(entry->position.x + entry->size.x, entry->position.y), origin),
+            objectLocalToScreen(object, Math::Vec2(entry->position.x + entry->size.x, entry->position.y + entry->size.y),
+                                origin),
+            objectLocalToScreen(object, Math::Vec2(entry->position.x, entry->position.y + entry->size.y), origin)};
+
+        const bool rectHovered = localMouse.x >= entry->position.x && localMouse.x <= entry->position.x + entry->size.x &&
+                                 localMouse.y >= entry->position.y && localMouse.y <= entry->position.y + entry->size.y;
+
+        const Math::Vec2 center(entry->position.x + entry->size.x * 0.5f, entry->position.y + entry->size.y * 0.5f);
+        const ImVec2 handle = objectLocalToScreen(object, center, origin);
+        const float hdx = mousePos.x - handle.x;
+        const float hdy = mousePos.y - handle.y;
+        const bool handleHovered = (hdx * hdx + hdy * hdy) <= kBatchHandleHitRadius * kBatchHandleHitRadius;
+        const bool dragging = mDraggedBatch == &batch && mDraggedBatchIndex == i;
+
+        const ImU32 outlineColor = (dragging || handleHovered || rectHovered) ? IM_COL32(255, 235, 120, 220)
+                                                                              : IM_COL32(160, 200, 255, 190);
+        drawList.AddPolyline(corners, 4, outlineColor, ImDrawFlags_Closed, 1.4f);
+
+        const ImU32 handleColor = dragging   ? IM_COL32(255, 235, 120, 255)
+                                  : handleHovered ? IM_COL32(255, 255, 255, 255)
+                                                  : IM_COL32(255, 205, 65, 220);
+        drawList.AddRectFilled(ImVec2(handle.x - kBatchHandleHalfSize, handle.y - kBatchHandleHalfSize),
+                               ImVec2(handle.x + kBatchHandleHalfSize, handle.y + kBatchHandleHalfSize), handleColor);
+    }
+}
+
 void SceneViewportPanel::handlePrefabDrop(const ImVec2& origin)
 {
     if (!ImGui::BeginDragDropTarget())
@@ -324,14 +389,64 @@ void SceneViewportPanel::handleImageDrop(const ImVec2& origin)
     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
     {
         const char* path = static_cast<const char*>(payload->Data);
-        Math::Vec2 world = screenToWorld(ImGui::GetMousePos(), origin);
-        if (mSnap)
+        GameObject* selected = app().selection().resolve(app().scene());
+        SpriteBatch* batch = nullptr;
+        if (selected && app().selection().componentId() != 0)
         {
-            world.x = roundf(world.x / mGridSize.x) * mGridSize.x;
-            world.y = roundf(world.y / mGridSize.y) * mGridSize.y;
+            const size_t batchCount = selected->componentCount<SpriteBatch>();
+            for (size_t i = 0; i < batchCount; ++i)
+            {
+                SpriteBatch* candidate = selected->getComponentAt<SpriteBatch>(i);
+                if (candidate && candidate->id() == app().selection().componentId())
+                {
+                    batch = candidate;
+                    break;
+                }
+            }
         }
-        GameObject* parent = app().selection().resolve(app().scene());
-        app().createSpriteNodeFromImage(path, parent, &world);
+
+        if (batch && selected)
+        {
+            Texture* texture = app().loadOrGetTexture(path);
+            if (!texture)
+            {
+                app().log("Batch entry drop failed: could not load image");
+                app().toasts().error("Could not load image");
+            }
+            else
+            {
+                Math::Vec2 localPoint = screenToObjectLocal(*selected, ImGui::GetMousePos(), origin);
+                if (mSnap)
+                {
+                    localPoint.x = roundf(localPoint.x / mGridSize.x) * mGridSize.x;
+                    localPoint.y = roundf(localPoint.y / mGridSize.y) * mGridSize.y;
+                }
+                const Math::Vec2 size(static_cast<float>(texture->Width()), static_cast<float>(texture->Height()));
+                const Math::Vec2 position(localPoint.x - size.x * 0.5f, localPoint.y - size.y * 0.5f);
+
+                const EditorApplication::SceneChange before = app().beginChange();
+                const int index = batch->add(texture, position, size);
+                batch->setSource(index, Math::Vec4(0.0f, 0.0f, size.x, size.y));
+                app().commitChange("Add Batch Entry", before);
+
+                ct::String message("Added batch entry: ");
+                message += EditorFileSystem::fileName(path);
+                app().log(message);
+                ct::String toast("Added ");
+                toast += EditorFileSystem::fileName(path);
+                app().toasts().success(toast);
+            }
+        }
+        else
+        {
+            Math::Vec2 world = screenToWorld(ImGui::GetMousePos(), origin);
+            if (mSnap)
+            {
+                world.x = roundf(world.x / mGridSize.x) * mGridSize.x;
+                world.y = roundf(world.y / mGridSize.y) * mGridSize.y;
+            }
+            app().createSpriteNodeFromImage(path, selected, &world);
+        }
     }
     ImGui::EndDragDropTarget();
 }
@@ -688,12 +803,12 @@ void SceneViewportPanel::drawContents()
 
     GameObject* selected = app().selection().resolve(app().scene());
     const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 &&
-                             mTool <= 3 && !mDraggedPointCollider;
+                             mTool <= 3 && !mDraggedPointCollider && !mDraggedBatch;
     if (gizmoActive)
         drawGizmo(drawList, *selected, origin);
-    drawList.PopClipRect();
 
     Collider2D* selectedCollider = nullptr;
+    SpriteBatch* selectedBatch = nullptr;
     if (selected && app().selection().componentId() != 0)
     {
         const size_t colliderCount = selected->componentCount<Collider2D>();
@@ -706,7 +821,21 @@ void SceneViewportPanel::drawContents()
                 break;
             }
         }
+
+        const size_t batchCount = selected->componentCount<SpriteBatch>();
+        for (size_t i = 0; i < batchCount; ++i)
+        {
+            SpriteBatch* candidate = selected->getComponentAt<SpriteBatch>(i);
+            if (candidate && candidate->id() == app().selection().componentId())
+            {
+                selectedBatch = candidate;
+                break;
+            }
+        }
     }
+    if (selectedBatch)
+        drawSpriteBatchEntries(drawList, *selected, *selectedBatch, origin);
+    drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
@@ -728,13 +857,23 @@ void SceneViewportPanel::drawContents()
         const int hitPoint = selectedCollider
                                  ? hitTestColliderPoint(*selected, *selectedCollider, ImGui::GetIO().MousePos, origin)
                                  : -1;
-        const int hitAxis = (hitPoint == -1 && gizmoActive) ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin)
-                                                            : -1;
+        const int hitBatchEntry = (hitPoint == -1 && selectedBatch)
+                                     ? hitTestBatchEntry(*selected, *selectedBatch, ImGui::GetIO().MousePos, origin)
+                                     : -1;
+        const int hitAxis = (hitPoint == -1 && hitBatchEntry == -1 && gizmoActive)
+                               ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin)
+                               : -1;
         if (hitPoint != -1)
         {
             mDraggedPointCollider = selectedCollider;
             mDraggedPointIndex = hitPoint;
             app().beginTransaction("Move Collider Point", app().beginChange());
+        }
+        else if (hitBatchEntry != -1)
+        {
+            mDraggedBatch = selectedBatch;
+            mDraggedBatchIndex = hitBatchEntry;
+            app().beginTransaction("Move Batch Entry", app().beginChange());
         }
         else if (hitAxis != -1)
         {
@@ -829,6 +968,26 @@ void SceneViewportPanel::drawContents()
         }
     }
 
+    if (hovered && mDraggedBatch && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        GameObject* batchObject = mDraggedBatch->owner();
+        SpriteBatch::Entry* entry = mDraggedBatch->entryAt(mDraggedBatchIndex);
+        if (batchObject && entry)
+        {
+            Math::Vec2 local = screenToObjectLocal(*batchObject, ImGui::GetIO().MousePos, origin);
+            local.x -= entry->size.x * 0.5f;
+            local.y -= entry->size.y * 0.5f;
+            if (mSnap)
+            {
+                if (mGridSize.x > 0.0f)
+                    local.x = roundf(local.x / mGridSize.x) * mGridSize.x;
+                if (mGridSize.y > 0.0f)
+                    local.y = roundf(local.y / mGridSize.y) * mGridSize.y;
+            }
+            entry->position = local;
+        }
+    }
+
     if (hovered && mDraggedBone && mGizmoAxis == -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         GameObject* boneObject = mDraggedBone->owner();
@@ -864,6 +1023,12 @@ void SceneViewportPanel::drawContents()
             app().commitTransaction();
             mDraggedPointCollider = nullptr;
             mDraggedPointIndex = -1;
+        }
+        if (mDraggedBatch)
+        {
+            app().commitTransaction();
+            mDraggedBatch = nullptr;
+            mDraggedBatchIndex = -1;
         }
     }
 }

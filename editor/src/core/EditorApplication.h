@@ -146,6 +146,7 @@ class EditorApplication
 
     void preloadTextures(const ct::Json& node);
     Texture* particlePlaceholderTexture();
+    Texture* loadOrGetTexture(const ct::String& imagePath);
     GameObject* createSpriteNodeFromImage(const ct::String& imagePath, GameObject* parent = nullptr,
                                           const Math::Vec2* worldPosition = nullptr);
 
