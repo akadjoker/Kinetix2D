@@ -209,7 +209,7 @@ int RigidBody2D::AddEdge(const Math::Vec2 &localA, const Math::Vec2 &localB)
     return 1;
 }
 
-int RigidBody2D::AddChain(const Math::Vec2 *points, int count, bool loop)
+int RigidBody2D::AddChain(const Math::Vec2 *points, int count, bool loop, bool oneSided)
 {
     int minCount = loop ? 3 : 2;
     if (count < minCount)
@@ -243,7 +243,7 @@ int RigidBody2D::AddChain(const Math::Vec2 *points, int count, bool loop)
         shape.edge.vertex0 = vPrev;
         shape.edge.vertex3 = vNext;
         shape.edge.radius = kPolygonRadius;
-        shape.edge.oneSided = true;
+        shape.edge.oneSided = oneSided;
         mShapes.push_back(shape);
 
         ++added;

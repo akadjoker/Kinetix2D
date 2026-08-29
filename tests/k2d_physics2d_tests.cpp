@@ -1409,11 +1409,56 @@ static bool testCharacterMovesThroughOpenSpace()
     return movedFreely && stopped;
 }
 
+// Chain edges used to be created one-sided, so a traced outline blocked from
+// whichever way its winding happened to face. Worse, the motion sweep ignored
+// one-sidedness while the position query honoured it, so the two disagreed.
+static bool testChainBlocksBothSides()
+{
+    k2d::Scene scene;
+    k2d::GameObject* shore = scene.createObject("shore");
+    shore->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    const Math::Vec2 loop[4] = {Math::Vec2(-100.0f, -100.0f), Math::Vec2(100.0f, -100.0f),
+                                Math::Vec2(100.0f, 100.0f), Math::Vec2(-100.0f, 100.0f)};
+    k2d::ChainCollider2D* chain = shore->addComponent<k2d::ChainCollider2D>();
+    chain->setPoints(loop, 4);
+    chain->setLoop(true);
+
+    k2d::GameObject* probe = scene.createObject("probe");
+    k2d::RigidBody2D* body = probe->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Kinematic);
+    probe->addComponent<k2d::CircleCollider2D>()->setRadius(8.0f);
+    k2d::CharacterBody2D* character = probe->addComponent<k2d::CharacterBody2D>();
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
+
+    // The circle overlaps the wall at x=100 from either side.
+    const bool blockedInside = !character->placeFree(99.0f, 0.0f);
+    const bool blockedOutside = !character->placeFree(101.0f, 0.0f);
+    const bool freeAway = character->placeFree(0.0f, 0.0f);
+
+    // And the motion sweep must agree with the position query.
+    probe->setPosition(Math::Vec2(0.0f, 0.0f));
+    body->SetPosition(probe->globalPosition());
+    for (int i = 0; i < 60; ++i)
+    {
+        character->setVelocity(Math::Vec2(600.0f, 0.0f));
+        character->moveAndSlide();
+    }
+    const bool sweptStopped = probe->position().x < 95.0f && character->isOnWall();
+
+    std::printf("  chain_two_sided: inside=%d outside=%d away_free=%d swept_x=%.1f\n", blockedInside ? 1 : 0,
+                blockedOutside ? 1 : 0, freeAway ? 1 : 0, probe->position().x);
+    return blockedInside && blockedOutside && freeAway && sweptStopped;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
     const bool parentTransform = testBodyUnderTransformedParent();
     const bool characterOpen = testCharacterMovesThroughOpenSpace();
+    const bool chainTwoSided = testChainBlocksBothSides();
     const bool tileMap = testPaintedTileMapCollision();
     const bool contacts = testContactCallbackFires();
     const bool sensor = testSensorReportsWithoutBlocking();
@@ -1448,13 +1493,13 @@ int main()
     const bool maskEdges = testMaskContourEdgeCases();
     const bool steeringSerialized = testSteeringSerializerRoundTrip();
 
-    std::printf("physics2d: falls=%s parent_transform=%s character_open=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
+    std::printf("physics2d: falls=%s parent_transform=%s character_open=%s chain_two_sided=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
                 "joint_authoring_flow=%s mask_contour=%s no_collider=%s chain_min_points=%s joint_self=%s "
                 "joint_dead_body=%s collider_zero=%s mask_edges=%s steering_serializer=%s\n",
-                falls ? "pass" : "fail", parentTransform ? "pass" : "fail", characterOpen ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
+                falls ? "pass" : "fail", parentTransform ? "pass" : "fail", characterOpen ? "pass" : "fail", chainTwoSided ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail", colliderChange ? "pass" : "fail",
@@ -1467,7 +1512,7 @@ int main()
                 noCollider ? "pass" : "fail", chainMinPoints ? "pass" : "fail", jointSelf ? "pass" : "fail",
                 jointDeadBody ? "pass" : "fail", colliderZero ? "pass" : "fail", maskEdges ? "pass" : "fail",
                 steeringSerialized ? "pass" : "fail");
-    return falls && parentTransform && characterOpen && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
+    return falls && parentTransform && characterOpen && chainTwoSided && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
                    jointSerialized && jointAuthoringFlow && maskContour && noCollider && chainMinPoints &&

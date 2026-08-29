@@ -285,6 +285,7 @@ void writeChain(const Component& component, ct::Json& data, Assets*)
     writeShared(chain, data);
     data.set("points", writePoints(chain.points()));
     data.set("loop", ct::Json(chain.loop()));
+    data.set("oneWay", ct::Json(chain.oneWay()));
 }
 
 void readChain(Component& component, const ct::Json& data, Assets*)
@@ -296,6 +297,7 @@ void readChain(Component& component, const ct::Json& data, Assets*)
     if (points.size() >= 2)
         chain.setPoints(points.data(), (int)points.size());
     chain.setLoop(data["loop"].as_bool(false));
+    chain.setOneWay(data["oneWay"].as_bool(false));
 }
 
 bool isChain(const Component& component)

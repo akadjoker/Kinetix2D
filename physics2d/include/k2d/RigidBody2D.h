@@ -169,7 +169,10 @@ namespace k2d
         int AddCircle(const Math::Vec2 &localCenter, float radius, float density);
         int AddBox(float halfWidth, float halfHeight, const Math::Vec2 &localCenter, float density);
         int AddEdge(const Math::Vec2 &localA, const Math::Vec2 &localB);
-        int AddChain(const Math::Vec2 *points, int count, bool loop);
+        // oneSided edges only block from the side their winding faces, which
+        // is what a jump-through platform wants. A traced outline has no
+        // meaningful winding, so it must block both ways by default.
+        int AddChain(const Math::Vec2 *points, int count, bool loop, bool oneSided = false);
         int AddPolygon(const Math::Vec2 *points, int count, float density);
         int AddMesh(const Math::Vec2 *outline, int count, float density);
         int AddFromImage(const unsigned char *pixels, int width, int height, int bpp,

@@ -4,7 +4,7 @@
 namespace k2d
 {
 
-    ChainCollider2D::ChainCollider2D() : mLoop(false)
+    ChainCollider2D::ChainCollider2D() : mLoop(false), mOneWay(false)
     {
     }
 
@@ -22,6 +22,12 @@ namespace k2d
         markDirty();
     }
 
+    void ChainCollider2D::setOneWay(bool oneWay)
+    {
+        mOneWay = oneWay;
+        markDirty();
+    }
+
     int ChainCollider2D::addTo(RigidBody2D &body, float, float scaleX, float scaleY) const
     {
         if (mPoints.size() < 2)
@@ -31,7 +37,7 @@ namespace k2d
         for (size_t i = 0; i < mPoints.size(); ++i)
             scaled.push_back(Math::Vec2(mPoints[i].x * scaleX + mOffset.x,
                                         mPoints[i].y * scaleY + mOffset.y));
-        return body.AddChain(scaled.data(), (int)scaled.size(), mLoop);
+        return body.AddChain(scaled.data(), (int)scaled.size(), mLoop, mOneWay);
     }
 
 }

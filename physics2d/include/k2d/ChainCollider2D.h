@@ -18,10 +18,15 @@ namespace k2d
         void setPoints(const Math::Vec2 *points, int count);
         bool loop() const { return mLoop; }
         void setLoop(bool loop);
+        // Off means the chain blocks from both sides, which is what a traced
+        // outline needs; on makes it a jump-through platform.
+        bool oneWay() const { return mOneWay; }
+        void setOneWay(bool oneWay);
 
     private:
         ct::Vector<Math::Vec2> mPoints;
         bool mLoop;
+        bool mOneWay;
     };
 
     template <> struct ComponentMatch<ChainCollider2D>
