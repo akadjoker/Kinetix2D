@@ -108,6 +108,7 @@ private:
     float mMaskScale = 1.0f;
     float mMaskSimplifyTolerance = 1.0f;
     float mMaskMinArea = 16.0f;
+    bool mMaskOutsideSolid = true;
     ct::Vector<ct::Vector<Math::Vec2>> mMaskLoops;
     int mMaskPointCount = 0;
     int mMaskGenerateMode = 0;

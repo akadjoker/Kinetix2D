@@ -78,6 +78,11 @@ namespace k2d
             return Math::Vec2(tx, ty);
         }
 
+        float RotationDegrees() const
+        {
+            return std::atan2(b, a) * 57.29577951308232088f;
+        }
+
         Matrix2D AffineInverse() const
         {
             float det = a * d - b * c;

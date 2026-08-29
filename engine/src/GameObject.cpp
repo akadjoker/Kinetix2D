@@ -606,6 +606,12 @@ namespace k2d
         return mGlobalTransform;
     }
 
+    float GameObject::globalRotationDegrees() const
+    {
+        updateGlobalTransform();
+        return mGlobalTransform.RotationDegrees();
+    }
+
     Math::Vec2 GameObject::globalPosition() const
     {
         updateGlobalTransform();

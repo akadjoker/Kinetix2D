@@ -28,7 +28,7 @@ namespace k2d
             mCamera.position = object->globalPosition();
             mPositionSeeded = true;
         }
-        mCamera.rotationDegrees = object->rotationDegrees();
+        mCamera.rotationDegrees = object->globalRotationDegrees();
     }
 
     void CameraComponent::writeBackToOwner()
@@ -38,15 +38,9 @@ namespace k2d
             return;
         GameObject *parent = object->parent();
         if (parent && parent->parent())
-        {
-            const Math::Vec2 parentPosition = parent->globalPosition();
-            object->setPosition(
-                Math::Vec2(mCamera.position.x - parentPosition.x, mCamera.position.y - parentPosition.y));
-        }
+            object->setPosition(parent->globalTransform().AffineInverse().Transform(mCamera.position));
         else
-        {
             object->setPosition(mCamera.position);
-        }
     }
 
     void CameraComponent::onUpdate(float deltaTime)

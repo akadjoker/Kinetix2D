@@ -1029,9 +1029,50 @@ static bool testMaskContourTrace()
     return ok && insideHole;
 }
 
+// A dynamic body under a rotated, scaled parent: the world-to-local write-back
+// must invert the whole parent transform, not just subtract its position.
+static bool testBodyUnderTransformedParent()
+{
+    k2d::Scene scene;
+    k2d::GameObject* pivot = scene.createObject("pivot");
+    pivot->setPosition(Math::Vec2(100.0f, -50.0f));
+    pivot->setRotationDegrees(30.0f);
+    pivot->setScale(Math::Vec2(2.0f, 2.0f));
+
+    k2d::GameObject* box = scene.createObject("box", pivot);
+    box->setPosition(Math::Vec2(10.0f, 0.0f));
+    k2d::RigidBody2D* body = box->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Dynamic);
+    body->setGravityScale(0.0f);
+    box->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(8.0f, 8.0f));
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
+
+    const Math::Vec2 startWorld = box->globalPosition();
+    body->setVelocity(Math::Vec2(60.0f, 0.0f));
+    for (int i = 0; i < 60; ++i)
+        scene.update(1.0f / 60.0f);
+
+    // The body moved +60 world units in x over one second; the object's world
+    // position must agree, which only holds if the local write-back inverted
+    // the parent's rotation and scale.
+    const Math::Vec2 endWorld = box->globalPosition();
+    const bool movedInWorld = nearEqual(endWorld.x - startWorld.x, 60.0f, 3.0f) &&
+                              nearEqual(endWorld.y - startWorld.y, 0.0f, 3.0f);
+    const bool bodyAgrees = nearEqual(endWorld.x, body->Position().x, 0.5f) &&
+                            nearEqual(endWorld.y, body->Position().y, 0.5f);
+
+    std::printf("  parent_transform: world moved (%.1f, %.1f) body=(%.1f, %.1f)\n", endWorld.x - startWorld.x,
+                endWorld.y - startWorld.y, body->Position().x, body->Position().y);
+    return movedInWorld && bodyAgrees;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
+    const bool parentTransform = testBodyUnderTransformedParent();
     const bool tileMap = testPaintedTileMapCollision();
     const bool contacts = testContactCallbackFires();
     const bool sensor = testSensorReportsWithoutBlocking();
@@ -1059,12 +1100,12 @@ int main()
     const bool jointAuthoringFlow = testSceneJointAuthoringFlow();
     const bool maskContour = testMaskContourTrace();
 
-    std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
+    std::printf("physics2d: falls=%s parent_transform=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
                 "joint_authoring_flow=%s mask_contour=%s\n",
-                falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
+                falls ? "pass" : "fail", parentTransform ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail", colliderChange ? "pass" : "fail",
@@ -1074,7 +1115,7 @@ int main()
                 compound ? "pass" : "fail", serialized ? "pass" : "fail", distanceJoint ? "pass" : "fail",
                 revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail",
                 jointAuthoringFlow ? "pass" : "fail", maskContour ? "pass" : "fail");
-    return falls && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
+    return falls && parentTransform && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
                    jointSerialized && jointAuthoringFlow && maskContour

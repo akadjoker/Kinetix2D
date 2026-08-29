@@ -576,6 +576,7 @@ void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
     mMaskScale = 1.0f;
     mMaskSimplifyTolerance = 1.0f;
     mMaskMinArea = 16.0f;
+    mMaskOutsideSolid = true;
     mMaskGenerateMode = 0;
     recomputeMaskContours();
     mMaskOpenPending = true;
@@ -593,6 +594,7 @@ void AssetsPanel::recomputeMaskContours()
     options.simplifyTolerance = mMaskSimplifyTolerance;
     options.scale = mMaskScale;
     options.minArea = mMaskMinArea;
+    options.outsideIsSolid = mMaskOutsideSolid;
 
     TraceMaskContours(mMaskPixmap->Pixels(), mMaskPixmap->Width(), mMaskPixmap->Height(), 4, options, mMaskLoops);
     for (size_t i = 0; i < mMaskLoops.size(); ++i)
@@ -724,6 +726,11 @@ void AssetsPanel::drawGenerateCollisionShapePopup()
     ImGui::SetNextItemWidth(220.0f);
     if (ImGui::DragFloat("Min Area", &mMaskMinArea, 0.5f, 0.0f, 100000.0f, "%.1f"))
         changed = true;
+    if (ImGui::Checkbox("Outside Is Solid", &mMaskOutsideSolid))
+        changed = true;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("On for a hardness map, so the walkable area closes at the image border.\n"
+                          "Off for a sprite with a transparent margin, or it traces the whole image.");
 
     if (changed)
         recomputeMaskContours();

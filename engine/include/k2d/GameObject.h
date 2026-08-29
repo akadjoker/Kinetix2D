@@ -155,6 +155,7 @@ namespace k2d
         void advance(float speed);
         const Matrix2D &localTransform() const;
         const Matrix2D &globalTransform() const;
+        float globalRotationDegrees() const;
         Math::Vec2 globalPosition() const;
         Math::Vec2 right() const;
         Math::Vec2 up() const;

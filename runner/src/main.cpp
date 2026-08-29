@@ -331,6 +331,9 @@ int main(int argc, char** argv)
         k2d::Assets assets;
         k2d::Scene scene;
         k2d::CanvasRenderer canvas;
+        // Held here, not per frame: Scene::setRenderCamera keeps the pointer
+        // for the whole render pass, so it must outlive the frame body.
+        k2d::Camera2D defaultCamera;
 
         k2d::SetZenScriptInput(&device.GetInput());
         k2d::SetUiInput(&device.GetInput());
@@ -450,7 +453,6 @@ int main(int argc, char** argv)
                     const float height = static_cast<float>(device.Height());
                     k2d::SetZenScriptGameViewport(0.0f, 0.0f, width, height);
                     k2d::SetUiViewport(0.0f, 0.0f, width, height);
-                    k2d::Camera2D defaultCamera;
                     if (k2d::CameraComponent* camera = scene.activeCamera())
                     {
                         camera->setViewport(width, height);

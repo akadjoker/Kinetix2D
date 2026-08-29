@@ -2,6 +2,7 @@
 
 #include "core/EditorPanel.h"
 
+#include <k2d/Camera2D.h>
 #include <k2d/CanvasRenderer.h>
 
 namespace k2d
@@ -28,6 +29,7 @@ private:
     void renderScene(int width, int height);
 
     CanvasRenderer mCanvas;
+    Camera2D mDefaultCamera;
     bool mCanvasInitialized = false;
     bool mCanvasReady = false;
     unsigned int mFramebuffer = 0;

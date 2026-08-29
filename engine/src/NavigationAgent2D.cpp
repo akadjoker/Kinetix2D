@@ -35,7 +35,13 @@ bool NavigationAgent2D::retarget(const Math::Vec2& position, bool forceRepath)
 
 bool NavigationAgent2D::followPosition(Math::Vec2& out) const
 {
-    if (!mFollowTarget)
+    // mFollowTarget is only re-resolved inside onUpdate, so a caller reaching
+    // here first in the frame after the target was destroyed would read freed
+    // memory. Trust the pointer only while the topology it was resolved under
+    // still stands.
+    const GameObject* object = owner();
+    const Scene* scene = object ? object->scene() : nullptr;
+    if (!mFollowTarget || !scene || mFollowVersion != scene->topologyVersion())
         return false;
     out = mFollowTarget->globalPosition();
     return true;

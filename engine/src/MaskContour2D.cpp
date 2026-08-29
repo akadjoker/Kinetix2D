@@ -157,7 +157,7 @@ int TraceMaskContours(const unsigned char *pixels, int width, int height, int bp
     auto solid = [&](int x, int y) -> bool
     {
         if (x < 0 || y < 0 || x >= width || y >= height)
-            return true;
+            return options.outsideIsSolid;
         return solidBuffer[(std::size_t)y * (std::size_t)width + (std::size_t)x] != 0;
     };
 

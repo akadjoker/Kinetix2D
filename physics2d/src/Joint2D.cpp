@@ -46,6 +46,12 @@ void Joint2D::resolve()
         mBodyB = target ? target->getComponent<RigidBody2D>() : nullptr;
     }
 
+    // Both or neither: isConnected() and the solver only test mBodyB, so a
+    // joint on an object with no RigidBody2D would otherwise report connected
+    // and null-deref mBodyA on the first solve.
+    if (!mBodyA)
+        mBodyB = nullptr;
+
     if (mBodyA && mBodyB)
     {
         // Only lock the version in once connected: an unresolved joint (its

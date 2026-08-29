@@ -93,7 +93,7 @@ void GamePanel::renderScene(int width, int height)
 
     Scene& scene = app().runtimeScene();
     CameraComponent* camera = scene.activeCamera();
-    Camera2D defaultCamera;
+    Camera2D& defaultCamera = mDefaultCamera;
     if (camera)
     {
         camera->setViewport(static_cast<float>(width), static_cast<float>(height));

@@ -235,9 +235,11 @@ void Scene::pullTransforms()
         GameObject *parent = object->parent();
         if (parent && parent->parent())
         {
-            const Math::Vec2 parentPosition = parent->globalPosition();
-            const Math::Vec2 localPosition(worldPosition.x - parentPosition.x, worldPosition.y - parentPosition.y);
-            object->setPositionAndRotation(localPosition, worldAngle);
+            // The full inverse, not just the parent's position: a rotated or
+            // scaled parent otherwise leaves the body drawn away from where it
+            // simulates, and the angle needs the parent's rotation removed too.
+            const Math::Vec2 localPosition = parent->globalTransform().AffineInverse().Transform(worldPosition);
+            object->setPositionAndRotation(localPosition, worldAngle - parent->globalRotationDegrees());
         }
         else
         {
