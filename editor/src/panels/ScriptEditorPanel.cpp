@@ -14,7 +14,7 @@
 namespace k2d::editor
 {
 
-ScriptEditorPanel::ScriptEditorPanel(EditorApplication& application) : EditorPanel("Script Editor", application)
+ScriptEditorPanel::ScriptEditorPanel(EditorApplication& application) : EditorPanel("Script Editor", application, false)
 {
     mEditor.SetLanguageDefinition(TextEditor::LanguageDefinitionId::ZenScript);
     mEditor.SetPalette(TextEditor::PaletteId::VsCodeDark);

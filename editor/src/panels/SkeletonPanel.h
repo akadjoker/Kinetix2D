@@ -9,7 +9,7 @@ class SkeletonPanel final : public EditorPanel
 {
 public:
     explicit SkeletonPanel(EditorApplication& application)
-        : EditorPanel("Skeleton", application)
+        : EditorPanel("Skeleton", application, false)
     {
     }
 

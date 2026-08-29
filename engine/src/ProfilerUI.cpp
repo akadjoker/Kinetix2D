@@ -72,6 +72,8 @@ namespace k2d
 
     void ShowProfilerWindow(bool *open)
     {
+        if (open && !*open)
+            return;
         if (!ImGui::Begin("Profiler", open))
         {
             ImGui::End();

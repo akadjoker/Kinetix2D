@@ -80,7 +80,7 @@ void paintRectangle(TileMapComponent &map, int x0, int y0, int x1, int y1,
 }
 }
 
-TileMapPanel::TileMapPanel(EditorApplication &application) : EditorPanel("Tile Painter", application)
+TileMapPanel::TileMapPanel(EditorApplication &application) : EditorPanel("Tile Painter", application, false)
 {
 }
 

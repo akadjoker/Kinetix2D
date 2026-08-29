@@ -1331,8 +1331,6 @@ void EditorApplication::drawMenuBar()
         ImGui::Separator();
         if (ImGui::MenuItem("Reset Layout"))
         {
-            for (const ct::Unique<EditorPanel>& panel : mPanels)
-                panel->open() = true;
             mLayoutResetRequested = true;
             log("Layout reset");
         }
@@ -1557,7 +1555,6 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.25f, &bottom, &center);
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.35f, &game, &center);
 
-    ImGui::DockBuilderDockWindow("Assets", left);
     ImGui::DockBuilderDockWindow("Hierarchy", left);
     ImGui::DockBuilderDockWindow("Inspector", right);
     ImGui::DockBuilderDockWindow("Prefabs", right);
@@ -1567,9 +1564,14 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Tile Painter", game);
     ImGui::DockBuilderDockWindow("Sprite Editor", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
+    ImGui::DockBuilderDockWindow("Assets", bottom);
+    ImGui::DockBuilderDockWindow("Profiler", bottom);
     ImGui::DockBuilderDockWindow("Scripts", bottom);
     ImGui::DockBuilderDockWindow("Script Editor", center);
     ImGui::DockBuilderFinish(dockspaceId);
+    for (const ct::Unique<EditorPanel>& panel : mPanels)
+        panel->open() = panel->openByDefault();
+    mProfilerOpen = false;
     mDefaultFocusPending = true;
 }
 

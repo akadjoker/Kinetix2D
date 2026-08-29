@@ -43,7 +43,7 @@ const char* modeName(ParticleMode mode)
 }
 } // namespace
 
-ParticlePanel::ParticlePanel(EditorApplication& application) : EditorPanel("Particles", application)
+ParticlePanel::ParticlePanel(EditorApplication& application) : EditorPanel("Particles", application, false)
 {
     mCanvasInitialized = mCanvas.Init();
 }

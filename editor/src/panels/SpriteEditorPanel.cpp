@@ -24,7 +24,7 @@
 namespace k2d::editor
 {
 
-SpriteEditorPanel::SpriteEditorPanel(EditorApplication &application) : EditorPanel("Sprite Editor", application)
+SpriteEditorPanel::SpriteEditorPanel(EditorApplication &application) : EditorPanel("Sprite Editor", application, false)
 {
 }
 

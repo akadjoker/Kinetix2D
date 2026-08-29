@@ -16,7 +16,7 @@
 namespace k2d::editor
 {
 
-ScriptsPanel::ScriptsPanel(EditorApplication &application) : EditorPanel("Scripts", application)
+ScriptsPanel::ScriptsPanel(EditorApplication &application) : EditorPanel("Scripts", application, false)
 {
 }
 

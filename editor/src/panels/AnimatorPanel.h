@@ -7,7 +7,7 @@ namespace k2d::editor
 class AnimatorPanel final : public EditorPanel
 {
 public:
-    explicit AnimatorPanel(EditorApplication &application) : EditorPanel("Animator", application) {}
+    explicit AnimatorPanel(EditorApplication &application) : EditorPanel("Animator", application, false) {}
 
 private:
     void drawContents() override;

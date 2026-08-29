@@ -29,7 +29,7 @@ Math::Vec4 makeRect(const Math::Vec2& a, const Math::Vec2& b)
 }
 } // namespace
 
-ImageEditorPanel::ImageEditorPanel(EditorApplication& application) : EditorPanel("Image Editor", application)
+ImageEditorPanel::ImageEditorPanel(EditorApplication& application) : EditorPanel("Image Editor", application, false)
 {
 }
 

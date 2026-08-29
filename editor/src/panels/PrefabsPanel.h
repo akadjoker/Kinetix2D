@@ -13,7 +13,7 @@ class PrefabsPanel final : public EditorPanel
 {
 public:
     explicit PrefabsPanel(EditorApplication &application)
-        : EditorPanel("Prefabs", application)
+        : EditorPanel("Prefabs", application, false)
     {
     }
 
