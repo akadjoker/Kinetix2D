@@ -196,14 +196,24 @@
             }
           },
           {
-            "type": "Seek2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "Target",
               "targetPosition": [
                 0.0,
                 0.0
-              ]
+              ],
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],
@@ -284,7 +294,7 @@
             }
           },
           {
-            "type": "Flee2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "Target",
@@ -292,7 +302,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 0.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],

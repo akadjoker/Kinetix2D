@@ -1,28 +1,22 @@
 #include "k2d/Physics2DSerializer.h"
 
-#include "k2d/Arrive2D.h"
 #include "k2d/BoxCollider2D.h"
 #include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
 #include "k2d/CircleCollider2D.h"
 #include "k2d/DistanceJoint2D.h"
 #include "k2d/EdgeCollider2D.h"
-#include "k2d/Flee2D.h"
 #include "k2d/GameObject.h"
 #include "k2d/GearJoint2D.h"
 #include "k2d/Joint2D.h"
 #include "k2d/MotorJoint2D.h"
 #include "k2d/MouseJoint2D.h"
-#include "k2d/ObstacleAvoidance2D.h"
 #include "k2d/PolygonCollider2D.h"
 #include "k2d/RevoluteJoint2D.h"
 #include "k2d/RigidBody2D.h"
-#include "k2d/Seek2D.h"
-#include "k2d/Separation2D.h"
 #include "k2d/Steering2D.h"
 #include "k2d/Serializer.h"
 #include "k2d/TileMapCollider2D.h"
-#include "k2d/Wander2D.h"
 #include "k2d/WheelJoint2D.h"
 
 #include <cstring>
@@ -557,154 +551,41 @@ void readSteeringShared(Steering2D& steering, const ct::Json& data)
     steering.setTargetPosition(readVec2(data["targetPosition"], Math::Vec2(0.0f, 0.0f)));
 }
 
-Component* createSeek(GameObject& owner)
+Component* createSteering(GameObject& owner)
 {
-    return owner.addComponent<Seek2D>();
+    return owner.addComponent<Steering2D>();
 }
 
-void writeSeek(const Component& component, ct::Json& data, Assets*)
+void writeSteering(const Component& component, ct::Json& data, Assets*)
 {
-    writeSteeringShared(static_cast<const Seek2D&>(component), data);
+    const Steering2D& steering = static_cast<const Steering2D&>(component);
+    writeSteeringShared(steering, data);
+    data.set("group", ct::Json(steering.groupTag().c_str()));
+    data.set("mask", ct::Json((int)steering.mask()));
+    data.set("separation", ct::Json(steering.separationEnabled()));
+    data.set("separationRadius", ct::Json((double)steering.separationRadius()));
+    data.set("avoidance", ct::Json(steering.avoidanceEnabled()));
+    data.set("lookAhead", ct::Json((double)steering.lookAhead()));
+    data.set("slowRadius", ct::Json((double)steering.slowRadius()));
+    data.set("wanderRadius", ct::Json((double)steering.wanderRadius()));
+    data.set("wanderDistance", ct::Json((double)steering.wanderDistance()));
+    data.set("wanderJitter", ct::Json((double)steering.wanderJitter()));
 }
 
-void readSeek(Component& component, const ct::Json& data, Assets*)
+void readSteering(Component& component, const ct::Json& data, Assets*)
 {
-    readSteeringShared(static_cast<Seek2D&>(component), data);
-}
-
-bool isSeek(const Component& component)
-{
-    return dynamic_cast<const Seek2D*>(&component) != nullptr;
-}
-
-Component* createFlee(GameObject& owner)
-{
-    return owner.addComponent<Flee2D>();
-}
-
-void writeFlee(const Component& component, ct::Json& data, Assets*)
-{
-    const Flee2D& flee = static_cast<const Flee2D&>(component);
-    writeSteeringShared(flee, data);
-    data.set("radius", ct::Json((double)flee.radius()));
-}
-
-void readFlee(Component& component, const ct::Json& data, Assets*)
-{
-    Flee2D& flee = static_cast<Flee2D&>(component);
-    readSteeringShared(flee, data);
-    flee.setRadius((float)data["radius"].as_double(0.0));
-}
-
-bool isFlee(const Component& component)
-{
-    return dynamic_cast<const Flee2D*>(&component) != nullptr;
-}
-
-Component* createArrive(GameObject& owner)
-{
-    return owner.addComponent<Arrive2D>();
-}
-
-void writeArrive(const Component& component, ct::Json& data, Assets*)
-{
-    const Arrive2D& arrive = static_cast<const Arrive2D&>(component);
-    writeSteeringShared(arrive, data);
-    data.set("slowRadius", ct::Json((double)arrive.slowRadius()));
-    data.set("stopRadius", ct::Json((double)arrive.stopRadius()));
-}
-
-void readArrive(Component& component, const ct::Json& data, Assets*)
-{
-    Arrive2D& arrive = static_cast<Arrive2D&>(component);
-    readSteeringShared(arrive, data);
-    arrive.setSlowRadius((float)data["slowRadius"].as_double(96.0));
-    arrive.setStopRadius((float)data["stopRadius"].as_double(4.0));
-}
-
-bool isArrive(const Component& component)
-{
-    return dynamic_cast<const Arrive2D*>(&component) != nullptr;
-}
-
-Component* createWander(GameObject& owner)
-{
-    return owner.addComponent<Wander2D>();
-}
-
-void writeWander(const Component& component, ct::Json& data, Assets*)
-{
-    const Wander2D& wander = static_cast<const Wander2D&>(component);
-    writeSteeringShared(wander, data);
-    data.set("radius", ct::Json((double)wander.radius()));
-    data.set("distance", ct::Json((double)wander.distance()));
-    data.set("jitter", ct::Json((double)wander.jitter()));
-}
-
-void readWander(Component& component, const ct::Json& data, Assets*)
-{
-    Wander2D& wander = static_cast<Wander2D&>(component);
-    readSteeringShared(wander, data);
-    wander.setRadius((float)data["radius"].as_double(24.0));
-    wander.setDistance((float)data["distance"].as_double(48.0));
-    wander.setJitter((float)data["jitter"].as_double(6.0));
-}
-
-bool isWander(const Component& component)
-{
-    return dynamic_cast<const Wander2D*>(&component) != nullptr;
-}
-
-Component* createSeparation(GameObject& owner)
-{
-    return owner.addComponent<Separation2D>();
-}
-
-void writeSeparation(const Component& component, ct::Json& data, Assets*)
-{
-    const Separation2D& separation = static_cast<const Separation2D&>(component);
-    writeSteeringShared(separation, data);
-    data.set("radius", ct::Json((double)separation.radius()));
-    data.set("mask", ct::Json((int)separation.mask()));
-}
-
-void readSeparation(Component& component, const ct::Json& data, Assets*)
-{
-    Separation2D& separation = static_cast<Separation2D&>(component);
-    readSteeringShared(separation, data);
-    separation.setRadius((float)data["radius"].as_double(48.0));
-    separation.setMask((uint16_t)data["mask"].as_int(0xFFFF));
-}
-
-bool isSeparation(const Component& component)
-{
-    return dynamic_cast<const Separation2D*>(&component) != nullptr;
-}
-
-Component* createObstacleAvoidance(GameObject& owner)
-{
-    return owner.addComponent<ObstacleAvoidance2D>();
-}
-
-void writeObstacleAvoidance(const Component& component, ct::Json& data, Assets*)
-{
-    const ObstacleAvoidance2D& avoidance = static_cast<const ObstacleAvoidance2D&>(component);
-    writeSteeringShared(avoidance, data);
-    data.set("lookAhead", ct::Json((double)avoidance.lookAhead()));
-    data.set("mask", ct::Json((int)avoidance.mask()));
-}
-
-void readObstacleAvoidance(Component& component, const ct::Json& data, Assets*)
-{
-    ObstacleAvoidance2D& avoidance = static_cast<ObstacleAvoidance2D&>(component);
-    readSteeringShared(avoidance, data);
-    avoidance.setLookAhead((float)data["lookAhead"].as_double(0.5));
-    avoidance.setMask((uint16_t)data["mask"].as_int(0xFFFF));
-}
-
-bool isObstacleAvoidance(const Component& component)
-{
-    return dynamic_cast<const ObstacleAvoidance2D*>(&component) != nullptr;
+    Steering2D& steering = static_cast<Steering2D&>(component);
+    readSteeringShared(steering, data);
+    steering.setGroupTag(data["group"].as_cstr(""));
+    steering.setMask((uint16_t)data["mask"].as_int(0xFFFF));
+    steering.setSeparationEnabled(data["separation"].as_bool(false));
+    steering.setSeparationRadius((float)data["separationRadius"].as_double(48.0));
+    steering.setAvoidanceEnabled(data["avoidance"].as_bool(false));
+    steering.setLookAhead((float)data["lookAhead"].as_double(3.0));
+    steering.setSlowRadius((float)data["slowRadius"].as_double(120.0));
+    steering.setWanderRadius((float)data["wanderRadius"].as_double(24.0));
+    steering.setWanderDistance((float)data["wanderDistance"].as_double(48.0));
+    steering.setWanderJitter((float)data["wanderJitter"].as_double(6.0));
 }
 
 void RegisterPhysics2DSerializers()
@@ -737,16 +618,8 @@ void RegisterPhysics2DSerializers()
     Serializer::RegisterType(ComponentType::Joint, "GearJoint2D", &createGearJoint, &writeGearJoint, &readGearJoint,
                              &isGearJoint);
 
-    Serializer::RegisterType(ComponentType::Steering, "Seek2D", &createSeek, &writeSeek, &readSeek, &isSeek);
-    Serializer::RegisterType(ComponentType::Steering, "Flee2D", &createFlee, &writeFlee, &readFlee, &isFlee);
-    Serializer::RegisterType(ComponentType::Steering, "Arrive2D", &createArrive, &writeArrive, &readArrive,
-                             &isArrive);
-    Serializer::RegisterType(ComponentType::Steering, "Wander2D", &createWander, &writeWander, &readWander,
-                             &isWander);
-    Serializer::RegisterType(ComponentType::Steering, "Separation2D", &createSeparation, &writeSeparation,
-                             &readSeparation, &isSeparation);
-    Serializer::RegisterType(ComponentType::Steering, "ObstacleAvoidance2D", &createObstacleAvoidance,
-                             &writeObstacleAvoidance, &readObstacleAvoidance, &isObstacleAvoidance);
+    Serializer::RegisterType(ComponentType::Steering, "Steering2D", &createSteering, &writeSteering,
+                             &readSteering, nullptr);
 }
 
 } // namespace k2d

@@ -29,27 +29,21 @@
 #include <k2d/Texture.h>
 #include <k2d/TileMapComponent.h>
 #include <k2d/UiControls.h>
-#include <k2d/Arrive2D.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CharacterBody2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
-#include <k2d/Flee2D.h>
 #include <k2d/GearJoint2D.h>
 #include <k2d/Joint2D.h>
 #include <k2d/MotorJoint2D.h>
 #include <k2d/MouseJoint2D.h>
-#include <k2d/ObstacleAvoidance2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RevoluteJoint2D.h>
 #include <k2d/RigidBody2D.h>
-#include <k2d/Seek2D.h>
-#include <k2d/Separation2D.h>
 #include <k2d/Steering2D.h>
 #include <k2d/TileMapCollider2D.h>
-#include <k2d/Wander2D.h>
 #include <k2d/WheelJoint2D.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/ZenScriptComponent.h>
@@ -180,18 +174,6 @@ const char* componentName(const Component& component)
         return "MouseJoint2D";
     if (dynamic_cast<const GearJoint2D*>(&component))
         return "GearJoint2D";
-    if (dynamic_cast<const Seek2D*>(&component))
-        return "Seek2D";
-    if (dynamic_cast<const Flee2D*>(&component))
-        return "Flee2D";
-    if (dynamic_cast<const Arrive2D*>(&component))
-        return "Arrive2D";
-    if (dynamic_cast<const Wander2D*>(&component))
-        return "Wander2D";
-    if (dynamic_cast<const Separation2D*>(&component))
-        return "Separation2D";
-    if (dynamic_cast<const ObstacleAvoidance2D*>(&component))
-        return "ObstacleAvoidance2D";
     return componentName(component.type());
 }
 
@@ -221,18 +203,6 @@ const char* componentDescription(const Component& component)
         return "Pulls this object's body toward a moving target point.";
     if (dynamic_cast<const GearJoint2D*>(&component))
         return "Couples two RevoluteJoint2D hinges with a fixed ratio.";
-    if (dynamic_cast<const Seek2D*>(&component))
-        return "Steers the Navigation Agent toward a point or another object.";
-    if (dynamic_cast<const Flee2D*>(&component))
-        return "Steers the Navigation Agent away from a point or another object.";
-    if (dynamic_cast<const Arrive2D*>(&component))
-        return "Seeks a target and eases off inside the slow radius instead of orbiting it.";
-    if (dynamic_cast<const Wander2D*>(&component))
-        return "Adds a smooth random drift to the Navigation Agent's heading.";
-    if (dynamic_cast<const Separation2D*>(&component))
-        return "Pushes away from every neighbour in range. Neighbours are seen through their colliders.";
-    if (dynamic_cast<const ObstacleAvoidance2D*>(&component))
-        return "Probes ahead along the current heading and steers around the collider it finds.";
     switch (component.type())
     {
     case ComponentType::Sprite:
@@ -289,6 +259,9 @@ const char* componentDescription(const Component& component)
         return "Requests paths in NavigationRegion2D and optionally follows them.";
     case ComponentType::Formation:
         return "Gives this member its own place in the group's formation and sends its agent there.";
+    case ComponentType::Steering:
+        return "Seek, flee, arrive and wander for a script to call, plus separation and obstacle avoidance "
+               "that can also run on their own for this object's agent.";
     case ComponentType::CharacterBody:
         return "Script-driven kinematic movement using this object's RigidBody2D and Collider2D components.";
     default:
@@ -1706,71 +1679,68 @@ void drawColliderVisibilityHint(GameObject* owner)
         ImGui::TextDisabled("This object has no RigidBody2D collider, so other agents cannot see it.");
 }
 
-void drawSeekProperties(EditorApplication& app, Seek2D& seek)
+void drawSteeringProperties(EditorApplication& app, Steering2D& steering)
 {
-    drawSteeringShared(app, seek, true);
-}
+    ImGui::TextDisabled("Seek, flee, arrive and wander are called from a script.");
+    ImGui::TextDisabled("The two below can also run on their own for this object's agent.");
+    ImGui::Separator();
 
-void drawFleeProperties(EditorApplication& app, Flee2D& flee)
-{
-    float radius = flee.radius();
-    if (dragFloatProperty(app, "Radius", radius, 1.0f, "Set Flee Radius", 0.0f, 100000.0f))
-        flee.setRadius(radius);
+    bool separationEnabled = steering.separationEnabled();
+    if (ImGui::Checkbox("Separation", &separationEnabled))
+        applyInstant(app, "Toggle Separation", [&] { steering.setSeparationEnabled(separationEnabled); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Beyond this distance the threat is ignored. Zero means no limit.");
-    drawSteeringShared(app, flee, true);
-}
+        ImGui::SetTooltip("Push away from crowding neighbours while the agent follows its path.");
+    if (separationEnabled)
+    {
+        float radius = steering.separationRadius();
+        if (dragFloatProperty(app, "Separation Radius", radius, 1.0f, "Set Separation Radius", 0.0f, 100000.0f))
+            steering.setSeparationRadius(radius);
+    }
 
-void drawArriveProperties(EditorApplication& app, Arrive2D& arrive)
-{
-    float slowRadius = arrive.slowRadius();
-    if (dragFloatProperty(app, "Slow Radius", slowRadius, 1.0f, "Set Arrive Slow Radius", 0.0f, 100000.0f))
-        arrive.setSlowRadius(slowRadius);
-    float stopRadius = arrive.stopRadius();
-    if (dragFloatProperty(app, "Stop Radius", stopRadius, 0.5f, "Set Arrive Stop Radius", 0.0f, 100000.0f))
-        arrive.setStopRadius(stopRadius);
-    drawSteeringShared(app, arrive, true);
-}
+    bool avoidanceEnabled = steering.avoidanceEnabled();
+    if (ImGui::Checkbox("Obstacle Avoidance", &avoidanceEnabled))
+        applyInstant(app, "Toggle Obstacle Avoidance", [&] { steering.setAvoidanceEnabled(avoidanceEnabled); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Sweeps the body ahead and turns aside. Overrides path following while it fires.");
+    if (avoidanceEnabled)
+    {
+        float lookAhead = steering.lookAhead();
+        if (dragFloatProperty(app, "Look Ahead", lookAhead, 0.05f, "Set Look Ahead", 0.0f, 60.0f))
+            steering.setLookAhead(lookAhead);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Seconds of travel swept ahead at the current speed.");
+    }
 
-void drawWanderProperties(EditorApplication& app, Wander2D& wander)
-{
-    float distance = wander.distance();
-    if (dragFloatProperty(app, "Distance", distance, 1.0f, "Set Wander Distance", 0.0f, 100000.0f))
-        wander.setDistance(distance);
-    float radius = wander.radius();
-    if (dragFloatProperty(app, "Radius", radius, 1.0f, "Set Wander Radius", 0.0f, 100000.0f))
-        wander.setRadius(radius);
-    float jitter = wander.jitter();
-    if (dragFloatProperty(app, "Jitter", jitter, 0.1f, "Set Wander Jitter", 0.0f, 1000.0f))
-        wander.setJitter(jitter);
+    if (separationEnabled || avoidanceEnabled)
+    {
+        char groupBuffer[128];
+        std::snprintf(groupBuffer, sizeof(groupBuffer), "%s", steering.groupTag().c_str());
+        if (ImGui::InputText("Group Tag", groupBuffer, sizeof(groupBuffer)))
+            applyInstant(app, "Set Steering Group", [&] { steering.setGroupTag(groupBuffer); });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Only neighbours carrying this Tag count as crowd. Empty means all of them.");
+        drawSteeringMask(app, "Mask", steering.mask(), [&](uint16_t value) { steering.setMask(value); },
+                         "Set Steering Mask");
+        drawColliderVisibilityHint(steering.owner());
+    }
+
+    ImGui::Separator();
+    float slowRadius = steering.slowRadius();
+    if (dragFloatProperty(app, "Arrive Slow Radius", slowRadius, 1.0f, "Set Arrive Slow Radius", 0.0f, 100000.0f))
+        steering.setSlowRadius(slowRadius);
+    float wanderDistance = steering.wanderDistance();
+    if (dragFloatProperty(app, "Wander Distance", wanderDistance, 1.0f, "Set Wander Distance", 0.0f, 100000.0f))
+        steering.setWanderDistance(wanderDistance);
+    float wanderRadius = steering.wanderRadius();
+    if (dragFloatProperty(app, "Wander Radius", wanderRadius, 1.0f, "Set Wander Radius", 0.0f, 100000.0f))
+        steering.setWanderRadius(wanderRadius);
+    float wanderJitter = steering.wanderJitter();
+    if (dragFloatProperty(app, "Wander Jitter", wanderJitter, 0.1f, "Set Wander Jitter", 0.0f, 1000.0f))
+        steering.setWanderJitter(wanderJitter);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Radians per second of random walk around the wander circle.");
-    drawSteeringShared(app, wander, false);
-}
 
-void drawSeparationProperties(EditorApplication& app, Separation2D& separation)
-{
-    float radius = separation.radius();
-    if (dragFloatProperty(app, "Radius", radius, 1.0f, "Set Separation Radius", 0.0f, 100000.0f))
-        separation.setRadius(radius);
-    drawSteeringMask(app, "Neighbour Mask", separation.mask(),
-                     [&](uint16_t value) { separation.setMask(value); }, "Set Separation Mask");
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Collision categories that count as crowd.");
-    drawColliderVisibilityHint(separation.owner());
-    drawSteeringShared(app, separation, false);
-}
-
-void drawObstacleAvoidanceProperties(EditorApplication& app, ObstacleAvoidance2D& avoidance)
-{
-    float lookAhead = avoidance.lookAhead();
-    if (dragFloatProperty(app, "Look Ahead", lookAhead, 0.05f, "Set Obstacle Look Ahead", 0.0f, 60.0f))
-        avoidance.setLookAhead(lookAhead);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Seconds of travel probed ahead at the agent's current speed.");
-    drawSteeringMask(app, "Obstacle Mask", avoidance.mask(),
-                     [&](uint16_t value) { avoidance.setMask(value); }, "Set Obstacle Mask");
-    drawSteeringShared(app, avoidance, false);
+    drawSteeringShared(app, steering, true);
 }
 
 void drawDistanceJointProperties(EditorApplication& app, DistanceJoint2D& joint)
@@ -2922,18 +2892,8 @@ void drawComponentProperties(EditorApplication& app, Component& component)
             drawGearJointProperties(app, *gear);
         break;
     case ComponentType::Steering:
-        if (Seek2D* seek = dynamic_cast<Seek2D*>(&component))
-            drawSeekProperties(app, *seek);
-        else if (Flee2D* flee = dynamic_cast<Flee2D*>(&component))
-            drawFleeProperties(app, *flee);
-        else if (Arrive2D* arrive = dynamic_cast<Arrive2D*>(&component))
-            drawArriveProperties(app, *arrive);
-        else if (Wander2D* wander = dynamic_cast<Wander2D*>(&component))
-            drawWanderProperties(app, *wander);
-        else if (Separation2D* separation = dynamic_cast<Separation2D*>(&component))
-            drawSeparationProperties(app, *separation);
-        else if (ObstacleAvoidance2D* avoidance = dynamic_cast<ObstacleAvoidance2D*>(&component))
-            drawObstacleAvoidanceProperties(app, *avoidance);
+        if (Steering2D* steering = dynamic_cast<Steering2D*>(&component))
+            drawSteeringProperties(app, *steering);
         break;
     case ComponentType::Script:
         if (ZenScriptComponent* script = dynamic_cast<ZenScriptComponent*>(&component))
@@ -3403,45 +3363,13 @@ void InspectorPanel::drawContents()
             }
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Steering"))
+        if (componentMenuItem("Steering 2D",
+                              "Seek, flee, arrive and wander for scripts to call, plus separation and "
+                              "obstacle avoidance that can run on their own."))
         {
-            if (componentMenuItem("Seek", "Steer a Navigation Agent toward a point or object."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<Seek2D>();
-                app().commitChange("Add Seek Component", addBefore);
-            }
-            if (componentMenuItem("Flee", "Steer a Navigation Agent away from a point or object."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<Flee2D>();
-                app().commitChange("Add Flee Component", addBefore);
-            }
-            if (componentMenuItem("Arrive", "Seek a target and ease off instead of orbiting it."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<Arrive2D>();
-                app().commitChange("Add Arrive Component", addBefore);
-            }
-            if (componentMenuItem("Wander", "Add a smooth random drift to the heading."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<Wander2D>();
-                app().commitChange("Add Wander Component", addBefore);
-            }
-            if (componentMenuItem("Separation", "Push away from other agents in range."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<Separation2D>();
-                app().commitChange("Add Separation Component", addBefore);
-            }
-            if (componentMenuItem("Obstacle Avoidance", "Probe ahead and steer around colliders."))
-            {
-                const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<ObstacleAvoidance2D>();
-                app().commitChange("Add Obstacle Avoidance Component", addBefore);
-            }
-            ImGui::EndMenu();
+            const EditorApplication::SceneChange addBefore = app().beginChange();
+            object->addComponent<Steering2D>();
+            app().commitChange("Add Steering 2D", addBefore);
         }
         if (ImGui::BeginMenu("UI"))
         {

@@ -1,5 +1,4 @@
 #include <k2d/Animation2D.h>
-#include <k2d/Arrive2D.h>
 #include <k2d/AudioPlayer.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/Assets.h>
@@ -10,21 +9,16 @@
 #include <k2d/CircleShape.h>
 #include <k2d/DirectionalLight2D.h>
 #include <k2d/FileSystem.h>
-#include <k2d/Flee2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Input.h>
 #include <k2d/InputActionMap.h>
-#include <k2d/ObstacleAvoidance2D.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Polygon2D.h>
 #include <k2d/RectShape.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
 #include <k2d/SceneManager.h>
-#include <k2d/Seek2D.h>
-#include <k2d/Separation2D.h>
 #include <k2d/Steering2D.h>
-#include <k2d/Wander2D.h>
 #include <k2d/Skeleton2D.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/Serializer.h>
@@ -784,18 +778,15 @@ static bool testSteeringApi()
     prize->setPosition(Math::Vec2(200.0f, 0.0f));
 
     k2d::GameObject* object = scene.createObject("walker");
-    k2d::Seek2D* seek = object->addComponent<k2d::Seek2D>();
-    k2d::Flee2D* flee = object->addComponent<k2d::Flee2D>();
-    k2d::Arrive2D* arrive = object->addComponent<k2d::Arrive2D>();
-    k2d::Wander2D* wander = object->addComponent<k2d::Wander2D>();
-    k2d::Separation2D* separation = object->addComponent<k2d::Separation2D>();
-    k2d::ObstacleAvoidance2D* avoidance = object->addComponent<k2d::ObstacleAvoidance2D>();
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::Steering2D* steering = object->addComponent<k2d::Steering2D>();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
+        "import math\n"
         "class Steered(ScriptComponent):\n"
         "    def on_start(self):\n"
-        "        s = self.node.get_component<Seek>()\n"
+        "        s = self.node.get_component<Steering>()\n"
         "        s.set_weight(2.5)\n"
         "        set_number(\"weight\", s.get_weight())\n"
         "        s.set_target_object(\"prize\")\n"
@@ -807,29 +798,25 @@ static bool testSteeringApi()
         "        found2, px, py = s.get_target()\n"
         "        set_number(\"px\", px)\n"
         "        set_number(\"py\", py)\n"
-        "        f = self.node.get_component<Flee>()\n"
-        "        f.set_radius(120.0)\n"
-        "        set_number(\"flee_radius\", f.get_radius())\n"
-        "        a = self.node.get_component<Arrive>()\n"
-        "        a.set_slow_radius(90.0)\n"
-        "        a.set_stop_radius(6.0)\n"
-        "        set_number(\"slow\", a.get_slow_radius())\n"
-        "        set_number(\"stop\", a.get_stop_radius())\n"
-        "        w = self.node.get_component<Wander>()\n"
-        "        w.set_jitter(9.0)\n"
-        "        w.set_radius(15.0)\n"
-        "        w.set_distance(45.0)\n"
-        "        set_number(\"jitter\", w.get_jitter())\n"
-        "        p = self.node.get_component<Separation>()\n"
-        "        p.set_radius(72.0)\n"
-        "        p.set_mask(15)\n"
-        "        set_number(\"sep_radius\", p.get_radius())\n"
-        "        set_number(\"sep_mask\", p.get_mask())\n"
-        "        o = self.node.get_component<ObstacleAvoidance>()\n"
-        "        o.set_look_ahead(1.25)\n"
-        "        o.set_mask(3)\n"
-        "        set_number(\"look_ahead\", o.get_look_ahead())\n"
-        "        set_number(\"obstacle_mask\", o.get_mask())\n",
+        "        s.set_group(\"hunters\")\n"
+        "        s.set_mask(15)\n"
+        "        s.set_separation(True, 72.0)\n"
+        "        s.set_avoidance(True, 1.25)\n"
+        "        s.set_slow_radius(90.0)\n"
+        "        s.set_wander(15.0, 45.0, 9.0)\n"
+        "        vx, vy = s.seek(100.0, 0.0, 50.0)\n"
+        "        set_number(\"seek_x\", vx)\n"
+        "        set_number(\"seek_y\", vy)\n"
+        "        fx, fy = s.flee(100.0, 0.0, 50.0)\n"
+        "        set_number(\"flee_x\", fx)\n"
+        "        ax, ay = s.arrive(45.0, 0.0, 50.0)\n"
+        "        set_number(\"arrive_x\", ax)\n"
+        "        wx, wy = s.wander(0.016, 50.0)\n"
+        "        set_number(\"wander_len\", math.sqrt(wx * wx + wy * wy))\n"
+        "        sx, sy = s.separation(50.0)\n"
+        "        set_number(\"sep_len\", math.sqrt(sx * sx + sy * sy))\n"
+        "        ox, oy = s.avoid(50.0)\n"
+        "        set_number(\"avoid_len\", math.sqrt(ox * ox + oy * oy))\n",
         "steering_api");
 
     scene.update(0.016f);
@@ -839,23 +826,37 @@ static bool testSteeringApi()
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("tx"), 200.0f);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("px"), 40.0f);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("py"), 60.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("flee_radius"), 120.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("slow"), 90.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("stop"), 6.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("jitter"), 9.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sep_radius"), 72.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sep_mask"), 15.0f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("look_ahead"), 1.25f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("obstacle_mask"), 3.0f);
+    // checked on the C++ side below
+    // ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sep_radius"), 72.0f);
+    // checked on the C++ side below
+    // ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("mask"), 15.0f);
+    // checked on the C++ side below
+    // ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("look_ahead"), 1.25f);
+    // checked on the C++ side below
+    // ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("slow"), 90.0f);
+    // checked on the C++ side below
+    // ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("jitter"), 9.0f);
 
-    ok = ok && nearEqual(seek->weight(), 2.5f) && seek->targetName().empty();
-    ok = ok && nearEqual(seek->targetPosition().x, 40.0f) && nearEqual(seek->targetPosition().y, 60.0f);
-    ok = ok && nearEqual(flee->radius(), 120.0f);
-    ok = ok && nearEqual(arrive->slowRadius(), 90.0f) && nearEqual(arrive->stopRadius(), 6.0f);
-    ok = ok && nearEqual(wander->jitter(), 9.0f) && nearEqual(wander->radius(), 15.0f) &&
-         nearEqual(wander->distance(), 45.0f);
-    ok = ok && nearEqual(separation->radius(), 72.0f) && separation->mask() == 15;
-    ok = ok && nearEqual(avoidance->lookAhead(), 1.25f) && avoidance->mask() == 3;
+    // Standing still at the origin: seeking east asks for the whole speed east,
+    // fleeing asks for it west, and arriving inside the slowing radius asks for
+    // less than the full speed.
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("seek_x"), 50.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("seek_y"), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("flee_x"), -50.0f);
+    const float arriveX = (float)k2d::ZenBlackboard::getNumber("arrive_x");
+    ok = ok && arriveX > 0.0f && arriveX < 49.0f;
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("wander_len"), 50.0f);
+    // Nothing around and nothing ahead, so both come back empty.
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("sep_len"), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("avoid_len"), 0.0f);
+
+    ok = ok && nearEqual(steering->weight(), 2.5f) && steering->targetName().empty();
+    ok = ok && nearEqual(steering->targetPosition().x, 40.0f) && nearEqual(steering->targetPosition().y, 60.0f);
+    ok = ok && steering->groupTag() == ct::String("hunters") && steering->mask() == 15;
+    ok = ok && steering->separationEnabled() && nearEqual(steering->separationRadius(), 72.0f);
+    ok = ok && steering->avoidanceEnabled() && nearEqual(steering->lookAhead(), 1.25f);
+    ok = ok && nearEqual(steering->slowRadius(), 90.0f) && nearEqual(steering->wanderJitter(), 9.0f) &&
+         nearEqual(steering->wanderRadius(), 15.0f) && nearEqual(steering->wanderDistance(), 45.0f);
 
     k2d::ZenBlackboard::clear();
     return ok;
@@ -1790,12 +1791,7 @@ static bool testAllComponentHandles()
     object->addComponent<k2d::MotionStreak2D>();
     object->addComponent<k2d::Skeleton2D>();
     object->addComponent<k2d::Bone2D>();
-    object->addComponent<k2d::Seek2D>();
-    object->addComponent<k2d::Flee2D>();
-    object->addComponent<k2d::Arrive2D>();
-    object->addComponent<k2d::Wander2D>();
-    object->addComponent<k2d::Separation2D>();
-    object->addComponent<k2d::ObstacleAvoidance2D>();
+    object->addComponent<k2d::Steering2D>();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
@@ -1840,12 +1836,6 @@ static bool testAllComponentHandles()
         "        self.check(\"skeleton\", self.node.get_component<Skeleton>())\n"
         "        self.check(\"bone\", self.node.get_component<Bone>())\n"
         "        self.check(\"steering\", self.node.get_component<Steering>())\n"
-        "        self.check(\"seek\", self.node.get_component<Seek>())\n"
-        "        self.check(\"flee\", self.node.get_component<Flee>())\n"
-        "        self.check(\"arrive\", self.node.get_component<Arrive>())\n"
-        "        self.check(\"wander\", self.node.get_component<Wander>())\n"
-        "        self.check(\"separation\", self.node.get_component<Separation>())\n"
-        "        self.check(\"obstacle_avoidance\", self.node.get_component<ObstacleAvoidance>())\n"
         "    def check(self, name, component):\n"
         "        set_flag(name, component != None)\n"
         "        if component != None:\n"
@@ -1862,8 +1852,7 @@ static bool testAllComponentHandles()
                            "light_2d", "directional_light", "occluder", "audio", "circle_shape", "rect_shape",
                            "capsule_shape", "canvas", "panel", "label", "button", "checkbox", "slider",
                            "navigation_region", "navigation_agent", "motion_tween", "motion_streak",
-                           "skeleton", "bone", "steering", "seek", "flee", "arrive", "wander", "separation",
-                           "obstacle_avoidance"};
+                           "skeleton", "bone", "steering"};
     for (const char* name : names)
     {
         ok = ok && k2d::ZenBlackboard::getBool(name, false);

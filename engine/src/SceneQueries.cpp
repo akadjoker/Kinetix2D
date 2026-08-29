@@ -812,16 +812,14 @@ Math::Vec2 Scene::steeringForce(const GameObject& object, const Math::Vec2& velo
         if (!component->active())
             continue;
         Steering2D* steering = static_cast<Steering2D*>(component);
-        const Math::Vec2 contribution = steering->force(deltaTime, position, velocity) * steering->weight();
+        bool steeringVetoed = false;
+        const Math::Vec2 contribution = steering->force(deltaTime, position, velocity, steeringVetoed);
         if (!std::isfinite(contribution.x) || !std::isfinite(contribution.y))
             continue;
-        if (steering->vetoes())
+        if (steeringVetoed)
         {
-            if (contribution.x != 0.0f || contribution.y != 0.0f)
-            {
-                veto += contribution;
-                vetoed = true;
-            }
+            veto += contribution;
+            vetoed = true;
             continue;
         }
         total += contribution;

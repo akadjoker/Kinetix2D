@@ -35,14 +35,8 @@
 #include "k2d/MotionStreak2D.h"
 #include "k2d/MotionTween2D.h"
 #include "k2d/Navigation2D.h"
-#include "k2d/Arrive2D.h"
-#include "k2d/Flee2D.h"
 #include "k2d/NavigationAgent2D.h"
-#include "k2d/ObstacleAvoidance2D.h"
-#include "k2d/Seek2D.h"
-#include "k2d/Separation2D.h"
 #include "k2d/Steering2D.h"
-#include "k2d/Wander2D.h"
 #include "k2d/NavigationRegion2D.h"
 #include "k2d/NinePatchComponent.h"
 #include "k2d/ParticleComponent.h"
@@ -2125,6 +2119,158 @@ int natSteeringSetTarget(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+// The velocity a behaviour should reason about: whatever is actually moving
+// this object. A script never has to tell it what it already knows.
+Math::Vec2 steeringOwnerVelocity(const Steering2D* steering)
+{
+    GameObject* object = steering ? steering->owner() : nullptr;
+    if (!object)
+        return Math::Vec2(0.0f, 0.0f);
+    if (NavigationAgent2D* agent = object->getComponent<NavigationAgent2D>())
+        if (agent->velocity().LengthSquared() > 0.0f)
+            return agent->velocity();
+    if (CharacterBody2D* character = object->getComponent<CharacterBody2D>())
+        if (character->velocity().LengthSquared() > 0.0f)
+            return character->velocity();
+    if (RigidBody2D* body = object->getComponent<RigidBody2D>())
+        return body->velocity();
+    return Math::Vec2(0.0f, 0.0f);
+}
+
+int natSteeringSeek(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->seek(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                             steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringFlee(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->flee(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                             steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringArrive(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->arrive(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                               steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringWander(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 2)
+        out = steering->wander((float)zen::to_number(args[0]), steeringOwnerVelocity(steering),
+                               (float)zen::to_number(args[1]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringSeparation(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 1)
+        out = steering->separation(steeringOwnerVelocity(steering), (float)zen::to_number(args[0]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringAvoid(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 1)
+        out = steering->avoidance(steeringOwnerVelocity(steering), (float)zen::to_number(args[0]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringSetSlowRadius(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+        steering->setSlowRadius((float)zen::to_number(args[0]));
+    return 0;
+}
+
+// Grouped rather than one selector per field: the VM interns every method name
+// it ever sees, and a pile of set_this / set_that was what pushed a bundle over
+// its selector budget.
+int natSteeringSetSeparation(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 1)
+        return 0;
+    steering->setSeparationEnabled(zen::is_truthy(args[0]));
+    if (nargs >= 2)
+        steering->setSeparationRadius((float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natSteeringSetAvoidance(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 1)
+        return 0;
+    steering->setAvoidanceEnabled(zen::is_truthy(args[0]));
+    if (nargs >= 2)
+        steering->setLookAhead((float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natSteeringSetWander(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 3)
+        return 0;
+    steering->setWanderRadius((float)zen::to_number(args[0]));
+    steering->setWanderDistance((float)zen::to_number(args[1]));
+    steering->setWanderJitter((float)zen::to_number(args[2]));
+    return 0;
+}
+
+
+int natSteeringSetMask(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+        steering->setMask((uint16_t)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSteeringSetGroup(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+    {
+        char small[64];
+        steering->setGroupTag(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
 int natSteeringGetTarget(zen::VM*, zen::Value* args, int)
 {
     Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
@@ -2151,156 +2297,6 @@ int natSteeringClearTargetObject(zen::VM*, zen::Value* args, int)
 {
     if (Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]))
         steering->setTargetName(nullptr);
-    return 0;
-}
-
-int natFleeGetRadius(zen::VM*, zen::Value* args, int)
-{
-    Flee2D* flee = zen::zen_instance_data<Flee2D>(args[-1]);
-    args[0] = zen::val_float(flee ? flee->radius() : 0.0f);
-    return 1;
-}
-
-int natFleeSetRadius(zen::VM*, zen::Value* args, int nargs)
-{
-    Flee2D* flee = zen::zen_instance_data<Flee2D>(args[-1]);
-    if (flee && nargs >= 1)
-        flee->setRadius((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natArriveGetSlowRadius(zen::VM*, zen::Value* args, int)
-{
-    Arrive2D* arrive = zen::zen_instance_data<Arrive2D>(args[-1]);
-    args[0] = zen::val_float(arrive ? arrive->slowRadius() : 0.0f);
-    return 1;
-}
-
-int natArriveSetSlowRadius(zen::VM*, zen::Value* args, int nargs)
-{
-    Arrive2D* arrive = zen::zen_instance_data<Arrive2D>(args[-1]);
-    if (arrive && nargs >= 1)
-        arrive->setSlowRadius((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natArriveGetStopRadius(zen::VM*, zen::Value* args, int)
-{
-    Arrive2D* arrive = zen::zen_instance_data<Arrive2D>(args[-1]);
-    args[0] = zen::val_float(arrive ? arrive->stopRadius() : 0.0f);
-    return 1;
-}
-
-int natArriveSetStopRadius(zen::VM*, zen::Value* args, int nargs)
-{
-    Arrive2D* arrive = zen::zen_instance_data<Arrive2D>(args[-1]);
-    if (arrive && nargs >= 1)
-        arrive->setStopRadius((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natWanderGetJitter(zen::VM*, zen::Value* args, int)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    args[0] = zen::val_float(wander ? wander->jitter() : 0.0f);
-    return 1;
-}
-
-int natWanderSetJitter(zen::VM*, zen::Value* args, int nargs)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    if (wander && nargs >= 1)
-        wander->setJitter((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natWanderGetRadius(zen::VM*, zen::Value* args, int)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    args[0] = zen::val_float(wander ? wander->radius() : 0.0f);
-    return 1;
-}
-
-int natWanderSetRadius(zen::VM*, zen::Value* args, int nargs)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    if (wander && nargs >= 1)
-        wander->setRadius((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natWanderGetDistance(zen::VM*, zen::Value* args, int)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    args[0] = zen::val_float(wander ? wander->distance() : 0.0f);
-    return 1;
-}
-
-int natWanderSetDistance(zen::VM*, zen::Value* args, int nargs)
-{
-    Wander2D* wander = zen::zen_instance_data<Wander2D>(args[-1]);
-    if (wander && nargs >= 1)
-        wander->setDistance((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natSeparationGetRadius(zen::VM*, zen::Value* args, int)
-{
-    Separation2D* separation = zen::zen_instance_data<Separation2D>(args[-1]);
-    args[0] = zen::val_float(separation ? separation->radius() : 0.0f);
-    return 1;
-}
-
-int natSeparationSetRadius(zen::VM*, zen::Value* args, int nargs)
-{
-    Separation2D* separation = zen::zen_instance_data<Separation2D>(args[-1]);
-    if (separation && nargs >= 1)
-        separation->setRadius((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natSeparationGetMask(zen::VM*, zen::Value* args, int)
-{
-    Separation2D* separation = zen::zen_instance_data<Separation2D>(args[-1]);
-    args[0] = zen::val_int(separation ? (int64_t)separation->mask() : 0);
-    return 1;
-}
-
-int natSeparationSetMask(zen::VM*, zen::Value* args, int nargs)
-{
-    Separation2D* separation = zen::zen_instance_data<Separation2D>(args[-1]);
-    if (separation && nargs >= 1)
-        separation->setMask((uint16_t)zen::to_number(args[0]));
-    return 0;
-}
-
-int natAvoidanceGetLookAhead(zen::VM*, zen::Value* args, int)
-{
-    ObstacleAvoidance2D* avoidance = zen::zen_instance_data<ObstacleAvoidance2D>(args[-1]);
-    args[0] = zen::val_float(avoidance ? avoidance->lookAhead() : 0.0f);
-    return 1;
-}
-
-int natAvoidanceSetLookAhead(zen::VM*, zen::Value* args, int nargs)
-{
-    ObstacleAvoidance2D* avoidance = zen::zen_instance_data<ObstacleAvoidance2D>(args[-1]);
-    if (avoidance && nargs >= 1)
-        avoidance->setLookAhead((float)zen::to_number(args[0]));
-    return 0;
-}
-
-int natAvoidanceGetMask(zen::VM*, zen::Value* args, int)
-{
-    ObstacleAvoidance2D* avoidance = zen::zen_instance_data<ObstacleAvoidance2D>(args[-1]);
-    args[0] = zen::val_int(avoidance ? (int64_t)avoidance->mask() : 0);
-    return 1;
-}
-
-int natAvoidanceSetMask(zen::VM*, zen::Value* args, int nargs)
-{
-    ObstacleAvoidance2D* avoidance = zen::zen_instance_data<ObstacleAvoidance2D>(args[-1]);
-    if (avoidance && nargs >= 1)
-        avoidance->setMask((uint16_t)zen::to_number(args[0]));
     return 0;
 }
 
@@ -3362,13 +3358,8 @@ const ComponentBinding kComponentBindings[] = {
     {{"Slider", "UiSlider", nullptr}, &componentGet<UiSlider>, &componentAdd<UiSlider>, &componentHas<UiSlider>},
     {{"NavigationRegion", "NavigationRegion2D", nullptr}, &componentGet<NavigationRegion2D>, &componentAdd<NavigationRegion2D>, &componentHas<NavigationRegion2D>},
     {{"NavigationAgent", "NavigationAgent2D", nullptr}, &componentGet<NavigationAgent2D>, &componentAdd<NavigationAgent2D>, &componentHas<NavigationAgent2D>},
-    {{"Steering", "Steering2D", nullptr}, &componentGetRaw<ComponentType::Steering>, nullptr, &componentHasRaw<ComponentType::Steering>},
-    {{"Seek", "Seek2D", nullptr}, &componentGet<Seek2D>, &componentAdd<Seek2D>, &componentHas<Seek2D>},
-    {{"Flee", "Flee2D", nullptr}, &componentGet<Flee2D>, &componentAdd<Flee2D>, &componentHas<Flee2D>},
-    {{"Arrive", "Arrive2D", nullptr}, &componentGet<Arrive2D>, &componentAdd<Arrive2D>, &componentHas<Arrive2D>},
-    {{"Wander", "Wander2D", nullptr}, &componentGet<Wander2D>, &componentAdd<Wander2D>, &componentHas<Wander2D>},
-    {{"Separation", "Separation2D", nullptr}, &componentGet<Separation2D>, &componentAdd<Separation2D>, &componentHas<Separation2D>},
-    {{"ObstacleAvoidance", "ObstacleAvoidance2D", nullptr}, &componentGet<ObstacleAvoidance2D>, &componentAdd<ObstacleAvoidance2D>, &componentHas<ObstacleAvoidance2D>},
+    {{"Steering", "Steering2D", nullptr}, &componentGet<Steering2D>, &componentAdd<Steering2D>, &componentHas<Steering2D>},
+
     {{"MotionTween", "MotionTween2D", nullptr}, &componentGet<MotionTween2D>, &componentAdd<MotionTween2D>, &componentHas<MotionTween2D>},
     {{"MotionStreak", "MotionStreak2D", nullptr}, &componentGet<MotionStreak2D>, &componentAdd<MotionStreak2D>, &componentHas<MotionStreak2D>},
     {{"Skeleton", "Skeleton2D", nullptr}, &componentGet<Skeleton2D>, &componentAdd<Skeleton2D>, &componentHas<Skeleton2D>},
@@ -5203,58 +5194,20 @@ void ZenRuntime::Impl::initialize()
     steering.method("set_target", &natSteeringSetTarget, 2);
     steering.method("set_target_object", &natSteeringSetTargetObject, 1);
     steering.method("clear_target_object", &natSteeringClearTargetObject, 0);
+    steering.method("seek", &natSteeringSeek, 3);
+    steering.method("flee", &natSteeringFlee, 3);
+    steering.method("arrive", &natSteeringArrive, 3);
+    steering.method("wander", &natSteeringWander, 2);
+    steering.method("separation", &natSteeringSeparation, 1);
+    steering.method("avoid", &natSteeringAvoid, 1);
+    steering.method("set_group", &natSteeringSetGroup, 1);
+    steering.method("set_mask", &natSteeringSetMask, 1);
+    steering.method("set_separation", &natSteeringSetSeparation, -1);
+    steering.method("set_avoidance", &natSteeringSetAvoidance, -1);
+    steering.method("set_wander", &natSteeringSetWander, 3);
+    steering.method("set_slow_radius", &natSteeringSetSlowRadius, 1);
     steering.persistent(true).constructable(false);
     zen::ObjClass* steeringClass = steering.end();
-
-    auto seek = vm.def_class("Seek");
-    seek.parent("Steering");
-    seek.persistent(true).constructable(false);
-    zen::ObjClass* seekClass = seek.end();
-
-    auto flee = vm.def_class("Flee");
-    flee.parent("Steering");
-    flee.method("get_radius", &natFleeGetRadius, 0);
-    flee.method("set_radius", &natFleeSetRadius, 1);
-    flee.persistent(true).constructable(false);
-    zen::ObjClass* fleeClass = flee.end();
-
-    auto arrive = vm.def_class("Arrive");
-    arrive.parent("Steering");
-    arrive.method("get_slow_radius", &natArriveGetSlowRadius, 0);
-    arrive.method("set_slow_radius", &natArriveSetSlowRadius, 1);
-    arrive.method("get_stop_radius", &natArriveGetStopRadius, 0);
-    arrive.method("set_stop_radius", &natArriveSetStopRadius, 1);
-    arrive.persistent(true).constructable(false);
-    zen::ObjClass* arriveClass = arrive.end();
-
-    auto wander = vm.def_class("Wander");
-    wander.parent("Steering");
-    wander.method("get_jitter", &natWanderGetJitter, 0);
-    wander.method("set_jitter", &natWanderSetJitter, 1);
-    wander.method("get_radius", &natWanderGetRadius, 0);
-    wander.method("set_radius", &natWanderSetRadius, 1);
-    wander.method("get_distance", &natWanderGetDistance, 0);
-    wander.method("set_distance", &natWanderSetDistance, 1);
-    wander.persistent(true).constructable(false);
-    zen::ObjClass* wanderClass = wander.end();
-
-    auto separation = vm.def_class("Separation");
-    separation.parent("Steering");
-    separation.method("get_radius", &natSeparationGetRadius, 0);
-    separation.method("set_radius", &natSeparationSetRadius, 1);
-    separation.method("get_mask", &natSeparationGetMask, 0);
-    separation.method("set_mask", &natSeparationSetMask, 1);
-    separation.persistent(true).constructable(false);
-    zen::ObjClass* separationClass = separation.end();
-
-    auto obstacleAvoidance = vm.def_class("ObstacleAvoidance");
-    obstacleAvoidance.parent("Steering");
-    obstacleAvoidance.method("get_look_ahead", &natAvoidanceGetLookAhead, 0);
-    obstacleAvoidance.method("set_look_ahead", &natAvoidanceSetLookAhead, 1);
-    obstacleAvoidance.method("get_mask", &natAvoidanceGetMask, 0);
-    obstacleAvoidance.method("set_mask", &natAvoidanceSetMask, 1);
-    obstacleAvoidance.persistent(true).constructable(false);
-    zen::ObjClass* obstacleAvoidanceClass = obstacleAvoidance.end();
 
     auto skeleton = vm.def_class("Skeleton");
     skeleton.parent("Component");
@@ -5301,9 +5254,7 @@ void ZenRuntime::Impl::initialize()
         {"NavigationRegion2D", navigationRegionClass}, {"NavigationAgent2D", navigationAgentClass},
         {"MotionTween2D", motionTweenClass}, {"MotionStreak2D", motionStreakClass},
         {"Skeleton2D", skeletonClass}, {"Bone2D", boneClass},
-        {"Steering2D", steeringClass}, {"Seek2D", seekClass}, {"Flee2D", fleeClass},
-        {"Arrive2D", arriveClass}, {"Wander2D", wanderClass}, {"Separation2D", separationClass},
-        {"ObstacleAvoidance2D", obstacleAvoidanceClass},
+        {"Steering2D", steeringClass},
     };
     (void)light2DClass;
     for (const Alias& alias : aliases)

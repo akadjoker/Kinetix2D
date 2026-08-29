@@ -244,27 +244,24 @@
             }
           },
           {
-            "type": "Seek2D",
+            "type": "Steering2D",
             "data": {
               "weight": 0.6,
               "target": "Target",
               "targetPosition": [
                 0.0,
                 0.0
-              ]
-            }
-          },
-          {
-            "type": "ObstacleAvoidance2D",
-            "data": {
-              "weight": 1.0,
-              "target": "",
-              "targetPosition": [
-                0.0,
-                0.0
               ],
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": true,
               "lookAhead": 3.0,
-              "mask": 65535
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],

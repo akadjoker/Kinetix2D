@@ -160,7 +160,7 @@
             }
           },
           {
-            "type": "Wander2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -168,9 +168,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 24.0,
-              "distance": 48.0,
-              "jitter": 30.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 30.0
             }
           }
         ],
@@ -251,7 +258,7 @@
             }
           },
           {
-            "type": "Wander2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -259,9 +266,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 24.0,
-              "distance": 48.0,
-              "jitter": 45.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 45.0
             }
           }
         ],
@@ -342,7 +356,7 @@
             }
           },
           {
-            "type": "Wander2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -350,9 +364,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 24.0,
-              "distance": 48.0,
-              "jitter": 60.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 60.0
             }
           }
         ],
@@ -433,7 +454,7 @@
             }
           },
           {
-            "type": "Wander2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -441,9 +462,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 24.0,
-              "distance": 48.0,
-              "jitter": 35.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 35.0
             }
           }
         ],
@@ -524,7 +552,7 @@
             }
           },
           {
-            "type": "Wander2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -532,9 +560,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 24.0,
-              "distance": 48.0,
-              "jitter": 50.0
+              "group": "",
+              "mask": 65535,
+              "separation": false,
+              "separationRadius": 48.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 50.0
             }
           }
         ],

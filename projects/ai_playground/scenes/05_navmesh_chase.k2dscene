@@ -41,8 +41,8 @@
               "viewportHeight": 720.0,
               "renderPriority": 0,
               "position": [
-                0.0,
-                0.0
+                150.0,
+                360.0
               ],
               "rotationDegrees": 0.0,
               "zoom": [
@@ -108,39 +108,39 @@
             "data": {
               "points": [
                 [
-                  40,
-                  40
+                  40.0,
+                  40.0
                 ],
                 [
-                  1240,
-                  40
+                  1240.0,
+                  40.0
                 ],
                 [
-                  1240,
-                  680
+                  1240.0,
+                  680.0
                 ],
                 [
-                  40,
-                  680
+                  40.0,
+                  680.0
                 ]
               ],
               "holes": [
                 [
                   [
-                    500,
-                    260
+                    500.0,
+                    260.0
                   ],
                   [
-                    780,
-                    260
+                    780.0,
+                    260.0
                   ],
                   [
-                    780,
-                    460
+                    780.0,
+                    460.0
                   ],
                   [
-                    500,
-                    460
+                    500.0,
+                    460.0
                   ]
                 ]
               ]
@@ -176,10 +176,10 @@
               "mode": 0,
               "lineWidth": 2.0,
               "color": [
-                0.2,
-                0.35,
-                0.6,
-                1.0
+                0,
+                0,
+                0,
+                1
               ],
               "blendMode": 0
             }
@@ -205,6 +205,12 @@
         ],
         "components": [
           {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/player.py"
+            }
+          },
+          {
             "type": "CircleShape",
             "data": {
               "radius": 14.0,
@@ -212,18 +218,28 @@
               "mode": 0,
               "lineWidth": 2.0,
               "color": [
-                1.0,
-                1.0,
-                1.0,
-                1.0
+                1,
+                1,
+                1,
+                1
               ],
               "blendMode": 0
             }
           },
           {
-            "type": "ZenScript",
+            "type": "CircleShape",
             "data": {
-              "path": "assets/scripts/player.py"
+              "radius": 7.5,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "blendMode": 0
             }
           }
         ],
@@ -247,27 +263,11 @@
         ],
         "components": [
           {
-            "type": "CircleShape",
-            "data": {
-              "radius": 14.0,
-              "segments": 24,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                1.0,
-                0.3,
-                0.3,
-                1.0
-              ],
-              "blendMode": 0
-            }
-          },
-          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "kinematic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 0.0,
               "angularDamping": 0.0,
@@ -290,8 +290,29 @@
             }
           },
           {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1,
+                0,
+                0,
+                1
+              ],
+              "blendMode": 0
+            }
+          },
+          {
             "type": "NavigationAgent2D",
             "data": {
+              "hasTarget": false,
+              "target": [
+                0.0,
+                0.0
+              ],
               "pathDesiredDistance": 8.0,
               "maxSpeed": 110.0,
               "autoMove": true,
@@ -299,12 +320,12 @@
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
               "followTarget": "player",
-              "repathInterval": 0.2,
+              "repathInterval": 0.20000000298023224,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -312,8 +333,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 60.0,
-              "mask": 65535
+              "group": "",
+              "mask": 65535,
+              "separation": true,
+              "separationRadius": 60.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],
@@ -337,27 +366,11 @@
         ],
         "components": [
           {
-            "type": "CircleShape",
-            "data": {
-              "radius": 14.0,
-              "segments": 24,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                1.0,
-                0.5,
-                0.2,
-                1.0
-              ],
-              "blendMode": 0
-            }
-          },
-          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "kinematic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 0.0,
               "angularDamping": 0.0,
@@ -380,8 +393,29 @@
             }
           },
           {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                1,
+                0,
+                0,
+                1
+              ],
+              "blendMode": 0
+            }
+          },
+          {
             "type": "NavigationAgent2D",
             "data": {
+              "hasTarget": false,
+              "target": [
+                0.0,
+                0.0
+              ],
               "pathDesiredDistance": 8.0,
               "maxSpeed": 120.0,
               "autoMove": true,
@@ -389,12 +423,12 @@
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
               "followTarget": "player",
-              "repathInterval": 0.2,
+              "repathInterval": 0.20000000298023224,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -402,8 +436,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 60.0,
-              "mask": 65535
+              "group": "",
+              "mask": 65535,
+              "separation": true,
+              "separationRadius": 60.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],
@@ -427,27 +469,11 @@
         ],
         "components": [
           {
-            "type": "CircleShape",
-            "data": {
-              "radius": 14.0,
-              "segments": 24,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                0.9,
-                0.2,
-                0.6,
-                1.0
-              ],
-              "blendMode": 0
-            }
-          },
-          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "kinematic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 0.0,
               "angularDamping": 0.0,
@@ -470,8 +496,29 @@
             }
           },
           {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.0,
+              "segments": 24,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "blendMode": 0
+            }
+          },
+          {
             "type": "NavigationAgent2D",
             "data": {
+              "hasTarget": false,
+              "target": [
+                0.0,
+                0.0
+              ],
               "pathDesiredDistance": 8.0,
               "maxSpeed": 130.0,
               "autoMove": true,
@@ -479,12 +526,12 @@
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
               "followTarget": "player",
-              "repathInterval": 0.2,
+              "repathInterval": 0.20000000298023224,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Steering2D",
             "data": {
               "weight": 1.0,
               "target": "",
@@ -492,8 +539,16 @@
                 0.0,
                 0.0
               ],
-              "radius": 60.0,
-              "mask": 65535
+              "group": "",
+              "mask": 65535,
+              "separation": true,
+              "separationRadius": 60.0,
+              "avoidance": false,
+              "lookAhead": 3.0,
+              "slowRadius": 120.0,
+              "wanderRadius": 24.0,
+              "wanderDistance": 48.0,
+              "wanderJitter": 6.0
             }
           }
         ],

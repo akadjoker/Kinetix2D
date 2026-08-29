@@ -1,18 +1,12 @@
-#include <k2d/Arrive2D.h>
 #include <k2d/BoxCollider2D.h>
-#include <k2d/Flee2D.h>
 #include <k2d/Geometry2D.h>
 #include <k2d/Navigation2D.h>
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
-#include <k2d/ObstacleAvoidance2D.h>
 #include <k2d/RigidBody2D.h>
-#include <k2d/Seek2D.h>
-#include <k2d/Separation2D.h>
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
 #include <k2d/Steering2D.h>
-#include <k2d/Wander2D.h>
 
 #include <cmath>
 #include <limits>
@@ -383,80 +377,55 @@ k2d::GameObject* makeWalker(k2d::Scene& scene, const char* name, const Math::Vec
 bool TestSteeringForceShapes()
 {
     k2d::Scene scene;
-    k2d::GameObject* prize = scene.createObject("prize");
-    prize->setPosition(Math::Vec2(100.0f, 0.0f));
-
     k2d::GameObject* walker = scene.createObject("walker");
     walker->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::Steering2D* steering = walker->addComponent<k2d::Steering2D>();
 
-    k2d::Seek2D* seek = walker->addComponent<k2d::Seek2D>();
-    seek->setTargetName("prize");
-
+    const float maxSpeed = 100.0f;
     const Math::Vec2 rest(0.0f, 0.0f);
-    Math::Vec2 force = scene.steeringForce(*walker, rest, 1.0f / 60.0f);
-    bool ok = k2d::Distance(force, Math::Vec2(1.0f, 0.0f)) < 0.001f;
+    const Math::Vec2 goal(100.0f, 0.0f);
 
-    seek->setWeight(0.25f);
-    force = scene.steeringForce(*walker, rest, 1.0f / 60.0f);
-    const bool weighted = k2d::Distance(force, Math::Vec2(0.25f, 0.0f)) < 0.001f;
-    ok = ok && weighted;
+    // Every OpenSteer behaviour answers with the difference between the
+    // velocity it wants and the velocity there is, so one already travelling
+    // at the wanted velocity is asked for nothing at all.
+    const Math::Vec2 seekAtRest = steering->seek(goal, rest, maxSpeed);
+    const bool seeks = k2d::Distance(seekAtRest, Math::Vec2(100.0f, 0.0f)) < 0.01f;
+    const Math::Vec2 seekUpToSpeed = steering->seek(goal, Math::Vec2(100.0f, 0.0f), maxSpeed);
+    const bool seekSettles = seekUpToSpeed.Length() < 0.01f;
 
-    seek->setActive(false);
-    const bool disabled = scene.steeringForce(*walker, rest, 1.0f / 60.0f).LengthSquared() == 0.0f;
-    ok = ok && disabled;
-    seek->setActive(true);
-    seek->setWeight(1.0f);
+    const Math::Vec2 fleeAtRest = steering->flee(goal, rest, maxSpeed);
+    const bool flees = k2d::Distance(fleeAtRest, Math::Vec2(-100.0f, 0.0f)) < 0.01f;
 
-    // A named target that no longer exists produces nothing rather than
-    // steering at a stale position.
-    scene.destroy(prize);
-    scene.update(1.0f / 60.0f);
-    const bool droppedTarget = scene.steeringForce(*walker, rest, 1.0f / 60.0f).LengthSquared() == 0.0f;
-    ok = ok && droppedTarget;
+    steering->setSlowRadius(100.0f);
+    const float far = steering->arrive(Math::Vec2(400.0f, 0.0f), rest, maxSpeed).Length();
+    const float close = steering->arrive(Math::Vec2(25.0f, 0.0f), rest, maxSpeed).Length();
+    // Arriving brakes: standing on the mark with speed on asks for all of it back.
+    const Math::Vec2 onTheMark = steering->arrive(Math::Vec2(0.0f, 0.0f), Math::Vec2(60.0f, 0.0f), maxSpeed);
+    const bool easesOff = far > 99.0f && close < far && close > 0.0f &&
+                          k2d::Distance(onTheMark, Math::Vec2(-60.0f, 0.0f)) < 0.01f;
 
-    walker->removeComponent(seek);
-
-    k2d::Flee2D* flee = walker->addComponent<k2d::Flee2D>();
-    flee->setTargetPosition(Math::Vec2(0.0f, 40.0f));
-    flee->setRadius(100.0f);
-    force = scene.steeringForce(*walker, rest, 1.0f / 60.0f);
-    const bool fleeing = force.y < -0.5f && force.Length() < 1.0f;
-    flee->setRadius(10.0f);
-    const bool fleeOutOfRange = scene.steeringForce(*walker, rest, 1.0f / 60.0f).LengthSquared() == 0.0f;
-    ok = ok && fleeing && fleeOutOfRange;
-    walker->removeComponent(flee);
-
-    k2d::Arrive2D* arrive = walker->addComponent<k2d::Arrive2D>();
-    arrive->setSlowRadius(100.0f);
-    arrive->setStopRadius(10.0f);
-    arrive->setTargetPosition(Math::Vec2(200.0f, 0.0f));
-    const float farLength = scene.steeringForce(*walker, rest, 1.0f / 60.0f).Length();
-    arrive->setTargetPosition(Math::Vec2(50.0f, 0.0f));
-    const float nearLength = scene.steeringForce(*walker, rest, 1.0f / 60.0f).Length();
-    arrive->setTargetPosition(Math::Vec2(5.0f, 0.0f));
-    const float stopLength = scene.steeringForce(*walker, rest, 1.0f / 60.0f).Length();
-    const bool easesOff = farLength > 0.99f && nearLength < farLength && nearLength > 0.0f && stopLength == 0.0f;
-    ok = ok && easesOff;
-    walker->removeComponent(arrive);
-
-    k2d::Wander2D* wander = walker->addComponent<k2d::Wander2D>();
-    bool wanderUnit = true;
+    bool wanderSpeed = true;
     bool wanderTurns = false;
-    Math::Vec2 previous = scene.steeringForce(*walker, Math::Vec2(1.0f, 0.0f), 1.0f / 60.0f);
+    Math::Vec2 previous = steering->wander(1.0f / 60.0f, Math::Vec2(1.0f, 0.0f), maxSpeed);
     for (int i = 0; i < 120; ++i)
     {
-        const Math::Vec2 next = scene.steeringForce(*walker, Math::Vec2(1.0f, 0.0f), 1.0f / 60.0f);
-        wanderUnit = wanderUnit && std::fabs(next.Length() - 1.0f) < 0.001f;
+        const Math::Vec2 next = steering->wander(1.0f / 60.0f, Math::Vec2(1.0f, 0.0f), maxSpeed);
+        wanderSpeed = wanderSpeed && std::fabs(next.Length() - maxSpeed) < 0.1f;
         if (k2d::Distance(next, previous) > 0.0001f)
             wanderTurns = true;
         previous = next;
     }
-    ok = ok && wanderUnit && wanderTurns;
 
-    std::printf("steering forces: seek=%s weight=%s disabled=%s dead_target=%s flee=%s arrive=%s wander=%s\n",
-               ok ? "pass" : "check", weighted ? "pass" : "fail", disabled ? "pass" : "fail",
-               droppedTarget ? "pass" : "fail", (fleeing && fleeOutOfRange) ? "pass" : "fail",
-               easesOff ? "pass" : "fail", (wanderUnit && wanderTurns) ? "pass" : "fail");
+    // Nothing switched on means nothing is added to the agent's own path
+    // following, however much the behaviours would answer if asked directly.
+    const bool quietByDefault = scene.steeringForce(*walker, Math::Vec2(50.0f, 0.0f), 1.0f / 60.0f).LengthSquared() ==
+                                0.0f;
+
+    const bool ok = seeks && seekSettles && flees && easesOff && wanderSpeed && wanderTurns && quietByDefault;
+    std::printf("steering forces: seek=%s settles=%s flee=%s arrive=%s wander=%s quiet_until_enabled=%s\n",
+               seeks ? "pass" : "fail", seekSettles ? "pass" : "fail", flees ? "pass" : "fail",
+               easesOff ? "pass" : "fail", (wanderSpeed && wanderTurns) ? "pass" : "fail",
+               quietByDefault ? "pass" : "fail");
     return ok;
 }
 
@@ -478,10 +447,10 @@ bool TestAgentWithoutSteeringIsUnchanged()
     k2d::NavigationAgent2D* inertAgent = inertWalker->addComponent<k2d::NavigationAgent2D>();
     inertAgent->setAutoMove(true);
     inertAgent->setMaxSpeed(120.0f);
-    k2d::Seek2D* mute = inertWalker->addComponent<k2d::Seek2D>();
+    k2d::Steering2D* mute = inertWalker->addComponent<k2d::Steering2D>();
     mute->setTargetPosition(Math::Vec2(0.0f, 0.0f));
     mute->setWeight(0.0f);
-    k2d::Separation2D* off = inertWalker->addComponent<k2d::Separation2D>();
+    k2d::Steering2D* off = inertWalker->addComponent<k2d::Steering2D>();
     off->setActive(false);
     inertAgent->setTargetPosition(Math::Vec2(360.0f, 300.0f));
 
@@ -530,6 +499,56 @@ bool TestDynamicAgentFacesItsPath()
     const bool ok = std::fabs(facing - 90.0f) < 20.0f && runner->globalPosition().y > 100.0f;
     std::printf("navigation dynamic agent faces its path: y=%.1f facing=%.1f deg (want ~90) %s\n",
                 runner->globalPosition().y, facing, ok ? "pass" : "fail");
+    return ok;
+}
+
+bool TestSurroundIgnoresTheAnchorFacing()
+{
+    const float dt = 1.0f / 60.0f;
+    k2d::Scene scene;
+    makeField(scene, 600.0f);
+    k2d::GameObject* quarry = makeWalker(scene, "spinner", Math::Vec2(300.0f, 300.0f), false);
+
+    k2d::GameObject* members[3];
+    for (int i = 0; i < 3; ++i)
+    {
+        char name[16];
+        std::snprintf(name, sizeof(name), "ring%d", i);
+        members[i] = makeWalker(scene, name, Math::Vec2(260.0f + 20.0f * i, 300.0f), false);
+        members[i]->setTag("ring");
+        k2d::NavigationAgent2D* agent = members[i]->addComponent<k2d::NavigationAgent2D>();
+        agent->setMaxSpeed(120.0f);
+        agent->setAutoMove(true);
+        k2d::Formation2D* formation = members[i]->addComponent<k2d::Formation2D>();
+        formation->setGroupTag("ring");
+        formation->setAnchorName("spinner");
+        formation->setSpacing(70.0f);
+    }
+
+    scene.setSimulationEnabled(true);
+    for (int frame = 0; frame < 400; ++frame)
+        scene.update(dt);
+
+    // Now spin the anchor on the spot, the way a player turning to aim does.
+    // Places pinned to his facing would drag the whole ring round with him.
+    Math::Vec2 previous[3];
+    for (int i = 0; i < 3; ++i)
+        previous[i] = members[i]->globalPosition();
+    float travelled = 0.0f;
+    for (int frame = 0; frame < 600; ++frame)
+    {
+        quarry->setRotationDegrees(quarry->rotationDegrees() + 3.0f);
+        scene.update(dt);
+        for (int i = 0; i < 3; ++i)
+        {
+            travelled += k2d::Distance(members[i]->globalPosition(), previous[i]);
+            previous[i] = members[i]->globalPosition();
+        }
+    }
+
+    const bool ok = travelled < 20.0f;
+    std::printf("navigation surround ignores anchor facing: moved %.1f while it spun 1800 degrees %s\n", travelled,
+                ok ? "pass" : "fail");
     return ok;
 }
 
@@ -729,7 +748,10 @@ bool TestSeparationSpreadsACrowd()
             agent->setAutoMove(true);
             agent->setMaxSpeed(120.0f);
             if (withSeparation)
-                walker->addComponent<k2d::Separation2D>()->setRadius(60.0f);
+                [&]{ k2d::Steering2D* st = walker->addComponent<k2d::Steering2D>();
+            st->setSeparationEnabled(true);
+            st->setSeparationRadius(60.0f);
+            return st; }();
             agent->setTargetPosition(meetingPoint);
         }
 
@@ -755,11 +777,15 @@ bool TestSeparationOnlySeesBodies()
     k2d::Scene scene;
     makeField(scene, 400.0f);
     k2d::GameObject* walker = makeWalker(scene, "walker", Math::Vec2(100.0f, 100.0f), true);
-    k2d::Separation2D* separation = walker->addComponent<k2d::Separation2D>();
-    separation->setRadius(80.0f);
+    k2d::Steering2D* separation = walker->addComponent<k2d::Steering2D>();
+    separation->setSeparationEnabled(true);
+    separation->setSeparationRadius(80.0f);
 
     k2d::GameObject* ghost = makeWalker(scene, "ghost", Math::Vec2(120.0f, 100.0f), false);
-    ghost->addComponent<k2d::Separation2D>()->setRadius(80.0f);
+    [&]{ k2d::Steering2D* st = ghost->addComponent<k2d::Steering2D>();
+            st->setSeparationEnabled(true);
+            st->setSeparationRadius(80.0f);
+            return st; }();
 
     scene.setSimulationEnabled(true);
     scene.update(1.0f / 60.0f);
@@ -796,7 +822,8 @@ bool TestObstacleAvoidanceSteersAside()
     wall->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(20.0f, 200.0f));
 
     k2d::GameObject* walker = makeWalker(scene, "walker", Math::Vec2(100.0f, 200.0f), true);
-    k2d::ObstacleAvoidance2D* avoidance = walker->addComponent<k2d::ObstacleAvoidance2D>();
+    k2d::Steering2D* avoidance = walker->addComponent<k2d::Steering2D>();
+    avoidance->setAvoidanceEnabled(true);
     avoidance->setLookAhead(1.0f);
 
     scene.setSimulationEnabled(true);
@@ -829,8 +856,8 @@ bool TestSceneTracksSteeringComponents()
     k2d::GameObject* walker = scene.createObject("walker");
     bool ok = scene.steeringCount() == 0;
 
-    k2d::Seek2D* seek = walker->addComponent<k2d::Seek2D>();
-    walker->addComponent<k2d::Wander2D>();
+    k2d::Steering2D* seek = walker->addComponent<k2d::Steering2D>();
+    walker->addComponent<k2d::Steering2D>();
     ok = ok && scene.steeringCount() == 2;
     ok = ok && scene.steeringAt(0) != nullptr && scene.steeringAt(1) != nullptr;
     ok = ok && scene.steeringAt(2) == nullptr;
@@ -1001,8 +1028,9 @@ bool TestSeparationIgnoresSensors()
     walker->setPosition(Math::Vec2(0.0f, 0.0f));
     walker->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
     walker->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(10.0f, 10.0f));
-    k2d::Separation2D* separation = walker->addComponent<k2d::Separation2D>();
-    separation->setRadius(80.0f);
+    k2d::Steering2D* separation = walker->addComponent<k2d::Steering2D>();
+    separation->setSeparationEnabled(true);
+    separation->setSeparationRadius(80.0f);
 
     scene.setSimulationEnabled(true);
     scene.update(1.0f / 60.0f);
@@ -1053,15 +1081,16 @@ bool TestWanderSurvivesBadDeltaTime()
 {
     k2d::Scene scene;
     k2d::GameObject* walker = scene.createObject("wanderer");
-    walker->addComponent<k2d::Wander2D>();
+    k2d::Steering2D* steering = walker->addComponent<k2d::Steering2D>();
 
+    // The wander angle is the one float that persists between calls, so a
+    // single non-finite step would poison it for the rest of the session.
     const float bad = std::numeric_limits<float>::quiet_NaN();
-    scene.steeringForce(*walker, Math::Vec2(0.0f, 0.0f), bad);
+    steering->wander(bad, Math::Vec2(1.0f, 0.0f), 100.0f);
 
-    const Math::Vec2 after = scene.steeringForce(*walker, Math::Vec2(0.0f, 0.0f), 1.0f / 60.0f);
-    const bool ok = std::isfinite(after.x) && std::isfinite(after.y) &&
-                    (std::fabs(after.x) > 0.0001f || std::fabs(after.y) > 0.0001f);
-    std::printf("navigation wander after NaN dt: force=(%.3f, %.3f) %s\n", after.x, after.y, ok ? "pass" : "fail");
+    const Math::Vec2 after = steering->wander(1.0f / 60.0f, Math::Vec2(1.0f, 0.0f), 100.0f);
+    const bool ok = std::isfinite(after.x) && std::isfinite(after.y) && after.Length() > 0.0001f;
+    std::printf("navigation wander after NaN dt: velocity=(%.3f, %.3f) %s\n", after.x, after.y, ok ? "pass" : "fail");
     return ok;
 }
 
@@ -1131,6 +1160,7 @@ int main()
     const bool followAfterResolve = TestFollowTargetSetAfterResolve();
     const bool crowdApart = TestDynamicAgentsDoNotOverlap();
     const bool formationSpread = TestFormationSpreadsTheGroup();
+    const bool surroundStable = TestSurroundIgnoresTheAnchorFacing();
     const bool dynamicFacing = TestDynamicAgentFacesItsPath();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
@@ -1153,7 +1183,7 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && formationSpread && dynamicFacing && separationSpread &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && formationSpread && surroundStable && dynamicFacing && separationSpread &&
            separationSources &&
                    obstacleAside && steeringList
                ? 0

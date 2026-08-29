@@ -192,12 +192,6 @@ add_library(k2d STATIC
     ${CMAKE_SOURCE_DIR}/physics2d/src/RevoluteJoint2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/RigidBody2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/Steering2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/Seek2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/Flee2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/Arrive2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/Wander2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/Separation2D.cpp
-    ${CMAKE_SOURCE_DIR}/physics2d/src/ObstacleAvoidance2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/TileMapCollider2D.cpp
     ${CMAKE_SOURCE_DIR}/physics2d/src/WheelJoint2D.cpp
 )

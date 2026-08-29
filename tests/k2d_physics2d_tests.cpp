@@ -1,4 +1,3 @@
-#include <k2d/Arrive2D.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/ChainCollider2D.h>
 #include <k2d/CharacterBody2D.h>
@@ -6,12 +5,10 @@
 #include <k2d/Collider2D.h>
 #include <k2d/DistanceJoint2D.h>
 #include <k2d/EdgeCollider2D.h>
-#include <k2d/Flee2D.h>
 #include <k2d/GearJoint2D.h>
 #include <k2d/MaskContour2D.h>
 #include <k2d/MotorJoint2D.h>
 #include <k2d/MouseJoint2D.h>
-#include <k2d/ObstacleAvoidance2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RevoluteJoint2D.h>
 #include <k2d/WheelJoint2D.h>
@@ -21,11 +18,8 @@
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
 #include <k2d/TileMapComponent.h>
-#include <k2d/Seek2D.h>
-#include <k2d/Separation2D.h>
 #include <k2d/Steering2D.h>
 #include <k2d/TileMapCollider2D.h>
-#include <k2d/Wander2D.h>
 
 #include <cmath>
 #include <cstdio>
@@ -1308,32 +1302,20 @@ static bool testSteeringSerializerRoundTrip()
     k2d::Scene source;
     k2d::GameObject* walker = source.createObject("walker");
 
-    k2d::Seek2D* seek = walker->addComponent<k2d::Seek2D>();
-    seek->setTargetName("prize");
-    seek->setWeight(1.5f);
-
-    k2d::Flee2D* flee = walker->addComponent<k2d::Flee2D>();
-    flee->setTargetPosition(Math::Vec2(12.0f, -34.0f));
-    flee->setRadius(220.0f);
-    flee->setWeight(0.75f);
-
-    k2d::Arrive2D* arrive = walker->addComponent<k2d::Arrive2D>();
-    arrive->setTargetPosition(Math::Vec2(400.0f, 250.0f));
-    arrive->setSlowRadius(180.0f);
-    arrive->setStopRadius(12.0f);
-
-    k2d::Wander2D* wander = walker->addComponent<k2d::Wander2D>();
-    wander->setRadius(30.0f);
-    wander->setDistance(70.0f);
-    wander->setJitter(4.5f);
-
-    k2d::Separation2D* separation = walker->addComponent<k2d::Separation2D>();
-    separation->setRadius(64.0f);
-    separation->setMask(0x00F0);
-
-    k2d::ObstacleAvoidance2D* avoidance = walker->addComponent<k2d::ObstacleAvoidance2D>();
-    avoidance->setLookAhead(0.8f);
-    avoidance->setMask(0x0003);
+    k2d::Steering2D* steering = walker->addComponent<k2d::Steering2D>();
+    steering->setTargetName("prize");
+    steering->setWeight(1.5f);
+    steering->setGroupTag("hunters");
+    steering->setTargetPosition(Math::Vec2(12.0f, -34.0f));
+    steering->setSlowRadius(180.0f);
+    steering->setWanderRadius(30.0f);
+    steering->setWanderDistance(70.0f);
+    steering->setWanderJitter(4.5f);
+    steering->setSeparationEnabled(true);
+    steering->setSeparationRadius(64.0f);
+    steering->setAvoidanceEnabled(true);
+    steering->setLookAhead(0.8f);
+    steering->setMask(0x00F0);
 
     const ct::String firstText = k2d::Serializer::WriteObject(*walker).dump();
 
@@ -1345,31 +1327,16 @@ static bool testSteeringSerializerRoundTrip()
 
     const ct::String secondText = ok ? k2d::Serializer::WriteObject(*copy).dump() : ct::String();
     ok = ok && firstText == secondText;
-    ok = ok && target.steeringCount() == 6;
+    ok = ok && target.steeringCount() == 1;
 
-    k2d::Seek2D* copySeek = ok ? copy->getComponent<k2d::Seek2D>() : nullptr;
-    ok = ok && copySeek && copySeek->targetName() == ct::String("prize") && nearEqual(copySeek->weight(), 1.5f, 0.001f);
-
-    k2d::Flee2D* copyFlee = ok ? copy->getComponent<k2d::Flee2D>() : nullptr;
-    ok = ok && copyFlee && nearEqual(copyFlee->radius(), 220.0f, 0.001f) &&
-         nearEqual(copyFlee->weight(), 0.75f, 0.001f) && nearEqual(copyFlee->targetPosition().x, 12.0f, 0.001f) &&
-         nearEqual(copyFlee->targetPosition().y, -34.0f, 0.001f);
-
-    k2d::Arrive2D* copyArrive = ok ? copy->getComponent<k2d::Arrive2D>() : nullptr;
-    ok = ok && copyArrive && nearEqual(copyArrive->slowRadius(), 180.0f, 0.001f) &&
-         nearEqual(copyArrive->stopRadius(), 12.0f, 0.001f);
-
-    k2d::Wander2D* copyWander = ok ? copy->getComponent<k2d::Wander2D>() : nullptr;
-    ok = ok && copyWander && nearEqual(copyWander->radius(), 30.0f, 0.001f) &&
-         nearEqual(copyWander->distance(), 70.0f, 0.001f) && nearEqual(copyWander->jitter(), 4.5f, 0.001f);
-
-    k2d::Separation2D* copySeparation = ok ? copy->getComponent<k2d::Separation2D>() : nullptr;
-    ok = ok && copySeparation && nearEqual(copySeparation->radius(), 64.0f, 0.001f) &&
-         copySeparation->mask() == 0x00F0;
-
-    k2d::ObstacleAvoidance2D* copyAvoidance = ok ? copy->getComponent<k2d::ObstacleAvoidance2D>() : nullptr;
-    ok = ok && copyAvoidance && nearEqual(copyAvoidance->lookAhead(), 0.8f, 0.001f) &&
-         copyAvoidance->mask() == 0x0003;
+    k2d::Steering2D* copied = ok ? copy->getComponent<k2d::Steering2D>() : nullptr;
+    ok = ok && copied && copied->targetName() == ct::String("prize") && nearEqual(copied->weight(), 1.5f, 0.001f) &&
+         copied->groupTag() == ct::String("hunters") && nearEqual(copied->targetPosition().x, 12.0f, 0.001f) &&
+         nearEqual(copied->targetPosition().y, -34.0f, 0.001f) && nearEqual(copied->slowRadius(), 180.0f, 0.001f) &&
+         nearEqual(copied->wanderRadius(), 30.0f, 0.001f) && nearEqual(copied->wanderDistance(), 70.0f, 0.001f) &&
+         nearEqual(copied->wanderJitter(), 4.5f, 0.001f) && copied->separationEnabled() &&
+         nearEqual(copied->separationRadius(), 64.0f, 0.001f) && copied->avoidanceEnabled() &&
+         nearEqual(copied->lookAhead(), 0.8f, 0.001f) && copied->mask() == 0x00F0;
 
     std::printf("  steering_serializer: components=%d stable=%s\n", (int)target.steeringCount(),
                 firstText == secondText ? "yes" : "no");

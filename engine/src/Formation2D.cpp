@@ -97,10 +97,12 @@ bool Formation2D::computeGoal(Math::Vec2& out) const
     {
     case Shape::Surround:
     {
-        // Evenly spaced around the anchor, the ring turning with it so a slot
-        // stays on the same side of him rather than sliding round as he turns.
+        // Evenly spaced around the anchor, in world angles and not his own. A
+        // ring tied to his facing spins with him, and a player who turns to aim
+        // sends the whole group running in circles chasing places that move
+        // faster than they do.
         const float step = 6.28318530718f / (float)count;
-        const float angle = facing + step * (float)mSlot;
+        const float angle = step * (float)mSlot;
         out = centre + Math::Vec2(std::cos(angle), std::sin(angle)) * mSpacing;
         return true;
     }
