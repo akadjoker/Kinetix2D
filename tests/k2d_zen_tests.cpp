@@ -686,6 +686,42 @@ static bool testAnimationEventsRoundTrip()
     return ok;
 }
 
+static bool testNavigationAgentOrientationApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("walker");
+    object->addComponent<k2d::NavigationAgent2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Walker(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        a = self.node.get_component<NavigationAgent>()\n"
+        "        a.set_orient_to_path(True)\n"
+        "        a.set_rotation_lerp_speed(7.5)\n"
+        "        a.set_rotation_offset(90)\n"
+        "        set_flag(\"orient\", a.get_orient_to_path())\n"
+        "        set_number(\"lerp\", a.get_rotation_lerp_speed())\n"
+        "        set_number(\"offset\", a.get_rotation_offset())\n",
+        "agent_orientation");
+
+    scene.update(0.016f);
+
+    k2d::NavigationAgent2D* agent = object->getComponent<k2d::NavigationAgent2D>();
+    bool ok = loaded && script->loaded() && agent;
+    ok = ok && k2d::ZenBlackboard::getBool("orient", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("lerp"), 7.5f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("offset"), 90.0f);
+    // The script must have moved the real component, not just echoed values.
+    ok = ok && agent->orientToPath() && nearEqual(agent->rotationLerpSpeed(), 7.5f) &&
+         nearEqual(agent->rotationOffsetDegrees(), 90.0f);
+
+    std::printf("  agent_orientation: orient=%d lerp=%.1f offset=%.1f\n", agent && agent->orientToPath() ? 1 : 0,
+                agent ? agent->rotationLerpSpeed() : -1.0f, agent ? agent->rotationOffsetDegrees() : -1.0f);
+    return ok;
+}
+
 static bool testTileMapApi()
 {
     k2d::ZenBlackboard::clear();
@@ -2459,6 +2495,7 @@ int main()
     const bool audioPlayerApi = testAudioPlayerApi();
     const bool light2DApi = testLight2DApi();
     const bool tileMapApi = testTileMapApi();
+    const bool agentOrientation = testNavigationAgentOrientationApi();
     const bool animationEvents = testAnimationEvents();
     const bool animationLag = testAnimationEventsSurviveLagSpike();
     const bool animationFinished = testAnimationFinished();
@@ -2504,6 +2541,7 @@ int main()
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
         "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
         "animation_events=%s animation_lag=%s animation_finished=%s animation_events_saved=%s "
+        "agent_orientation=%s "
         "navigation_agent=%s steering_api=%s directional_light=%s light_occluder=%s motion_tween=%s motion_streak=%s sprite_batch=%s "
         "line_2d=%s polygon_2d=%s nine_patch=%s "
         "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
@@ -2516,6 +2554,7 @@ int main()
         skeletonOk ? "pass" : "fail", audioPlayerApi ? "pass" : "fail", light2DApi ? "pass" : "fail",
         tileMapApi ? "pass" : "fail", animationEvents ? "pass" : "fail", animationLag ? "pass" : "fail",
         animationFinished ? "pass" : "fail", animationEventsSaved ? "pass" : "fail",
+        agentOrientation ? "pass" : "fail",
         navigationAgentApi ? "pass" : "fail", steeringApi ? "pass" : "fail",
         directionalLightApi ? "pass" : "fail", lightOccluderApi ? "pass" : "fail", motionTweenApi ? "pass" : "fail",
         motionStreakApi ? "pass" : "fail", spriteBatchApi ? "pass" : "fail", line2DApi ? "pass" : "fail",
@@ -2533,6 +2572,7 @@ int main()
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
                         allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
                         animationEvents && animationLag && animationFinished && animationEventsSaved &&
+                        agentOrientation &&
                         navigationAgentApi && steeringApi &&
                         directionalLightApi && lightOccluderApi && motionTweenApi && motionStreakApi &&
                         spriteBatchApi && line2DApi && polygon2DApi && ninePatchApi &&

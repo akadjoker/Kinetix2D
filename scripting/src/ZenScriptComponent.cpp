@@ -1960,6 +1960,51 @@ int natNavAgentSetAutoMove(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+int natNavAgentGetOrientToPath(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(agent && agent->orientToPath());
+    return 1;
+}
+
+int natNavAgentSetOrientToPath(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setOrientToPath(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natNavAgentGetRotationLerpSpeed(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_float(agent ? agent->rotationLerpSpeed() : 0.0f);
+    return 1;
+}
+
+int natNavAgentSetRotationLerpSpeed(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setRotationLerpSpeed((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natNavAgentGetRotationOffset(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_float(agent ? agent->rotationOffsetDegrees() : 0.0f);
+    return 1;
+}
+
+int natNavAgentSetRotationOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setRotationOffsetDegrees((float)zen::to_number(args[0]));
+    return 0;
+}
+
 
 int natSteeringGetWeight(zen::VM*, zen::Value* args, int)
 {
@@ -5045,6 +5090,12 @@ void ZenRuntime::Impl::initialize()
     navigationAgent.method("set_max_speed", &natNavAgentSetMaxSpeed, 1);
     navigationAgent.method("get_auto_move", &natNavAgentGetAutoMove, 0);
     navigationAgent.method("set_auto_move", &natNavAgentSetAutoMove, 1);
+    navigationAgent.method("get_orient_to_path", &natNavAgentGetOrientToPath, 0);
+    navigationAgent.method("set_orient_to_path", &natNavAgentSetOrientToPath, 1);
+    navigationAgent.method("get_rotation_lerp_speed", &natNavAgentGetRotationLerpSpeed, 0);
+    navigationAgent.method("set_rotation_lerp_speed", &natNavAgentSetRotationLerpSpeed, 1);
+    navigationAgent.method("get_rotation_offset", &natNavAgentGetRotationOffset, 0);
+    navigationAgent.method("set_rotation_offset", &natNavAgentSetRotationOffset, 1);
     navigationAgent.persistent(true).constructable(false);
     zen::ObjClass* navigationAgentClass = navigationAgent.end();
 
