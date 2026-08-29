@@ -17,6 +17,7 @@
 #include <cmath>
 #include <limits>
 #include <k2d/CircleCollider2D.h>
+#include <k2d/Formation2D.h>
 
 #include <cstdio>
 
@@ -532,6 +533,92 @@ bool TestDynamicAgentFacesItsPath()
     return ok;
 }
 
+bool TestFormationSpreadsTheGroup()
+{
+    const float dt = 1.0f / 60.0f;
+
+    // Three chasers converging on one target down the same open field. Without
+    // a formation they all path to the same point and arrive in single file.
+    const auto run = [&](bool withFormation, float& outClosest)
+    {
+        k2d::Scene scene;
+        makeField(scene, 600.0f);
+        k2d::GameObject* quarry = makeWalker(scene, "quarry", Math::Vec2(520.0f, 300.0f), false);
+
+        k2d::GameObject* chasers[3];
+        for (int i = 0; i < 3; ++i)
+        {
+            char name[16];
+            std::snprintf(name, sizeof(name), "chaser%d", i);
+            chasers[i] = makeWalker(scene, name, Math::Vec2(30.0f, 280.0f + 20.0f * i), false);
+            chasers[i]->setTag("hunters");
+            k2d::NavigationAgent2D* agent = chasers[i]->addComponent<k2d::NavigationAgent2D>();
+            agent->setMaxSpeed(120.0f);
+            agent->setAutoMove(true);
+            if (withFormation)
+            {
+                k2d::Formation2D* formation = chasers[i]->addComponent<k2d::Formation2D>();
+                formation->setGroupTag("hunters");
+                formation->setAnchorName("quarry");
+                formation->setShape(k2d::Formation2D::Shape::Surround);
+                formation->setSpacing(70.0f);
+            }
+            else
+            {
+                agent->setFollowTargetName("quarry");
+            }
+        }
+
+        scene.setSimulationEnabled(true);
+        int samples = 0;
+        int inLine = 0;
+        outClosest = 1e9f;
+        for (int frame = 0; frame < 600; ++frame)
+        {
+            scene.update(dt);
+            const Math::Vec2 a = chasers[0]->globalPosition();
+            const Math::Vec2 b = chasers[1]->globalPosition();
+            const Math::Vec2 c = chasers[2]->globalPosition();
+            const Math::Vec2 q = quarry->globalPosition();
+            for (int i = 0; i < 3; ++i)
+            {
+                const float gap = k2d::Distance(chasers[i]->globalPosition(), q);
+                if (gap < outClosest)
+                    outClosest = gap;
+            }
+            // Judge where they settle, not the run-up: they start in a line
+            // and share one corridor to get there.
+            if (frame < 400 || k2d::Distance(a, q) > 200.0f || k2d::Distance(b, q) > 200.0f ||
+                k2d::Distance(c, q) > 200.0f)
+                continue;
+            ++samples;
+            // Twice the triangle area over its longest side: how far the odd one
+            // out stands off the line through the other two. Zero is a queue.
+            const float twiceArea = std::fabs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+            float longest = k2d::Distance(a, b);
+            const float bc = k2d::Distance(b, c);
+            const float ac = k2d::Distance(a, c);
+            if (bc > longest)
+                longest = bc;
+            if (ac > longest)
+                longest = ac;
+            if (longest < 1.0f || twiceArea / longest < 12.0f)
+                ++inLine;
+        }
+        return samples > 0 ? 100.0f * inLine / samples : 100.0f;
+    };
+
+    float plainClosest = 0.0f;
+    float formedClosest = 0.0f;
+    const float plain = run(false, plainClosest);
+    const float formed = run(true, formedClosest);
+
+    const bool ok = plain > 50.0f && formed < 5.0f && formedClosest < 90.0f;
+    std::printf("navigation formation spreads the group: single file %.0f%% -> %.0f%%, closest %.0f %s\n", plain,
+                formed, formedClosest, ok ? "pass" : "fail");
+    return ok;
+}
+
 bool TestDynamicAgentsDoNotOverlap()
 {
     const float dt = 1.0f / 60.0f;
@@ -1043,6 +1130,7 @@ int main()
     const bool steeringNeutral = TestAgentWithoutSteeringIsUnchanged();
     const bool followAfterResolve = TestFollowTargetSetAfterResolve();
     const bool crowdApart = TestDynamicAgentsDoNotOverlap();
+    const bool formationSpread = TestFormationSpreadsTheGroup();
     const bool dynamicFacing = TestDynamicAgentFacesItsPath();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
@@ -1065,7 +1153,7 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && dynamicFacing && separationSpread &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && formationSpread && dynamicFacing && separationSpread &&
            separationSources &&
                    obstacleAside && steeringList
                ? 0

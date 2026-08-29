@@ -154,6 +154,7 @@ add_library(k2d STATIC
     src/Navigation2D.cpp
     src/NavigationRegion2D.cpp
     src/NavigationAgent2D.cpp
+    src/Formation2D.cpp
     src/MotionTween2D.cpp
     src/MotionStreak2D.cpp
     src/Serializer.cpp

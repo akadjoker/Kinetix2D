@@ -1952,7 +1952,7 @@
       },
       {
         "name": "agent",
-        "tag": "",
+        "tag": "hunters",
         "active": true,
         "visible": true,
         "locked": false,
@@ -1971,12 +1971,7 @@
             "type": "ZenScript",
             "data": {
               "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
-              "properties": [
-                {
-                  "name": "slot_angle",
-                  "value": 0.0
-                }
-              ]
+              "properties": []
             }
           },
           {
@@ -2036,22 +2031,19 @@
               "orientToPath": false,
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
-              "followTarget": "player",
+              "followTarget": "",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Formation2D",
             "data": {
-              "weight": 1.0,
-              "target": "",
-              "targetPosition": [
-                0.0,
-                0.0
-              ],
-              "radius": 90.0,
-              "mask": 65535
+              "group": "hunters",
+              "anchor": "player",
+              "shape": "surround",
+              "spacing": 60.0,
+              "updateInterval": 0.25
             }
           }
         ],
@@ -2059,7 +2051,7 @@
       },
       {
         "name": "agent2",
-        "tag": "",
+        "tag": "hunters",
         "active": true,
         "visible": true,
         "locked": false,
@@ -2078,12 +2070,7 @@
             "type": "ZenScript",
             "data": {
               "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
-              "properties": [
-                {
-                  "name": "slot_angle",
-                  "value": 120.0
-                }
-              ]
+              "properties": []
             }
           },
           {
@@ -2143,22 +2130,19 @@
               "orientToPath": false,
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
-              "followTarget": "player",
+              "followTarget": "",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Formation2D",
             "data": {
-              "weight": 1.0,
-              "target": "",
-              "targetPosition": [
-                0.0,
-                0.0
-              ],
-              "radius": 90.0,
-              "mask": 65535
+              "group": "hunters",
+              "anchor": "player",
+              "shape": "surround",
+              "spacing": 60.0,
+              "updateInterval": 0.25
             }
           }
         ],
@@ -2166,7 +2150,7 @@
       },
       {
         "name": "agent3",
-        "tag": "",
+        "tag": "hunters",
         "active": true,
         "visible": true,
         "locked": false,
@@ -2185,12 +2169,7 @@
             "type": "ZenScript",
             "data": {
               "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
-              "properties": [
-                {
-                  "name": "slot_angle",
-                  "value": 240.0
-                }
-              ]
+              "properties": []
             }
           },
           {
@@ -2250,22 +2229,19 @@
               "orientToPath": false,
               "rotationLerpSpeed": 12.0,
               "rotationOffsetDegrees": 0.0,
-              "followTarget": "player",
+              "followTarget": "",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
             }
           },
           {
-            "type": "Separation2D",
+            "type": "Formation2D",
             "data": {
-              "weight": 1.0,
-              "target": "",
-              "targetPosition": [
-                0.0,
-                0.0
-              ],
-              "radius": 90.0,
-              "mask": 65535
+              "group": "hunters",
+              "anchor": "player",
+              "shape": "surround",
+              "spacing": 60.0,
+              "updateInterval": 0.25
             }
           }
         ],

@@ -7,6 +7,7 @@
 #include "k2d/TileMapComponent.h"
 #include "k2d/Polygon2D.h"
 #include "k2d/NavigationRegion2D.h"
+#include "k2d/Formation2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/Line2D.h"
 #include "k2d/CircleShape.h"
@@ -329,6 +330,11 @@ Component* CreateNavigationRegion(GameObject& owner)
     return owner.addComponent<NavigationRegion2D>();
 }
 
+Component* CreateFormation(GameObject& owner)
+{
+    return owner.addComponent<Formation2D>();
+}
+
 Component* CreateNavigationAgent(GameObject& owner)
 {
     return owner.addComponent<NavigationAgent2D>();
@@ -468,6 +474,53 @@ void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
     static_cast<NavigationRegion2D&>(component)
         .setPolygonWithHoles(points.data(), static_cast<int>(points.size()), holePtrs.data(), holeCounts.data(),
                               static_cast<int>(holes.size()));
+}
+
+const char* FormationShapeName(Formation2D::Shape shape)
+{
+    switch (shape)
+    {
+    case Formation2D::Shape::Abreast:
+        return "abreast";
+    case Formation2D::Shape::Wedge:
+        return "wedge";
+    case Formation2D::Shape::SingleFile:
+        return "singleFile";
+    case Formation2D::Shape::Surround:
+        break;
+    }
+    return "surround";
+}
+
+Formation2D::Shape FormationShapeFromName(const char* name)
+{
+    if (std::strcmp(name, "abreast") == 0)
+        return Formation2D::Shape::Abreast;
+    if (std::strcmp(name, "wedge") == 0)
+        return Formation2D::Shape::Wedge;
+    if (std::strcmp(name, "singleFile") == 0)
+        return Formation2D::Shape::SingleFile;
+    return Formation2D::Shape::Surround;
+}
+
+void WriteFormation(const Component& component, ct::Json& data, Assets*)
+{
+    const Formation2D& formation = static_cast<const Formation2D&>(component);
+    data.set("group", ct::Json(formation.groupTag().c_str()));
+    data.set("anchor", ct::Json(formation.anchorName().c_str()));
+    data.set("shape", ct::Json(FormationShapeName(formation.shape())));
+    data.set("spacing", ct::Json(static_cast<double>(formation.spacing())));
+    data.set("updateInterval", ct::Json(static_cast<double>(formation.updateInterval())));
+}
+
+void ReadFormation(Component& component, const ct::Json& data, Assets*)
+{
+    Formation2D& formation = static_cast<Formation2D&>(component);
+    formation.setGroupTag(data["group"].as_cstr(""));
+    formation.setAnchorName(data["anchor"].as_cstr(""));
+    formation.setShape(FormationShapeFromName(data["shape"].as_cstr("surround")));
+    formation.setSpacing(static_cast<float>(data["spacing"].as_double(60.0)));
+    formation.setUpdateInterval(static_cast<float>(data["updateInterval"].as_double(0.25)));
 }
 
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
@@ -1285,6 +1338,7 @@ const TypeEntry* AllEntries(std::size_t& count)
          &ReadNavigationRegion, nullptr},
         {ComponentType::NavigationAgent, "NavigationAgent2D", &CreateNavigationAgent, &WriteNavigationAgent,
          &ReadNavigationAgent, nullptr},
+        {ComponentType::Formation, "Formation2D", &CreateFormation, &WriteFormation, &ReadFormation, nullptr},
         {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
         {ComponentType::CircleShape, "CircleShape", &CreateCircleShape, &WriteCircleShape, &ReadCircleShape, nullptr},
         {ComponentType::RectShape, "RectShape", &CreateRectShape, &WriteRectShape, &ReadRectShape, nullptr},
