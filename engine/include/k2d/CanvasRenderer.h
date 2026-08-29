@@ -185,11 +185,10 @@ class CanvasRenderer
     int mHasNormalMapLoc;
     int mWaterMvpLoc;
     int mWaterNormalMapLoc;
-    int mWaterTimeLoc;
+    int mWaterPhaseALoc;
+    int mWaterPhaseBLoc;
     int mWaterStrengthLoc;
     int mWaterNormalScaleLoc;
-    int mWaterFlowALoc;
-    int mWaterFlowBLoc;
     int mWaterTintLoc;
     int mWaterHighlightLoc;
     int mLightHeightLoc;

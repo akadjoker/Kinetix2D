@@ -41,6 +41,15 @@ void main()
 }
 )";
 
+// The scroll phase is wrapped to one tile on the CPU, in double precision:
+// flow * elapsedSeconds grows without bound and a float32 uniform loses the
+// fraction that actually moves the water after a few minutes of play.
+static float WaterPhase(float flow, double seconds)
+{
+    const double phase = std::fmod(static_cast<double>(flow) * seconds, 1.0);
+    return static_cast<float>(phase < 0.0 ? phase + 1.0 : phase);
+}
+
 // Canvas-owned water effect. A small normal map is sampled twice with
 // different flow directions; this remains compatible with GLES3 and
 // WebGL2 and needs no extra texture per water sprite.
@@ -52,7 +61,8 @@ in vec4 v_color;
 
 uniform sampler2D u_texture;
 uniform sampler2D u_waterNormalMap;
-uniform float u_waterTime;
+uniform vec2 u_waterPhaseA;
+uniform vec2 u_waterPhaseB;
 uniform float u_waterStrength;
 uniform float u_waterNormalScale;
 uniform vec2 u_waterFlowA;
@@ -64,20 +74,30 @@ out vec4 FragColor;
 
 void main()
 {
-    // fract makes the detail repeat even when the texture itself was loaded
-    // with clamp mode, so a normal map can still be shared by lighting.
-    vec2 flowA = fract(v_texcoord * u_waterNormalScale + u_waterFlowA * u_waterTime);
-    vec2 flowB = fract(v_texcoord * (u_waterNormalScale * 1.73) + u_waterFlowB * u_waterTime);
-    vec2 nA = texture(u_waterNormalMap, flowA).xy * 2.0 - 1.0;
-    vec2 nB = texture(u_waterNormalMap, flowB).xy * 2.0 - 1.0;
-    vec2 bump = (nA + nB) * 0.5;
+    vec2 uvA = v_texcoord * u_waterNormalScale + u_waterPhaseA;
+    vec2 uvB = v_texcoord * (u_waterNormalScale * 1.73) + u_waterPhaseB;
+
+    // Derivatives come from the unwrapped coordinates: fract() alone makes them
+    // explode on the wrap line, which picks the smallest mip there and draws a
+    // seam across the water.
+    vec2 dxA = dFdx(uvA);
+    vec2 dyA = dFdy(uvA);
+    vec2 dxB = dFdx(uvB);
+    vec2 dyB = dFdy(uvB);
+    vec3 nA = textureGrad(u_waterNormalMap, fract(uvA), dxA, dyA).xyz * 2.0 - 1.0;
+    vec3 nB = textureGrad(u_waterNormalMap, fract(uvB), dxB, dyB).xyz * 2.0 - 1.0;
+
+    // Summed normals must be renormalized: two waves that cancel would otherwise
+    // flatten the refraction, and two that align would double it.
+    vec3 normal = nA + nB;
+    normal.z += 0.0001;
+    normal = normalize(normal);
 
     // Water sprites should use a standalone texture (or source-rect padding)
     // so this refraction cannot sample an adjacent atlas region.
-    vec2 refractedUv = clamp(v_texcoord + bump * u_waterStrength, 0.0, 1.0);
+    vec2 refractedUv = clamp(v_texcoord + normal.xy * u_waterStrength, 0.0, 1.0);
     vec4 base = texture(u_texture, refractedUv) * v_color;
-    float direction = dot(normalize(bump + vec2(0.0001)), vec2(0.7071));
-    float crest = smoothstep(0.38, 0.92, direction * 0.5 + 0.5);
+    float crest = smoothstep(0.38, 0.92, dot(normal, normalize(vec3(0.7071, 0.7071, 0.6))) * 0.5 + 0.5);
     vec3 colour = base.rgb * u_waterTint.rgb + vec3(crest * u_waterHighlight);
     FragColor = vec4(colour, base.a * u_waterTint.a);
 }
@@ -397,8 +417,8 @@ CanvasRenderer::CanvasRenderer()
       mOccluderEdges(), mVAO(0), mVBO(0), mIBO(0), mProgram(0), mWaterProgram(0), mShadowProgram(0), mWhiteTexture(0),
       mFontTexture(0), mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
       mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1), mNormalMapLoc(-1), mHasNormalMapLoc(-1),
-      mWaterMvpLoc(-1), mWaterNormalMapLoc(-1), mWaterTimeLoc(-1), mWaterStrengthLoc(-1), mWaterNormalScaleLoc(-1),
-      mWaterFlowALoc(-1), mWaterFlowBLoc(-1), mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1),
+      mWaterMvpLoc(-1), mWaterNormalMapLoc(-1), mWaterPhaseALoc(-1), mWaterPhaseBLoc(-1), mWaterStrengthLoc(-1), mWaterNormalScaleLoc(-1),
+      mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1),
       mDirectionalHeightLoc(-1), mShadowAtlas(0), mShadowDepth(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
       mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1), mLightColorLoc(-1), mLightRadiusLoc(-1),
       mLightCullMaskLoc(-1), mDirectionalLightCountLoc(-1), mDirectionalLightDirectionLoc(-1),
@@ -917,7 +937,7 @@ void CanvasRenderer::ApplyDrawCalls()
         mState.BindTexture2D(2, mDefaultLightTexture);
 
     size_t indexOffset = 0;
-    const float waterTime = static_cast<float>(SDL_GetTicks64()) * 0.001f;
+    const double waterSeconds = static_cast<double>(SDL_GetTicks64()) * 0.001;
 
     for (size_t i = 0; i < mDrawCalls.size(); ++i)
     {
@@ -949,11 +969,12 @@ void CanvasRenderer::ApplyDrawCalls()
         if (waterActive)
         {
             mState.BindTexture2D(3, call.normalTextureId);
-            glUniform1f(mWaterTimeLoc, waterTime);
+            glUniform2f(mWaterPhaseALoc, WaterPhase(call.water.flowA.x, waterSeconds),
+                        WaterPhase(call.water.flowA.y, waterSeconds));
+            glUniform2f(mWaterPhaseBLoc, WaterPhase(call.water.flowB.x, waterSeconds),
+                        WaterPhase(call.water.flowB.y, waterSeconds));
             glUniform1f(mWaterStrengthLoc, call.water.strength);
             glUniform1f(mWaterNormalScaleLoc, call.water.normalScale);
-            glUniform2f(mWaterFlowALoc, call.water.flowA.x, call.water.flowA.y);
-            glUniform2f(mWaterFlowBLoc, call.water.flowB.x, call.water.flowB.y);
             glUniform4fv(mWaterTintLoc, 1, &call.water.tint.r);
             glUniform1f(mWaterHighlightLoc, call.water.highlight);
         }
@@ -1040,11 +1061,10 @@ bool CanvasRenderer::SetupShaders()
     }
     mWaterMvpLoc = glGetUniformLocation(mWaterProgram, "u_mvp");
     mWaterNormalMapLoc = glGetUniformLocation(mWaterProgram, "u_waterNormalMap");
-    mWaterTimeLoc = glGetUniformLocation(mWaterProgram, "u_waterTime");
+    mWaterPhaseALoc = glGetUniformLocation(mWaterProgram, "u_waterPhaseA");
+    mWaterPhaseBLoc = glGetUniformLocation(mWaterProgram, "u_waterPhaseB");
     mWaterStrengthLoc = glGetUniformLocation(mWaterProgram, "u_waterStrength");
     mWaterNormalScaleLoc = glGetUniformLocation(mWaterProgram, "u_waterNormalScale");
-    mWaterFlowALoc = glGetUniformLocation(mWaterProgram, "u_waterFlowA");
-    mWaterFlowBLoc = glGetUniformLocation(mWaterProgram, "u_waterFlowB");
     mWaterTintLoc = glGetUniformLocation(mWaterProgram, "u_waterTint");
     mWaterHighlightLoc = glGetUniformLocation(mWaterProgram, "u_waterHighlight");
     glUseProgram(mWaterProgram);
