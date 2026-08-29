@@ -66,9 +66,10 @@ CollisionInfo CharacterBody2D::moveAndCollide(const Math::Vec2& motion, bool tes
     collision.travel = result.travel;
     collision.remainder = result.remainder;
     collision.fraction = result.fraction;
-    if (!result.hit)
-        return collision;
 
+    // testMotion reports the whole motion as travel when nothing was hit, so
+    // the move has to be applied either way - returning early here meant a
+    // character could only ever move by colliding with something.
     if (!testOnly)
     {
         const Math::Vec2 target = rigid->Position() + result.travel;

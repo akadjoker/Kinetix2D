@@ -1376,10 +1376,44 @@ static bool testSteeringSerializerRoundTrip()
     return ok;
 }
 
+// A character used to move only when it collided: move_and_collide returned
+// before applying travel on a clear path, so open ground was impassable.
+// Godot applies the travel outside its `if (collided)` for the same reason.
+static bool testCharacterMovesThroughOpenSpace()
+{
+    k2d::Scene scene;
+    makeBox(scene, "far_wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(20.0f, 200.0f), k2d::BodyType::Static);
+
+    k2d::GameObject* player =
+        makeBox(scene, "walker", Math::Vec2(0.0f, 0.0f), Math::Vec2(16.0f, 16.0f), k2d::BodyType::Kinematic);
+    k2d::CharacterBody2D* character = player->addComponent<k2d::CharacterBody2D>();
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
+
+    character->setVelocity(Math::Vec2(600.0f, 0.0f));
+    const bool hit = character->moveAndSlide();
+    const float afterOne = player->position().x;
+    const bool movedFreely = !hit && nearEqual(afterOne, 600.0f * scene.fixedTimeStep(), 0.5f);
+
+    for (int i = 0; i < 60; ++i)
+    {
+        character->setVelocity(Math::Vec2(600.0f, 0.0f));
+        character->moveAndSlide();
+    }
+    const bool stopped = player->position().x < 190.0f && character->isOnWall();
+
+    std::printf("  character_open: one_slide=%.1f final=%.1f wall=%d\n", afterOne, player->position().x,
+                character->isOnWall() ? 1 : 0);
+    return movedFreely && stopped;
+}
+
 int main()
 {
     const bool falls = testBoxFallsAndRests();
     const bool parentTransform = testBodyUnderTransformedParent();
+    const bool characterOpen = testCharacterMovesThroughOpenSpace();
     const bool tileMap = testPaintedTileMapCollision();
     const bool contacts = testContactCallbackFires();
     const bool sensor = testSensorReportsWithoutBlocking();
@@ -1414,13 +1448,13 @@ int main()
     const bool maskEdges = testMaskContourEdgeCases();
     const bool steeringSerialized = testSteeringSerializerRoundTrip();
 
-    std::printf("physics2d: falls=%s parent_transform=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
+    std::printf("physics2d: falls=%s parent_transform=%s character_open=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
                 "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
                 "joint_authoring_flow=%s mask_contour=%s no_collider=%s chain_min_points=%s joint_self=%s "
                 "joint_dead_body=%s collider_zero=%s mask_edges=%s steering_serializer=%s\n",
-                falls ? "pass" : "fail", parentTransform ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
+                falls ? "pass" : "fail", parentTransform ? "pass" : "fail", characterOpen ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
                 destroy ? "pass" : "fail", lateSpawn ? "pass" : "fail", colliderChange ? "pass" : "fail",
@@ -1433,7 +1467,7 @@ int main()
                 noCollider ? "pass" : "fail", chainMinPoints ? "pass" : "fail", jointSelf ? "pass" : "fail",
                 jointDeadBody ? "pass" : "fail", colliderZero ? "pass" : "fail", maskEdges ? "pass" : "fail",
                 steeringSerialized ? "pass" : "fail");
-    return falls && parentTransform && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
+    return falls && parentTransform && characterOpen && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
                    jointSerialized && jointAuthoringFlow && maskContour && noCollider && chainMinPoints &&
