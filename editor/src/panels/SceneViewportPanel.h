@@ -15,6 +15,7 @@ class Collider2D;
 class GameObject;
 class SpriteBatch;
 class CameraComponent;
+class NavigationRegion2D;
 }
 
 namespace k2d::editor
@@ -47,9 +48,26 @@ private:
     int hitTestColliderPoint(GameObject &object, Collider2D &collider, const ImVec2 &mouse,
                              const ImVec2 &origin) const;
     void applyColliderPointDrag(Collider2D &collider, int index, const Math::Vec2 &localPoint);
+    // Returns the index of the point that starts the segment under the mouse.
+    int hitTestColliderSegment(GameObject &object, Collider2D &collider, const ImVec2 &mouse, const ImVec2 &origin,
+                               Math::Vec2 &outLocalPoint) const;
+    bool insertColliderPoint(Collider2D &collider, int afterIndex, const Math::Vec2 &localPoint);
+    int regionLoopCount(const NavigationRegion2D &region) const;
+    int regionPointCount(const NavigationRegion2D &region, int loop) const;
+    Math::Vec2 regionPointAt(const NavigationRegion2D &region, int loop, int index) const;
+    bool hitTestRegionPoint(GameObject &object, NavigationRegion2D &region, const ImVec2 &mouse, const ImVec2 &origin,
+                            int &outLoop, int &outPoint) const;
+    int hitTestRegionSegment(GameObject &object, NavigationRegion2D &region, const ImVec2 &mouse,
+                             const ImVec2 &origin, int &outLoop, Math::Vec2 &outLocalPoint) const;
+    void rebuildRegion(NavigationRegion2D &region, const ct::Vector<ct::Vector<Math::Vec2>> &loops);
+    void applyRegionPointDrag(NavigationRegion2D &region, int loop, int index, const Math::Vec2 &localPoint);
+    bool insertRegionPoint(NavigationRegion2D &region, int loop, int afterIndex, const Math::Vec2 &localPoint);
+    bool removeRegionPoint(NavigationRegion2D &region, int loop, int index);
+    bool removeColliderPoint(Collider2D &collider, int index);
 
     void drawSpriteBatchEntries(ImDrawList &drawList, GameObject &object, SpriteBatch &batch, const ImVec2 &origin) const;
     void drawCameraGizmo(ImDrawList &drawList, CameraComponent &camera, const ImVec2 &origin) const;
+    void drawNavigationRegions(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
     int hitTestBatchEntry(GameObject &object, SpriteBatch &batch, const ImVec2 &mouse, const ImVec2 &origin) const;
 
     void ensureFramebuffer(int width, int height);
@@ -72,6 +90,11 @@ private:
 
     Collider2D *mDraggedPointCollider = nullptr;
     int mDraggedPointIndex = -1;
+    NavigationRegion2D *mDraggedRegion = nullptr;
+    // Loop 0 is the outline, 1..n are the holes, so one pair of indices
+    // addresses any point of a region with holes.
+    int mDraggedRegionLoop = -1;
+    int mDraggedRegionPoint = -1;
     ct::Vector<Math::Vec2> mPointDragScratch;
 
     SpriteBatch *mDraggedBatch = nullptr;

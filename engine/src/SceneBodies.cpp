@@ -162,13 +162,14 @@ void Scene::rebuildBody(RigidBody2D &rigidBody)
         return;
 
     rigidBody.mNeedsRebuild = false;
-    rigidBody.ClearShapes();
 
     // The shapes are about to change underneath any contact still touching
     // this body, so its warm-start impulses and pair cache must not survive
     // the rebuild - a stale impulse applied to the new geometry's very
-    // different manifold can inject a large spurious velocity.
+    // different manifold can inject a large spurious velocity. This must run
+    // BEFORE the shapes go: the end-event dispatch indexes into Shapes().
     removeBodyContactEvents(&rigidBody);
+    rigidBody.ClearShapes();
     mKeyScratch.clear();
     for (auto &entry : mPairs)
         if (entry.value.a == &rigidBody || entry.value.b == &rigidBody)

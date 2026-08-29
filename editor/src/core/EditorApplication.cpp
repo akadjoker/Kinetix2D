@@ -5,6 +5,7 @@
 #include "EditorTheme.h"
 #include "panels/AssetsPanel.h"
 #include "panels/AnimatorPanel.h"
+#include "panels/AtlasPanel.h"
 #include "panels/ConsolePanel.h"
 #include "panels/GamePanel.h"
 #include "panels/HierarchyPanel.h"
@@ -27,6 +28,7 @@
 #include <k2d/Animation2D.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/MouseCursor.h>
 #include <k2d/BoxCollider2D.h>
 #include <k2d/CircleCollider2D.h>
 #include <k2d/CircleShape.h>
@@ -338,6 +340,7 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<AnimatorPanel>(*this));
     mPanels.push_back(ct::make_unique<SkeletonPanel>(*this));
     mPanels.push_back(ct::make_unique<AssetsPanel>(*this));
+    mPanels.push_back(ct::make_unique<AtlasPanel>(*this));
     mPanels.push_back(ct::make_unique<PrefabsPanel>(*this));
     mPanels.push_back(ct::make_unique<ScriptsPanel>(*this));
     ct::Unique<ScriptEditorPanel> scriptEditor = ct::make_unique<ScriptEditorPanel>(*this);
@@ -429,6 +432,18 @@ ct::Json EditorApplication::snapshotScene()
         physics.set("gravity", gravity);
         document.set("physics", physics);
     }
+
+    if (mSceneCursor.enabled || !mSceneCursor.image.empty())
+    {
+        ct::Json offset = ct::Json::array();
+        offset.push_back(ct::Json(mSceneCursor.offset.x));
+        offset.push_back(ct::Json(mSceneCursor.offset.y));
+        ct::Json cursor = ct::Json::object();
+        cursor.set("enabled", ct::Json(mSceneCursor.enabled));
+        cursor.set("image", ct::Json(mSceneCursor.image));
+        cursor.set("offset", offset);
+        document.set("cursor", cursor);
+    }
     return document;
 }
 
@@ -450,6 +465,18 @@ void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selected
         }
     }
     applyPhysicsSettings();
+
+    mSceneCursor = SceneCursor();
+    const ct::Json& cursor = snapshot["cursor"];
+    if (cursor.is_object())
+    {
+        mSceneCursor.enabled = cursor["enabled"].as_bool(false);
+        mSceneCursor.image = cursor["image"].as_cstr("");
+        const ct::Json& offset = cursor["offset"];
+        if (offset.is_array() && offset.size() >= 2)
+            mSceneCursor.offset = Math::Vec2((float)offset[0].as_double(0.0), (float)offset[1].as_double(0.0));
+    }
+    applyCursorSettings();
 
     GameObject& root = mScene.root();
     root.setName(rootJson["name"].as_cstr("Scene"));
@@ -520,6 +547,15 @@ void EditorApplication::applyPhysicsSettings()
     mRuntimeScene.setFixedTimeStep(physics.fixedTimeStep);
     mRuntimeScene.setVelocityIterations(physics.velocityIterations);
     mRuntimeScene.setTreeBroadphase(physics.treeBroadphase);
+}
+
+void EditorApplication::applyCursorSettings()
+{
+    MouseCursor& cursor = GetMouseCursor();
+    Texture* texture = mSceneCursor.image.empty() ? nullptr : loadOrGetTexture(mSceneCursor.image);
+    cursor.setTexture(texture);
+    cursor.setOffset(mSceneCursor.offset);
+    cursor.setEnabled(mSceneCursor.enabled && texture != nullptr);
 }
 
 void EditorApplication::stopPlay()
@@ -959,9 +995,14 @@ void EditorApplication::preloadTextures(const ct::Json& node)
             const ct::Json& value = members[i].value;
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
-                const char* path = value.as_cstr("");
-                if (path[0] && !mAssets.GetTexture(path))
-                    mAssets.LoadTexture(path, path, true, false);
+                const char* name = value.as_cstr("");
+                if (name[0] && !mAssets.GetTexture(name))
+                {
+                    // Old scenes stored absolute paths; resolve() leaves those
+                    // alone so they still open, and saving rewrites them relative.
+                    const ct::String file = EditorFileSystem::resolve(mProject.root(), name);
+                    mAssets.LoadTexture(name, file.c_str(), true, false);
+                }
             }
             else
             {
@@ -978,9 +1019,13 @@ void EditorApplication::preloadTextures(const ct::Json& node)
 
 Texture* EditorApplication::loadOrGetTexture(const ct::String& imagePath)
 {
-    Texture* texture = mAssets.GetTexture(imagePath.c_str());
+    // The asset NAME is what the serializer writes into the scene, so it must
+    // be project-relative or the scene only opens on this machine. The path
+    // used to actually read the file stays absolute.
+    const ct::String name = EditorFileSystem::relativeTo(mProject.root(), imagePath);
+    Texture* texture = mAssets.GetTexture(name.c_str());
     if (!texture)
-        texture = mAssets.LoadTexture(imagePath.c_str(), imagePath.c_str(), true, false);
+        texture = mAssets.LoadTexture(name.c_str(), imagePath.c_str(), true, false);
     return texture;
 }
 
@@ -1580,6 +1625,7 @@ void EditorApplication::createDefaultDockLayout(unsigned int dockspaceId)
     ImGui::DockBuilderDockWindow("Sprite Editor", game);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Assets", bottom);
+    ImGui::DockBuilderDockWindow("Atlas", bottom);
     ImGui::DockBuilderDockWindow("Profiler", bottom);
     ImGui::DockBuilderDockWindow("Scripts", bottom);
     ImGui::DockBuilderDockWindow("Script Editor", center);

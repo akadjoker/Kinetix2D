@@ -49,4 +49,17 @@ bool Navigation2D::GetPath(const Scene& scene, const Math::Vec2& from, const Mat
     }
     return false;
 }
+
+bool Navigation2D::Contains(const Scene& scene, const Math::Vec2& point)
+{
+    for (NavigationRegion2D* region : regions())
+    {
+        GameObject* object = region ? region->owner() : nullptr;
+        if (!object || object->scene() != &scene || !object->isActiveInHierarchy())
+            continue;
+        if (region->containsPoint(point))
+            return true;
+    }
+    return false;
+}
 } // namespace k2d

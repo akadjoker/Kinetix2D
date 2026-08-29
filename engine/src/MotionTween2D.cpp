@@ -1,6 +1,6 @@
 #include "k2d/MotionTween2D.h"
+#include "k2d/Utils.h"
 #include "k2d/GameObject.h"
-#include <algorithm>
 #include <cmath>
 namespace k2d
 {
@@ -9,7 +9,7 @@ MotionTween2D::MotionTween2D() : Component(Type, ComponentEventUpdate)
 }
 float MotionTween2D::Ease(float t, MotionEase e)
 {
-    t = std::max(0.0f, std::min(1.0f, t));
+    t = Max(0.0f, Min(1.0f, t));
     const float pi = 3.14159265f;
     const auto outBounce = [](float x)
     {
@@ -98,7 +98,7 @@ float MotionTween2D::duration() const
     float result = 0;
     for (const MotionTweenTrack& t : mTracks)
         if (t.enabled)
-            result = std::max(result, t.delay + std::max(0.0f, t.duration));
+            result = Max(result, t.delay + Max(0.0f, t.duration));
     return result;
 }
 void MotionTween2D::play(bool restart)

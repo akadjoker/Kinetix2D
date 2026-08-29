@@ -25,6 +25,7 @@ add_executable(k2d_editor
     src/core/Project.cpp
     src/panels/AssetsPanel.cpp
     src/panels/AnimatorPanel.cpp
+    src/panels/AtlasPanel.cpp
     src/panels/ConsolePanel.cpp
     src/panels/GamePanel.cpp
     src/panels/HierarchyPanel.cpp

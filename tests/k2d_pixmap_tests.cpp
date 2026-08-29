@@ -61,13 +61,37 @@ int main()
     }
     const bool normalMapOk = normalMap != nullptr;
 
+    k2d::Pixmap trimSource(16, 16);
+    trimSource.Clear(0, 0, 0, 0);
+    trimSource.FillRect(4, 6, 5, 3, 255, 0, 0, 255);
+    int trimX = -1, trimY = -1, trimW = -1, trimH = -1;
+    const bool trimFound = trimSource.ComputeTrimBounds(0, trimX, trimY, trimW, trimH);
+    const bool trimOk =
+        trimFound && trimX == 4 && trimY == 6 && trimW == 5 && trimH == 3;
+
+    k2d::Pixmap trimEmpty(8, 8);
+    trimEmpty.Clear(255, 255, 255, 0);
+    int emptyX = 0, emptyY = 0, emptyW = 0, emptyH = 0;
+    const bool trimEmptyOk = !trimEmpty.ComputeTrimBounds(0, emptyX, emptyY, emptyW, emptyH);
+
+    k2d::Pixmap trimThreshold(8, 8);
+    trimThreshold.Clear(0, 0, 0, 0);
+    trimThreshold.SetPixel(3, 3, 255, 255, 255, 10);
+    int lowX = 0, lowY = 0, lowW = 0, lowH = 0;
+    const bool thresholdExcludesAtOrBelow = !trimThreshold.ComputeTrimBounds(10, lowX, lowY, lowW, lowH);
+    const bool thresholdIncludesAbove = trimThreshold.ComputeTrimBounds(9, lowX, lowY, lowW, lowH) && lowX == 3 &&
+                                        lowY == 3 && lowW == 1 && lowH == 1;
+
     std::printf("pixmap: clear=%s pixel=%s rect=%s circle=%s save=%s load=%s normalmap=%s "
-               "normal_flat=%s normal_edge=%s\n",
+               "normal_flat=%s normal_edge=%s trim=%s trim_empty=%s trim_threshold=%s\n",
                 clear ? "pass" : "fail", pixel ? "pass" : "fail",
                 rect ? "pass" : "fail", circle ? "pass" : "fail",
                 savedOk ? "pass" : "fail", loadedOk ? "pass" : "fail",
-                normalMapOk ? "pass" : "fail", flatOk ? "pass" : "fail", edgeOk ? "pass" : "fail");
-    return clear && pixel && rect && circle && savedOk && loadedOk && normalMapOk && flatOk && edgeOk
+                normalMapOk ? "pass" : "fail", flatOk ? "pass" : "fail", edgeOk ? "pass" : "fail",
+                trimOk ? "pass" : "fail", trimEmptyOk ? "pass" : "fail",
+                (thresholdExcludesAtOrBelow && thresholdIncludesAbove) ? "pass" : "fail");
+    return clear && pixel && rect && circle && savedOk && loadedOk && normalMapOk && flatOk && edgeOk && trimOk &&
+                   trimEmptyOk && thresholdExcludesAtOrBelow && thresholdIncludesAbove
                ? 0
                : 1;
 }

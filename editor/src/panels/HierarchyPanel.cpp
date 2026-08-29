@@ -242,7 +242,15 @@ void HierarchyPanel::drawObject(GameObject &object)
     if (selfMatches && filtering)
         ImGui::PopStyleColor();
 
-    if (ImGui::IsItemClicked())
+    // Selecting on press (IsItemClicked) would reassign app().selection() the
+    // instant a drag starts, before ImGui even knows this press will become a
+    // drag rather than a click - the Inspector then redraws for the newly
+    // selected object and whatever drop target the user was dragging onto (a
+    // Joint's target, the Camera's Follow field) vanishes mid-drag. Selecting
+    // on release instead only fires for a plain click: a drag ends with the
+    // mouse over the drop target, not back over this row, so IsItemHovered()
+    // is false here on that release and the row's own selection never fires.
+    if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
     {
         if (ImGui::GetIO().KeyCtrl)
             app().selection().toggle(&object);

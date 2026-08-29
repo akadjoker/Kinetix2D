@@ -194,6 +194,7 @@ namespace k2d
             Point *GetPoint(const int &index) { return points_[index]; }
             void RemoveFromMap(Triangle *triangle);
             void AddPoint(Point *point) { points_.push_back(point); }
+            void AddHole(ct::Vector<Point *> polyline);
 
             AdvancingFront *front() { return front_; }
 
@@ -291,5 +292,9 @@ namespace k2d
     } 
 
     int Triangulate(const Math::Vec2 *outline, int count, Math::Vec2 *outTriangles, int maxTriangles);
+
+    int Triangulate(const Math::Vec2 *outline, int outlineCount,
+                     const Math::Vec2 *const *holes, const int *holeCounts, int holeCount,
+                     Math::Vec2 *outTriangles, int maxTriangles);
 
 } 

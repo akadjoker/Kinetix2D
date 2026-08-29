@@ -1,4 +1,5 @@
 #include "k2d/Pixmap.h"
+#include "k2d/Utils.h"
 
 #include "k2d/Assets.h"
 #include "k2d/FileBuffer.h"
@@ -6,7 +7,6 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -80,6 +80,43 @@ bool Pixmap::CopyRect(int x, int y, int width, int height, Pixmap& out) const
         unsigned char* destination = out.mPixels + static_cast<size_t>(row) * rowBytes;
         std::memcpy(destination, source, rowBytes);
     }
+    return true;
+}
+
+bool Pixmap::ComputeTrimBounds(unsigned char alphaThreshold, int& x, int& y, int& width, int& height) const
+{
+    if (!mPixels || mWidth <= 0 || mHeight <= 0)
+        return false;
+
+    int minX = mWidth;
+    int minY = mHeight;
+    int maxX = -1;
+    int maxY = -1;
+    for (int py = 0; py < mHeight; ++py)
+    {
+        for (int px = 0; px < mWidth; ++px)
+        {
+            const unsigned char alpha = mPixels[(static_cast<size_t>(py) * mWidth + px) * 4 + 3];
+            if (alpha <= alphaThreshold)
+                continue;
+            if (px < minX)
+                minX = px;
+            if (py < minY)
+                minY = py;
+            if (px > maxX)
+                maxX = px;
+            if (py > maxY)
+                maxY = py;
+        }
+    }
+
+    if (maxX < minX || maxY < minY)
+        return false;
+
+    x = minX;
+    y = minY;
+    width = maxX - minX + 1;
+    height = maxY - minY + 1;
     return true;
 }
 
@@ -158,8 +195,8 @@ void Pixmap::Blit(const Pixmap& source, int x, int y)
     const int sourceTop = y < 0 ? -y : 0;
     const int destinationLeft = x < 0 ? 0 : x;
     const int destinationTop = y < 0 ? 0 : y;
-    const int width = std::min(source.mWidth - sourceLeft, mWidth - destinationLeft);
-    const int height = std::min(source.mHeight - sourceTop, mHeight - destinationTop);
+    const int width = Min(source.mWidth - sourceLeft, mWidth - destinationLeft);
+    const int height = Min(source.mHeight - sourceTop, mHeight - destinationTop);
     if (width <= 0 || height <= 0)
         return;
     const size_t rowBytes = static_cast<size_t>(width) * 4u;

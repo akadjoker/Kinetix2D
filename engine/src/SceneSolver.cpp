@@ -142,13 +142,21 @@ struct PairQueryVisitor
     }
 };
 
-constexpr uint64_t kBodyIdBits = 27;
+// A chain collider adds one shape per segment, so a traced coastline reaches
+// hundreds of shapes on a single body - the old 5 bits per shape index
+// overflowed into the body id and silently mixed up warm-start impulses and
+// begin/end events between unrelated shape pairs.
+constexpr uint64_t kBodyIdBits = 18;
+constexpr uint64_t kShapeBits = 14;
 constexpr uint64_t kBodyIdMask = (uint64_t(1) << kBodyIdBits) - 1;
+constexpr uint64_t kShapeMask = (uint64_t(1) << kShapeBits) - 1;
 
 uint64_t ContactKey(const ContactInfo& c)
 {
-    return (static_cast<uint64_t>(c.a->Id()) << 37) | (static_cast<uint64_t>(c.b->Id()) << 10) |
-           (static_cast<uint64_t>(c.shapeIndexA) << 5) | static_cast<uint64_t>(c.shapeIndexB);
+    return (static_cast<uint64_t>(c.a->Id() & kBodyIdMask) << (kBodyIdBits + kShapeBits + kShapeBits)) |
+           (static_cast<uint64_t>(c.b->Id() & kBodyIdMask) << (kShapeBits + kShapeBits)) |
+           ((static_cast<uint64_t>(c.shapeIndexA) & kShapeMask) << kShapeBits) |
+           (static_cast<uint64_t>(c.shapeIndexB) & kShapeMask);
 }
 
 } // namespace
@@ -192,6 +200,25 @@ void Scene::destroyBody(RigidBody2D* body)
         body->mProxyId = kNullNode;
     }
 
+    // mContacts survives between steps, so an entry still naming this body
+    // would be dereferenced by the next destroyBody in the same disposal pass -
+    // by then this body is freed. mPairs and mPairContactStates are pruned
+    // just below for the same reason.
+    size_t kept = 0;
+    for (size_t i = 0; i < mContacts.size(); ++i)
+    {
+        ContactInfo& contact = mContacts[i];
+        if (contact.a == body || contact.b == body)
+            continue;
+        if (kept != i)
+            mContacts[kept] = contact;
+        ++kept;
+    }
+    while (mContacts.size() > kept)
+        mContacts.pop_back();
+    mDynamicContacts.clear();
+    mStaticContacts.clear();
+
     mKeyScratch.clear();
     for (auto& entry : mPairs)
         if (entry.value.a == body || entry.value.b == body)
@@ -202,8 +229,8 @@ void Scene::destroyBody(RigidBody2D* body)
     mKeyScratch.clear();
     for (auto& entry : mPairContactStates)
     {
-        uint32_t idA = static_cast<uint32_t>((entry.key >> 37) & kBodyIdMask);
-        uint32_t idB = static_cast<uint32_t>((entry.key >> 10) & kBodyIdMask);
+        uint32_t idA = static_cast<uint32_t>((entry.key >> (kBodyIdBits + kShapeBits + kShapeBits)) & kBodyIdMask);
+        uint32_t idB = static_cast<uint32_t>((entry.key >> (kShapeBits + kShapeBits)) & kBodyIdMask);
         if (idA == body->mId || idB == body->mId)
             mKeyScratch.push_back(entry.key);
     }

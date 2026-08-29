@@ -6,12 +6,14 @@
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
 #include <k2d/MaskContour2D.h>
+#include <k2d/NavigationRegion2D.h>
 #include <k2d/Pixmap.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 #include <k2d/Texture.h>
 #include <IconsMaterialDesignIcons.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -138,7 +140,10 @@ ct::String scriptClassName(const char* fileName)
 
 ct::String makeScriptTemplate(const char* fileName, int kind)
 {
-    ct::String source("class ");
+    ct::String source;
+    if (kind == 4 || kind == 5)
+        source += "import math\n\n";
+    source += "class ";
     source += scriptClassName(fileName);
     source += "(ScriptComponent):\n";
 
@@ -149,13 +154,13 @@ ct::String makeScriptTemplate(const char* fileName, int kind)
                   "    def on_update(self, dt):\n"
                   "        dx = 0\n"
                   "        dy = 0\n"
-                  "        if key_down(\"left\"):\n"
+                  "        if key_down(KEY_LEFT):\n"
                   "            dx = dx - 1\n"
-                  "        if key_down(\"right\"):\n"
+                  "        if key_down(KEY_RIGHT):\n"
                   "            dx = dx + 1\n"
-                  "        if key_down(\"up\"):\n"
+                  "        if key_down(KEY_UP):\n"
                   "            dy = dy - 1\n"
-                  "        if key_down(\"down\"):\n"
+                  "        if key_down(KEY_DOWN):\n"
                   "            dy = dy + 1\n"
                   "        self.node.translate(dx * self.speed * dt, dy * self.speed * dt)\n";
         break;
@@ -164,7 +169,7 @@ ct::String makeScriptTemplate(const char* fileName, int kind)
                   "    def on_start(self):\n"
                   "        self.body = self.node.get_body()\n\n"
                   "    def on_update(self, dt):\n"
-                  "        if self.body != None and key_pressed(\"space\"):\n"
+                  "        if self.body != None and key_pressed(KEY_SPACE):\n"
                   "            self.body.apply_impulse(0, -self.jump_impulse)\n";
         break;
     case 3:
@@ -175,6 +180,58 @@ ct::String makeScriptTemplate(const char* fileName, int kind)
                   "    def on_collision(self, other, began):\n"
                   "        if began:\n"
                   "            print(\"Touched\", other.get_name())\n";
+        break;
+    case 4:
+        source += "    turn_speed = 180\n"
+                  "    thrust = 260\n"
+                  "    aim_at_mouse = True\n\n"
+                  "    def on_update(self, dt):\n"
+                  "        if self.aim_at_mouse:\n"
+                  "            mx, my = mouse_world_position()\n"
+                  "            x, y = self.node.get_position()\n"
+                  "            self.node.set_rotation(math.degrees(math.atan2(my - y, mx - x)))\n"
+                  "        else:\n"
+                  "            if key_down(KEY_A):\n"
+                  "                self.node.set_rotation(self.node.get_rotation() - self.turn_speed * dt)\n"
+                  "            if key_down(KEY_D):\n"
+                  "                self.node.set_rotation(self.node.get_rotation() + self.turn_speed * dt)\n"
+                  "        heading = math.radians(self.node.get_rotation())\n"
+                  "        forward = 0\n"
+                  "        if key_down(KEY_W):\n"
+                  "            forward = forward + 1\n"
+                  "        if key_down(KEY_S):\n"
+                  "            forward = forward - 1\n"
+                  "        if forward != 0:\n"
+                  "            step = forward * self.thrust * dt\n"
+                  "            self.node.translate(math.cos(heading) * step, math.sin(heading) * step)\n";
+        break;
+    case 5:
+        source += "    speed = 220\n\n"
+                  "    def on_update(self, dt):\n"
+                  "        mx, my = mouse_world_position()\n"
+                  "        x, y = self.node.get_position()\n"
+                  "        heading = math.atan2(my - y, mx - x)\n"
+                  "        self.node.set_rotation(math.degrees(heading))\n"
+                  "        forward = 0\n"
+                  "        strafe = 0\n"
+                  "        if key_down(KEY_W):\n"
+                  "            forward = forward + 1\n"
+                  "        if key_down(KEY_S):\n"
+                  "            forward = forward - 1\n"
+                  "        if key_down(KEY_D):\n"
+                  "            strafe = strafe + 1\n"
+                  "        if key_down(KEY_A):\n"
+                  "            strafe = strafe - 1\n"
+                  "        if forward == 0 and strafe == 0:\n"
+                  "            return\n"
+                  "        length = math.sqrt(forward * forward + strafe * strafe)\n"
+                  "        forward = forward / length\n"
+                  "        strafe = strafe / length\n"
+                  "        fx = math.cos(heading)\n"
+                  "        fy = math.sin(heading)\n"
+                  "        step = self.speed * dt\n"
+                  "        self.node.translate((fx * forward - fy * strafe) * step,\n"
+                  "                            (fy * forward + fx * strafe) * step)\n";
         break;
     default:
         source += "    def on_start(self):\n"
@@ -519,6 +576,7 @@ void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
     mMaskScale = 1.0f;
     mMaskSimplifyTolerance = 1.0f;
     mMaskMinArea = 16.0f;
+    mMaskGenerateMode = 0;
     recomputeMaskContours();
     mMaskOpenPending = true;
 }
@@ -541,6 +599,21 @@ void AssetsPanel::recomputeMaskContours()
         mMaskPointCount += (int)mMaskLoops[i].size();
 }
 
+namespace
+{
+double loopSignedArea(const ct::Vector<Math::Vec2>& loop)
+{
+    double area2 = 0.0;
+    const size_t count = loop.size();
+    for (size_t i = 0; i < count; ++i)
+    {
+        const size_t j = (i + 1) % count;
+        area2 += (double)loop[i].x * (double)loop[j].y - (double)loop[j].x * (double)loop[i].y;
+    }
+    return area2 * 0.5;
+}
+} // namespace
+
 void AssetsPanel::createCollisionShapeFromMask()
 {
     if (!mMaskPixmap || mMaskLoops.empty())
@@ -558,12 +631,45 @@ void AssetsPanel::createCollisionShapeFromMask()
         return;
 
     created->setPosition(Math::Vec2(0.0f, 0.0f));
-    created->addComponent<RigidBody2D>()->setBodyType(BodyType::Static);
-    for (size_t i = 0; i < mMaskLoops.size(); ++i)
+
+    if (mMaskGenerateMode == 0 || mMaskGenerateMode == 2)
     {
-        ChainCollider2D* chain = created->addComponent<ChainCollider2D>();
-        chain->setPoints(mMaskLoops[i].data(), (int)mMaskLoops[i].size());
-        chain->setLoop(true);
+        created->addComponent<RigidBody2D>()->setBodyType(BodyType::Static);
+        for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        {
+            ChainCollider2D* chain = created->addComponent<ChainCollider2D>();
+            chain->setPoints(mMaskLoops[i].data(), (int)mMaskLoops[i].size());
+            chain->setLoop(true);
+        }
+    }
+
+    if (mMaskGenerateMode == 1 || mMaskGenerateMode == 2)
+    {
+        size_t outlineIndex = 0;
+        double outlineArea = 0.0;
+        for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        {
+            const double area = std::fabs(loopSignedArea(mMaskLoops[i]));
+            if (area > outlineArea)
+            {
+                outlineArea = area;
+                outlineIndex = i;
+            }
+        }
+
+        ct::Vector<const Math::Vec2*> holePtrs;
+        ct::Vector<int> holeCounts;
+        for (size_t i = 0; i < mMaskLoops.size(); ++i)
+        {
+            if (i == outlineIndex)
+                continue;
+            holePtrs.push_back(mMaskLoops[i].data());
+            holeCounts.push_back((int)mMaskLoops[i].size());
+        }
+
+        NavigationRegion2D* region = created->addComponent<NavigationRegion2D>();
+        region->setPolygonWithHoles(mMaskLoops[outlineIndex].data(), (int)mMaskLoops[outlineIndex].size(),
+                                     holePtrs.data(), holeCounts.data(), (int)holePtrs.size());
     }
 
     app().selection().select(created);
@@ -598,6 +704,12 @@ void AssetsPanel::drawGenerateCollisionShapePopup()
 
     ImGui::TextDisabled("Mask: %s (%dx%d)", EditorFileSystem::fileName(mMaskImagePath).c_str(),
                         mMaskPixmap->Width(), mMaskPixmap->Height());
+
+    ImGui::RadioButton("Collision", &mMaskGenerateMode, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Navigation", &mMaskGenerateMode, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton("Both", &mMaskGenerateMode, 2);
 
     bool changed = false;
     ImGui::SetNextItemWidth(220.0f);
@@ -686,25 +798,30 @@ void AssetsPanel::requestNewScript(const ct::String& directory)
 {
     mCreateDirectory = directory;
     mNewScriptName[0] = '\0';
-    ImGui::OpenPopup("New Script");
+    mNewScriptOpenPending = true;
 }
 
 void AssetsPanel::requestNewFolder(const ct::String& directory)
 {
     mCreateDirectory = directory;
     mNewFolderName[0] = '\0';
-    ImGui::OpenPopup("New Folder");
+    mNewFolderOpenPending = true;
 }
 
 void AssetsPanel::requestRename(const EditorFileEntry& entry)
 {
     mRenamePath = entry.path;
     std::snprintf(mRenameName, sizeof(mRenameName), "%s", entry.name.c_str());
-    ImGui::OpenPopup("Rename Asset");
+    mRenameOpenPending = true;
 }
 
 void AssetsPanel::drawNewScriptPopup()
 {
+    if (mNewScriptOpenPending)
+    {
+        ImGui::OpenPopup("New Script");
+        mNewScriptOpenPending = false;
+    }
     if (!ImGui::BeginPopupModal("New Script", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
@@ -712,7 +829,8 @@ void AssetsPanel::drawNewScriptPopup()
     ImGui::TextDisabled("Creating in %s", directory.c_str());
     ImGui::SetNextItemWidth(220.0f);
     ImGui::InputTextWithHint("Name", "player", mNewScriptName, sizeof(mNewScriptName));
-    static const char* templates[] = {"Empty", "Movement", "Physics body", "Events & collisions"};
+    static const char* templates[] = {"Empty",   "Movement",  "Physics body",
+                                      "Events & collisions", "Ship (turn + thrust)", "Twin-stick (aim + strafe)"};
     ImGui::SetNextItemWidth(220.0f);
     ImGui::Combo("Template", &mNewScriptTemplate, templates,
                  static_cast<int>(sizeof(templates) / sizeof(templates[0])));
@@ -755,6 +873,11 @@ void AssetsPanel::drawNewScriptPopup()
 
 void AssetsPanel::drawNewFolderPopup()
 {
+    if (mNewFolderOpenPending)
+    {
+        ImGui::OpenPopup("New Folder");
+        mNewFolderOpenPending = false;
+    }
     if (!ImGui::BeginPopupModal("New Folder", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
@@ -796,6 +919,11 @@ void AssetsPanel::drawNewFolderPopup()
 
 void AssetsPanel::drawRenamePopup()
 {
+    if (mRenameOpenPending)
+    {
+        ImGui::OpenPopup("Rename Asset");
+        mRenameOpenPending = false;
+    }
     if (!ImGui::BeginPopupModal("Rename Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 

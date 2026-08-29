@@ -143,6 +143,7 @@ add_library(k2d STATIC
     src/RectShape.cpp
     src/CapsuleShape.cpp
     src/NinePatchComponent.cpp
+    src/MouseCursor.cpp
     src/ScreenFade.cpp
     src/VirtualPad.cpp
     src/SceneDebug.cpp

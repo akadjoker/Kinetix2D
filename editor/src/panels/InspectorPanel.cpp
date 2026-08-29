@@ -716,14 +716,61 @@ void drawNavigationRegionProperties(EditorApplication& app, NavigationRegion2D& 
     ImGui::TextDisabled("Draw the walkable area. This is independent from TileMap and baked into triangles.");
     pointListEditor(app, region.polygon(), 3, "Edit Navigation Region", [&](const ct::Vector<Math::Vec2>& points)
                     { region.setPolygon(points.data(), static_cast<int>(points.size())); });
-    ImGui::TextDisabled("%d triangle(s) baked", static_cast<int>(region.triangles().size() / 3));
+    ImGui::TextDisabled("%d triangle(s) baked, %d hole(s)", static_cast<int>(region.triangles().size() / 3),
+                        static_cast<int>(region.holes().size()));
 }
 
 void drawNavigationAgentProperties(EditorApplication& app, NavigationAgent2D& agent)
 {
+    const bool hasFollow = agent.hasFollowTarget();
+    if (hasFollow)
+        ImGui::BeginDisabled();
     Math::Vec2 target = agent.targetPosition();
     if (dragVec2(app, "Target", target, 0.5f, "Set Navigation Target"))
         agent.setTargetPosition(target);
+    if (hasFollow)
+    {
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("A Follow target is set and overrides Target every frame.");
+    }
+
+    ImGui::TextUnformatted("Follow");
+    ImGui::SameLine();
+    ct::String followLabel = hasFollow ? agent.followTargetName() : ct::String("None");
+    if (hasFollow && !app.scene().find(agent.followTargetName().c_str()))
+        followLabel += " (missing)";
+    ImGui::Button(followLabel.c_str(), ImVec2(150.0f, 0.0f));
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            GameObject* dragged = findById(app.scene().root(), draggedId);
+            if (dragged)
+                applyInstant(app, "Set Navigation Follow Target",
+                             [&] { agent.setFollowTargetName(dragged->name().c_str()); });
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Drag a node here from Hierarchy. Overrides Target every frame while set.");
+    if (hasFollow)
+    {
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_MDI_CLOSE "##clearNavigationFollow"))
+            applyInstant(app, "Clear Navigation Follow Target", [&] { agent.setFollowTargetName(nullptr); });
+    }
+
+    float repathInterval = agent.repathInterval();
+    if (dragFloatProperty(app, "Repath Interval", repathInterval, 0.05f, "Set Navigation Repath Interval", 0.0f,
+                          60.0f))
+        agent.setRepathInterval(repathInterval);
+    float repathMoveThreshold = agent.repathMoveThreshold();
+    if (dragFloatProperty(app, "Repath Move Threshold", repathMoveThreshold, 1.0f,
+                          "Set Navigation Repath Move Threshold", 0.0f, 100000.0f))
+        agent.setRepathMoveThreshold(repathMoveThreshold);
+
     float tolerance = agent.pathDesiredDistance();
     if (dragFloatProperty(app, "Waypoint Distance", tolerance, 0.25f, "Set Navigation Waypoint Distance", 0.01f,
                           4096.0f))

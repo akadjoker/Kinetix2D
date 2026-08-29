@@ -9,6 +9,7 @@
 #include <k2d/GameObject.h>
 #include <k2d/InputActionMap.h>
 #include <k2d/Physics2DSerializer.h>
+#include <k2d/MouseCursor.h>
 #include <k2d/Profiler.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
@@ -54,7 +55,7 @@ Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
                       static_cast<float>(value[1].as_double(fallback.y)));
 }
 
-void preloadTextures(const ct::Json& node, k2d::Assets& assets)
+void preloadTextures(const ct::Json& node, k2d::Assets& assets, const std::filesystem::path& projectRoot)
 {
     if (node.is_object())
     {
@@ -65,18 +66,25 @@ void preloadTextures(const ct::Json& node, k2d::Assets& assets)
             const ct::Json& value = members[i].value;
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
-                const char* path = value.as_cstr("");
-                if (path[0] && !assets.GetTexture(path))
-                    assets.LoadTexture(path, path, true, false);
+                const char* name = value.as_cstr("");
+                if (name[0] && !assets.GetTexture(name))
+                {
+                    // Scenes store project-relative names; older ones stored an
+                    // absolute path, which is_absolute() lets through untouched.
+                    const std::filesystem::path candidate(name);
+                    const std::filesystem::path file =
+                        candidate.is_absolute() ? candidate : projectRoot / candidate;
+                    assets.LoadTexture(name, file.string().c_str(), true, false);
+                }
             }
             else
-                preloadTextures(value, assets);
+                preloadTextures(value, assets, projectRoot);
         }
     }
     else if (node.is_array())
     {
         for (size_t i = 0; i < node.size(); ++i)
-            preloadTextures(node[i], assets);
+            preloadTextures(node[i], assets, projectRoot);
     }
 }
 
@@ -333,7 +341,7 @@ int main(int argc, char** argv)
         configureDefaultInputActions();
         if (!loadBytecodeManifest(projectRoot))
             result = 1;
-        preloadTextures(sceneJson, assets);
+        preloadTextures(sceneJson, assets, projectRoot);
         const ct::Json& rootJson = sceneJson["root"];
         if (!rootJson.is_object())
         {
@@ -357,6 +365,29 @@ int main(int argc, char** argv)
         scene.setSimulationEnabled(true);
         scene.setVelocityIterations(physicsConfig.velocityIterations);
         scene.setTreeBroadphase(physicsConfig.treeBroadphase);
+
+        const ct::Json& sceneCursor = sceneJson["cursor"];
+        if (sceneCursor.is_object() && sceneCursor["enabled"].as_bool(false))
+        {
+            const char* cursorImage = sceneCursor["image"].as_cstr("");
+            const std::filesystem::path cursorCandidate(cursorImage);
+            const std::filesystem::path cursorFile =
+                cursorCandidate.is_absolute() ? cursorCandidate : projectRoot / cursorCandidate;
+            k2d::Texture* cursorTexture =
+                cursorImage[0] ? assets.LoadTexture(cursorImage, cursorFile.string().c_str()) : nullptr;
+            if (cursorTexture)
+            {
+                k2d::MouseCursor& cursor = k2d::GetMouseCursor();
+                cursor.setTexture(cursorTexture);
+                cursor.setOffset(readVec2(sceneCursor["offset"], Math::Vec2(0.0f, 0.0f)));
+                cursor.setEnabled(true);
+                SDL_ShowCursor(SDL_DISABLE);
+            }
+            else
+            {
+                std::fprintf(stderr, "Could not load cursor image: %s\n", cursorImage);
+            }
+        }
 
         if (result == 0)
         {
@@ -440,6 +471,13 @@ int main(int argc, char** argv)
                         drawProfilerOverlay(canvas, width, height);
                     virtualPad.Draw(canvas, width, height);
                     k2d::GetScreenFade().Draw(canvas, width, height);
+                    k2d::MouseCursor& cursor = k2d::GetMouseCursor();
+                    if (cursor.enabled())
+                    {
+                        cursor.setPosition(
+                            Math::Vec2(device.GetInput().MouseX(), device.GetInput().MouseY()));
+                        cursor.draw(canvas, width, height);
+                    }
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
 #if defined(__EMSCRIPTEN__)

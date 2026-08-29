@@ -69,6 +69,7 @@ void NavigationRegion2D::onDestroy()
 void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
 {
     mPolygon.clear();
+    mHoles.clear();
     mTriangles.clear();
     if (!points || count < 3)
         return;
@@ -79,6 +80,75 @@ void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
     const int triangleCount = Triangulate(mPolygon.data(), count, baked.data(), count - 2);
     for (int i = 0; i < triangleCount * 3; ++i)
         mTriangles.push_back(baked[i]);
+}
+
+void NavigationRegion2D::setPolygonWithHoles(const Math::Vec2* outline, int outlineCount,
+                                              const Math::Vec2* const* holes, const int* holeCounts, int holeCount)
+{
+    mPolygon.clear();
+    mHoles.clear();
+    mTriangles.clear();
+    if (!outline || outlineCount < 3)
+        return;
+    for (int i = 0; i < outlineCount; ++i)
+        mPolygon.push_back(outline[i]);
+
+    for (int h = 0; h < holeCount; ++h)
+    {
+        if (!holes[h] || holeCounts[h] < 3)
+            continue;
+        ct::Vector<Math::Vec2> hole;
+        for (int i = 0; i < holeCounts[h]; ++i)
+            hole.push_back(holes[h][i]);
+        mHoles.push_back(hole);
+    }
+
+    if (mHoles.empty())
+    {
+        ct::Vector<Math::Vec2> baked;
+        baked.resize(static_cast<size_t>(outlineCount - 2) * 3u);
+        const int triangleCount = Triangulate(mPolygon.data(), outlineCount, baked.data(), outlineCount - 2);
+        for (int i = 0; i < triangleCount * 3; ++i)
+            mTriangles.push_back(baked[i]);
+        return;
+    }
+
+    ct::Vector<const Math::Vec2*> holePtrs;
+    ct::Vector<int> holePointCounts;
+    int holePointTotal = 0;
+    for (size_t h = 0; h < mHoles.size(); ++h)
+    {
+        holePtrs.push_back(mHoles[h].data());
+        holePointCounts.push_back((int)mHoles[h].size());
+        holePointTotal += (int)mHoles[h].size();
+    }
+
+    const int maxTriangles = outlineCount + holePointTotal - 2 + 2 * (int)mHoles.size();
+    if (maxTriangles <= 0)
+        return;
+    ct::Vector<Math::Vec2> baked;
+    baked.resize(static_cast<size_t>(maxTriangles) * 3u);
+    const int triangleCount = Triangulate(mPolygon.data(), outlineCount, holePtrs.data(), holePointCounts.data(),
+                                           (int)mHoles.size(), baked.data(), maxTriangles);
+    for (int i = 0; i < triangleCount * 3; ++i)
+        mTriangles.push_back(baked[i]);
+}
+
+bool NavigationRegion2D::containsPoint(const Math::Vec2& point) const
+{
+    if (mTriangles.empty() || !owner())
+        return false;
+    const Matrix2D& transform = owner()->globalTransform();
+    for (size_t i = 0; i + 2 < mTriangles.size(); i += 3)
+    {
+        Face face;
+        face.points[0] = transform.Transform(mTriangles[i]);
+        face.points[1] = transform.Transform(mTriangles[i + 1]);
+        face.points[2] = transform.Transform(mTriangles[i + 2]);
+        if (contains(face, point))
+            return true;
+    }
+    return false;
 }
 
 bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, ct::Vector<Math::Vec2>& outPath) const

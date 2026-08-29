@@ -15,6 +15,7 @@ class Navigation2D
   public:
     static bool GetPath(const Scene& scene, const Math::Vec2& from, const Math::Vec2& to,
                         ct::Vector<Math::Vec2>& outPath);
+    static bool Contains(const Scene& scene, const Math::Vec2& point);
 
   private:
     friend class NavigationRegion2D;

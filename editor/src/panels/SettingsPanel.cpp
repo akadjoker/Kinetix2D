@@ -1,8 +1,11 @@
 #include "SettingsPanel.h"
 
 #include "core/EditorApplication.h"
+#include "panels/AssetsPanel.h"
 
 #include <k2d/Scene.h>
+
+#include <cstdio>
 
 #include <IconsMaterialDesignIcons.h>
 
@@ -142,6 +145,67 @@ void SettingsPanel::drawPhysics()
                            ICON_MDI_ALERT " No project open, these values are not saved");
 }
 
+void SettingsPanel::drawCursor()
+{
+    if (!ImGui::CollapsingHeader("Mouse Cursor", ImGuiTreeNodeFlags_DefaultOpen))
+        return;
+
+    EditorApplication::SceneCursor& cursor = app().sceneCursor();
+
+    bool enabled = cursor.enabled;
+    if (ImGui::Checkbox("Custom Cursor", &enabled))
+    {
+        const EditorApplication::SceneChange before = app().beginChange();
+        cursor.enabled = enabled;
+        app().applyCursorSettings();
+        app().commitChange(enabled ? "Enable Custom Cursor" : "Disable Custom Cursor", before);
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Draw an image instead of the system pointer while the game runs");
+
+    ImGui::BeginDisabled(!cursor.enabled);
+
+    char image[260];
+    std::snprintf(image, sizeof(image), "%s", cursor.image.c_str());
+    ImGui::SetNextItemWidth(240.0f);
+    if (ImGui::InputText("Image", image, sizeof(image)))
+    {
+        const EditorApplication::SceneChange before = app().beginChange();
+        cursor.image = image;
+        app().applyCursorSettings();
+        app().commitChange("Set Cursor Image", before);
+    }
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+        {
+            const EditorApplication::SceneChange before = app().beginChange();
+            cursor.image = static_cast<const char*>(payload->Data);
+            app().applyCursorSettings();
+            app().commitChange("Set Cursor Image", before);
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Drop an image from the Assets panel, or type a path");
+
+    float offset[2] = {cursor.offset.x, cursor.offset.y};
+    const bool dragged = ImGui::DragFloat2("Hotspot Offset", offset, 0.5f);
+    if (ImGui::IsItemActivated())
+        app().beginTransaction("Adjust Cursor Hotspot", app().beginChange());
+    if (dragged)
+    {
+        cursor.offset = Math::Vec2(offset[0], offset[1]);
+        app().applyCursorSettings();
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit())
+        app().commitTransaction();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Pixels from the image's top-left corner to the point that actually clicks");
+
+    ImGui::EndDisabled();
+}
+
 void SettingsPanel::drawViewport()
 {
     if (!ImGui::CollapsingHeader("Viewport", ImGuiTreeNodeFlags_DefaultOpen))
@@ -171,6 +235,7 @@ void SettingsPanel::drawViewport()
 void SettingsPanel::drawContents()
 {
     drawPhysics();
+    drawCursor();
     drawViewport();
 }
 

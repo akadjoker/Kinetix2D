@@ -13,6 +13,8 @@
 #include <zen/bytecode.h>
 
 #include "k2d/Animation2D.h"
+#include "k2d/AStar2D.h"
+#include "k2d/AStarGrid2D.h"
 #include "k2d/AudioEngine.h"
 #include "k2d/AudioPlayer.h"
 #include "k2d/Assets.h"
@@ -32,6 +34,7 @@
 #include "k2d/Line2D.h"
 #include "k2d/MotionStreak2D.h"
 #include "k2d/MotionTween2D.h"
+#include "k2d/Navigation2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/NavigationRegion2D.h"
 #include "k2d/NinePatchComponent.h"
@@ -232,6 +235,22 @@ bool unpackPointArray(zen::Value value, ct::Vector<Math::Vec2>& out)
                                  (float)zen::to_number(zen::array_get(pair, 1))));
     }
     return true;
+}
+
+// Mirror of unpackPointArray's convention: an array of [x, y] pairs, not a
+// flat list of numbers.
+zen::Value packPointArray(zen::VM* vm, const ct::Vector<Math::Vec2>& points)
+{
+    zen::GC& gc = vm->get_gc();
+    zen::ObjArray* outer = zen::new_array(&gc);
+    for (size_t i = 0; i < points.size(); ++i)
+    {
+        zen::ObjArray* pair = zen::new_array(&gc);
+        zen::array_push(&gc, pair, zen::val_float(points[i].x));
+        zen::array_push(&gc, pair, zen::val_float(points[i].y));
+        zen::array_push(&gc, outer, zen::val_obj((zen::Obj*)pair));
+    }
+    return zen::val_obj((zen::Obj*)outer);
 }
 
 float drawColorComponent(zen::Value value)
@@ -1799,6 +1818,17 @@ int natNavAgentSetTarget(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
+int natNavAgentFollowPosition(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    Math::Vec2 position(0.0f, 0.0f);
+    const bool resolved = agent && agent->followPosition(position);
+    args[0] = zen::val_bool(resolved);
+    args[1] = zen::val_float(position.x);
+    args[2] = zen::val_float(position.y);
+    return 3;
+}
+
 int natNavAgentGetTarget(zen::VM*, zen::Value* args, int)
 {
     NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
@@ -1813,6 +1843,24 @@ int natNavAgentRepath(zen::VM*, zen::Value* args, int)
     NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
     args[0] = zen::val_bool(agent && agent->repath());
     return 1;
+}
+
+int natNavAgentSetFollowTarget(zen::VM* vm, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+    {
+        char small[64];
+        agent->setFollowTargetName(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natNavAgentClearFollowTarget(zen::VM*, zen::Value* args, int)
+{
+    if (NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]))
+        agent->setFollowTargetName(nullptr);
+    return 0;
 }
 
 int natNavAgentClearPath(zen::VM*, zen::Value* args, int)
@@ -3966,6 +4014,262 @@ int natWheelY(zen::VM*, zen::Value* args, int)
     args[0] = zen::val_float(gZenInput ? gZenInput->WheelY() : 0.0);
     return 1;
 }
+
+// AStarGrid2D and AStar2D are script-owned values, not components: a Zen
+// script constructs one with ClassName() and the VM frees it via the native
+// dtor when the wrapping instance is garbage collected, following the
+// ctor/dtor ClassBuilder pattern zen's own embedding tests use for owned
+// native data (test_embedding.cpp's Sprite), since no component in this file
+// is script-constructible.
+AStarGrid2D* gridFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<AStarGrid2D>(args[-1]);
+}
+
+void* natAStarGridCtor(zen::VM*, int, zen::Value*)
+{
+    return new AStarGrid2D();
+}
+
+void natAStarGridDtor(zen::VM*, void* data)
+{
+    delete static_cast<AStarGrid2D*>(data);
+}
+
+int natAStarGridSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetSize((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]));
+    return 0;
+}
+
+int natAStarGridSetCellSize(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetCellSize((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natAStarGridSetOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natAStarGridSetHeuristic(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 1)
+            grid->SetHeuristic(static_cast<AStarGrid2D::Heuristic>((int)zen::to_integer(args[0])));
+    return 0;
+}
+
+int natAStarGridSetDiagonalMode(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 1)
+            grid->SetDiagonalMode(static_cast<AStarGrid2D::DiagonalMode>((int)zen::to_integer(args[0])));
+    return 0;
+}
+
+int natAStarGridClear(zen::VM*, zen::Value* args, int)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        grid->Clear();
+    return 0;
+}
+
+int natAStarGridSetSolid(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetSolid((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                           nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGridIsSolid(zen::VM*, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    args[0] = zen::val_bool(grid && nargs >= 2 &&
+                            grid->IsSolid((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1])));
+    return 1;
+}
+
+int natAStarGridFillSolidRegion(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 4)
+            grid->FillSolidRegion((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                  (int)zen::to_integer(args[2]), (int)zen::to_integer(args[3]),
+                                  nargs < 5 || zen::is_truthy(args[4]));
+    return 0;
+}
+
+int natAStarGridSetWeightScale(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 3)
+            grid->SetWeightScale((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                 (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natAStarGridGetPointPosition(zen::VM*, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    const Math::Vec2 pos = grid && nargs >= 2
+                               ? grid->GetPointPosition((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]))
+                               : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(pos.x);
+    args[1] = zen::val_float(pos.y);
+    return 2;
+}
+
+int natAStarGridGetPointPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    ct::Vector<Math::Vec2> path;
+    if (grid && nargs >= 4)
+    {
+        const bool allowPartial = nargs >= 5 && zen::is_truthy(args[4]);
+        grid->GetPointPath(IVec2((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1])),
+                           IVec2((int)zen::to_integer(args[2]), (int)zen::to_integer(args[3])), path, allowPartial);
+    }
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+AStar2D* astarGraphFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<AStar2D>(args[-1]);
+}
+
+void* natAStarGraphCtor(zen::VM*, int, zen::Value*)
+{
+    return new AStar2D();
+}
+
+void natAStarGraphDtor(zen::VM*, void* data)
+{
+    delete static_cast<AStar2D*>(data);
+}
+
+int natAStarGraphAddPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 3)
+            graph->AddPoint((int)zen::to_integer(args[0]),
+                            Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2])),
+                            nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f);
+    return 0;
+}
+
+int natAStarGraphRemovePoint(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 1)
+            graph->RemovePoint((int)zen::to_integer(args[0]));
+    return 0;
+}
+
+int natAStarGraphHasPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    args[0] = zen::val_bool(graph && nargs >= 1 && graph->HasPoint((int)zen::to_integer(args[0])));
+    return 1;
+}
+
+int natAStarGraphConnectPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 2)
+            graph->ConnectPoints((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                 nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGraphDisconnectPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 2)
+            graph->DisconnectPoints((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                    nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGraphSetPointDisabled(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 1)
+            graph->SetPointDisabled((int)zen::to_integer(args[0]), nargs < 2 || zen::is_truthy(args[1]));
+    return 0;
+}
+
+int natAStarGraphGetClosestPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    const int id =
+        graph && nargs >= 2
+            ? graph->GetClosestPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                                     nargs >= 3 && zen::is_truthy(args[2]))
+            : -1;
+    args[0] = zen::val_int(id);
+    return 1;
+}
+
+int natAStarGraphGetPointPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    ct::Vector<Math::Vec2> path;
+    if (graph && nargs >= 2)
+    {
+        const bool allowPartial = nargs >= 3 && zen::is_truthy(args[2]);
+        graph->GetPointPath((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]), path, allowPartial);
+    }
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+int natAStarGraphClear(zen::VM*, zen::Value* args, int)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        graph->Clear();
+    return 0;
+}
+
+int natAStarGraphGetPointCount(zen::VM*, zen::Value* args, int)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    args[0] = zen::val_int(graph ? graph->GetPointCount() : 0);
+    return 1;
+}
+
+int natNavPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    ct::Vector<Math::Vec2> path;
+    if (scene && nargs >= 4)
+        Navigation2D::GetPath(*scene, Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                              Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3])), path);
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+int natNavPointFree(zen::VM*, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    bool inside = false;
+    if (scene && nargs >= 2)
+        inside = Navigation2D::Contains(
+            *scene, Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    args[0] = zen::val_bool(inside);
+    return 1;
+}
 } // namespace
 
 // A component is about to leave its object: drop the script handle cached for
@@ -4510,6 +4814,9 @@ void ZenRuntime::Impl::initialize()
     navigationAgent.parent("Component");
     navigationAgent.method("set_target", &natNavAgentSetTarget, 2);
     navigationAgent.method("get_target", &natNavAgentGetTarget, 0);
+    navigationAgent.method("get_follow_position", &natNavAgentFollowPosition, 0);
+    navigationAgent.method("set_follow_target", &natNavAgentSetFollowTarget, 1);
+    navigationAgent.method("clear_follow_target", &natNavAgentClearFollowTarget, 0);
     navigationAgent.method("repath", &natNavAgentRepath, 0);
     navigationAgent.method("clear_path", &natNavAgentClearPath, 0);
     navigationAgent.method("has_path", &natNavAgentHasPath, 0);
@@ -4669,6 +4976,58 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("get_active_camera", &natGetActiveCamera, 0);
     vm.def_native("set_gravity", &natSetGravity, 2);
     vm.def_native("get_gravity", &natGetGravity, 0);
+    vm.def_native("nav_path", &natNavPath, 4);
+    vm.def_native("nav_point_free", &natNavPointFree, 2);
+
+    struct AStarEnumConstant
+    {
+        const char* name;
+        int value;
+    };
+    static const AStarEnumConstant astarEnumConstants[] = {
+        {"ASTAR_HEURISTIC_EUCLIDEAN", (int)AStarGrid2D::Heuristic::Euclidean},
+        {"ASTAR_HEURISTIC_MANHATTAN", (int)AStarGrid2D::Heuristic::Manhattan},
+        {"ASTAR_HEURISTIC_OCTILE", (int)AStarGrid2D::Heuristic::Octile},
+        {"ASTAR_HEURISTIC_CHEBYSHEV", (int)AStarGrid2D::Heuristic::Chebyshev},
+        {"ASTAR_DIAGONAL_ALWAYS", (int)AStarGrid2D::DiagonalMode::Always},
+        {"ASTAR_DIAGONAL_NEVER", (int)AStarGrid2D::DiagonalMode::Never},
+        {"ASTAR_DIAGONAL_AT_LEAST_ONE_WALKABLE", (int)AStarGrid2D::DiagonalMode::AtLeastOneWalkable},
+        {"ASTAR_DIAGONAL_ONLY_IF_NO_OBSTACLES", (int)AStarGrid2D::DiagonalMode::OnlyIfNoObstacles},
+    };
+    for (const AStarEnumConstant& entry : astarEnumConstants)
+        vm.def_global(entry.name, zen::val_int(entry.value));
+
+    auto astarGrid = vm.def_class("AStarGrid");
+    astarGrid.ctor(&natAStarGridCtor);
+    astarGrid.dtor(&natAStarGridDtor);
+    astarGrid.method("set_size", &natAStarGridSetSize, 2);
+    astarGrid.method("set_cell_size", &natAStarGridSetCellSize, 2);
+    astarGrid.method("set_offset", &natAStarGridSetOffset, 2);
+    astarGrid.method("set_heuristic", &natAStarGridSetHeuristic, 1);
+    astarGrid.method("set_diagonal_mode", &natAStarGridSetDiagonalMode, 1);
+    astarGrid.method("clear", &natAStarGridClear, 0);
+    astarGrid.method("set_solid", &natAStarGridSetSolid, -1);
+    astarGrid.method("is_solid", &natAStarGridIsSolid, 2);
+    astarGrid.method("fill_solid_region", &natAStarGridFillSolidRegion, -1);
+    astarGrid.method("set_weight_scale", &natAStarGridSetWeightScale, 3);
+    astarGrid.method("get_point_position", &natAStarGridGetPointPosition, 2);
+    astarGrid.method("get_point_path", &natAStarGridGetPointPath, -1);
+    astarGrid.end();
+
+    auto astarGraph = vm.def_class("AStarGraph");
+    astarGraph.ctor(&natAStarGraphCtor);
+    astarGraph.dtor(&natAStarGraphDtor);
+    astarGraph.method("add_point", &natAStarGraphAddPoint, -1);
+    astarGraph.method("remove_point", &natAStarGraphRemovePoint, 1);
+    astarGraph.method("has_point", &natAStarGraphHasPoint, 1);
+    astarGraph.method("connect_points", &natAStarGraphConnectPoints, -1);
+    astarGraph.method("disconnect_points", &natAStarGraphDisconnectPoints, -1);
+    astarGraph.method("set_point_disabled", &natAStarGraphSetPointDisabled, -1);
+    astarGraph.method("get_closest_point", &natAStarGraphGetClosestPoint, -1);
+    astarGraph.method("get_point_path", &natAStarGraphGetPointPath, -1);
+    astarGraph.method("clear", &natAStarGraphClear, 0);
+    astarGraph.method("get_point_count", &natAStarGraphGetPointCount, 0);
+    astarGraph.end();
 }
 
 ZenScriptComponent::ZenScriptComponent()

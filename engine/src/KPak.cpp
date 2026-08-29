@@ -1,4 +1,5 @@
 #include "k2d/KPak.h"
+#include "k2d/Utils.h"
 
 #include <miniz.h>
 
@@ -129,7 +130,7 @@ void cipher(const unsigned char key[KeySize], const unsigned char nonce[NonceSiz
     {
         chachaBlock(state, stream);
         ++state[12];
-        const std::size_t count = (std::min)(BlockSize, size - offset);
+        const std::size_t count = (Min)(BlockSize, size - offset);
         for (std::size_t i = 0; i < count; ++i)
             data[offset + i] ^= stream[i];
     }
@@ -393,7 +394,7 @@ void KPakWriter::SetKey(const char* key)
 
 void KPakWriter::SetCompressionLevel(int level)
 {
-    mCompressionLevel = (std::max)(0, (std::min)(9, level));
+    mCompressionLevel = (Max)(0, (Min)(9, level));
 }
 
 bool KPakWriter::AddFile(const char* archivePath, const char* sourcePath)

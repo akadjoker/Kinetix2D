@@ -17,9 +17,15 @@ class NavigationRegion2D final : public Component
     NavigationRegion2D();
 
     void setPolygon(const Math::Vec2* points, int count);
+    void setPolygonWithHoles(const Math::Vec2* outline, int outlineCount, const Math::Vec2* const* holes,
+                              const int* holeCounts, int holeCount);
     const ct::Vector<Math::Vec2>& polygon() const
     {
         return mPolygon;
+    }
+    const ct::Vector<ct::Vector<Math::Vec2>>& holes() const
+    {
+        return mHoles;
     }
     const ct::Vector<Math::Vec2>& triangles() const
     {
@@ -30,6 +36,9 @@ class NavigationRegion2D final : public Component
         return !mTriangles.empty();
     }
     bool getPath(const Math::Vec2& from, const Math::Vec2& to, ct::Vector<Math::Vec2>& outPath) const;
+    // True when the world point falls on the walkable mesh. This is what an AI
+    // needs before picking a destination, so it does not path to dry land.
+    bool containsPoint(const Math::Vec2& point) const;
 
   protected:
     void onAwake() override;
@@ -37,6 +46,7 @@ class NavigationRegion2D final : public Component
 
   private:
     ct::Vector<Math::Vec2> mPolygon;
+    ct::Vector<ct::Vector<Math::Vec2>> mHoles;
     ct::Vector<Math::Vec2> mTriangles;
 };
 } // namespace k2d

@@ -15,6 +15,7 @@ protected:
 
 private:
     void drawPhysics();
+    void drawCursor();
     void drawViewport();
 
     void persist();

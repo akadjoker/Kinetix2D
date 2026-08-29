@@ -4,6 +4,11 @@
 
 #include <k2d/CanvasRenderer.h>
 
+namespace k2d
+{
+class GameObject;
+}
+
 namespace k2d::editor
 {
 
@@ -14,6 +19,9 @@ public:
     ~GamePanel() override;
 
 private:
+    void drawAgentPaths(const ImVec2 &position, float width, float height);
+    void drawAgentPathsIn(GameObject &object, const Matrix2D &toScreen, const ImVec2 &position,
+                          ImDrawList &drawList);
     void drawContents() override;
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();

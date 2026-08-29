@@ -1589,6 +1589,38 @@ static bool testNavigationRegionApi()
     return ok;
 }
 
+static bool testAStarGridApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("astar_grid");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    // 5x5 grid, no diagonals, a wall at x=2 open only at y=4: the shortest
+    // route from (0,2) to (4,2) is forced down to the gap and back up, a
+    // hand-countable 8-step, 9-node detour (mirrors k2d_astar_tests.cpp's
+    // TestGridWallDetour geometry).
+    const bool loaded = script->loadSource(
+        "class GridScript(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        grid = AStarGrid()\n"
+        "        grid.set_size(5, 5)\n"
+        "        grid.set_diagonal_mode(ASTAR_DIAGONAL_NEVER)\n"
+        "        for y in range(4):\n"
+        "            grid.set_solid(2, y, True)\n"
+        "        set_flag(\"gap_open\", not grid.is_solid(2, 4))\n"
+        "        path = grid.get_point_path(0, 2, 4, 2)\n"
+        "        set_number(\"path_length\", path.len())\n",
+        "astar_grid");
+
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("gap_open", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("path_length"), 9.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testAllComponentHandles()
 {
     k2d::ZenBlackboard::clear();
@@ -2342,6 +2374,7 @@ int main()
     const bool polygonColliderApi = testPolygonColliderApi();
     const bool chainColliderApi = testChainColliderApi();
     const bool navigationRegionApi = testNavigationRegionApi();
+    const bool astarGridApi = testAStarGridApi();
     const bool nodeApi = testNodeApi();
     const bool activeCamera = testActiveCamera();
     const bool inputOk = testInput();
@@ -2366,7 +2399,7 @@ int main()
         "navigation_agent=%s directional_light=%s light_occluder=%s motion_tween=%s motion_streak=%s sprite_batch=%s "
         "line_2d=%s polygon_2d=%s nine_patch=%s "
         "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
-        "polygon_collider=%s chain_collider=%s navigation_region=%s "
+        "polygon_collider=%s chain_collider=%s navigation_region=%s astar_grid=%s "
         "node_api=%s active_camera=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
         "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
@@ -2382,6 +2415,7 @@ int main()
         circleShapeApi ? "pass" : "fail", rectShapeApi ? "pass" : "fail", capsuleShapeApi ? "pass" : "fail",
         boxColliderApi ? "pass" : "fail", circleColliderApi ? "pass" : "fail", edgeColliderApi ? "pass" : "fail",
         polygonColliderApi ? "pass" : "fail", chainColliderApi ? "pass" : "fail", navigationRegionApi ? "pass" : "fail",
+        astarGridApi ? "pass" : "fail",
         nodeApi ? "pass" : "fail", activeCamera ? "pass" : "fail",
         inputOk ? "pass" : "fail", fadeVirtualInput ? "pass" : "fail",
         audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
@@ -2396,7 +2430,7 @@ int main()
                         spriteBatchApi && line2DApi && polygon2DApi && ninePatchApi &&
                         circleShapeApi && rectShapeApi && capsuleShapeApi &&
                         boxColliderApi && circleColliderApi && edgeColliderApi && polygonColliderApi &&
-                        chainColliderApi && navigationRegionApi &&
+                        chainColliderApi && navigationRegionApi && astarGridApi &&
                         nodeApi && activeCamera &&
                         inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
                         serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;

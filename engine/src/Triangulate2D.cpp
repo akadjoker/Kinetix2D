@@ -547,6 +547,13 @@ namespace k2d
             map_.push_back(triangle);
         }
 
+        void SweepContext::AddHole(ct::Vector<Point *> polyline)
+        {
+            InitEdges(polyline);
+            for (size_t i = 0; i < polyline.size(); ++i)
+                points_.push_back(polyline[i]);
+        }
+
         Node &SweepContext::LocateNode(Point &point)
         {
             return *front_->LocateNode(point.x);
@@ -1261,32 +1268,60 @@ namespace k2d
 
     } 
 
-    int Triangulate(const Math::Vec2 *outline, int count, Math::Vec2 *outTriangles, int maxTriangles)
+    namespace
     {
-        if (count < 3 || !outline || !outTriangles || maxTriangles <= 0)
+        double SignedArea2(const Math::Vec2 *points, int count)
+        {
+            double area2 = 0.0;
+            for (int i = 0; i < count; ++i)
+            {
+                int j = (i + 1) % count;
+                area2 += (double)points[i].x * (double)points[j].y - (double)points[j].x * (double)points[i].y;
+            }
+            return area2;
+        }
+
+        ct::Vector<tri::Point *> MakePolyline(const Math::Vec2 *points, int count, bool reverse)
+        {
+            ct::Vector<tri::Point *> polyline;
+            polyline.reserve((size_t)count);
+            if (reverse)
+            {
+                for (int i = count - 1; i >= 0; --i)
+                    polyline.push_back(new tri::Point((double)points[i].x, (double)points[i].y));
+            }
+            else
+            {
+                for (int i = 0; i < count; ++i)
+                    polyline.push_back(new tri::Point((double)points[i].x, (double)points[i].y));
+            }
+            return polyline;
+        }
+    }
+
+    int Triangulate(const Math::Vec2 *outline, int outlineCount,
+                     const Math::Vec2 *const *holes, const int *holeCounts, int holeCount,
+                     Math::Vec2 *outTriangles, int maxTriangles)
+    {
+        if (outlineCount < 3 || !outline || !outTriangles || maxTriangles <= 0)
             return 0;
 
-        double area2 = 0.0;
-        for (int i = 0; i < count; ++i)
-        {
-            int j = (i + 1) % count;
-            area2 += (double)outline[i].x * (double)outline[j].y - (double)outline[j].x * (double)outline[i].y;
-        }
+        const double outlineArea2 = SignedArea2(outline, outlineCount);
+        ct::Vector<tri::Point *> polyline = MakePolyline(outline, outlineCount, outlineArea2 < 0.0);
 
-        ct::Vector<tri::Point *> polyline;
-        polyline.reserve((size_t)count);
-        if (area2 < 0.0)
+        ct::Vector<ct::Vector<tri::Point *>> holePolylines;
+        for (int h = 0; h < holeCount; ++h)
         {
-            for (int i = count - 1; i >= 0; --i)
-                polyline.push_back(new tri::Point((double)outline[i].x, (double)outline[i].y));
-        }
-        else
-        {
-            for (int i = 0; i < count; ++i)
-                polyline.push_back(new tri::Point((double)outline[i].x, (double)outline[i].y));
+            if (!holes || !holes[h] || !holeCounts || holeCounts[h] < 3)
+                continue;
+            const double holeArea2 = SignedArea2(holes[h], holeCounts[h]);
+            holePolylines.push_back(MakePolyline(holes[h], holeCounts[h], holeArea2 >= 0.0));
         }
 
         tri::SweepContext context(polyline);
+        for (size_t h = 0; h < holePolylines.size(); ++h)
+            context.AddHole(holePolylines[h]);
+
         tri::Sweep sweep;
         bool ok = sweep.Triangulate(context);
 
@@ -1306,8 +1341,16 @@ namespace k2d
 
         for (size_t i = 0; i < polyline.size(); ++i)
             delete polyline[i];
+        for (size_t h = 0; h < holePolylines.size(); ++h)
+            for (size_t i = 0; i < holePolylines[h].size(); ++i)
+                delete holePolylines[h][i];
 
         return written;
+    }
+
+    int Triangulate(const Math::Vec2 *outline, int count, Math::Vec2 *outTriangles, int maxTriangles)
+    {
+        return Triangulate(outline, count, nullptr, nullptr, 0, outTriangles, maxTriangles);
     }
 
 } 

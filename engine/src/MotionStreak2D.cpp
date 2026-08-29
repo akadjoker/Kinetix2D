@@ -1,7 +1,7 @@
 #include "k2d/MotionStreak2D.h"
+#include "k2d/Utils.h"
 #include "k2d/GameObject.h"
 #include "k2d/RenderQueue.h"
-#include <algorithm>
 #include <cmath>
 namespace k2d
 {
@@ -15,15 +15,15 @@ void MotionStreak2D::reset()
 }
 void MotionStreak2D::setLifetime(float v)
 {
-    mLifetime = std::max(.01f, v);
+    mLifetime = Max(.01f, v);
 }
 void MotionStreak2D::setWidth(float v)
 {
-    mWidth = std::max(.01f, v);
+    mWidth = Max(.01f, v);
 }
 void MotionStreak2D::setMinDistance(float v)
 {
-    mMinDistance = std::max(.01f, v);
+    mMinDistance = Max(.01f, v);
 }
 void MotionStreak2D::onUpdate(float dt)
 {
@@ -70,7 +70,7 @@ void MotionStreak2D::onRender(RenderQueue& queue)
         RenderCommand c;
         c.type = RenderCommand::kPolygon;
         c.color =
-            Color(mColor.r, mColor.g, mColor.b, mColor.a * std::max(0.f, 1.f - (a.age + b.age) * .5f / mLifetime));
+            Color(mColor.r, mColor.g, mColor.b, mColor.a * Max(0.f, 1.f - (a.age + b.age) * .5f / mLifetime));
         c.ownedPolygonPoints.push_back(a.position - n * h);
         c.ownedPolygonPoints.push_back(a.position + n * h);
         c.ownedPolygonPoints.push_back(b.position + n * h);

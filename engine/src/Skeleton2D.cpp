@@ -1,4 +1,5 @@
 #include "k2d/Skeleton2D.h"
+#include "k2d/Utils.h"
 #include "k2d/Scene.h"
 
 #include "k2d/Bone2D.h"
@@ -134,8 +135,8 @@ void Skeleton2D::seek(float time)
     const BoneAnimationClip* clip = getClip(mCurrent.c_str());
     if (!clip)
         return;
-    const float duration = std::max(0.0f, clip->duration);
-    mTime = std::max(0.0f, std::min(time, duration));
+    const float duration = Max(0.0f, clip->duration);
+    mTime = Max(0.0f, Min(time, duration));
     applyClip(*clip);
 }
 

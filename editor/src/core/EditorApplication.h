@@ -101,6 +101,19 @@ class EditorApplication
         Math::Vec2 gravity = Math::Vec2(0.0f, 980.0f);
     };
 
+    struct SceneCursor
+    {
+        bool enabled = false;
+        ct::String image;
+        Math::Vec2 offset = Math::Vec2(0.0f, 0.0f);
+    };
+
+    SceneCursor& sceneCursor()
+    {
+        return mSceneCursor;
+    }
+    void applyCursorSettings();
+
     ScenePhysics& scenePhysics()
     {
         return mScenePhysics;
@@ -210,6 +223,7 @@ class EditorApplication
     bool mInitialized = false;
     bool mPlaying = false;
     ScenePhysics mScenePhysics;
+    SceneCursor mSceneCursor;
     bool mPaused = false;
     int mThemeKind = 0;
     bool mDefaultLayoutPending = true;

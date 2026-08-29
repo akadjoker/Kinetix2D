@@ -1,10 +1,11 @@
 #include "k2d/NavigationAgent2D.h"
+#include "k2d/Utils.h"
 
 #include "k2d/GameObject.h"
+#include "k2d/Geometry2D.h"
 #include "k2d/Navigation2D.h"
 #include "k2d/Scene.h"
 
-#include <algorithm>
 #include <cmath>
 
 namespace k2d
@@ -15,13 +16,34 @@ NavigationAgent2D::NavigationAgent2D() : Component(Type, ComponentEventUpdate)
 
 bool NavigationAgent2D::setTargetPosition(const Math::Vec2& position)
 {
+    return retarget(position, false);
+}
+
+bool NavigationAgent2D::retarget(const Math::Vec2& position, bool forceRepath)
+{
     mTarget = position;
     mHasTarget = true;
-    return repath();
+    const bool movedEnough = !mHasPathedTarget ||
+        DistanceSquared(position, mLastPathedTarget) > mRepathMoveThreshold * mRepathMoveThreshold;
+    if (!forceRepath && !movedEnough && hasPath())
+        return true;
+    const bool ok = repath();
+    mLastPathedTarget = mTarget;
+    mHasPathedTarget = true;
+    return ok;
+}
+
+bool NavigationAgent2D::followPosition(Math::Vec2& out) const
+{
+    if (!mFollowTarget)
+        return false;
+    out = mFollowTarget->globalPosition();
+    return true;
 }
 
 bool NavigationAgent2D::repath()
 {
+    ++mRepathCount;
     mPath.clear();
     mPathIndex = 0;
     if (!mHasTarget || !owner() || !owner()->scene())
@@ -62,27 +84,68 @@ void NavigationAgent2D::advance()
 
 void NavigationAgent2D::setPathDesiredDistance(float value)
 {
-    mPathDesiredDistance = std::max(0.01f, value);
+    mPathDesiredDistance = Max(0.01f, value);
 }
 
 void NavigationAgent2D::setMaxSpeed(float value)
 {
-    mMaxSpeed = std::max(0.0f, value);
+    mMaxSpeed = Max(0.0f, value);
 }
 
 void NavigationAgent2D::setRotationLerpSpeed(float value)
 {
-    mRotationLerpSpeed = std::max(0.0f, value);
+    mRotationLerpSpeed = Max(0.0f, value);
+}
+
+void NavigationAgent2D::setRepathInterval(float value)
+{
+    mRepathInterval = Max(0.0f, value);
+}
+
+void NavigationAgent2D::setRepathMoveThreshold(float value)
+{
+    mRepathMoveThreshold = Max(0.0f, value);
 }
 
 void NavigationAgent2D::onAwake()
 {
     if (mHasTarget)
-        repath();
+        retarget(mTarget, true);
+}
+
+void NavigationAgent2D::updateFollowTarget(float deltaTime)
+{
+    if (!hasFollowTarget() || !owner() || !owner()->scene())
+        return;
+    Scene* scene = owner()->scene();
+    if (!mFollowTarget || mFollowVersion != scene->topologyVersion())
+    {
+        mFollowTarget = scene->find(mFollowTargetName.c_str());
+        mFollowVersion = scene->topologyVersion();
+    }
+    if (!mFollowTarget)
+        return;
+    const Math::Vec2 candidate = mFollowTarget->globalPosition();
+    if (!hasPath())
+    {
+        retarget(candidate, false);
+        mRepathTimer = 0.0f;
+        return;
+    }
+    mRepathTimer += deltaTime;
+    if (mRepathTimer >= mRepathInterval)
+    {
+        retarget(candidate, false);
+        mRepathTimer = 0.0f;
+        return;
+    }
+    mTarget = candidate;
+    mHasTarget = true;
 }
 
 void NavigationAgent2D::onUpdate(float deltaTime)
 {
+    updateFollowTarget(deltaTime);
     advance();
     if (!hasPath() || !owner())
         return;
@@ -104,7 +167,7 @@ void NavigationAgent2D::onUpdate(float deltaTime)
     }
     if (!mAutoMove)
         return;
-    const float distance = std::min(length, mMaxSpeed * deltaTime);
+    const float distance = Min(length, mMaxSpeed * deltaTime);
     owner()->translate(delta * (distance / length));
     advance();
 }

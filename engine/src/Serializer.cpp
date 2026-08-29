@@ -417,6 +417,17 @@ void WriteNavigationRegion(const Component& component, ct::Json& data, Assets*)
     for (size_t i = 0; i < region.polygon().size(); ++i)
         points.push_back(WriteVec2(region.polygon()[i]));
     data.set("points", points);
+
+    ct::Json holes = ct::Json::array();
+    for (size_t h = 0; h < region.holes().size(); ++h)
+    {
+        const ct::Vector<Math::Vec2>& hole = region.holes()[h];
+        ct::Json holeJson = ct::Json::array();
+        for (size_t i = 0; i < hole.size(); ++i)
+            holeJson.push_back(WriteVec2(hole[i]));
+        holes.push_back(holeJson);
+    }
+    data.set("holes", holes);
 }
 
 void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
@@ -427,7 +438,36 @@ void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
     ct::Vector<Math::Vec2> points;
     for (size_t i = 0; i < pointsJson.size(); ++i)
         points.push_back(ReadVec2(pointsJson[i]));
-    static_cast<NavigationRegion2D&>(component).setPolygon(points.data(), static_cast<int>(points.size()));
+
+    const ct::Json& holesJson = data["holes"];
+    if (!holesJson.is_array() || holesJson.empty())
+    {
+        static_cast<NavigationRegion2D&>(component).setPolygon(points.data(), static_cast<int>(points.size()));
+        return;
+    }
+
+    ct::Vector<ct::Vector<Math::Vec2>> holes;
+    holes.resize(holesJson.size());
+    for (size_t h = 0; h < holesJson.size(); ++h)
+    {
+        const ct::Json& holeJson = holesJson[h];
+        if (!holeJson.is_array())
+            continue;
+        for (size_t i = 0; i < holeJson.size(); ++i)
+            holes[h].push_back(ReadVec2(holeJson[i]));
+    }
+
+    ct::Vector<const Math::Vec2*> holePtrs;
+    ct::Vector<int> holeCounts;
+    for (size_t h = 0; h < holes.size(); ++h)
+    {
+        holePtrs.push_back(holes[h].data());
+        holeCounts.push_back(static_cast<int>(holes[h].size()));
+    }
+
+    static_cast<NavigationRegion2D&>(component)
+        .setPolygonWithHoles(points.data(), static_cast<int>(points.size()), holePtrs.data(), holeCounts.data(),
+                              static_cast<int>(holes.size()));
 }
 
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
@@ -440,6 +480,9 @@ void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
     data.set("orientToPath", ct::Json(agent.orientToPath()));
     data.set("rotationLerpSpeed", ct::Json(static_cast<double>(agent.rotationLerpSpeed())));
     data.set("rotationOffsetDegrees", ct::Json(static_cast<double>(agent.rotationOffsetDegrees())));
+    data.set("followTarget", ct::Json(agent.followTargetName().c_str()));
+    data.set("repathInterval", ct::Json(static_cast<double>(agent.repathInterval())));
+    data.set("repathMoveThreshold", ct::Json(static_cast<double>(agent.repathMoveThreshold())));
 }
 
 void ReadNavigationAgent(Component& component, const ct::Json& data, Assets*)
@@ -451,6 +494,9 @@ void ReadNavigationAgent(Component& component, const ct::Json& data, Assets*)
     agent.setOrientToPath(data["orientToPath"].as_bool(false));
     agent.setRotationLerpSpeed(static_cast<float>(data["rotationLerpSpeed"].as_double(12.0)));
     agent.setRotationOffsetDegrees(static_cast<float>(data["rotationOffsetDegrees"].as_double(0.0)));
+    agent.setRepathInterval(static_cast<float>(data["repathInterval"].as_double(0.25)));
+    agent.setRepathMoveThreshold(static_cast<float>(data["repathMoveThreshold"].as_double(16.0)));
+    agent.setFollowTargetName(data["followTarget"].as_cstr(""));
     if (const ct::Json* target = data.find("target"))
         agent.setTargetPosition(ReadVec2(*target));
 }

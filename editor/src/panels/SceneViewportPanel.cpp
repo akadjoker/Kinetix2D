@@ -16,6 +16,7 @@
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/NavigationRegion2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Prefab.h>
@@ -57,8 +58,8 @@ constexpr float kGizmoAxisLength = 60.0f;
 constexpr float kGizmoHitRadius = 8.0f;
 constexpr float kGizmoCenterRadius = 8.0f;
 constexpr float kGizmoRingRadius = 46.0f;
-constexpr float kPointHandleHalfSize = 3.5f;
-constexpr float kPointHandleHitRadius = 6.0f;
+constexpr float kPointHandleHalfSize = 5.5f;
+constexpr float kPointHandleHitRadius = 9.0f;
 constexpr float kBatchHandleHalfSize = 4.5f;
 constexpr float kBatchHandleHitRadius = 8.0f;
 constexpr float kDegToRad = 0.01745329251f;
@@ -272,6 +273,112 @@ void SceneViewportPanel::applyColliderPointDrag(Collider2D& collider, int index,
         else
             edge->setPoints(edge->start(), localPoint);
     }
+}
+
+int SceneViewportPanel::hitTestColliderSegment(GameObject& object, Collider2D& collider, const ImVec2& mouse,
+                                               const ImVec2& origin, Math::Vec2& outLocalPoint) const
+{
+    const int count = colliderPointCount(collider);
+    if (count < 2)
+        return -1;
+
+    const bool closed = dynamic_cast<const PolygonCollider2D*>(&collider) != nullptr;
+    const ChainCollider2D* chain = dynamic_cast<const ChainCollider2D*>(&collider);
+    const int segments = (closed || (chain && chain->loop())) ? count : count - 1;
+
+    const Math::Vec2 offset = collider.offset();
+    int best = -1;
+    float bestDistanceSq = kPointHandleHitRadius * kPointHandleHitRadius;
+
+    for (int i = 0; i < segments; ++i)
+    {
+        const Math::Vec2 rawA = colliderPointAt(collider, i);
+        const Math::Vec2 rawB = colliderPointAt(collider, (i + 1) % count);
+        const ImVec2 a = objectLocalToScreen(object, Math::Vec2(rawA.x + offset.x, rawA.y + offset.y), origin);
+        const ImVec2 b = objectLocalToScreen(object, Math::Vec2(rawB.x + offset.x, rawB.y + offset.y), origin);
+
+        const float abx = b.x - a.x;
+        const float aby = b.y - a.y;
+        const float lengthSq = abx * abx + aby * aby;
+        if (lengthSq < 0.0001f)
+            continue;
+        float t = ((mouse.x - a.x) * abx + (mouse.y - a.y) * aby) / lengthSq;
+        t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+        const float cx = a.x + abx * t;
+        const float cy = a.y + aby * t;
+        const float dx = mouse.x - cx;
+        const float dy = mouse.y - cy;
+        const float distanceSq = dx * dx + dy * dy;
+        if (distanceSq <= bestDistanceSq)
+        {
+            bestDistanceSq = distanceSq;
+            best = i;
+            // Insert exactly where the line was clicked, not at the midpoint,
+            // so the shape does not visibly shift when a point is added.
+            const Math::Vec2 local = screenToObjectLocal(object, ImVec2(cx, cy), origin);
+            outLocalPoint = Math::Vec2(local.x - offset.x, local.y - offset.y);
+        }
+    }
+    return best;
+}
+
+bool SceneViewportPanel::insertColliderPoint(Collider2D& collider, int afterIndex, const Math::Vec2& localPoint)
+{
+    const int count = colliderPointCount(collider);
+    if (afterIndex < 0 || count < 2)
+        return false;
+
+    mPointDragScratch.clear();
+    mPointDragScratch.reserve(static_cast<size_t>(count) + 1);
+    for (int i = 0; i < count; ++i)
+    {
+        mPointDragScratch.push_back(colliderPointAt(collider, i));
+        if (i == afterIndex)
+            mPointDragScratch.push_back(localPoint);
+    }
+
+    if (ChainCollider2D* chain = dynamic_cast<ChainCollider2D*>(&collider))
+    {
+        chain->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+        return true;
+    }
+    if (PolygonCollider2D* polygon = dynamic_cast<PolygonCollider2D*>(&collider))
+    {
+        polygon->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+        return true;
+    }
+    return false;
+}
+
+bool SceneViewportPanel::removeColliderPoint(Collider2D& collider, int index)
+{
+    const int count = colliderPointCount(collider);
+    if (index < 0 || index >= count)
+        return false;
+
+    // A chain needs two points to be a line and a polygon three to have area;
+    // dropping below that silently produces a collider that adds no shape.
+    const int minimum = dynamic_cast<PolygonCollider2D*>(&collider) ? 3 : 2;
+    if (count <= minimum)
+        return false;
+
+    mPointDragScratch.clear();
+    mPointDragScratch.reserve(static_cast<size_t>(count) - 1);
+    for (int i = 0; i < count; ++i)
+        if (i != index)
+            mPointDragScratch.push_back(colliderPointAt(collider, i));
+
+    if (ChainCollider2D* chain = dynamic_cast<ChainCollider2D*>(&collider))
+    {
+        chain->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+        return true;
+    }
+    if (PolygonCollider2D* polygon = dynamic_cast<PolygonCollider2D*>(&collider))
+    {
+        polygon->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+        return true;
+    }
+    return false;
 }
 
 int SceneViewportPanel::hitTestBatchEntry(GameObject& object, SpriteBatch& batch, const ImVec2& mouse,
@@ -636,6 +743,250 @@ void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object,
         drawColliders(drawList, *object.child(i), origin);
 }
 
+int SceneViewportPanel::regionLoopCount(const NavigationRegion2D& region) const
+{
+    return 1 + static_cast<int>(region.holes().size());
+}
+
+int SceneViewportPanel::regionPointCount(const NavigationRegion2D& region, int loop) const
+{
+    if (loop == 0)
+        return static_cast<int>(region.polygon().size());
+    const int hole = loop - 1;
+    if (hole < 0 || hole >= static_cast<int>(region.holes().size()))
+        return 0;
+    return static_cast<int>(region.holes()[static_cast<size_t>(hole)].size());
+}
+
+Math::Vec2 SceneViewportPanel::regionPointAt(const NavigationRegion2D& region, int loop, int index) const
+{
+    if (loop == 0)
+        return region.polygon()[static_cast<size_t>(index)];
+    return region.holes()[static_cast<size_t>(loop - 1)][static_cast<size_t>(index)];
+}
+
+bool SceneViewportPanel::hitTestRegionPoint(GameObject& object, NavigationRegion2D& region, const ImVec2& mouse,
+                                            const ImVec2& origin, int& outLoop, int& outPoint) const
+{
+    const int loops = regionLoopCount(region);
+    for (int loop = 0; loop < loops; ++loop)
+    {
+        const int count = regionPointCount(region, loop);
+        for (int i = 0; i < count; ++i)
+        {
+            const ImVec2 screen = objectLocalToScreen(object, regionPointAt(region, loop, i), origin);
+            const float dx = mouse.x - screen.x;
+            const float dy = mouse.y - screen.y;
+            if (dx * dx + dy * dy <= kPointHandleHitRadius * kPointHandleHitRadius)
+            {
+                outLoop = loop;
+                outPoint = i;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int SceneViewportPanel::hitTestRegionSegment(GameObject& object, NavigationRegion2D& region, const ImVec2& mouse,
+                                             const ImVec2& origin, int& outLoop, Math::Vec2& outLocalPoint) const
+{
+    const int loops = regionLoopCount(region);
+    int best = -1;
+    float bestDistanceSq = kPointHandleHitRadius * kPointHandleHitRadius;
+
+    for (int loop = 0; loop < loops; ++loop)
+    {
+        const int count = regionPointCount(region, loop);
+        if (count < 3)
+            continue;
+        for (int i = 0; i < count; ++i)
+        {
+            const ImVec2 a = objectLocalToScreen(object, regionPointAt(region, loop, i), origin);
+            const ImVec2 b = objectLocalToScreen(object, regionPointAt(region, loop, (i + 1) % count), origin);
+            const float abx = b.x - a.x;
+            const float aby = b.y - a.y;
+            const float lengthSq = abx * abx + aby * aby;
+            if (lengthSq < 0.0001f)
+                continue;
+            float t = ((mouse.x - a.x) * abx + (mouse.y - a.y) * aby) / lengthSq;
+            t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+            const float cx = a.x + abx * t;
+            const float cy = a.y + aby * t;
+            const float dx = mouse.x - cx;
+            const float dy = mouse.y - cy;
+            const float distanceSq = dx * dx + dy * dy;
+            if (distanceSq <= bestDistanceSq)
+            {
+                bestDistanceSq = distanceSq;
+                best = i;
+                outLoop = loop;
+                outLocalPoint = screenToObjectLocal(object, ImVec2(cx, cy), origin);
+            }
+        }
+    }
+    return best;
+}
+
+void SceneViewportPanel::rebuildRegion(NavigationRegion2D& region, const ct::Vector<ct::Vector<Math::Vec2>>& loops)
+{
+    if (loops.empty() || loops[0].size() < 3)
+        return;
+
+    ct::Vector<const Math::Vec2*> holePointers;
+    ct::Vector<int> holeCounts;
+    for (size_t i = 1; i < loops.size(); ++i)
+    {
+        if (loops[i].size() < 3)
+            continue;
+        holePointers.push_back(loops[i].data());
+        holeCounts.push_back(static_cast<int>(loops[i].size()));
+    }
+    region.setPolygonWithHoles(loops[0].data(), static_cast<int>(loops[0].size()), holePointers.data(),
+                               holeCounts.data(), static_cast<int>(holePointers.size()));
+}
+
+void SceneViewportPanel::applyRegionPointDrag(NavigationRegion2D& region, int loop, int index,
+                                              const Math::Vec2& localPoint)
+{
+    ct::Vector<ct::Vector<Math::Vec2>> loops;
+    const int loopCount = regionLoopCount(region);
+    for (int l = 0; l < loopCount; ++l)
+    {
+        ct::Vector<Math::Vec2> points;
+        const int count = regionPointCount(region, l);
+        for (int i = 0; i < count; ++i)
+            points.push_back(l == loop && i == index ? localPoint : regionPointAt(region, l, i));
+        loops.push_back(points);
+    }
+    rebuildRegion(region, loops);
+}
+
+bool SceneViewportPanel::insertRegionPoint(NavigationRegion2D& region, int loop, int afterIndex,
+                                           const Math::Vec2& localPoint)
+{
+    if (afterIndex < 0)
+        return false;
+    ct::Vector<ct::Vector<Math::Vec2>> loops;
+    const int loopCount = regionLoopCount(region);
+    for (int l = 0; l < loopCount; ++l)
+    {
+        ct::Vector<Math::Vec2> points;
+        const int count = regionPointCount(region, l);
+        for (int i = 0; i < count; ++i)
+        {
+            points.push_back(regionPointAt(region, l, i));
+            if (l == loop && i == afterIndex)
+                points.push_back(localPoint);
+        }
+        loops.push_back(points);
+    }
+    rebuildRegion(region, loops);
+    return true;
+}
+
+bool SceneViewportPanel::removeRegionPoint(NavigationRegion2D& region, int loop, int index)
+{
+    const int count = regionPointCount(region, loop);
+    // Below three points a loop has no area: the outline would stop
+    // triangulating and a hole would silently stop cutting anything.
+    if (count <= 3)
+        return false;
+
+    ct::Vector<ct::Vector<Math::Vec2>> loops;
+    const int loopCount = regionLoopCount(region);
+    for (int l = 0; l < loopCount; ++l)
+    {
+        ct::Vector<Math::Vec2> points;
+        const int c = regionPointCount(region, l);
+        for (int i = 0; i < c; ++i)
+            if (!(l == loop && i == index))
+                points.push_back(regionPointAt(region, l, i));
+        loops.push_back(points);
+    }
+    rebuildRegion(region, loops);
+    return true;
+}
+
+void SceneViewportPanel::drawNavigationRegions(ImDrawList& drawList, GameObject& object, const ImVec2& origin)
+{
+    const size_t count = object.componentCount<NavigationRegion2D>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        NavigationRegion2D* region = object.getComponentAt<NavigationRegion2D>(i);
+        if (!region || !region->active())
+            continue;
+
+        // Triangles are what the pathfinder actually walks, so a region that
+        // failed to triangulate draws its outline but no fill - which is the
+        // whole point of having this overlay.
+        const ct::Vector<Math::Vec2>& triangles = region->triangles();
+        for (size_t t = 0; t + 2 < triangles.size(); t += 3)
+        {
+            const ImVec2 a = objectLocalToScreen(object, triangles[t], origin);
+            const ImVec2 b = objectLocalToScreen(object, triangles[t + 1], origin);
+            const ImVec2 c = objectLocalToScreen(object, triangles[t + 2], origin);
+            drawList.AddTriangleFilled(a, b, c, IM_COL32(70, 190, 255, 40));
+            drawList.AddTriangle(a, b, c, IM_COL32(70, 190, 255, 90), 1.0f);
+        }
+
+        const ct::Vector<Math::Vec2>& outline = region->polygon();
+        if (outline.size() >= 2)
+            for (size_t p = 0; p < outline.size(); ++p)
+            {
+                const ImVec2 a = objectLocalToScreen(object, outline[p], origin);
+                const ImVec2 b = objectLocalToScreen(object, outline[(p + 1) % outline.size()], origin);
+                drawList.AddLine(a, b, IM_COL32(90, 210, 255, 230), 1.8f);
+            }
+
+        const ct::Vector<ct::Vector<Math::Vec2>>& holes = region->holes();
+        for (size_t hole = 0; hole < holes.size(); ++hole)
+        {
+            const ct::Vector<Math::Vec2>& points = holes[hole];
+            if (points.size() < 2)
+                continue;
+            for (size_t p = 0; p < points.size(); ++p)
+            {
+                const ImVec2 a = objectLocalToScreen(object, points[p], origin);
+                const ImVec2 b = objectLocalToScreen(object, points[(p + 1) % points.size()], origin);
+                drawList.AddLine(a, b, IM_COL32(255, 140, 70, 230), 1.8f);
+            }
+        }
+
+        const bool selectedHere = app().selection().hasSelection() &&
+                                  app().selection().objectId() == object.id() &&
+                                  app().selection().componentId() == region->id();
+        if (!selectedHere)
+            continue;
+
+        const ImVec2 mousePos = ImGui::GetIO().MousePos;
+        const int loops = regionLoopCount(*region);
+        for (int loop = 0; loop < loops; ++loop)
+        {
+            const int pointCount = regionPointCount(*region, loop);
+            for (int i = 0; i < pointCount; ++i)
+            {
+                const ImVec2 screen = objectLocalToScreen(object, regionPointAt(*region, loop, i), origin);
+                const float dx = mousePos.x - screen.x;
+                const float dy = mousePos.y - screen.y;
+                const bool hovered = (dx * dx + dy * dy) <= kPointHandleHitRadius * kPointHandleHitRadius;
+                const bool dragging =
+                    mDraggedRegion == region && mDraggedRegionLoop == loop && mDraggedRegionPoint == i;
+                const ImU32 handleColor = dragging ? IM_COL32(255, 235, 120, 255)
+                                          : hovered ? IM_COL32(255, 255, 255, 255)
+                                          : loop == 0 ? IM_COL32(90, 210, 255, 235)
+                                                      : IM_COL32(255, 160, 80, 235);
+                drawList.AddRectFilled(ImVec2(screen.x - kPointHandleHalfSize, screen.y - kPointHandleHalfSize),
+                                       ImVec2(screen.x + kPointHandleHalfSize, screen.y + kPointHandleHalfSize),
+                                       handleColor);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        drawNavigationRegions(drawList, *object.child(i), origin);
+}
+
 void SceneViewportPanel::drawCameraGizmo(ImDrawList& drawList, CameraComponent& camera, const ImVec2& origin) const
 {
     float minX, minY, maxX, maxY;
@@ -823,12 +1174,19 @@ void SceneViewportPanel::drawContents()
     drawList.AddLine(ImVec2(min.x, axis.y), ImVec2(max.x, axis.y), IM_COL32(150, 60, 60, 180));
     drawList.AddLine(ImVec2(axis.x, min.y), ImVec2(axis.x, max.y), IM_COL32(60, 150, 80, 180));
     drawObject(drawList, app().scene().root(), origin);
-    if (app().settings().showColliders)
-        drawColliders(drawList, app().scene().root(), origin);
-
     GameObject* selected = app().selection().resolve(app().scene());
+    // The overlay is a debug toggle, but the point handles are how a selected
+    // collider is edited, so the selected object's colliders draw either way.
+    if (app().settings().showColliders)
+    {
+        drawColliders(drawList, app().scene().root(), origin);
+        drawNavigationRegions(drawList, app().scene().root(), origin);
+    }
+    else if (selected && app().selection().componentId() != 0)
+        drawColliders(drawList, *selected, origin);
+
     const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 &&
-                             mTool <= 3 && !mDraggedPointCollider && !mDraggedBatch;
+                             mTool <= 3 && !mDraggedPointCollider && !mDraggedBatch && !mDraggedRegion;
     if (gizmoActive)
         drawGizmo(drawList, *selected, origin);
 
@@ -858,6 +1216,25 @@ void SceneViewportPanel::drawContents()
             }
         }
     }
+    NavigationRegion2D* selectedRegion = nullptr;
+    if (selected && app().selection().componentId() != 0)
+    {
+        const size_t regionCount = selected->componentCount<NavigationRegion2D>();
+        for (size_t i = 0; i < regionCount; ++i)
+        {
+            NavigationRegion2D* candidate = selected->getComponentAt<NavigationRegion2D>(i);
+            if (candidate && candidate->id() == app().selection().componentId())
+            {
+                selectedRegion = candidate;
+                break;
+            }
+        }
+    }
+    // The region's own overlay only runs behind the debug toggle, so draw the
+    // selected one here too or its handles vanish with that checkbox.
+    if (selectedRegion && !app().settings().showColliders)
+        drawNavigationRegions(drawList, *selected, origin);
+
     if (selectedBatch)
         drawSpriteBatchEntries(drawList, *selected, *selectedBatch, origin);
     if (selected)
@@ -866,7 +1243,8 @@ void SceneViewportPanel::drawContents()
     drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,
-                           ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
+                           ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle |
+                               ImGuiButtonFlags_MouseButtonRight);
     handlePrefabDrop(origin);
     handleImageDrop(origin);
     const bool hovered = ImGui::IsItemHovered();
@@ -880,18 +1258,83 @@ void SceneViewportPanel::drawContents()
     }
     if (hovered && ImGui::GetIO().MouseWheel != 0.0f)
         mZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
+    if (hovered && selectedRegion && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    {
+        int loop = -1;
+        int point = -1;
+        if (hitTestRegionPoint(*selected, *selectedRegion, ImGui::GetIO().MousePos, origin, loop, point))
+        {
+            const EditorApplication::SceneChange before = app().beginChange();
+            if (removeRegionPoint(*selectedRegion, loop, point))
+                app().commitChange("Remove Navigation Point", before);
+            else
+                app().toasts().info("A navigation loop needs at least three points");
+        }
+        else
+        {
+            Math::Vec2 localPoint(0.0f, 0.0f);
+            int segmentLoop = -1;
+            const int segment = hitTestRegionSegment(*selected, *selectedRegion, ImGui::GetIO().MousePos, origin,
+                                                     segmentLoop, localPoint);
+            if (segment != -1)
+            {
+                const EditorApplication::SceneChange before = app().beginChange();
+                if (insertRegionPoint(*selectedRegion, segmentLoop, segment, localPoint))
+                    app().commitChange("Insert Navigation Point", before);
+            }
+        }
+    }
+
+    if (hovered && selectedCollider && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    {
+        const int hitPoint =
+            hitTestColliderPoint(*selected, *selectedCollider, ImGui::GetIO().MousePos, origin);
+        if (hitPoint != -1)
+        {
+            const EditorApplication::SceneChange before = app().beginChange();
+            if (removeColliderPoint(*selectedCollider, hitPoint))
+                app().commitChange("Remove Collider Point", before);
+            else
+                app().toasts().info("A collider needs its remaining points");
+        }
+        else
+        {
+            Math::Vec2 localPoint(0.0f, 0.0f);
+            const int segment =
+                hitTestColliderSegment(*selected, *selectedCollider, ImGui::GetIO().MousePos, origin, localPoint);
+            if (segment != -1)
+            {
+                const EditorApplication::SceneChange before = app().beginChange();
+                if (insertColliderPoint(*selectedCollider, segment, localPoint))
+                    app().commitChange("Insert Collider Point", before);
+            }
+        }
+    }
+
     if (hovered && mTool != 4 && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
     {
-        const int hitPoint = selectedCollider
+        int regionLoop = -1;
+        int regionPoint = -1;
+        const bool hitRegion =
+            selectedRegion &&
+            hitTestRegionPoint(*selected, *selectedRegion, ImGui::GetIO().MousePos, origin, regionLoop, regionPoint);
+        const int hitPoint = (!hitRegion && selectedCollider)
                                  ? hitTestColliderPoint(*selected, *selectedCollider, ImGui::GetIO().MousePos, origin)
                                  : -1;
-        const int hitBatchEntry = (hitPoint == -1 && selectedBatch)
+        const int hitBatchEntry = (!hitRegion && hitPoint == -1 && selectedBatch)
                                      ? hitTestBatchEntry(*selected, *selectedBatch, ImGui::GetIO().MousePos, origin)
                                      : -1;
-        const int hitAxis = (hitPoint == -1 && hitBatchEntry == -1 && gizmoActive)
+        const int hitAxis = (!hitRegion && hitPoint == -1 && hitBatchEntry == -1 && gizmoActive)
                                ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin)
                                : -1;
-        if (hitPoint != -1)
+        if (hitRegion)
+        {
+            mDraggedRegion = selectedRegion;
+            mDraggedRegionLoop = regionLoop;
+            mDraggedRegionPoint = regionPoint;
+            app().beginTransaction("Move Navigation Point", app().beginChange());
+        }
+        else if (hitPoint != -1)
         {
             mDraggedPointCollider = selectedCollider;
             mDraggedPointIndex = hitPoint;
@@ -996,6 +1439,23 @@ void SceneViewportPanel::drawContents()
         }
     }
 
+    if (hovered && mDraggedRegion && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        GameObject* regionObject = mDraggedRegion->owner();
+        if (regionObject)
+        {
+            Math::Vec2 local = screenToObjectLocal(*regionObject, ImGui::GetIO().MousePos, origin);
+            if (mSnap)
+            {
+                if (mGridSize.x > 0.0f)
+                    local.x = roundf(local.x / mGridSize.x) * mGridSize.x;
+                if (mGridSize.y > 0.0f)
+                    local.y = roundf(local.y / mGridSize.y) * mGridSize.y;
+            }
+            applyRegionPointDrag(*mDraggedRegion, mDraggedRegionLoop, mDraggedRegionPoint, local);
+        }
+    }
+
     if (hovered && mDraggedBatch && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         GameObject* batchObject = mDraggedBatch->owner();
@@ -1057,6 +1517,13 @@ void SceneViewportPanel::drawContents()
             app().commitTransaction();
             mDraggedBatch = nullptr;
             mDraggedBatchIndex = -1;
+        }
+        if (mDraggedRegion)
+        {
+            app().commitTransaction();
+            mDraggedRegion = nullptr;
+            mDraggedRegionLoop = -1;
+            mDraggedRegionPoint = -1;
         }
     }
 }

@@ -3,8 +3,10 @@
 #include "core/EditorApplication.h"
 
 #include <k2d/CameraComponent.h>
+#include <k2d/NavigationAgent2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
+#include <k2d/MouseCursor.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
@@ -117,9 +119,60 @@ void GamePanel::renderScene(int width, int height)
                                            k2d::DebugDrawJoints);
     }
     GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
+    GetMouseCursor().draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+}
+
+void GamePanel::drawAgentPaths(const ImVec2& position, float width, float height)
+{
+    Scene& scene = app().runtimeScene();
+    CameraComponent* camera = scene.activeCamera();
+    if (!camera)
+        return;
+
+    // ScreenToWorld is the camera transform; the paths are world space, so the
+    // overlay needs its inverse to land on the blitted game image.
+    const Matrix2D toScreen = camera->camera().CameraXform(width, height).AffineInverse();
+    ImDrawList& drawList = *ImGui::GetWindowDrawList();
+
+    drawAgentPathsIn(scene.root(), toScreen, position, drawList);
+}
+
+void GamePanel::drawAgentPathsIn(GameObject& object, const Matrix2D& toScreen, const ImVec2& position,
+                                 ImDrawList& drawList)
+{
+    const size_t count = object.componentCount<NavigationAgent2D>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        const NavigationAgent2D* agent = object.getComponentAt<NavigationAgent2D>(i);
+        if (!agent || !agent->active())
+            continue;
+        const ct::Vector<Math::Vec2>& path = agent->path();
+        if (path.size() < 2)
+            continue;
+
+        for (size_t p = 0; p + 1 < path.size(); ++p)
+        {
+            const Math::Vec2 a = toScreen.Transform(path[p]);
+            const Math::Vec2 b = toScreen.Transform(path[p + 1]);
+            drawList.AddLine(ImVec2(position.x + a.x, position.y + a.y),
+                             ImVec2(position.x + b.x, position.y + b.y), IM_COL32(255, 240, 120, 220), 2.0f);
+        }
+        for (size_t p = 0; p < path.size(); ++p)
+        {
+            const Math::Vec2 point = toScreen.Transform(path[p]);
+            drawList.AddCircleFilled(ImVec2(position.x + point.x, position.y + point.y), 3.0f,
+                                     IM_COL32(255, 240, 120, 235));
+        }
+        const Math::Vec2 goal = toScreen.Transform(path[path.size() - 1]);
+        drawList.AddCircle(ImVec2(position.x + goal.x, position.y + goal.y), 7.0f, IM_COL32(255, 120, 90, 240), 12,
+                           2.0f);
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        drawAgentPathsIn(*object.child(i), toScreen, position, drawList);
 }
 
 void GamePanel::drawContents()
@@ -155,6 +208,8 @@ void GamePanel::drawContents()
     // The scene renders into this framebuffer, so its screen-space UI must
     // use its dimensions before the render queue is built.
     SetUiViewport(position.x, position.y, width, height);
+    const ImVec2 mouse = ImGui::GetMousePos();
+    GetMouseCursor().setPosition(Math::Vec2(mouse.x - position.x, mouse.y - position.y));
     renderScene(fboWidth, fboHeight);
 
     ImDrawList& drawList = *ImGui::GetWindowDrawList();
@@ -167,6 +222,8 @@ void GamePanel::drawContents()
     {
         drawList.AddRectFilled(position, ImVec2(position.x + width, position.y + height), IM_COL32(12, 14, 18, 255));
     }
+    if (app().settings().showPhysicsDebug)
+        drawAgentPaths(position, width, height);
     SetZenScriptGameViewport(position.x, position.y, width, height);
     if (app().paused())
     {

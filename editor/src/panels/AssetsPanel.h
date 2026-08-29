@@ -67,6 +67,9 @@ private:
     void drawRenamePopup();
     void drawGenerateCollisionShapePopup();
     bool mMaskOpenPending = false;
+    bool mNewScriptOpenPending = false;
+    bool mNewFolderOpenPending = false;
+    bool mRenameOpenPending = false;
     void requestNewScript(const ct::String &directory);
     void requestNewFolder(const ct::String &directory);
     void requestRename(const EditorFileEntry &entry);
@@ -107,6 +110,7 @@ private:
     float mMaskMinArea = 16.0f;
     ct::Vector<ct::Vector<Math::Vec2>> mMaskLoops;
     int mMaskPointCount = 0;
+    int mMaskGenerateMode = 0;
 };
 
 }
