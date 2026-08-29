@@ -12,6 +12,14 @@ namespace k2d
 class NavigationRegion2D final : public Component
 {
   public:
+    struct Face
+    {
+        Math::Vec2 points[3];
+        Math::Vec2 center;
+        int neighbors[3];
+        int neighborCount;
+    };
+
     static const ComponentType Type = ComponentType::NavigationRegion;
 
     NavigationRegion2D();
@@ -45,6 +53,18 @@ class NavigationRegion2D final : public Component
     void onDestroy() override;
 
   private:
+    // Adjacency and the A* scratch are baked when the mesh changes, not per
+    // query: the mesh is immutable between setPolygon calls, and rebuilding a
+    // face graph plus six vectors on every path request is the whole cost.
+    void bakeFaces();
+
+    ct::Vector<Face> mFaces;
+    mutable ct::Vector<float> mCost;
+    mutable ct::Vector<float> mScore;
+    mutable ct::Vector<int> mParent;
+    mutable ct::Vector<unsigned char> mClosed;
+    mutable ct::Vector<int> mOpen;
+    mutable ct::Vector<int> mReverse;
     ct::Vector<Math::Vec2> mPolygon;
     ct::Vector<ct::Vector<Math::Vec2>> mHoles;
     ct::Vector<Math::Vec2> mTriangles;

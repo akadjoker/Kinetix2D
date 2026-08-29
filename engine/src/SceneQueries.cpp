@@ -318,7 +318,7 @@ RigidBody2D* Scene::bodyAtPoint(const Math::Vec2& point, bool dynamicOnly) const
 {
     if (mUseTree)
     {
-        const_cast<Scene*>(this)->syncProxies();
+        const_cast<Scene*>(this)->syncBroadphaseOnce();
 
         AABB pointAABB{point, point};
         ct::Vector<RigidBody2D*> hits;
@@ -357,7 +357,7 @@ void Scene::queryAABB(const AABB& aabb, ct::Vector<RigidBody2D*>& out) const
 
     if (mUseTree)
     {
-        const_cast<Scene*>(this)->syncProxies();
+        const_cast<Scene*>(this)->syncBroadphaseOnce();
 
         ct::Vector<RigidBody2D*> hits;
         BodyQueryVisitor visitor{&mTree, &hits};
@@ -388,7 +388,7 @@ void Scene::queryCircle(const Math::Vec2& center, float radius, ct::Vector<Rigid
 
     if (mUseTree)
     {
-        const_cast<Scene*>(this)->syncProxies();
+        const_cast<Scene*>(this)->syncBroadphaseOnce();
 
         AABB queryAabb{center - r, center + r};
         ct::Vector<RigidBody2D*> hits;
@@ -447,7 +447,7 @@ void Scene::rayCastGather(const Math::Vec2& origin, const Math::Vec2& translatio
     mBodyScratch.clear();
     if (mUseTree)
     {
-        const_cast<Scene*>(this)->syncProxies();
+        const_cast<Scene*>(this)->syncBroadphaseOnce();
 
         BodyQueryVisitor visitor{&mTree, &mBodyScratch};
         mTree.Query(&visitor, segmentAABB);
@@ -768,6 +768,10 @@ std::size_t Scene::queryNeighbours(const GameObject& self, const Math::Vec2& cen
         const Transform xf = body->GetTransform();
         for (int s = 0; s < body->ShapeCount(); ++s)
         {
+            // A trigger volume is not crowd: raycast already skips sensors, so
+            // separation must too or the two behaviours disagree on the same shape.
+            if (body->IsSensor(s))
+                continue;
             if ((body->ShapeFilter(s).category & mask) == 0)
                 continue;
             const Math::Vec2 closest = ClosestPointOnShape(body->Shapes()[(size_t)s], xf, center);

@@ -1,10 +1,17 @@
 #include "k2d/Wander2D.h"
 
+#include <cmath>
+
 #include "k2d/GameObject.h"
 #include "k2d/Utils.h"
 
 namespace k2d
 {
+namespace
+{
+constexpr float kTwoPi = 6.28318530717958647692f;
+}
+
 
 namespace
 {
@@ -48,11 +55,22 @@ Math::Vec2 Wander2D::force(float deltaTime, const Math::Vec2 &, const Math::Vec2
     if (mRandom == 0u)
         mRandom = seedFor(owner(), id());
 
-    mAngle += nextSigned(mRandom) * mJitter * deltaTime;
+    // mAngle is the only persistent float in the steering set: one non-finite
+    // deltaTime would poison it for the rest of the session, so reject the step
+    // rather than accumulate it, and keep the angle bounded.
+    const float step = nextSigned(mRandom) * mJitter * deltaTime;
+    if (std::isfinite(step))
+        mAngle += step;
+    if (!std::isfinite(mAngle))
+        mAngle = 0.0f;
+    if (mAngle > kTwoPi || mAngle < -kTwoPi)
+        mAngle = std::fmod(mAngle, kTwoPi);
 
+    // Falling back to right() when the agent is at rest pins the wander to one
+    // fixed axis forever, so drift the fallback with the angle instead.
     Math::Vec2 heading = velocity;
     if (!(heading.LengthSquared() > kSteeringEpsilon * kSteeringEpsilon))
-        heading = owner() ? owner()->right() : Math::Vec2(1.0f, 0.0f);
+        heading = Math::Vec2::FromAngle(mAngle);
     heading = heading.NormalizedSafe();
 
     const Math::Vec2 offset = heading * mDistance + Math::Vec2::FromAngle(mAngle) * mRadius;

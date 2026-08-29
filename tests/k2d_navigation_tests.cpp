@@ -15,6 +15,7 @@
 #include <k2d/Wander2D.h>
 
 #include <cmath>
+#include <limits>
 #include <cstdio>
 
 namespace
@@ -758,6 +759,86 @@ bool TestAgentTargetPresenceRoundTrip()
     return ok;
 }
 
+// A sensor is a trigger volume, not crowd. Raycast already skips sensors, so
+// separation must agree or the two behaviours contradict on the same shape.
+bool TestSeparationIgnoresSensors()
+{
+    k2d::Scene scene;
+    k2d::GameObject* trigger = scene.createObject("trigger");
+    trigger->setPosition(Math::Vec2(30.0f, 0.0f));
+    trigger->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    k2d::BoxCollider2D* sensorShape = trigger->addComponent<k2d::BoxCollider2D>();
+    sensorShape->setSize(Math::Vec2(20.0f, 20.0f));
+    sensorShape->setSensor(true);
+
+    k2d::GameObject* walker = scene.createObject("sensor_walker");
+    walker->setPosition(Math::Vec2(0.0f, 0.0f));
+    walker->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    walker->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(10.0f, 10.0f));
+    k2d::Separation2D* separation = walker->addComponent<k2d::Separation2D>();
+    separation->setRadius(80.0f);
+
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
+
+    const Math::Vec2 force = scene.steeringForce(*walker, Math::Vec2(0.0f, 0.0f), 1.0f / 60.0f);
+    const bool ok = std::fabs(force.x) < 0.0001f && std::fabs(force.y) < 0.0001f;
+    std::printf("navigation separation sensors: force=(%.3f, %.3f) %s\n", force.x, force.y, ok ? "pass" : "fail");
+    return ok;
+}
+
+// A dynamic body used to swallow the agent's movement: pushTransforms skips it
+// and pullTransforms writes the body's own position back over the object.
+bool TestDynamicBodyAgentMoves()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("walkable_dynamic");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(-300.0f, -300.0f), Math::Vec2(300.0f, -300.0f),
+                                  Math::Vec2(300.0f, 300.0f), Math::Vec2(-300.0f, 300.0f)};
+    region->setPolygon(polygon, 4);
+
+    k2d::GameObject* walker = scene.createObject("dynamic_walker");
+    walker->setPosition(Math::Vec2(-200.0f, 0.0f));
+    k2d::RigidBody2D* body = walker->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Dynamic);
+    body->setGravityScale(0.0f);
+    walker->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(10.0f, 10.0f));
+
+    k2d::NavigationAgent2D* agent = walker->addComponent<k2d::NavigationAgent2D>();
+    agent->setMaxSpeed(120.0f);
+    agent->setAutoMove(true);
+    agent->setTargetPosition(Math::Vec2(200.0f, 0.0f));
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+    const float startX = walker->globalPosition().x;
+    for (int i = 0; i < 180; ++i)
+        scene.update(1.0f / 60.0f);
+    const float endX = walker->globalPosition().x;
+
+    const bool ok = endX - startX > 100.0f;
+    std::printf("navigation dynamic body: x %.1f -> %.1f %s\n", startX, endX, ok ? "pass" : "fail");
+    return ok;
+}
+
+// A non-finite dt used to poison Wander2D's accumulated angle for good.
+bool TestWanderSurvivesBadDeltaTime()
+{
+    k2d::Scene scene;
+    k2d::GameObject* walker = scene.createObject("wanderer");
+    walker->addComponent<k2d::Wander2D>();
+
+    const float bad = std::numeric_limits<float>::quiet_NaN();
+    scene.steeringForce(*walker, Math::Vec2(0.0f, 0.0f), bad);
+
+    const Math::Vec2 after = scene.steeringForce(*walker, Math::Vec2(0.0f, 0.0f), 1.0f / 60.0f);
+    const bool ok = std::isfinite(after.x) && std::isfinite(after.y) &&
+                    (std::fabs(after.x) > 0.0001f || std::fabs(after.y) > 0.0001f);
+    std::printf("navigation wander after NaN dt: force=(%.3f, %.3f) %s\n", after.x, after.y, ok ? "pass" : "fail");
+    return ok;
+}
+
 int main()
 {
     k2d::Scene scene;
@@ -799,12 +880,16 @@ int main()
     std::printf("navigation: concave=%s outside=%s agent=%s triangles=%d waypoints=%d\n", concavePath ? "pass" : "fail",
                outsideRejected ? "pass" : "fail", agentPath ? "pass" : "fail",
                static_cast<int>(region->triangles().size() / 3), static_cast<int>(agent->path().size()));
+    const bool sensorSeparation = TestSeparationIgnoresSensors();
+    const bool dynamicBody = TestDynamicBodyAgentMoves();
+    const bool wanderNaN = TestWanderSurvivesBadDeltaTime();
     const bool unreachableThrottle = TestUnreachableTargetIsStillThrottled();
     const bool missingTarget = TestMissingFollowTargetCostsNothing();
     const bool parentedAgent = TestAgentUnderRotatedParent();
     const bool agentRoundTrip = TestAgentTargetPresenceRoundTrip();
 
-    return unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
+    return sensorSeparation && dynamicBody && wanderNaN &&
+           unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
                    outsideMesh && steeringForces && steeringNeutral && separationSpread && separationSources &&

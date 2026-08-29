@@ -16,7 +16,10 @@ namespace k2d
         : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
           mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
           mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
-          mBroadphaseStamp(0),
+          // Not 0: equal stamps mean "already synced this frame", so matching
+          // the initial frame stamp would skip the very first sync and leave
+          // every query looking at an empty tree.
+          mBroadphaseStamp(0xFFFFFFFFu),
           mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
           mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
           mSimulationEnabled(false), mHasDirtyBodies(false)

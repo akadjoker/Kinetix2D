@@ -4,6 +4,7 @@
 #include "k2d/GameObject.h"
 #include "k2d/Geometry2D.h"
 #include "k2d/Navigation2D.h"
+#include "k2d/RigidBody2D.h"
 #include "k2d/Scene.h"
 
 #include <cmath>
@@ -171,6 +172,19 @@ void NavigationAgent2D::translateGlobal(const Math::Vec2& offset)
     GameObject* object = owner();
     if (!object)
         return;
+
+    // pushTransforms skips dynamic bodies and pullTransforms writes their own
+    // integrated position back over the object, so a translate here would be
+    // silently erased. Drive such a body through its velocity instead.
+    if (RigidBody2D* body = object->getComponent<RigidBody2D>())
+        if (body->bodyType() == BodyType::Dynamic)
+        {
+            const float dt = mLastDeltaTime;
+            if (dt > 0.0001f)
+                body->setVelocity(offset * (1.0f / dt));
+            return;
+        }
+
     GameObject* parent = object->parent();
     if (!parent || !parent->parent())
     {
@@ -184,6 +198,7 @@ void NavigationAgent2D::translateGlobal(const Math::Vec2& offset)
 
 void NavigationAgent2D::onUpdate(float deltaTime)
 {
+    mLastDeltaTime = deltaTime;
     updateFollowTarget(deltaTime);
     advance();
     if (!owner())

@@ -12,12 +12,6 @@ namespace k2d
 {
 namespace
 {
-struct Face
-{
-    Math::Vec2 points[3];
-    Math::Vec2 center;
-    ct::Vector<int> neighbors;
-};
 
 float distanceSq(const Math::Vec2& a, const Math::Vec2& b)
 {
@@ -30,15 +24,21 @@ float cross(const Math::Vec2& a, const Math::Vec2& b, const Math::Vec2& p)
     return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 }
 
-bool contains(const Face& face, const Math::Vec2& point)
+bool contains(const NavigationRegion2D::Face& face, const Math::Vec2& point)
 {
     const float a = cross(face.points[0], face.points[1], point);
     const float b = cross(face.points[1], face.points[2], point);
     const float c = cross(face.points[2], face.points[0], point);
+    // Both windings must be accepted because poly2tri does not normalise its
+    // output, but a near-degenerate triangle satisfies BOTH branches over an
+    // unbounded strip along its supporting line, so guard on real area first.
+    const float twiceArea = a + b + c;
+    if (twiceArea > -0.003f && twiceArea < 0.003f)
+        return false;
     return (a >= -0.001f && b >= -0.001f && c >= -0.001f) || (a <= 0.001f && b <= 0.001f && c <= 0.001f);
 }
 
-bool sharesEdge(const Face& a, const Face& b)
+bool sharesEdge(const NavigationRegion2D::Face& a, const NavigationRegion2D::Face& b)
 {
     int shared = 0;
     for (int ia = 0; ia < 3; ++ia)
@@ -71,6 +71,7 @@ void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
     mPolygon.clear();
     mHoles.clear();
     mTriangles.clear();
+    mFaces.clear();
     if (!points || count < 3)
         return;
     for (int i = 0; i < count; ++i)
@@ -80,6 +81,7 @@ void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
     const int triangleCount = Triangulate(mPolygon.data(), count, baked.data(), count - 2);
     for (int i = 0; i < triangleCount * 3; ++i)
         mTriangles.push_back(baked[i]);
+    bakeFaces();
 }
 
 void NavigationRegion2D::setPolygonWithHoles(const Math::Vec2* outline, int outlineCount,
@@ -88,6 +90,7 @@ void NavigationRegion2D::setPolygonWithHoles(const Math::Vec2* outline, int outl
     mPolygon.clear();
     mHoles.clear();
     mTriangles.clear();
+    mFaces.clear();
     if (!outline || outlineCount < 3)
         return;
     for (int i = 0; i < outlineCount; ++i)
@@ -132,55 +135,69 @@ void NavigationRegion2D::setPolygonWithHoles(const Math::Vec2* outline, int outl
                                            (int)mHoles.size(), baked.data(), maxTriangles);
     for (int i = 0; i < triangleCount * 3; ++i)
         mTriangles.push_back(baked[i]);
+    bakeFaces();
 }
 
 bool NavigationRegion2D::containsPoint(const Math::Vec2& point) const
 {
-    if (mTriangles.empty() || !owner())
+    if (mFaces.empty() || !owner())
         return false;
-    const Matrix2D& transform = owner()->globalTransform();
-    for (size_t i = 0; i + 2 < mTriangles.size(); i += 3)
-    {
-        Face face;
-        face.points[0] = transform.Transform(mTriangles[i]);
-        face.points[1] = transform.Transform(mTriangles[i + 1]);
-        face.points[2] = transform.Transform(mTriangles[i + 2]);
-        if (contains(face, point))
+    const Math::Vec2 local = owner()->globalTransform().AffineInverse().Transform(point);
+    for (size_t i = 0; i < mFaces.size(); ++i)
+        if (contains(mFaces[i], local))
             return true;
-    }
     return false;
+}
+
+void NavigationRegion2D::bakeFaces()
+{
+    mFaces.clear();
+    const size_t triangleCount = mTriangles.size() / 3;
+    mFaces.resize(triangleCount);
+    for (size_t i = 0; i < triangleCount; ++i)
+    {
+        Face& face = mFaces[i];
+        face.points[0] = mTriangles[i * 3];
+        face.points[1] = mTriangles[i * 3 + 1];
+        face.points[2] = mTriangles[i * 3 + 2];
+        face.center = (face.points[0] + face.points[1] + face.points[2]) / 3.0f;
+        face.neighborCount = 0;
+    }
+    for (size_t a = 0; a < mFaces.size(); ++a)
+        for (size_t b = a + 1; b < mFaces.size(); ++b)
+            if (sharesEdge(mFaces[a], mFaces[b]))
+            {
+                if (mFaces[a].neighborCount < 3)
+                    mFaces[a].neighbors[mFaces[a].neighborCount++] = static_cast<int>(b);
+                if (mFaces[b].neighborCount < 3)
+                    mFaces[b].neighbors[mFaces[b].neighborCount++] = static_cast<int>(a);
+            }
+
+    mCost.resize(triangleCount);
+    mScore.resize(triangleCount);
+    mParent.resize(triangleCount);
+    mClosed.resize(triangleCount);
 }
 
 bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, ct::Vector<Math::Vec2>& outPath) const
 {
     outPath.clear();
-    if (mTriangles.empty() || !owner())
+    if (mFaces.empty() || !owner())
         return false;
+
+    // The faces are baked in local space, so the query moves into that space
+    // instead of transforming every face on every call.
     const Matrix2D& transform = owner()->globalTransform();
-    ct::Vector<Face> faces;
-    faces.resize(mTriangles.size() / 3);
-    for (size_t i = 0; i < faces.size(); ++i)
-    {
-        Face& face = faces[i];
-        face.points[0] = transform.Transform(mTriangles[i * 3]);
-        face.points[1] = transform.Transform(mTriangles[i * 3 + 1]);
-        face.points[2] = transform.Transform(mTriangles[i * 3 + 2]);
-        face.center = (face.points[0] + face.points[1] + face.points[2]) / 3.0f;
-    }
-    for (size_t a = 0; a < faces.size(); ++a)
-        for (size_t b = a + 1; b < faces.size(); ++b)
-            if (sharesEdge(faces[a], faces[b]))
-            {
-                faces[a].neighbors.push_back(static_cast<int>(b));
-                faces[b].neighbors.push_back(static_cast<int>(a));
-            }
+    const Matrix2D inverse = transform.AffineInverse();
+    const Math::Vec2 localFrom = inverse.Transform(from);
+    const Math::Vec2 localTo = inverse.Transform(to);
 
     int start = -1, end = -1;
-    for (size_t i = 0; i < faces.size(); ++i)
+    for (size_t i = 0; i < mFaces.size(); ++i)
     {
-        if (contains(faces[i], from))
+        if (contains(mFaces[i], localFrom))
             start = static_cast<int>(i);
-        if (contains(faces[i], to))
+        if (contains(mFaces[i], localTo))
             end = static_cast<int>(i);
     }
     if (start < 0 || end < 0)
@@ -192,60 +209,55 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
         return true;
     }
 
-    const size_t count = faces.size();
-    ct::Vector<float> cost, score;
-    ct::Vector<int> parent;
-    ct::Vector<bool> closed;
-    cost.resize(count);
-    score.resize(count);
-    parent.resize(count);
-    closed.resize(count);
+    const size_t count = mFaces.size();
     for (size_t i = 0; i < count; ++i)
     {
-        cost[i] = std::numeric_limits<float>::max();
-        score[i] = std::numeric_limits<float>::max();
-        parent[i] = -1;
-        closed[i] = false;
+        mCost[i] = std::numeric_limits<float>::max();
+        mScore[i] = std::numeric_limits<float>::max();
+        mParent[i] = -1;
+        mClosed[i] = 0;
     }
-    ct::Vector<int> open;
-    cost[start] = 0.0f;
-    score[start] = std::sqrt(distanceSq(faces[start].center, to));
-    open.push_back(start);
-    while (!open.empty())
+    mOpen.clear();
+    mCost[start] = 0.0f;
+    mScore[start] = std::sqrt(distanceSq(mFaces[start].center, localTo));
+    mOpen.push_back(start);
+    while (!mOpen.empty())
     {
         size_t best = 0;
-        for (size_t i = 1; i < open.size(); ++i)
-            if (score[open[i]] < score[open[best]])
+        for (size_t i = 1; i < mOpen.size(); ++i)
+            if (mScore[mOpen[i]] < mScore[mOpen[best]])
                 best = i;
-        const int current = open[best];
-        open.erase(open.begin() + best);
+        const int current = mOpen[best];
+        mOpen.erase(mOpen.begin() + best);
         if (current == end)
             break;
-        if (closed[current])
+        if (mClosed[current])
             continue;
-        closed[current] = true;
-        for (int neighbor : faces[current].neighbors)
+        mClosed[current] = 1;
+        for (int n = 0; n < mFaces[current].neighborCount; ++n)
         {
-            if (closed[neighbor])
+            const int neighbor = mFaces[current].neighbors[n];
+            if (mClosed[neighbor])
                 continue;
-            const float next = cost[current] + std::sqrt(distanceSq(faces[current].center, faces[neighbor].center));
-            if (next >= cost[neighbor])
+            const float next = mCost[current] + std::sqrt(distanceSq(mFaces[current].center, mFaces[neighbor].center));
+            if (next >= mCost[neighbor])
                 continue;
-            parent[neighbor] = current;
-            cost[neighbor] = next;
-            score[neighbor] = next + std::sqrt(distanceSq(faces[neighbor].center, to));
-            open.push_back(neighbor);
+            mParent[neighbor] = current;
+            mCost[neighbor] = next;
+            mScore[neighbor] = next + std::sqrt(distanceSq(mFaces[neighbor].center, localTo));
+            mOpen.push_back(neighbor);
         }
     }
-    if (parent[end] < 0)
+    if (mParent[end] < 0)
         return false;
-    ct::Vector<int> reverse;
-    for (int face = end; face >= 0; face = parent[face])
-        reverse.push_back(face);
+    mReverse.clear();
+    for (int face = end; face >= 0; face = mParent[face])
+        mReverse.push_back(face);
     outPath.push_back(from);
-    for (size_t i = reverse.size() - 1; i-- > 1;)
-        outPath.push_back(faces[reverse[i]].center);
+    for (size_t i = mReverse.size() - 1; i-- > 1;)
+        outPath.push_back(transform.Transform(mFaces[mReverse[i]].center));
     outPath.push_back(to);
     return true;
 }
+
 } // namespace k2d

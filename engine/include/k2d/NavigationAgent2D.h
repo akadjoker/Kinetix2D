@@ -147,6 +147,7 @@ class NavigationAgent2D final : public Component
     GameObject* mFollowTarget = nullptr;
     uint32_t mFollowVersion = 0;
     bool mHasTarget = false;
+    float mLastDeltaTime = 0.0f;
     bool mHasPathedTarget = false;
     bool mAutoMove = false;
     bool mOrientToPath = false;

@@ -603,6 +603,20 @@ void AssetsPanel::recomputeMaskContours()
 
 namespace
 {
+bool loopContainsPoint(const ct::Vector<Math::Vec2>& loop, const Math::Vec2& point)
+{
+    bool inside = false;
+    for (size_t i = 0, j = loop.size() - 1; i < loop.size(); j = i++)
+    {
+        const Math::Vec2& a = loop[i];
+        const Math::Vec2& b = loop[j];
+        if ((a.y > point.y) != (b.y > point.y) &&
+            point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)
+            inside = !inside;
+    }
+    return inside;
+}
+
 double loopSignedArea(const ct::Vector<Math::Vec2>& loop)
 {
     double area2 = 0.0;
@@ -659,14 +673,32 @@ void AssetsPanel::createCollisionShapeFromMask()
             }
         }
 
+        // Only loops INSIDE the outline are holes. A second, disjoint island
+        // would otherwise be handed to the triangulator as a hole lying outside
+        // the polygon, which bakes nothing and leaves the region unusable.
+        const ct::Vector<Math::Vec2>& outlineLoop = mMaskLoops[outlineIndex];
         ct::Vector<const Math::Vec2*> holePtrs;
         ct::Vector<int> holeCounts;
+        int skipped = 0;
         for (size_t i = 0; i < mMaskLoops.size(); ++i)
         {
             if (i == outlineIndex)
                 continue;
+            if (!loopContainsPoint(outlineLoop, mMaskLoops[i][0]))
+            {
+                ++skipped;
+                continue;
+            }
             holePtrs.push_back(mMaskLoops[i].data());
             holeCounts.push_back((int)mMaskLoops[i].size());
+        }
+        if (skipped > 0)
+        {
+            char message[128];
+            std::snprintf(message, sizeof(message), "%d loop(s) outside the outline were left out of the region",
+                          skipped);
+            app().log(message);
+            app().toasts().info(message);
         }
 
         NavigationRegion2D* region = created->addComponent<NavigationRegion2D>();
