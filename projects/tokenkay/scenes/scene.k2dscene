@@ -1178,7 +1178,8 @@
                   168.0
                 ]
               ],
-              "loop": true
+              "loop": true,
+              "oneWay": false
             }
           },
           {
@@ -1297,7 +1298,8 @@
                   394.0762634277344
                 ]
               ],
-              "loop": true
+              "loop": true,
+              "oneWay": false
             }
           },
           {
@@ -1956,7 +1958,7 @@
         "locked": false,
         "zIndex": 0,
         "position": [
-          335.3,
+          335.29998779296875,
           338.5
         ],
         "rotation": 0.0,
@@ -1966,11 +1968,23 @@
         ],
         "components": [
           {
+            "type": "ZenScript",
+            "data": {
+              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
+              "properties": [
+                {
+                  "name": "slot_angle",
+                  "value": 0.0
+                }
+              ]
+            }
+          },
+          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "dynamic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 6.0,
               "angularDamping": 0.0,
@@ -1993,12 +2007,6 @@
             }
           },
           {
-            "type": "ZenScript",
-            "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py"
-            }
-          },
-          {
             "type": "CircleShape",
             "data": {
               "radius": 19.5,
@@ -2006,9 +2014,9 @@
               "mode": 0,
               "lineWidth": 2.0,
               "color": [
-                255,
-                255,
-                255,
+                253,
+                0,
+                0,
                 255
               ],
               "blendMode": 0
@@ -2031,6 +2039,19 @@
               "followTarget": "player",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
             }
           }
         ],
@@ -2054,11 +2075,23 @@
         ],
         "components": [
           {
+            "type": "ZenScript",
+            "data": {
+              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
+              "properties": [
+                {
+                  "name": "slot_angle",
+                  "value": 120.0
+                }
+              ]
+            }
+          },
+          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "dynamic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 6.0,
               "angularDamping": 0.0,
@@ -2081,12 +2114,6 @@
             }
           },
           {
-            "type": "ZenScript",
-            "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py"
-            }
-          },
-          {
             "type": "CircleShape",
             "data": {
               "radius": 19.5,
@@ -2094,9 +2121,9 @@
               "mode": 0,
               "lineWidth": 2.0,
               "color": [
+                0,
                 255,
-                255,
-                255,
+                7,
                 255
               ],
               "blendMode": 0
@@ -2119,6 +2146,19 @@
               "followTarget": "player",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
             }
           }
         ],
@@ -2142,11 +2182,23 @@
         ],
         "components": [
           {
+            "type": "ZenScript",
+            "data": {
+              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py",
+              "properties": [
+                {
+                  "name": "slot_angle",
+                  "value": 240.0
+                }
+              ]
+            }
+          },
+          {
             "type": "RigidBody2D",
             "data": {
               "bodyType": "dynamic",
               "density": 1.0,
-              "friction": 0.3,
+              "friction": 0.30000001192092896,
               "restitution": 0.0,
               "linearDamping": 6.0,
               "angularDamping": 0.0,
@@ -2169,12 +2221,6 @@
             }
           },
           {
-            "type": "ZenScript",
-            "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/npc.py"
-            }
-          },
-          {
             "type": "CircleShape",
             "data": {
               "radius": 19.5,
@@ -2182,9 +2228,9 @@
               "mode": 0,
               "lineWidth": 2.0,
               "color": [
-                255,
-                255,
-                255,
+                15,
+                0,
+                253,
                 255
               ],
               "blendMode": 0
@@ -2207,6 +2253,19 @@
               "followTarget": "player",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "Separation2D",
+            "data": {
+              "weight": 1.0,
+              "target": "",
+              "targetPosition": [
+                0.0,
+                0.0
+              ],
+              "radius": 90.0,
+              "mask": 65535
             }
           }
         ],

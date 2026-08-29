@@ -7,6 +7,11 @@ class Npc(ScriptComponent):
     back_off_distance = 40
     stop_distance = 60
     resume_distance = 90
+    # Where around the player this one wants to stand, in degrees. Give each
+    # npc a different angle and they surround him instead of queueing up behind
+    # him down the same corridor.
+    slot_angle = 0
+    slot_repath = 0.4
 
     def on_start(self):
         self.agent = self.node.get_component<NavigationAgent>()
@@ -23,10 +28,13 @@ class Npc(ScriptComponent):
         # The follow target stays set for good: the C++ side already repaths on
         # its own interval once the player has moved far enough, so asking for
         # a new path from here would only repeat work it has already done.
-        self.agent.set_follow_target(self.target_name)
         self.agent.set_auto_move(True)
         self.moving = True
         self.backing = False
+        self.slot_timer = 0.0
+        radians = math.radians(self.slot_angle)
+        self.slot_x = math.cos(radians)
+        self.slot_y = math.sin(radians)
 
     def on_update(self, dt):
         if self.agent == None:
@@ -47,14 +55,11 @@ class Npc(ScriptComponent):
             self.back_away(x, y, dx, dy, distance)
             return
 
-        if self.backing:
-            self.backing = False
-            self.agent.set_follow_target(self.target_name)
+        self.backing = False
 
         # Two distances, not one: stopping and starting on the same threshold
         # makes the npc flicker between moving and standing while it sits right
-        # on the line. The follow target is never cleared, so the path stays
-        # current even while stopped and the chase resumes immediately.
+        # on the line.
         if self.moving:
             if distance <= self.stop_distance:
                 self.moving = False
@@ -63,6 +68,24 @@ class Npc(ScriptComponent):
             if distance >= self.resume_distance:
                 self.moving = True
                 self.agent.set_auto_move(True)
+
+        if not self.moving:
+            return
+
+        # Re-aim at this npc's own place around the player on an interval. Doing
+        # it every frame would repath every frame, and the C++ follow target
+        # cannot be used here because it always aims at the player himself.
+        self.slot_timer = self.slot_timer - dt
+        if self.slot_timer > 0:
+            return
+        self.slot_timer = self.slot_repath
+
+        tx = px + self.slot_x * self.stop_distance
+        ty = py + self.slot_y * self.stop_distance
+        if not nav_point_free(tx, ty):
+            tx = px
+            ty = py
+        self.agent.set_target(tx, ty)
 
     def back_away(self, x, y, dx, dy, distance):
         if distance < 0.001:
