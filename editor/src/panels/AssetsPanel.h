@@ -66,6 +66,7 @@ private:
     void drawNewFolderPopup();
     void drawRenamePopup();
     void drawGenerateCollisionShapePopup();
+    bool mMaskOpenPending = false;
     void requestNewScript(const ct::String &directory);
     void requestNewFolder(const ct::String &directory);
     void requestRename(const EditorFileEntry &entry);

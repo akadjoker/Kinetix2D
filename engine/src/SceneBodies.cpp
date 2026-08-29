@@ -137,6 +137,24 @@ void Scene::attachColliders(GameObject &object, RigidBody2D &rigidBody)
     }
 }
 
+void Scene::buildBodyShapes(RigidBody2D &rigidBody)
+{
+    GameObject *object = rigidBody.owner();
+    if (!object)
+        return;
+
+    if (rigidBody.mBodyIndex < mBodies.size() && mBodies[rigidBody.mBodyIndex] == &rigidBody)
+    {
+        rebuildBody(rigidBody);
+        return;
+    }
+
+    rigidBody.mNeedsRebuild = false;
+    rigidBody.ClearShapes();
+    attachColliders(*object, rigidBody);
+    rigidBody.RecomputeMass();
+}
+
 void Scene::rebuildBody(RigidBody2D &rigidBody)
 {
     GameObject *object = rigidBody.owner();

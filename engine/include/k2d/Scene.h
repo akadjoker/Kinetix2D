@@ -104,6 +104,8 @@ namespace k2d
 
         static GameObject *objectForBody(const RigidBody2D *body);
         void markBodyDirty(RigidBody2D &rigidBody);
+        // Builds a body's shapes from its colliders now, simulating or not.
+        void buildBodyShapes(RigidBody2D &rigidBody);
 
     private:
         friend class GameObject;

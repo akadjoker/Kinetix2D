@@ -520,7 +520,7 @@ void AssetsPanel::requestGenerateCollisionShape(const EditorFileEntry& entry)
     mMaskSimplifyTolerance = 1.0f;
     mMaskMinArea = 16.0f;
     recomputeMaskContours();
-    ImGui::OpenPopup("Generate Collision Shape");
+    mMaskOpenPending = true;
 }
 
 void AssetsPanel::recomputeMaskContours()
@@ -577,6 +577,13 @@ void AssetsPanel::createCollisionShapeFromMask()
 
 void AssetsPanel::drawGenerateCollisionShapePopup()
 {
+    // Opening from inside the context menu nests the modal in that popup and the
+    // menu item's own close takes it down with it, so the open is deferred here.
+    if (mMaskOpenPending)
+    {
+        ImGui::OpenPopup("Generate Collision Shape");
+        mMaskOpenPending = false;
+    }
     if (!ImGui::BeginPopupModal("Generate Collision Shape", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 

@@ -214,9 +214,6 @@ int TraceMaskContours(const unsigned char *pixels, int width, int height, int bp
         return false;
     };
 
-    const float halfWidth = (float)width * options.scale * 0.5f;
-    const float halfHeight = (float)height * options.scale * 0.5f;
-
     for (int y = 0; y <= height; ++y)
     {
         for (int x = 0; x <= width; ++x)
@@ -249,8 +246,7 @@ int TraceMaskContours(const unsigned char *pixels, int width, int height, int bp
                 ct::Vector<Math::Vec2> world;
                 world.reserve(simplified.size());
                 for (std::size_t i = 0; i < simplified.size(); ++i)
-                    world.push_back(Math::Vec2(simplified[i].x * options.scale - halfWidth,
-                                               simplified[i].y * options.scale - halfHeight));
+                    world.push_back(Math::Vec2(simplified[i].x * options.scale, simplified[i].y * options.scale));
                 outLoops.push_back(world);
             }
         }

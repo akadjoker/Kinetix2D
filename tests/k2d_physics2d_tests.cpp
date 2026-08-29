@@ -996,8 +996,18 @@ static bool testMaskContourTrace()
     islandChain->setPoints(loops[(std::size_t)islandIndex].data(), (int)loops[(std::size_t)islandIndex].size());
     islandChain->setLoop(true);
 
+    const ct::Vector<Math::Vec2>& hole = loops[(std::size_t)holeIndex];
+    float holeMinX = hole[0].x, holeMaxX = hole[0].x, holeMinY = hole[0].y, holeMaxY = hole[0].y;
+    for (std::size_t i = 1; i < hole.size(); ++i)
+    {
+        holeMinX = hole[i].x < holeMinX ? hole[i].x : holeMinX;
+        holeMaxX = hole[i].x > holeMaxX ? hole[i].x : holeMaxX;
+        holeMinY = hole[i].y < holeMinY ? hole[i].y : holeMinY;
+        holeMaxY = hole[i].y > holeMaxY ? hole[i].y : holeMaxY;
+    }
+
     k2d::GameObject* boat = scene.createObject("boat");
-    boat->setPosition(Math::Vec2(0.0f, 0.0f));
+    boat->setPosition(Math::Vec2((holeMinX + holeMaxX) * 0.5f, (holeMinY + holeMaxY) * 0.5f));
     k2d::RigidBody2D* boatBody = boat->addComponent<k2d::RigidBody2D>();
     boatBody->setBodyType(k2d::BodyType::Dynamic);
     boatBody->setBullet(true);
@@ -1010,7 +1020,8 @@ static bool testMaskContourTrace()
     for (int i = 0; i < 180; ++i)
         scene.update(1.0f / 60.0f);
 
-    const bool insideHole = std::fabs(boat->position().x) <= 20.5f && std::fabs(boat->position().y) <= 20.5f;
+    const bool insideHole = boat->position().x >= holeMinX - 0.5f && boat->position().x <= holeMaxX + 0.5f &&
+                            boat->position().y >= holeMinY - 0.5f && boat->position().y <= holeMaxY + 0.5f;
 
     std::printf("  mask_trace: boat position=(%.2f, %.2f) inside_hole=%s\n", boat->position().x, boat->position().y,
                 insideHole ? "yes" : "no");

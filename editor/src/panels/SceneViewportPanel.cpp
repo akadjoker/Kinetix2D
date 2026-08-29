@@ -54,6 +54,31 @@ constexpr float kGizmoAxisLength = 60.0f;
 constexpr float kGizmoHitRadius = 8.0f;
 constexpr float kGizmoCenterRadius = 8.0f;
 constexpr float kGizmoRingRadius = 46.0f;
+constexpr float kPointHandleHalfSize = 3.5f;
+constexpr float kPointHandleHitRadius = 6.0f;
+constexpr float kDegToRad = 0.01745329251f;
+
+int colliderPointCount(const Collider2D &collider)
+{
+    if (const ChainCollider2D *chain = dynamic_cast<const ChainCollider2D *>(&collider))
+        return static_cast<int>(chain->points().size());
+    if (const PolygonCollider2D *polygon = dynamic_cast<const PolygonCollider2D *>(&collider))
+        return static_cast<int>(polygon->points().size());
+    if (dynamic_cast<const EdgeCollider2D *>(&collider))
+        return 2;
+    return 0;
+}
+
+Math::Vec2 colliderPointAt(const Collider2D &collider, int index)
+{
+    if (const ChainCollider2D *chain = dynamic_cast<const ChainCollider2D *>(&collider))
+        return chain->points()[static_cast<size_t>(index)];
+    if (const PolygonCollider2D *polygon = dynamic_cast<const PolygonCollider2D *>(&collider))
+        return polygon->points()[static_cast<size_t>(index)];
+    if (const EdgeCollider2D *edge = dynamic_cast<const EdgeCollider2D *>(&collider))
+        return index == 0 ? edge->start() : edge->end();
+    return Math::Vec2(0.0f, 0.0f);
+}
 
 Skeleton2D *skeletonFor(GameObject *object)
 {
@@ -167,6 +192,81 @@ ImVec2 SceneViewportPanel::worldToScreen(float x, float y, const ImVec2& origin)
 Math::Vec2 SceneViewportPanel::screenToWorld(const ImVec2& screen, const ImVec2& origin) const
 {
     return Math::Vec2((screen.x - origin.x - mPan.x) / mZoom, (screen.y - origin.y - mPan.y) / mZoom);
+}
+
+ImVec2 SceneViewportPanel::objectLocalToScreen(GameObject& object, const Math::Vec2& local, const ImVec2& origin) const
+{
+    const Math::Vec2 world = object.globalPosition();
+    const Math::Vec2 scale = object.scale();
+    const float scaleX = fabsf(scale.x) > 0.0001f ? fabsf(scale.x) : 1.0f;
+    const float scaleY = fabsf(scale.y) > 0.0001f ? fabsf(scale.y) : 1.0f;
+    const float angle = object.rotationDegrees() * kDegToRad;
+    const float cosA = cosf(angle);
+    const float sinA = sinf(angle);
+    const float sx = local.x * scaleX;
+    const float sy = local.y * scaleY;
+    return worldToScreen(world.x + sx * cosA - sy * sinA, world.y + sx * sinA + sy * cosA, origin);
+}
+
+Math::Vec2 SceneViewportPanel::screenToObjectLocal(GameObject& object, const ImVec2& screen, const ImVec2& origin) const
+{
+    const Math::Vec2 world = screenToWorld(screen, origin);
+    const Math::Vec2 objectWorld = object.globalPosition();
+    const float dx = world.x - objectWorld.x;
+    const float dy = world.y - objectWorld.y;
+    const float angle = object.rotationDegrees() * kDegToRad;
+    const float cosA = cosf(angle);
+    const float sinA = sinf(angle);
+    const float rx = dx * cosA + dy * sinA;
+    const float ry = -dx * sinA + dy * cosA;
+    const Math::Vec2 scale = object.scale();
+    const float scaleX = fabsf(scale.x) > 0.0001f ? fabsf(scale.x) : 1.0f;
+    const float scaleY = fabsf(scale.y) > 0.0001f ? fabsf(scale.y) : 1.0f;
+    return Math::Vec2(rx / scaleX, ry / scaleY);
+}
+
+int SceneViewportPanel::hitTestColliderPoint(GameObject& object, Collider2D& collider, const ImVec2& mouse,
+                                             const ImVec2& origin) const
+{
+    const Math::Vec2 offset = collider.offset();
+    const int count = colliderPointCount(collider);
+    for (int p = 0; p < count; ++p)
+    {
+        const Math::Vec2 raw = colliderPointAt(collider, p);
+        const ImVec2 screen = objectLocalToScreen(object, Math::Vec2(raw.x + offset.x, raw.y + offset.y), origin);
+        const float dx = mouse.x - screen.x;
+        const float dy = mouse.y - screen.y;
+        if (dx * dx + dy * dy <= kPointHandleHitRadius * kPointHandleHitRadius)
+            return p;
+    }
+    return -1;
+}
+
+void SceneViewportPanel::applyColliderPointDrag(Collider2D& collider, int index, const Math::Vec2& localPoint)
+{
+    if (ChainCollider2D* chain = dynamic_cast<ChainCollider2D*>(&collider))
+    {
+        mPointDragScratch.resize(chain->points().size());
+        for (size_t i = 0; i < mPointDragScratch.size(); ++i)
+            mPointDragScratch[i] = chain->points()[i];
+        mPointDragScratch[static_cast<size_t>(index)] = localPoint;
+        chain->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+    }
+    else if (PolygonCollider2D* polygon = dynamic_cast<PolygonCollider2D*>(&collider))
+    {
+        mPointDragScratch.resize(polygon->points().size());
+        for (size_t i = 0; i < mPointDragScratch.size(); ++i)
+            mPointDragScratch[i] = polygon->points()[i];
+        mPointDragScratch[static_cast<size_t>(index)] = localPoint;
+        polygon->setPoints(mPointDragScratch.data(), static_cast<int>(mPointDragScratch.size()));
+    }
+    else if (EdgeCollider2D* edge = dynamic_cast<EdgeCollider2D*>(&collider))
+    {
+        if (index == 0)
+            edge->setPoints(localPoint, edge->end());
+        else
+            edge->setPoints(edge->start(), localPoint);
+    }
 }
 
 void SceneViewportPanel::handlePrefabDrop(const ImVec2& origin)
@@ -312,7 +412,7 @@ void SceneViewportPanel::drawObject(ImDrawList& drawList, GameObject& object, co
         drawObject(drawList, *object.child(i), origin);
 }
 
-void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object, const ImVec2& origin) const
+void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object, const ImVec2& origin)
 {
     const size_t count = object.componentCount<Collider2D>();
     if (count > 0)
@@ -322,7 +422,7 @@ void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object,
         const Math::Vec2 scale = object.scale();
         const float scaleX = fabsf(scale.x) > 0.0001f ? fabsf(scale.x) : 1.0f;
         const float scaleY = fabsf(scale.y) > 0.0001f ? fabsf(scale.y) : 1.0f;
-        const float angle = object.rotationDegrees() * 0.01745329251f;
+        const float angle = object.rotationDegrees() * kDegToRad;
         const float cosA = cosf(angle);
         const float sinA = sinf(angle);
 
@@ -333,9 +433,13 @@ void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object,
             return worldToScreen(world.x + sx * cosA - sy * sinA, world.y + sx * sinA + sy * cosA, origin);
         };
 
+        const bool objectSelected = app().selection().hasSelection() && app().selection().objectId() == object.id();
+        const uint32_t selectedComponentId = app().selection().componentId();
+        const ImVec2 mousePos = ImGui::GetIO().MousePos;
+
         for (size_t i = 0; i < count; ++i)
         {
-            const Collider2D* collider = object.getComponentAt<Collider2D>(i);
+            Collider2D* collider = object.getComponentAt<Collider2D>(i);
             if (!collider || !collider->active())
                 continue;
 
@@ -387,6 +491,26 @@ void SceneViewportPanel::drawColliders(ImDrawList& drawList, GameObject& object,
                     const Math::Vec2& b = points[(p + 1) % points.size()];
                     drawList.AddLine(place(a.x + offset.x, a.y + offset.y), place(b.x + offset.x, b.y + offset.y),
                                      color, 1.6f);
+                }
+            }
+
+            if (objectSelected && selectedComponentId != 0 && collider->id() == selectedComponentId)
+            {
+                const int pointCount = colliderPointCount(*collider);
+                for (int p = 0; p < pointCount; ++p)
+                {
+                    const Math::Vec2 raw = colliderPointAt(*collider, p);
+                    const ImVec2 screen = place(raw.x + offset.x, raw.y + offset.y);
+                    const float dx = mousePos.x - screen.x;
+                    const float dy = mousePos.y - screen.y;
+                    const bool hovered = (dx * dx + dy * dy) <= kPointHandleHitRadius * kPointHandleHitRadius;
+                    const bool dragging = mDraggedPointCollider == collider && mDraggedPointIndex == p;
+                    const ImU32 handleColor = dragging   ? IM_COL32(255, 235, 120, 255)
+                                              : hovered   ? IM_COL32(255, 255, 255, 255)
+                                                          : IM_COL32(255, 205, 65, 220);
+                    drawList.AddRectFilled(ImVec2(screen.x - kPointHandleHalfSize, screen.y - kPointHandleHalfSize),
+                                           ImVec2(screen.x + kPointHandleHalfSize, screen.y + kPointHandleHalfSize),
+                                           handleColor);
                 }
             }
         }
@@ -563,11 +687,26 @@ void SceneViewportPanel::drawContents()
         drawColliders(drawList, app().scene().root(), origin);
 
     GameObject* selected = app().selection().resolve(app().scene());
-    const bool gizmoActive =
-        selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 && mTool <= 3;
+    const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 &&
+                             mTool <= 3 && !mDraggedPointCollider;
     if (gizmoActive)
         drawGizmo(drawList, *selected, origin);
     drawList.PopClipRect();
+
+    Collider2D* selectedCollider = nullptr;
+    if (selected && app().selection().componentId() != 0)
+    {
+        const size_t colliderCount = selected->componentCount<Collider2D>();
+        for (size_t i = 0; i < colliderCount; ++i)
+        {
+            Collider2D* candidate = selected->getComponentAt<Collider2D>(i);
+            if (candidate && candidate->id() == app().selection().componentId())
+            {
+                selectedCollider = candidate;
+                break;
+            }
+        }
+    }
 
     ImGui::InvisibleButton("##scene_canvas", size,
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
@@ -586,8 +725,18 @@ void SceneViewportPanel::drawContents()
         mZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
     if (hovered && mTool != 4 && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
     {
-        const int hitAxis = gizmoActive ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin) : -1;
-        if (hitAxis != -1)
+        const int hitPoint = selectedCollider
+                                 ? hitTestColliderPoint(*selected, *selectedCollider, ImGui::GetIO().MousePos, origin)
+                                 : -1;
+        const int hitAxis = (hitPoint == -1 && gizmoActive) ? hitTestGizmo(*selected, ImGui::GetIO().MousePos, origin)
+                                                            : -1;
+        if (hitPoint != -1)
+        {
+            mDraggedPointCollider = selectedCollider;
+            mDraggedPointIndex = hitPoint;
+            app().beginTransaction("Move Collider Point", app().beginChange());
+        }
+        else if (hitAxis != -1)
         {
             mGizmoAxis = hitAxis;
             mGizmoStartPosition = selected->position();
@@ -660,6 +809,26 @@ void SceneViewportPanel::drawContents()
         }
     }
 
+    if (hovered && mDraggedPointCollider && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        GameObject* pointObject = mDraggedPointCollider->owner();
+        if (pointObject)
+        {
+            Math::Vec2 local = screenToObjectLocal(*pointObject, ImGui::GetIO().MousePos, origin);
+            const Math::Vec2 offset = mDraggedPointCollider->offset();
+            local.x -= offset.x;
+            local.y -= offset.y;
+            if (mSnap)
+            {
+                if (mGridSize.x > 0.0f)
+                    local.x = roundf(local.x / mGridSize.x) * mGridSize.x;
+                if (mGridSize.y > 0.0f)
+                    local.y = roundf(local.y / mGridSize.y) * mGridSize.y;
+            }
+            applyColliderPointDrag(*mDraggedPointCollider, mDraggedPointIndex, local);
+        }
+    }
+
     if (hovered && mDraggedBone && mGizmoAxis == -1 && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         GameObject* boneObject = mDraggedBone->owner();
@@ -690,6 +859,12 @@ void SceneViewportPanel::drawContents()
         if (mGizmoAxis != -1)
             app().commitTransaction();
         mGizmoAxis = -1;
+        if (mDraggedPointCollider)
+        {
+            app().commitTransaction();
+            mDraggedPointCollider = nullptr;
+            mDraggedPointIndex = -1;
+        }
     }
 }
 

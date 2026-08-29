@@ -4,11 +4,14 @@
 
 #include <k2d/CanvasRenderer.h>
 
+#include <ct/vector.hpp>
+
 #include <mathc.h>
 
 namespace k2d
 {
 class Bone2D;
+class Collider2D;
 class GameObject;
 }
 
@@ -25,7 +28,7 @@ private:
     void drawContents() override;
     void drawGrid(ImDrawList &drawList, const ImVec2 &min, const ImVec2 &max) const;
     void drawObject(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
-    void drawColliders(ImDrawList &drawList, GameObject &object, const ImVec2 &origin) const;
+    void drawColliders(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
     void pickObject(GameObject &object, const ImVec2 &mouse, const ImVec2 &origin,
                     GameObject *&best, float &bestDistance);
     ImVec2 worldToScreen(float x, float y, const ImVec2 &origin) const;
@@ -36,6 +39,12 @@ private:
 
     void drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;
     int hitTestGizmo(GameObject &selected, const ImVec2 &mouse, const ImVec2 &origin) const;
+
+    ImVec2 objectLocalToScreen(GameObject &object, const Math::Vec2 &local, const ImVec2 &origin) const;
+    Math::Vec2 screenToObjectLocal(GameObject &object, const ImVec2 &screen, const ImVec2 &origin) const;
+    int hitTestColliderPoint(GameObject &object, Collider2D &collider, const ImVec2 &mouse,
+                             const ImVec2 &origin) const;
+    void applyColliderPointDrag(Collider2D &collider, int index, const Math::Vec2 &localPoint);
 
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
@@ -54,6 +63,10 @@ private:
     Bone2D *mDraggedBone = nullptr;
     float mDraggedBoneStartRotation = 0.0f;
     bool mDraggedBoneMoved = false;
+
+    Collider2D *mDraggedPointCollider = nullptr;
+    int mDraggedPointIndex = -1;
+    ct::Vector<Math::Vec2> mPointDragScratch;
 
     CanvasRenderer mCanvas;
     bool mCanvasInitialized = false;

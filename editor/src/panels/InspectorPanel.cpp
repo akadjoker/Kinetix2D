@@ -1378,6 +1378,25 @@ void drawColliderShared(EditorApplication& app, Collider2D& collider)
         const uint16_t newMask = static_cast<uint16_t>(mask);
         applyInstant(app, "Set Collider Filter", [&] { collider.setFilter(newCategory, newMask); });
     }
+
+    ImGui::Separator();
+    GameObject* owner = collider.owner();
+    RigidBody2D* body = owner ? owner->getComponent<RigidBody2D>() : nullptr;
+    ImGui::BeginDisabled(body == nullptr);
+    if (ImGui::Button(ICON_MDI_HAMMER " Build"))
+    {
+        Scene* scene = owner->scene();
+        if (scene)
+            scene->buildBodyShapes(*body);
+        char buffer[64];
+        std::snprintf(buffer, sizeof(buffer), "Collider built: %d shape(s) on body", body->ShapeCount());
+        app.log(buffer);
+        app.toasts().success(buffer);
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(body ? "Rebuild this body's physics shapes from the current collider data"
+                               : "No RigidBody2D on this object - add one to build shapes");
 }
 
 void drawBoxColliderProperties(EditorApplication& app, BoxCollider2D& collider)
@@ -2766,10 +2785,20 @@ void InspectorPanel::drawContents()
                 app().commitChange(componentActive ? "Enable Component" : "Disable Component", before);
             }
             ImGui::SameLine();
+            const bool componentSelected = app().selection().componentId() == component->id();
+            if (componentSelected)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+            }
             const bool open = ImGui::TreeNodeEx("##header",
                                                 ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed |
                                                     ImGuiTreeNodeFlags_SpanAvailWidth,
                                                 "%s  #%u", componentName(*component), component->id());
+            if (componentSelected)
+                ImGui::PopStyleColor(2);
+            if (ImGui::IsItemClicked())
+                app().selection().selectComponent(component->id());
             if (open)
             {
                 ImGui::Indent();

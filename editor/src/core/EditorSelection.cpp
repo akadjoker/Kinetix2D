@@ -24,12 +24,14 @@ void EditorSelection::select(const GameObject *object)
     mIds.clear();
     if (object)
         mIds.push_back(object->id());
+    mComponentId = 0;
 }
 
 void EditorSelection::selectId(uint64_t objectId)
 {
     mIds.clear();
     mIds.push_back(objectId);
+    mComponentId = 0;
 }
 
 void EditorSelection::toggle(const GameObject *object)
@@ -53,6 +55,7 @@ void EditorSelection::toggle(const GameObject *object)
 void EditorSelection::clear()
 {
     mIds.clear();
+    mComponentId = 0;
 }
 
 bool EditorSelection::isSelected(uint64_t id) const
