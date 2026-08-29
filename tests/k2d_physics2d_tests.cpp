@@ -739,6 +739,89 @@ static bool testJointSerializerRoundTrip()
     return ok;
 }
 
+// The editor authoring flow: point + platform wired by name, serialized and
+// reloaded like startPlay does, then simulated.
+static bool testSceneJointAuthoringFlow()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject* point = source.createObject("point");
+    point->setPosition(Math::Vec2(0.0f, 0.0f));
+    point->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    point->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(10.0f, 10.0f));
+
+    k2d::GameObject* platform = source.createObject("platform");
+    platform->setPosition(Math::Vec2(0.0f, 150.0f));
+    platform->addComponent<k2d::RigidBody2D>();
+    platform->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(80.0f, 20.0f));
+
+    k2d::DistanceJoint2D* joint = point->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("platform");
+
+    const ct::Json rootJson = k2d::Serializer::WriteObject(source.root());
+
+    k2d::Scene target;
+    const ct::Json& children = rootJson["children"];
+    bool ok = children.is_array();
+    if (ok)
+        for (size_t i = 0; i < children.size(); ++i)
+            k2d::Serializer::ReadObject(target, children[i], &target.root());
+
+    k2d::GameObject* loadedPoint = target.find("point");
+    k2d::GameObject* loadedPlatform = target.find("platform");
+    ok = ok && loadedPoint && loadedPlatform;
+
+    k2d::DistanceJoint2D* loadedJoint = ok ? loadedPoint->getComponent<k2d::DistanceJoint2D>() : nullptr;
+    ok = ok && loadedJoint && loadedJoint->targetName() == ct::String("platform");
+    ok = ok && loadedJoint && !loadedJoint->isConnected();
+
+    target.setGravity(Math::Vec2(0.0f, 980.0f));
+    target.setSimulationEnabled(true);
+
+    for (int i = 0; i < 120; ++i)
+        target.update(1.0f / 60.0f);
+
+    float distance = -1.0f;
+    if (ok)
+    {
+        const float dx = loadedPlatform->position().x - loadedPoint->position().x;
+        const float dy = loadedPlatform->position().y - loadedPoint->position().y;
+        distance = std::sqrt(dx * dx + dy * dy);
+    }
+
+    const bool connected = ok && loadedJoint->isConnected();
+    ok = ok && connected && nearEqual(distance, 150.0f, 3.0f);
+
+    // Stop and replay: a fresh runtime scene from the same authored source
+    // must reproduce the same result.
+    k2d::Scene replay;
+    if (ok)
+    {
+        for (size_t i = 0; i < children.size(); ++i)
+            k2d::Serializer::ReadObject(replay, children[i], &replay.root());
+        replay.setGravity(Math::Vec2(0.0f, 980.0f));
+        replay.setSimulationEnabled(true);
+        for (int i = 0; i < 120; ++i)
+            replay.update(1.0f / 60.0f);
+
+        k2d::GameObject* replayPoint = replay.find("point");
+        k2d::GameObject* replayPlatform = replay.find("platform");
+        ok = ok && replayPoint && replayPlatform;
+        if (ok)
+        {
+            const float dx = replayPlatform->position().x - replayPoint->position().x;
+            const float dy = replayPlatform->position().y - replayPoint->position().y;
+            const float replayDistance = std::sqrt(dx * dx + dy * dy);
+            ok = ok && nearEqual(replayDistance, distance, 0.5f);
+        }
+    }
+
+    std::printf("  scene_joint_flow: distance=%.2f (expected ~150.0) connected=%s\n", distance,
+               connected ? "yes" : "no");
+    return ok;
+}
+
 static bool testSerializerRoundTrip()
 {
     k2d::RegisterPhysics2DSerializers();
@@ -869,11 +952,13 @@ int main()
     const bool distanceJoint = testDistanceJointKeepsDistance();
     const bool revoluteJoint = testRevoluteJointMotorRotates();
     const bool jointSerialized = testJointSerializerRoundTrip();
+    const bool jointAuthoringFlow = testSceneJointAuthoringFlow();
 
     std::printf("physics2d: falls=%s tilemap=%s contacts=%s sensor=%s queries=%s character=%s static_follow=%s "
                 "velocity=%s determinism=%s destroy=%s late_spawn=%s collider_change=%s "
                 "live_type=%s collider_world=%s filters=%s point_query=%s circle=%s edge=%s polygon=%s "
-                "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s\n",
+                "chain=%s compound=%s serializer=%s distance_joint=%s revolute_joint=%s joint_serializer=%s "
+                "joint_authoring_flow=%s\n",
                 falls ? "pass" : "fail", tileMap ? "pass" : "fail", contacts ? "pass" : "fail",
                 sensor ? "pass" : "fail", queries ? "pass" : "fail", character ? "pass" : "fail",
                 staticFollow ? "pass" : "fail", velocity ? "pass" : "fail", deterministic ? "pass" : "fail",
@@ -882,11 +967,12 @@ int main()
                 pointQuery ? "pass" : "fail",
                 circle ? "pass" : "fail", edge ? "pass" : "fail", polygon ? "pass" : "fail", chain ? "pass" : "fail",
                 compound ? "pass" : "fail", serialized ? "pass" : "fail", distanceJoint ? "pass" : "fail",
-                revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail");
+                revoluteJoint ? "pass" : "fail", jointSerialized ? "pass" : "fail",
+                jointAuthoringFlow ? "pass" : "fail");
     return falls && tileMap && contacts && sensor && queries && character && staticFollow && velocity &&
                    deterministic && destroy && lateSpawn && colliderChange && liveType && colliderWorld && filters && pointQuery &&
                    circle && edge && polygon && chain && compound && serialized && distanceJoint && revoluteJoint &&
-                   jointSerialized
+                   jointSerialized && jointAuthoringFlow
                ? 0
                : 1;
 }

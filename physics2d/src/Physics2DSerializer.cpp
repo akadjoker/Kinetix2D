@@ -344,6 +344,7 @@ void writeDistanceJoint(const Component& component, ct::Json& data, Assets*)
     data.set("maxLength", ct::Json((double)joint.maxLength()));
     data.set("springFrequency", ct::Json((double)joint.springFrequency()));
     data.set("springDamping", ct::Json((double)joint.springDamping()));
+    data.set("lengthConfigured", ct::Json(joint.lengthConfigured()));
 }
 
 void readDistanceJoint(Component& component, const ct::Json& data, Assets*)
@@ -355,6 +356,7 @@ void readDistanceJoint(Component& component, const ct::Json& data, Assets*)
     joint.setLength((float)data["length"].as_double(100.0));
     joint.setLengthRange((float)data["minLength"].as_double(100.0), (float)data["maxLength"].as_double(100.0));
     joint.setSpring((float)data["springFrequency"].as_double(0.0), (float)data["springDamping"].as_double(0.0));
+    joint.setLengthConfigured(data["lengthConfigured"].as_bool(true));
 }
 
 bool isDistanceJoint(const Component& component)
@@ -380,6 +382,7 @@ void writeRevoluteJoint(const Component& component, ct::Json& data, Assets*)
     data.set("limitEnabled", ct::Json(joint.limitEnabled()));
     data.set("lowerAngle", ct::Json((double)joint.lowerAngle()));
     data.set("upperAngle", ct::Json((double)joint.upperAngle()));
+    data.set("anchorsConfigured", ct::Json(joint.anchorsConfigured()));
 }
 
 void readRevoluteJoint(Component& component, const ct::Json& data, Assets*)
@@ -393,6 +396,7 @@ void readRevoluteJoint(Component& component, const ct::Json& data, Assets*)
                   (float)data["maxMotorTorque"].as_double(0.0));
     joint.setLimits(data["limitEnabled"].as_bool(false), (float)data["lowerAngle"].as_double(0.0),
                     (float)data["upperAngle"].as_double(0.0));
+    joint.setAnchorsConfigured(data["anchorsConfigured"].as_bool(true));
 }
 
 bool isRevoluteJoint(const Component& component)
@@ -412,6 +416,7 @@ void writeWheelJoint(const Component& component, ct::Json& data, Assets*)
     data.set("localAnchorA", writeVec2(joint.localAnchorA()));
     data.set("localAnchorB", writeVec2(joint.localAnchorB()));
     data.set("localAxisA", writeVec2(joint.localAxisA()));
+    data.set("anchorsConfigured", ct::Json(joint.anchorsConfigured()));
     data.set("motorEnabled", ct::Json(joint.motorEnabled()));
     data.set("motorSpeed", ct::Json((double)joint.motorSpeed()));
     data.set("maxMotorTorque", ct::Json((double)joint.maxMotorTorque()));
@@ -429,6 +434,7 @@ void readWheelJoint(Component& component, const ct::Json& data, Assets*)
     joint.setMotor(data["motorEnabled"].as_bool(false), (float)data["motorSpeed"].as_double(0.0),
                   (float)data["maxMotorTorque"].as_double(0.0));
     joint.setSpring((float)data["springFrequency"].as_double(4.0), (float)data["springDamping"].as_double(0.7));
+    joint.setAnchorsConfigured(data["anchorsConfigured"].as_bool(true));
 }
 
 bool isWheelJoint(const Component& component)

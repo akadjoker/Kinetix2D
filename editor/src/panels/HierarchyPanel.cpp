@@ -93,6 +93,14 @@ void HierarchyPanel::drawContents()
 
     ImGui::Separator();
     drawObject(app().scene().root());
+
+    const ImVec2 blank = ImGui::GetContentRegionAvail();
+    if (blank.y > 0.0f)
+    {
+        ImGui::InvisibleButton("##hierarchy_blank", ImVec2(blank.x > 0.0f ? blank.x : 1.0f, blank.y));
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            app().selection().clear();
+    }
 }
 
 bool HierarchyPanel::subtreeMatchesFilter(GameObject &object) const

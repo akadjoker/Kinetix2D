@@ -8,12 +8,19 @@ namespace k2d
 {
 
 WheelJoint2D::WheelJoint2D()
-    : mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mLocalXAxisA(0.0f, 1.0f),
+    : mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mAnchorsConfigured(false), mLocalXAxisA(0.0f, 1.0f),
       mLocalYAxisA(Cross(1.0f, mLocalXAxisA)), mImpulse(0.0f), mMotorImpulse(0.0f), mSpringImpulse(0.0f),
       mMaxMotorTorque(0.0f), mMotorSpeed(0.0f), mEnableMotor(false), mSpringFrequency(4.0f), mSpringDamping(0.7f),
       mStiffness(0.0f), mDamping(0.0f), mAx(0.0f, 0.0f), mAy(0.0f, 0.0f), mSAx(0.0f), mSBx(0.0f), mSAy(0.0f),
       mSBy(0.0f), mMass(0.0f), mMotorMass(0.0f), mAxialMass(0.0f), mSpringMass(0.0f), mBias(0.0f), mGamma(0.0f)
 {
+}
+
+void WheelJoint2D::onConnected()
+{
+    if (mAnchorsConfigured)
+        return;
+    mLocalAnchorB = InvTransformPoint(mBodyB->GetTransform(), anchorA());
 }
 
 void WheelJoint2D::setLocalAxisA(const Math::Vec2 &axis)

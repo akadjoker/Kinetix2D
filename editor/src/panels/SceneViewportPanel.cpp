@@ -600,7 +600,9 @@ void SceneViewportPanel::drawContents()
             mGizmoAxis = -1;
             GameObject* best = nullptr;
             float bestDistance = 14.0f;
-            pickObject(app().scene().root(), ImGui::GetIO().MousePos, origin, best, bestDistance);
+            GameObject& pickRoot = app().scene().root();
+            for (size_t i = 0; i < pickRoot.childCount(); ++i)
+                pickObject(*pickRoot.child(i), ImGui::GetIO().MousePos, origin, best, bestDistance);
             app().selection().select(best);
             mDraggedBone = best ? best->getComponent<Bone2D>() : nullptr;
             mDraggedBoneMoved = false;

@@ -11,9 +11,19 @@ namespace k2d
         WheelJoint2D();
 
         const Math::Vec2 &localAnchorA() const { return mLocalAnchorA; }
-        void setLocalAnchorA(const Math::Vec2 &anchor) { mLocalAnchorA = anchor; }
+        void setLocalAnchorA(const Math::Vec2 &anchor)
+        {
+            mLocalAnchorA = anchor;
+            mAnchorsConfigured = true;
+        }
         const Math::Vec2 &localAnchorB() const { return mLocalAnchorB; }
-        void setLocalAnchorB(const Math::Vec2 &anchor) { mLocalAnchorB = anchor; }
+        void setLocalAnchorB(const Math::Vec2 &anchor)
+        {
+            mLocalAnchorB = anchor;
+            mAnchorsConfigured = true;
+        }
+        bool anchorsConfigured() const { return mAnchorsConfigured; }
+        void setAnchorsConfigured(bool configured) { mAnchorsConfigured = configured; }
         const Math::Vec2 &localAxisA() const { return mLocalXAxisA; }
         void setLocalAxisA(const Math::Vec2 &axis);
 
@@ -30,6 +40,7 @@ namespace k2d
         Math::Vec2 anchorB() const override;
 
     protected:
+        void onConnected() override;
         void initVelocity(float dt) override;
         void solveVelocity(float dt) override;
         bool solvePosition() override;
@@ -37,6 +48,8 @@ namespace k2d
     private:
         Math::Vec2 mLocalAnchorA;
         Math::Vec2 mLocalAnchorB;
+        // Unset means onConnected() derives anchor B from the authored placement.
+        bool mAnchorsConfigured;
         Math::Vec2 mLocalXAxisA;
         Math::Vec2 mLocalYAxisA;
 

@@ -67,6 +67,37 @@ GameObject* findById(GameObject& object, uint64_t id)
     return nullptr;
 }
 
+struct JointDropFeedback
+{
+    const void* joint = nullptr;
+    ct::String message;
+    double expiresAt = 0.0;
+};
+
+JointDropFeedback& jointDropFeedback()
+{
+    static JointDropFeedback feedback;
+    return feedback;
+}
+
+void rejectJointDrop(const void* joint, const ct::String& objectName, const char* reason)
+{
+    JointDropFeedback& feedback = jointDropFeedback();
+    feedback.joint = joint;
+    feedback.message = ct::String("'");
+    feedback.message += objectName;
+    feedback.message += "' ";
+    feedback.message += reason;
+    feedback.expiresAt = ImGui::GetTime() + 4.0;
+}
+
+void drawJointDropFeedback(const void* joint)
+{
+    JointDropFeedback& feedback = jointDropFeedback();
+    if (feedback.joint == joint && ImGui::GetTime() < feedback.expiresAt)
+        ImGui::TextColored(ImVec4(0.95f, 0.35f, 0.35f, 1.0f), "%s", feedback.message.c_str());
+}
+
 const char* componentName(ComponentType type)
 {
     static const char* names[] = {"Sprite",
@@ -1419,8 +1450,26 @@ void drawJointShared(EditorApplication& app, Joint2D& joint)
     std::snprintf(nameBuffer, sizeof(nameBuffer), "%s", joint.targetName().c_str());
     if (ImGui::InputText("Target Object", nameBuffer, sizeof(nameBuffer)))
         applyInstant(app, "Set Joint Target", [&] { joint.setTargetName(nameBuffer); });
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            if (GameObject* dragged = findById(app.scene().root(), draggedId))
+            {
+                if (dragged->getComponent<RigidBody2D>())
+                    applyInstant(app, "Set Joint Target", [&] { joint.setTargetName(dragged->name().c_str()); });
+                else
+                    rejectJointDrop(&joint, dragged->name(), "has no RigidBody2D - drop rejected");
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Name of the other GameObject's RigidBody2D, resolved once when Play starts");
+        ImGui::SetTooltip("Drag a GameObject here from Hierarchy, or type its name. Resolved once when Play starts.");
+    if (joint.targetName().empty())
+        ImGui::TextDisabled("Drop a GameObject here");
+    drawJointDropFeedback(&joint);
 
     bool collideConnected = joint.collideConnected();
     if (ImGui::Checkbox("Collide Connected", &collideConnected))
@@ -1441,6 +1490,8 @@ void drawDistanceJointProperties(EditorApplication& app, DistanceJoint2D& joint)
     float length = joint.length();
     if (dragFloatProperty(app, "Length", length, 0.5f, "Set Distance Joint Length", 0.0f, 100000.0f))
         joint.setLength(length);
+    if (!joint.lengthConfigured())
+        ImGui::TextDisabled("Length will be derived from the current gap between the bodies when Play connects this joint.");
 
     float minLength = joint.minLength();
     float maxLength = joint.maxLength();
@@ -1465,10 +1516,18 @@ void drawRevoluteJointProperties(EditorApplication& app, RevoluteJoint2D& joint)
 {
     Math::Vec2 anchorA = joint.localAnchorA();
     if (dragVec2(app, "Local Anchor A", anchorA, 0.5f, "Set Revolute Joint Anchor A"))
+    {
         joint.setLocalAnchorA(anchorA);
+        joint.setAnchorsConfigured(true);
+    }
     Math::Vec2 anchorB = joint.localAnchorB();
     if (dragVec2(app, "Local Anchor B", anchorB, 0.5f, "Set Revolute Joint Anchor B"))
+    {
         joint.setLocalAnchorB(anchorB);
+        joint.setAnchorsConfigured(true);
+    }
+    if (!joint.anchorsConfigured())
+        ImGui::TextDisabled("Anchor B will be derived from Anchor A's position when Play connects this joint.");
     float referenceAngle = joint.referenceAngle();
     if (dragFloatProperty(app, "Reference Angle", referenceAngle, 0.01f, "Set Revolute Joint Reference Angle", -6.3f, 6.3f))
         joint.setReferenceAngle(referenceAngle);
@@ -1502,6 +1561,8 @@ void drawWheelJointProperties(EditorApplication& app, WheelJoint2D& joint)
     Math::Vec2 anchorB = joint.localAnchorB();
     if (dragVec2(app, "Local Anchor B", anchorB, 0.5f, "Set Wheel Joint Anchor B"))
         joint.setLocalAnchorB(anchorB);
+    if (!joint.anchorsConfigured())
+        ImGui::TextDisabled("Anchor B is derived from the current placement when Play connects this joint.");
     Math::Vec2 axis = joint.localAxisA();
     if (dragVec2(app, "Local Axis A", axis, 0.05f, "Set Wheel Joint Axis"))
         joint.setLocalAxisA(axis);
@@ -1576,6 +1637,28 @@ void drawGearJointProperties(EditorApplication& app, GearJoint2D& joint)
     std::snprintf(nameA, sizeof(nameA), "%s", joint.jointATargetName().c_str());
     int indexA = joint.jointAIndex();
     bool changedA = ImGui::InputText("Joint A Object", nameA, sizeof(nameA));
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            if (GameObject* dragged = findById(app.scene().root(), draggedId))
+            {
+                if (dragged->getComponent<RevoluteJoint2D>())
+                {
+                    std::snprintf(nameA, sizeof(nameA), "%s", dragged->name().c_str());
+                    changedA = true;
+                }
+                else
+                {
+                    rejectJointDrop(&joint, dragged->name(), "has no RevoluteJoint2D - drop rejected");
+                }
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (nameA[0] == '\0')
+        ImGui::TextDisabled("Drop a GameObject with a RevoluteJoint2D here");
     changedA |= ImGui::InputInt("Joint A Index", &indexA);
     if (changedA)
         applyInstant(app, "Set Gear Joint A", [&] { joint.setJointA(nameA, indexA); });
@@ -1584,12 +1667,34 @@ void drawGearJointProperties(EditorApplication& app, GearJoint2D& joint)
     std::snprintf(nameB, sizeof(nameB), "%s", joint.jointBTargetName().c_str());
     int indexB = joint.jointBIndex();
     bool changedB = ImGui::InputText("Joint B Object", nameB, sizeof(nameB));
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kNodeDragDropPayload))
+        {
+            const uint64_t draggedId = *static_cast<const uint64_t*>(payload->Data);
+            if (GameObject* dragged = findById(app.scene().root(), draggedId))
+            {
+                if (dragged->getComponent<RevoluteJoint2D>())
+                {
+                    std::snprintf(nameB, sizeof(nameB), "%s", dragged->name().c_str());
+                    changedB = true;
+                }
+                else
+                {
+                    rejectJointDrop(&joint, dragged->name(), "has no RevoluteJoint2D - drop rejected");
+                }
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (nameB[0] == '\0')
+        ImGui::TextDisabled("Drop a GameObject with a RevoluteJoint2D here");
     changedB |= ImGui::InputInt("Joint B Index", &indexB);
     if (changedB)
         applyInstant(app, "Set Gear Joint B", [&] { joint.setJointB(nameB, indexB); });
 
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Each names a GameObject and which RevoluteJoint2D on it (0-based)");
+    ImGui::TextDisabled("Each names a GameObject and which RevoluteJoint2D on it (0-based)");
+    drawJointDropFeedback(&joint);
 
     float ratio = joint.ratio();
     if (dragFloatProperty(app, "Ratio", ratio, 0.05f, "Set Gear Joint Ratio", -100.0f, 100.0f))

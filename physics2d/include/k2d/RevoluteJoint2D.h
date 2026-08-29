@@ -14,6 +14,11 @@ namespace k2d
         void setLocalAnchorA(const Math::Vec2 &anchor) { mLocalAnchorA = anchor; }
         const Math::Vec2 &localAnchorB() const { return mLocalAnchorB; }
         void setLocalAnchorB(const Math::Vec2 &anchor) { mLocalAnchorB = anchor; }
+
+        // Unset means onConnected() derives anchor B from the authored placement.
+        bool anchorsConfigured() const { return mAnchorsConfigured; }
+        void setAnchorsConfigured(bool configured) { mAnchorsConfigured = configured; }
+
         float referenceAngle() const { return mReferenceAngle; }
         void setReferenceAngle(float angle) { mReferenceAngle = angle; }
 
@@ -31,6 +36,8 @@ namespace k2d
         Math::Vec2 anchorB() const override;
 
     protected:
+        void onConnected() override;
+
         void initVelocity(float dt) override;
         void solveVelocity(float dt) override;
         bool solvePosition() override;
@@ -40,6 +47,7 @@ namespace k2d
 
         Math::Vec2 mLocalAnchorA;
         Math::Vec2 mLocalAnchorB;
+        bool mAnchorsConfigured;
         float mReferenceAngle;
 
         Math::Vec2 mImpulse;

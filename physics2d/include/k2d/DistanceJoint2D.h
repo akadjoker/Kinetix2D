@@ -25,10 +25,16 @@ namespace k2d
         float springDamping() const { return mSpringDamping; }
         void setSpring(float frequencyHz, float dampingRatio);
 
+        // Unset means onConnected() derives the length from the authored gap.
+        bool lengthConfigured() const { return mLengthConfigured; }
+        void setLengthConfigured(bool configured) { mLengthConfigured = configured; }
+
         Math::Vec2 anchorA() const override;
         Math::Vec2 anchorB() const override;
 
     protected:
+        void onConnected() override;
+
         void initVelocity(float dt) override;
         void solveVelocity(float dt) override;
         bool solvePosition() override;
@@ -39,6 +45,7 @@ namespace k2d
         float mLength;
         float mMinLength;
         float mMaxLength;
+        bool mLengthConfigured;
         float mSpringFrequency;
         float mSpringDamping;
 

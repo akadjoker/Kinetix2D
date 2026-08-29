@@ -9,15 +9,16 @@ namespace k2d
 
 DistanceJoint2D::DistanceJoint2D()
     : mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mLength(100.0f), mMinLength(100.0f), mMaxLength(100.0f),
-      mSpringFrequency(0.0f), mSpringDamping(0.0f), mStiffness(0.0f), mDamping(0.0f), mGamma(0.0f), mBias(0.0f),
-      mImpulse(0.0f), mLowerImpulse(0.0f), mUpperImpulse(0.0f), mU(0.0f, 0.0f), mRA(0.0f, 0.0f), mRB(0.0f, 0.0f),
-      mCurrentLength(0.0f), mMass(0.0f), mSoftMass(0.0f)
+      mLengthConfigured(false), mSpringFrequency(0.0f), mSpringDamping(0.0f), mStiffness(0.0f), mDamping(0.0f),
+      mGamma(0.0f), mBias(0.0f), mImpulse(0.0f), mLowerImpulse(0.0f), mUpperImpulse(0.0f), mU(0.0f, 0.0f),
+      mRA(0.0f, 0.0f), mRB(0.0f, 0.0f), mCurrentLength(0.0f), mMass(0.0f), mSoftMass(0.0f)
 {
 }
 
 void DistanceJoint2D::setLength(float length)
 {
     mLength = length > kLinearSlop ? length : kLinearSlop;
+    mLengthConfigured = true;
 }
 
 void DistanceJoint2D::setLengthRange(float minLength, float maxLength)
@@ -26,6 +27,17 @@ void DistanceJoint2D::setLengthRange(float minLength, float maxLength)
     mMaxLength = maxLength < mMinLength ? mMinLength : maxLength;
     mLowerImpulse = 0.0f;
     mUpperImpulse = 0.0f;
+    mLengthConfigured = true;
+}
+
+void DistanceJoint2D::onConnected()
+{
+    if (mLengthConfigured)
+        return;
+    const float distance = Distance(anchorA(), anchorB());
+    mLength = distance > kLinearSlop ? distance : kLinearSlop;
+    mMinLength = mLength;
+    mMaxLength = mLength;
 }
 
 void DistanceJoint2D::setSpring(float frequencyHz, float dampingRatio)
