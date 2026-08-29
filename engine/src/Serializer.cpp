@@ -20,6 +20,7 @@
 #include "k2d/LightOccluder2D.h"
 #include "k2d/CameraComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/ParallaxLayerComponent.h"
 #include "k2d/AudioPlayer.h"
 #include "k2d/UiControls.h"
 
@@ -283,6 +284,39 @@ void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
         tileMap.setCullRect(r.x, r.y, r.z, r.w);
     }
     tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+}
+
+Component* CreateParallaxLayer(GameObject& owner)
+{
+    return owner.addComponent<ParallaxLayerComponent>();
+}
+
+void WriteParallaxLayer(const Component& component, ct::Json& data, Assets* assets)
+{
+    const ParallaxLayerComponent& layer = static_cast<const ParallaxLayerComponent&>(component);
+
+    if (assets)
+        if (const char* texName = assets->FindTextureName(layer.texture()))
+            data.set("texture", ct::Json(texName));
+
+    data.set("motionScale", WriteVec2(layer.motionScale()));
+    data.set("tileSize", WriteVec2(layer.tileSize()));
+    data.set("color", WriteColor(layer.color()));
+    data.set("zIndex", ct::Json(layer.zIndex()));
+}
+
+void ReadParallaxLayer(Component& component, const ct::Json& data, Assets* assets)
+{
+    ParallaxLayerComponent& layer = static_cast<ParallaxLayerComponent&>(component);
+
+    if (assets)
+        if (const ct::Json* tex = data.find("texture"))
+            layer.setTexture(assets->GetTexture(tex->as_cstr()));
+
+    layer.setMotionScale(ReadVec2(data["motionScale"], Math::Vec2(1.0f)));
+    layer.setTileSize(ReadVec2(data["tileSize"], Math::Vec2(0.0f)));
+    layer.setColor(ReadColor(data["color"], Color(1.0f)));
+    layer.setZIndex((int)data["zIndex"].as_int(-100));
 }
 
 Component* CreatePolygon(GameObject& owner)
@@ -1151,6 +1185,8 @@ const TypeEntry* AllEntries(std::size_t& count)
     static const TypeEntry kEntries[] = {
         {ComponentType::Sprite, "Sprite", &CreateSprite, &WriteSprite, &ReadSprite, nullptr},
         {ComponentType::TileMap, "TileMap", &CreateTileMap, &WriteTileMap, &ReadTileMap, nullptr},
+        {ComponentType::ParallaxLayer, "ParallaxLayer", &CreateParallaxLayer, &WriteParallaxLayer,
+         &ReadParallaxLayer, nullptr},
         {ComponentType::Polygon2D, "Polygon2D", &CreatePolygon, &WritePolygon, &ReadPolygon, nullptr},
         {ComponentType::NavigationRegion, "NavigationRegion2D", &CreateNavigationRegion, &WriteNavigationRegion,
          &ReadNavigationRegion, nullptr},

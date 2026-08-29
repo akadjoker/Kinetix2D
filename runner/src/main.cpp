@@ -9,7 +9,6 @@
 #include <k2d/GameObject.h>
 #include <k2d/InputActionMap.h>
 #include <k2d/Physics2DSerializer.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/Profiler.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/Scene.h>
@@ -18,6 +17,8 @@
 #include <k2d/Serializer.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
+
+#include <kx/world.h>
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
 #include <k2d/UserData.h>
@@ -323,7 +324,6 @@ int main(int argc, char** argv)
         k2d::Assets assets;
         k2d::Scene scene;
         k2d::CanvasRenderer canvas;
-        k2d::PhysicsWorld2D physics;
 
         k2d::SetZenScriptInput(&device.GetInput());
         k2d::SetUiInput(&device.GetInput());
@@ -351,12 +351,15 @@ int main(int argc, char** argv)
         const ct::Json& scenePhysics = sceneJson["physics"];
         if (scenePhysics.is_object())
             physicsConfig.gravity = readVec2(scenePhysics["gravity"], physicsConfig.gravity);
-        physics.setGravity(physicsConfig.gravity);
-        physics.setFixedTimeStep(physicsConfig.fixedTimeStep);
-        physics.world().SetVelocityIterations(physicsConfig.velocityIterations);
-        physics.world().SetTreeBroadphase(physicsConfig.treeBroadphase);
-        k2d::RouteZenScriptCollisions(physics);
-        physics.build(scene.root());
+        scene.setGravity(physicsConfig.gravity);
+        scene.setFixedTimeStep(physicsConfig.fixedTimeStep);
+        k2d::RouteZenScriptCollisions(scene);
+        scene.setSimulationEnabled(true);
+        if (kx::World* world = scene.physicsWorld())
+        {
+            world->SetVelocityIterations(physicsConfig.velocityIterations);
+            world->SetTreeBroadphase(physicsConfig.treeBroadphase);
+        }
 
         if (result == 0)
         {
@@ -404,13 +407,11 @@ int main(int argc, char** argv)
                                        static_cast<float>(device.Height()));
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
-                    physics.step(deltaTime);
                     k2d::DispatchZenScriptEvents(scene.root());
                     if (k2d::GetSceneManager().HasRequest())
                     {
-                        physics.clear();
                         if (k2d::GetSceneManager().ApplyRequest(scene, assets))
-                            physics.build(scene.root());
+                            scene.setSimulationEnabled(true);
                         else
                             std::fprintf(stderr, "Could not load requested scene\n");
                     }
@@ -421,18 +422,20 @@ int main(int argc, char** argv)
                     const float height = static_cast<float>(device.Height());
                     k2d::SetZenScriptGameViewport(0.0f, 0.0f, width, height);
                     k2d::SetUiViewport(0.0f, 0.0f, width, height);
+                    k2d::Camera2D defaultCamera;
                     if (k2d::CameraComponent* camera = scene.activeCamera())
                     {
                         camera->setViewport(width, height);
                         k2d::GetAudio().SetListenerPosition(camera->camera().position);
                         canvas.SetProjection(camera->projection());
                         k2d::SetZenScriptGameCamera(&camera->camera());
+                        scene.setRenderCamera(&camera->camera(), width, height);
                     }
                     else
                     {
-                        k2d::Camera2D defaultCamera;
                         canvas.SetProjection(defaultCamera.Projection(width, height));
                         k2d::SetZenScriptGameCamera(&defaultCamera);
+                        scene.setRenderCamera(&defaultCamera, width, height);
                     }
                     scene.render(canvas);
                     k2d::ZenRuntime::instance().submitProfilerSamples();

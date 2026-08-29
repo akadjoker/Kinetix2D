@@ -1,6 +1,5 @@
 #include "k2d/ZenScriptComponent.h"
 
-#include "k2d/PhysicsWorld2D.h"
 #include "k2d/BoxCollider2D.h"
 #include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
@@ -808,14 +807,12 @@ int natRaycast(zen::VM* vm, zen::Value* args, int nargs)
     ZenRuntime::Impl* state = stateFromVM(vm);
     GameObject* hit = nullptr;
     Math::Vec2 point(0.0f, 0.0f);
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 5)
     {
-        if (nargs >= 5)
-        {
-            const Math::Vec2 origin((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
-            const Math::Vec2 direction((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
-            hit = world->raycast(origin, direction, (float)zen::to_number(args[4]), &point);
-        }
+        const Math::Vec2 origin((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        const Math::Vec2 direction((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        hit = scene->raycast(origin, direction, (float)zen::to_number(args[4]), &point);
     }
     args[0] = (hit && state) ? state->instanceFor(state->nodeClass, hit) : zen::val_nil();
     args[1] = zen::val_float(point.x);
@@ -827,18 +824,18 @@ int natBodyAt(zen::VM* vm, zen::Value* args, int nargs)
 {
     ZenRuntime::Impl* state = stateFromVM(vm);
     GameObject* found = nullptr;
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
-        if (nargs >= 2)
-            found = world->objectAtPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 2)
+        found = scene->objectAtPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
     args[0] = (found && state) ? state->instanceFor(state->nodeClass, found) : zen::val_nil();
     return 1;
 }
 
 int natSetGravity(zen::VM*, zen::Value* args, int nargs)
 {
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
-        if (nargs >= 2)
-            world->setGravity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 2)
+        scene->setGravity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
     args[0] = zen::val_nil();
     return 1;
 }
@@ -854,8 +851,8 @@ int natGetActiveCamera(zen::VM* vm, zen::Value* args, int)
 
 int natGetGravity(zen::VM*, zen::Value* args, int)
 {
-    PhysicsWorld2D* world = PhysicsWorld2D::Active();
-    const Math::Vec2 gravity = world ? world->gravity() : Math::Vec2(0.0f, 0.0f);
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    const Math::Vec2 gravity = scene ? scene->gravity() : Math::Vec2(0.0f, 0.0f);
     args[0] = zen::val_float(gravity.x);
     args[1] = zen::val_float(gravity.y);
     return 2;
@@ -2719,9 +2716,6 @@ int natBoxColliderGetSize(zen::VM*, zen::Value* args, int)
     return 2;
 }
 
-// BoxCollider2D::setSize calls Collider2D::markDirty(), which flags the
-// sibling RigidBody2D for PhysicsWorld2D::rebuildChanged() — the fixture is
-// rebuilt with the new size on the world's next step(), same as the editor.
 int natBoxColliderSetSize(zen::VM*, zen::Value* args, int nargs)
 {
     BoxCollider2D* box = zen::zen_instance_data<BoxCollider2D>(args[-1]);
@@ -2737,8 +2731,6 @@ int natCircleColliderGetRadius(zen::VM*, zen::Value* args, int)
     return 1;
 }
 
-// See natBoxColliderSetSize: CircleCollider2D::setRadius() also marks the
-// body dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
 int natCircleColliderSetRadius(zen::VM*, zen::Value* args, int nargs)
 {
     CircleCollider2D* circle = zen::zen_instance_data<CircleCollider2D>(args[-1]);
@@ -2759,8 +2751,6 @@ int natEdgeColliderGetPoints(zen::VM*, zen::Value* args, int)
     return 4;
 }
 
-// See natBoxColliderSetSize: EdgeCollider2D::setPoints() also marks the body
-// dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
 int natEdgeColliderSetPoints(zen::VM*, zen::Value* args, int nargs)
 {
     EdgeCollider2D* edge = zen::zen_instance_data<EdgeCollider2D>(args[-1]);
@@ -4942,9 +4932,9 @@ void routeCollision(const CollisionInfo& info, void*)
 }
 } // namespace
 
-void RouteZenScriptCollisions(PhysicsWorld2D& world)
+void RouteZenScriptCollisions(Scene& scene)
 {
-    world.setCollisionCallback(&routeCollision, nullptr);
+    scene.setCollisionCallback(&routeCollision, nullptr);
 }
 
 bool ZenScriptComponent::callFunction(const char* name, double value)

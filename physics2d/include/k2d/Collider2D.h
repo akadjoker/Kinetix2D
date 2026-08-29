@@ -9,7 +9,7 @@
 namespace k2d
 {
 
-    class PhysicsWorld2D;
+    struct ScenePhysics;
 
     class Collider2D : public Component
     {
@@ -40,7 +40,7 @@ namespace k2d
         Math::Vec2 mOffset;
 
     private:
-        friend class PhysicsWorld2D;
+        friend struct ScenePhysics;
 
         bool mSensor;
         uint16_t mCategory;

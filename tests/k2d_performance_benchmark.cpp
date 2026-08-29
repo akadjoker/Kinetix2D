@@ -1,6 +1,5 @@
 #include <k2d/Component.h>
 #include <k2d/BoxCollider2D.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
@@ -161,24 +160,23 @@ void benchmarkPhysics2D()
         object->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(1.6f, 1.6f));
     }
 
-    k2d::PhysicsWorld2D world(Math::Vec2(0.0f, 0.0f));
-    world.setFixedTimeStep(1.0f / 60.0f);
-    world.build(scene.root());
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setFixedTimeStep(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
     for (int i = 0; i < warmupFrames; ++i)
-        world.step(1.0f / 60.0f);
+        scene.update(1.0f / 60.0f);
 
     std::vector<double> samples;
     samples.reserve(sampleFrames);
     for (int i = 0; i < sampleFrames; ++i)
     {
         auto start = Clock::now();
-        world.step(1.0f / 60.0f);
+        scene.update(1.0f / 60.0f);
         samples.push_back(elapsedMs(start, Clock::now()));
     }
 
-    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", world.bodyCount(), world.contactCount());
+    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", scene.physicsBodyCount(), scene.physicsContactCount());
     printStats("physics2d_step", samples);
-    k2d::PhysicsWorld2D::SetActive(nullptr);
 }
 } // namespace
 

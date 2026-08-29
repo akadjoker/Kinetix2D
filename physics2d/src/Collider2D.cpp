@@ -1,8 +1,8 @@
 #include "k2d/Collider2D.h"
 
 #include "k2d/GameObject.h"
-#include "k2d/PhysicsWorld2D.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Scene.h"
 
 namespace k2d
 {
@@ -11,16 +11,14 @@ namespace k2d
     {
         mDirty = true;
         GameObject *object = owner();
-        if (!object)
+        Scene *scene = object ? object->scene() : nullptr;
+        if (!scene)
             return;
 
         const size_t count = object->componentCount<RigidBody2D>();
         for (size_t i = 0; i < count; ++i)
-        {
-            RigidBody2D *rigidBody = object->getComponentAt<RigidBody2D>(i);
-            if (rigidBody && rigidBody->mWorld)
-                rigidBody->mWorld->markDirty(*rigidBody);
-        }
+            if (RigidBody2D *rigidBody = object->getComponentAt<RigidBody2D>(i))
+                scene->markPhysicsDirty(*rigidBody);
     }
 
     Collider2D::Collider2D()

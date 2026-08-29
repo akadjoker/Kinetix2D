@@ -95,10 +95,10 @@ namespace k2d
     class UserData;
     class VirtualPad;
 
-    class PhysicsWorld2D;
+    class Scene;
 
     void DispatchZenScriptEvents(GameObject &root);
-    void RouteZenScriptCollisions(PhysicsWorld2D &world);
+    void RouteZenScriptCollisions(Scene &scene);
     void BroadcastZenScriptEvent(GameObject &root, const char *event, double value = 0.0);
 
     void SetZenScriptsEnabled(bool enabled);

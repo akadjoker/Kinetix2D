@@ -2,7 +2,6 @@
 #include <k2d/CircleCollider2D.h>
 #include <k2d/CharacterBody2D.h>
 #include <k2d/GameObject.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 #include <k2d/ZenRuntime.h>
@@ -52,21 +51,16 @@ static bool testBodyHandleDrivesTheSimulation()
                                  "        set_number(\"vx\", vx)\n",
                                  "rocket");
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
+    scene.setSimulationEnabled(true);
 
     for (int i = 0; i < 60; ++i)
-    {
         scene.update(1.0f / 60.0f);
-        world.step(1.0f / 60.0f);
-    }
 
     ok = ok && k2d::ZenBlackboard::getBool("has_body", false);
     ok = ok && nearEqual(k2d::ZenBlackboard::getNumber("vx"), 120.0, 1.0);
     ok = ok && nearEqual(object->position().x, 120.0, 5.0);
     ok = ok && nearEqual(object->position().y, 0.0, 1.0);
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  body_handle: x=%.1f vx=%g\n", object->position().x, k2d::ZenBlackboard::getNumber("vx"));
     return ok;
 }
@@ -91,22 +85,17 @@ static bool testImpulseFromScript()
         "            self.node.get_body().apply_impulse(0, -8000)\n",
         "jumper");
 
-    k2d::PhysicsWorld2D world;
-    world.setGravity(Math::Vec2(0.0f, 0.0f));
-    world.build(scene.root());
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
 
     for (int i = 0; i < 30; ++i)
-    {
         scene.update(1.0f / 60.0f);
-        world.step(1.0f / 60.0f);
-    }
 
     const k2d::RigidBody2D* body = object->getComponent<k2d::RigidBody2D>();
     const float expected = -8000.0f / (40.0f * 40.0f * 1.0f);
     bool ok = body && nearEqual(body->velocity().y, expected, 0.01);
     ok = ok && object->position().y < -1.0f;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  impulse: vy=%.2f (impulse/mass = %.2f) y=%.1f\n", body ? body->velocity().y : 0.0f, expected,
                 object->position().y);
     return ok;
@@ -133,20 +122,15 @@ static bool testCollisionCallbackReachesScripts()
         "            set_string(\"hit_name\", other.get_name())\n",
         "faller");
 
-    k2d::PhysicsWorld2D world;
-    k2d::RouteZenScriptCollisions(world);
-    world.build(scene.root());
+    k2d::RouteZenScriptCollisions(scene);
+    scene.setSimulationEnabled(true);
 
     for (int i = 0; i < 180; ++i)
-    {
         scene.update(1.0f / 60.0f);
-        world.step(1.0f / 60.0f);
-    }
 
     bool ok = k2d::ZenBlackboard::getNumber("hits", 0.0) >= 1.0;
     ok = ok && k2d::ZenBlackboard::getString("hit_name") == ct::String("floor");
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  on_collision: hits=%g other=%s\n", k2d::ZenBlackboard::getNumber("hits", 0.0),
                 k2d::ZenBlackboard::getString("hit_name").c_str());
     return ok;
@@ -180,20 +164,15 @@ static bool testSensorReportsToScript()
     makeBox(scene, "floor", Math::Vec2(0.0f, 500.0f), Math::Vec2(600.0f, 40.0f), kx::BodyType::Static);
     makeBox(scene, "diver", Math::Vec2(0.0f, 0.0f), Math::Vec2(40.0f, 40.0f), kx::BodyType::Dynamic);
 
-    k2d::PhysicsWorld2D world;
-    k2d::RouteZenScriptCollisions(world);
-    world.build(scene.root());
+    k2d::RouteZenScriptCollisions(scene);
+    scene.setSimulationEnabled(true);
 
     for (int i = 0; i < 240; ++i)
-    {
         scene.update(1.0f / 60.0f);
-        world.step(1.0f / 60.0f);
-    }
 
     bool ok = k2d::ZenBlackboard::getString("entered") == ct::String("diver");
     ok = ok && k2d::ZenBlackboard::getString("left") == ct::String("diver");
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  sensor_script: entered=%s left=%s\n", k2d::ZenBlackboard::getString("entered").c_str(),
                 k2d::ZenBlackboard::getString("left").c_str());
     return ok;
@@ -222,20 +201,15 @@ static bool testRaycastAndGravityFromScript()
                                                                  "        set_number(\"gy\", gy)\n",
                                                                  "scanner");
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
+    scene.setSimulationEnabled(true);
 
     for (int i = 0; i < 3; ++i)
-    {
         scene.update(1.0f / 60.0f);
-        world.step(1.0f / 60.0f);
-    }
 
     bool ok = k2d::ZenBlackboard::getString("seen") == ct::String("wall");
     ok = ok && nearEqual(k2d::ZenBlackboard::getNumber("hit_x"), 180.0, 2.0);
     ok = ok && nearEqual(k2d::ZenBlackboard::getNumber("gy", -1.0), 0.0, 0.001);
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  queries: seen=%s hit_x=%g gravity_y=%g\n", k2d::ZenBlackboard::getString("seen").c_str(),
                 k2d::ZenBlackboard::getNumber("hit_x"), k2d::ZenBlackboard::getNumber("gy"));
     return ok;
@@ -290,15 +264,14 @@ static bool testCharacterMovementBindings()
         "        set_flag(\"slide_tuple\", floor == False and wall == False and ceiling == False)\n",
         "player");
 
-    k2d::PhysicsWorld2D world(Math::Vec2(0.0f, 0.0f));
-    world.build(scene.root());
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
     scene.update(1.0f / 60.0f);
 
     const bool ok = k2d::ZenBlackboard::getBool("free", false) && k2d::ZenBlackboard::getBool("meeting", false) &&
                     k2d::ZenBlackboard::getBool("collision", false) &&
                     k2d::ZenBlackboard::getBool("slide_tuple", false) &&
                     k2d::ZenBlackboard::getNumber("normal_x") < -0.99;
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     std::printf("  character_script: free=%d meeting=%d collision=%d normal_x=%g\n",
                 k2d::ZenBlackboard::getBool("free", false) ? 1 : 0,
                 k2d::ZenBlackboard::getBool("meeting", false) ? 1 : 0,

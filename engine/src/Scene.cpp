@@ -3,18 +3,24 @@
 #include "k2d/CameraComponent.h"
 #include "k2d/Input.h"
 #include "k2d/Profiler.h"
+#include "k2d/RigidBody2D.h"
 #include "k2d/UiControls.h"
 
 namespace k2d
 {
 
-    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false), mHasDisposed(false)
+    Scene::Scene()
+        : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
+          mHasDisposed(false), mPhysics(createPhysics()), mRenderCamera(nullptr), mRenderViewportWidth(0.0f),
+          mRenderViewportHeight(0.0f)
     {
         mRoot.mScene = this;
     }
 
     Scene::~Scene()
     {
+        // Bodies must go before the objects their user data points at.
+        teardownPhysics();
         mRoot.deleteChildrenRaw();
         mRoot.mScene = nullptr;
     }
@@ -77,6 +83,7 @@ namespace k2d
             oldParent->addChildRaw(object);
             return false;
         }
+        markTopologyChanged();
         return true;
     }
 
@@ -112,6 +119,18 @@ namespace k2d
         return const_cast<Scene *>(this)->activeCamera();
     }
 
+    void Scene::makeCameraActive(CameraComponent &camera)
+    {
+        int highest = camera.renderPriority();
+        for (std::size_t i = 0; i < mCameras.size(); ++i)
+        {
+            CameraComponent *other = mCameras[i];
+            if (other && other != &camera && other->renderPriority() > highest)
+                highest = other->renderPriority();
+        }
+        camera.setRenderPriority(highest + 1);
+    }
+
     void Scene::update(float deltaTime)
     {
         ProfileScope profileScope("scene.update");
@@ -138,6 +157,14 @@ namespace k2d
         flushDisposed();
         compactComponentLists();
         updateUi();
+        physicsStep(deltaTime);
+    }
+
+    void Scene::setRenderCamera(const Camera2D *camera, float viewportWidth, float viewportHeight)
+    {
+        mRenderCamera = camera;
+        mRenderViewportWidth = viewportWidth;
+        mRenderViewportHeight = viewportHeight;
     }
 
     void Scene::render(CanvasRenderer &canvas)
@@ -163,6 +190,7 @@ namespace k2d
 
     void Scene::clear()
     {
+        clearPhysics();
         mRoot.deleteChildrenRaw();
         mAllComponents.clear();
         mLateUpdateComponents.clear();
@@ -222,6 +250,8 @@ namespace k2d
             mCameras.push_back(static_cast<CameraComponent *>(component));
         if (UiControl *control = component->uiControl())
             mUiControls.push_back(control);
+        if (component->mType == ComponentType::RigidBody && simulationEnabled())
+            attachPhysicsBody(*static_cast<RigidBody2D *>(component));
     }
 
     void Scene::unregisterComponent(Component *component)
@@ -251,6 +281,8 @@ namespace k2d
                     mUiControls[i] = nullptr;
                     break;
                 }
+        if (component->mType == ComponentType::RigidBody)
+            detachPhysicsBody(*static_cast<RigidBody2D *>(component));
     }
 
     void Scene::compactComponentLists()

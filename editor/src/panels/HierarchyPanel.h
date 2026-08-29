@@ -25,6 +25,7 @@ private:
     void drawObject(GameObject &object);
     bool subtreeMatchesFilter(GameObject &object) const;
     void createNode();
+    void createCameraNode();
     void duplicateSelected();
     void moveSelected(int direction);
     void deleteSelected();

@@ -42,7 +42,6 @@
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/PolygonCollider2D.h>
 #include <k2d/RigidBody2D.h>
 
@@ -1154,12 +1153,11 @@ static bool testBoxColliderApi()
     k2d::BoxCollider2D* box = object->addComponent<k2d::BoxCollider2D>();
     box->setSize(Math::Vec2(20.0f, 20.0f));
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
-    world.step(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundBefore;
-    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
+    scene.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
     const bool missedBefore = foundBefore.empty();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
@@ -1175,10 +1173,9 @@ static bool testBoxColliderApi()
         "box_collider");
 
     scene.update(0.016f);
-    world.step(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundAfter;
-    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
+    scene.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
     bool hitAfter = false;
     for (size_t i = 0; i < foundAfter.size(); ++i)
         if (foundAfter[i] == object)
@@ -1192,7 +1189,6 @@ static bool testBoxColliderApi()
     ok = ok && missedBefore;
     ok = ok && hitAfter;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     k2d::ZenBlackboard::clear();
     return ok;
 }
@@ -1206,12 +1202,11 @@ static bool testCircleColliderApi()
     k2d::CircleCollider2D* circle = object->addComponent<k2d::CircleCollider2D>();
     circle->setRadius(10.0f);
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
-    world.step(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundBefore;
-    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
+    scene.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundBefore);
     const bool missedBefore = foundBefore.empty();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
@@ -1225,10 +1220,9 @@ static bool testCircleColliderApi()
         "circle_collider");
 
     scene.update(0.016f);
-    world.step(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundAfter;
-    world.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
+    scene.overlapCircle(Math::Vec2(60.0f, 0.0f), 5.0f, foundAfter);
     bool hitAfter = false;
     for (size_t i = 0; i < foundAfter.size(); ++i)
         if (foundAfter[i] == object)
@@ -1241,7 +1235,6 @@ static bool testCircleColliderApi()
     ok = ok && missedBefore;
     ok = ok && hitAfter;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     k2d::ZenBlackboard::clear();
     return ok;
 }
@@ -1254,12 +1247,11 @@ static bool testEdgeColliderApi()
     object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
     k2d::EdgeCollider2D* edge = object->addComponent<k2d::EdgeCollider2D>();
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
-    world.step(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundBefore;
-    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
+    scene.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
     const bool missedBefore = foundBefore.empty();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
@@ -1277,10 +1269,9 @@ static bool testEdgeColliderApi()
         "edge_collider");
 
     scene.update(0.016f);
-    world.step(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundAfter;
-    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
+    scene.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
     bool hitAfter = false;
     for (size_t i = 0; i < foundAfter.size(); ++i)
         if (foundAfter[i] == object)
@@ -1297,7 +1288,6 @@ static bool testEdgeColliderApi()
     ok = ok && missedBefore;
     ok = ok && hitAfter;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     k2d::ZenBlackboard::clear();
     return ok;
 }
@@ -1310,14 +1300,13 @@ static bool testPolygonColliderApi()
     object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
     k2d::PolygonCollider2D* polygon = object->addComponent<k2d::PolygonCollider2D>();
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
-    world.step(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
 
     // Default is a regular square of circumradius 16 with a vertex on +x, so
     // a probe at x=20 (between the old and new radius) misses it.
     ct::Vector<k2d::GameObject*> foundBefore;
-    world.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundBefore);
+    scene.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundBefore);
     const bool missedBefore = foundBefore.empty();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
@@ -1336,12 +1325,11 @@ static bool testPolygonColliderApi()
         "polygon_collider");
 
     scene.update(0.016f);
-    world.step(1.0f / 60.0f);
 
     // The final state after on_start is the regular hexagon (circumradius
     // 24, also with a vertex on +x) which now reaches the same probe point.
     ct::Vector<k2d::GameObject*> foundAfter;
-    world.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundAfter);
+    scene.overlapCircle(Math::Vec2(20.0f, 0.0f), 2.0f, foundAfter);
     bool hitAfter = false;
     for (size_t i = 0; i < foundAfter.size(); ++i)
         if (foundAfter[i] == object)
@@ -1357,7 +1345,6 @@ static bool testPolygonColliderApi()
     ok = ok && missedBefore;
     ok = ok && hitAfter;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     k2d::ZenBlackboard::clear();
     return ok;
 }
@@ -1370,12 +1357,11 @@ static bool testChainColliderApi()
     object->addComponent<k2d::RigidBody2D>()->setBodyType(kx::BodyType::Static);
     k2d::ChainCollider2D* chain = object->addComponent<k2d::ChainCollider2D>();
 
-    k2d::PhysicsWorld2D world;
-    world.build(scene.root());
-    world.step(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
+    scene.update(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundBefore;
-    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
+    scene.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundBefore);
     const bool missedBefore = foundBefore.empty();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
@@ -1394,10 +1380,9 @@ static bool testChainColliderApi()
         "chain_collider");
 
     scene.update(0.016f);
-    world.step(1.0f / 60.0f);
 
     ct::Vector<k2d::GameObject*> foundAfter;
-    world.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
+    scene.overlapCircle(Math::Vec2(150.0f, 100.0f), 5.0f, foundAfter);
     bool hitAfter = false;
     for (size_t i = 0; i < foundAfter.size(); ++i)
         if (foundAfter[i] == object)
@@ -1414,7 +1399,6 @@ static bool testChainColliderApi()
     ok = ok && missedBefore;
     ok = ok && hitAfter;
 
-    k2d::PhysicsWorld2D::SetActive(nullptr);
     k2d::ZenBlackboard::clear();
     return ok;
 }

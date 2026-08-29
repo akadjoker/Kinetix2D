@@ -151,7 +151,9 @@ void SceneViewportPanel::renderScene(int width, int height)
     camera.zoom = Math::Vec2(mZoom, mZoom);
     camera.offset = Math::Vec2(-mPan.x / mZoom, -mPan.y / mZoom);
     mCanvas.SetProjection(camera.Projection(static_cast<float>(width), static_cast<float>(height)));
-    app().scene().render(mCanvas);
+    Scene& scene = app().scene();
+    scene.setRenderCamera(&camera, static_cast<float>(width), static_cast<float>(height));
+    scene.render(mCanvas);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -210,6 +212,26 @@ void SceneViewportPanel::handlePrefabDrop(const ImVec2& origin)
                 app().toasts().success(toast);
             }
         }
+    }
+    ImGui::EndDragDropTarget();
+}
+
+void SceneViewportPanel::handleImageDrop(const ImVec2& origin)
+{
+    if (!ImGui::BeginDragDropTarget())
+        return;
+
+    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+    {
+        const char* path = static_cast<const char*>(payload->Data);
+        Math::Vec2 world = screenToWorld(ImGui::GetMousePos(), origin);
+        if (mSnap)
+        {
+            world.x = roundf(world.x / mGridSize.x) * mGridSize.x;
+            world.y = roundf(world.y / mGridSize.y) * mGridSize.y;
+        }
+        GameObject* parent = app().selection().resolve(app().scene());
+        app().createSpriteNodeFromImage(path, parent, &world);
     }
     ImGui::EndDragDropTarget();
 }
@@ -550,6 +572,7 @@ void SceneViewportPanel::drawContents()
     ImGui::InvisibleButton("##scene_canvas", size,
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
     handlePrefabDrop(origin);
+    handleImageDrop(origin);
     const bool hovered = ImGui::IsItemHovered();
     const bool panDrag = ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
                          (mTool == 4 && ImGui::IsMouseDragging(ImGuiMouseButton_Left));

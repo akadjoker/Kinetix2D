@@ -4,11 +4,12 @@
 
 #include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/Scene.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/UiControls.h>
+
+#include <kx/debugdraw.h>
 
 #include <cstdint>
 
@@ -91,30 +92,31 @@ void GamePanel::renderScene(int width, int height)
 
     Scene& scene = app().runtimeScene();
     CameraComponent* camera = scene.activeCamera();
+    Camera2D defaultCamera;
     if (camera)
     {
         camera->setViewport(static_cast<float>(width), static_cast<float>(height));
         mCanvas.SetProjection(camera->projection());
         SetZenScriptGameCamera(&camera->camera());
+        scene.setRenderCamera(&camera->camera(), static_cast<float>(width), static_cast<float>(height));
     }
     else
     {
-        Camera2D defaultCamera;
         mCanvas.SetProjection(defaultCamera.Projection(static_cast<float>(width), static_cast<float>(height)));
         SetZenScriptGameCamera(&defaultCamera);
+        scene.setRenderCamera(&defaultCamera, static_cast<float>(width), static_cast<float>(height));
     }
     scene.render(mCanvas);
-    if (app().settings().showPhysicsDebug)
-        if (PhysicsWorld2D* world = app().physicsWorld())
-        {
-            // Physics is an editor overlay. scene.render() has already
-            // submitted its batch; make the overlay independent from any
-            // depth state a material/shadow pass may have changed.
-            glDisable(GL_DEPTH_TEST);
-            glDepthMask(GL_FALSE);
-            world->debugDraw(mCanvas,
-                             kx::DebugDrawShapes | kx::DebugDrawAABBs | kx::DebugDrawContacts | kx::DebugDrawJoints);
-        }
+    if (app().settings().showPhysicsDebug && scene.simulationEnabled())
+    {
+        // Physics is an editor overlay. scene.render() has already
+        // submitted its batch; make the overlay independent from any
+        // depth state a material/shadow pass may have changed.
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        scene.debugDrawPhysics(mCanvas,
+                               kx::DebugDrawShapes | kx::DebugDrawAABBs | kx::DebugDrawContacts | kx::DebugDrawJoints);
+    }
     GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));

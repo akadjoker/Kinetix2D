@@ -57,6 +57,7 @@
 #include "k2d/ParticleSystem.h"
 #include "k2d/ParticleComponent.h"
 #include "k2d/ParallaxLayer2D.h"
+#include "k2d/ParallaxLayerComponent.h"
 #include "k2d/Pixmap.h"
 #include "k2d/Profiler.h"
 #include "k2d/ProfilerUI.h"

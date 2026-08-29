@@ -1,6 +1,7 @@
 #include "k2d/RigidBody2D.h"
 
-#include "k2d/PhysicsWorld2D.h"
+#include "k2d/GameObject.h"
+#include "k2d/Scene.h"
 
 #include <cmath>
 
@@ -14,7 +15,7 @@ namespace k2d
     }
 
     RigidBody2D::RigidBody2D()
-        : Component(Type, ComponentEventNone), mBody(nullptr), mWorld(nullptr),
+        : Component(Type, ComponentEventNone), mBody(nullptr),
           mBodyType(kx::BodyType::Dynamic), mDensity(1.0f), mFriction(0.3f), mRestitution(0.0f),
           mLinearDamping(0.0f), mAngularDamping(0.0f), mGravityScale(1.0f), mFixedRotation(false),
           mBullet(false), mPendingVelocity(0.0f, 0.0f), mPendingAngularVelocity(0.0f),
@@ -22,18 +23,23 @@ namespace k2d
           mColliderCount(0), mBodyIndex(InvalidWorldIndex), mPendingIndex(InvalidWorldIndex),
           mDirtyIndex(InvalidWorldIndex)
     {
-        if (PhysicsWorld2D *world = PhysicsWorld2D::Active())
-        {
-            mWorld = world;
-            mPendingIndex = world->mPending.size();
-            world->mPending.push_back(this);
-        }
     }
 
     RigidBody2D::~RigidBody2D()
     {
-        if (mWorld)
-            mWorld->detach(*this);
+        if (GameObject* object = owner())
+            if (Scene* scene = object->scene())
+                scene->detachPhysicsBody(*this);
+    }
+
+    void RigidBody2D::markDirty()
+    {
+        GameObject* object = owner();
+        Scene* scene = object ? object->scene() : nullptr;
+        if (scene)
+            scene->markPhysicsDirty(*this);
+        else
+            mNeedsRebuild = true;
     }
 
     void RigidBody2D::setBodyType(kx::BodyType type)
@@ -41,10 +47,7 @@ namespace k2d
         if (mBodyType == type)
             return;
         mBodyType = type;
-        if (mWorld)
-            mWorld->markDirty(*this);
-        else
-            mNeedsRebuild = true;
+        markDirty();
     }
 
     void RigidBody2D::setDensity(float density)
@@ -53,10 +56,7 @@ namespace k2d
         if (mDensity == clamped)
             return;
         mDensity = clamped;
-        if (mWorld)
-            mWorld->markDirty(*this);
-        else
-            mNeedsRebuild = true;
+        markDirty();
     }
 
     void RigidBody2D::setFriction(float friction)

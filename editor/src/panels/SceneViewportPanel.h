@@ -31,6 +31,7 @@ private:
     ImVec2 worldToScreen(float x, float y, const ImVec2 &origin) const;
     Math::Vec2 screenToWorld(const ImVec2 &screen, const ImVec2 &origin) const;
     void handlePrefabDrop(const ImVec2 &origin);
+    void handleImageDrop(const ImVec2 &origin);
     void recordBoneKey(GameObject &boneObject);
 
     void drawGizmo(ImDrawList &drawList, GameObject &selected, const ImVec2 &origin) const;

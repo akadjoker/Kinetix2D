@@ -18,6 +18,7 @@
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
+#include <k2d/ParallaxLayerComponent.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Polygon2D.h>
 #include <k2d/RectShape.h>
@@ -88,7 +89,10 @@ const char* componentName(ComponentType type)
                                   "NavigationAgent2D",
                                   "MotionTween2D",
                                   "MotionStreak2D",
-                                  "CharacterBody2D"};
+                                  "CharacterBody2D",
+                                  "Skeleton2D",
+                                  "Bone2D",
+                                  "ParallaxLayer"};
     const unsigned int index = static_cast<unsigned int>(type);
     return index < sizeof(names) / sizeof(names[0]) ? names[index] : "Unknown";
 }
@@ -128,6 +132,8 @@ const char* componentDescription(const Component& component)
         return "Draws one texture with transform, colour and material settings.";
     case ComponentType::TileMap:
         return "Draws a grid of tiles from a texture atlas.";
+    case ComponentType::ParallaxLayer:
+        return "Draws a camera-relative repeating background layer for parallax scrolling.";
     case ComponentType::Polygon2D:
         return "Draws a filled custom polygon.";
     case ComponentType::LinePath:
@@ -413,7 +419,21 @@ void drawSpriteProperties(EditorApplication& app, SpriteComponent& sprite)
     Texture* texture = sprite.texture();
     Texture* newTexture = nullptr;
     if (textureField(app, "Texture", texture, newTexture))
-        applyInstant(app, "Set Sprite Texture", [&] { sprite.setTexture(newTexture); });
+    {
+        applyInstant(app, "Set Sprite Texture",
+                     [&]
+                     {
+                         const Math::Vec2 previousSize = sprite.size();
+                         const bool sizeMatchedOldTexture =
+                             texture && previousSize.x == (float)texture->Width() &&
+                             previousSize.y == (float)texture->Height();
+                         sprite.setTexture(newTexture);
+                         if (newTexture && (sizeMatchedOldTexture || previousSize.x <= 0.0f ||
+                                            previousSize.y <= 0.0f))
+                             sprite.setSize(
+                                 Math::Vec2((float)newTexture->Width(), (float)newTexture->Height()));
+                     });
+    }
 
     Texture* normalMap = sprite.normalMap();
     Texture* newNormalMap = nullptr;
@@ -563,6 +583,40 @@ void drawTileMapProperties(EditorApplication& app, TileMapComponent& tileMap)
         applyInstant(app, "Set TileMap Blend Mode", [&] { tileMap.setBlendMode(blendMode); });
 
     ImGui::TextDisabled("Use the Tile Painter panel to paint tiles and collision cells.");
+}
+
+void drawParallaxLayerProperties(EditorApplication& app, ParallaxLayerComponent& layer)
+{
+    Texture* texture = layer.texture();
+    Texture* newTexture = nullptr;
+    if (textureField(app, "Texture", texture, newTexture))
+    {
+        applyInstant(app, "Set Parallax Layer Texture",
+                     [&]
+                     {
+                         layer.setTexture(newTexture);
+                         if (newTexture && layer.tileSize().x <= 0.0f)
+                             layer.setTileSize(Math::Vec2((float)newTexture->Width(), (float)newTexture->Height()));
+                     });
+    }
+
+    Math::Vec2 motionScale = layer.motionScale();
+    if (dragVec2(app, "Motion Scale", motionScale, 0.01f, "Set Parallax Motion Scale"))
+        layer.setMotionScale(motionScale);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("0 keeps the layer fixed to the camera; 1 moves with the world at full speed.");
+
+    Math::Vec2 tileSize = layer.tileSize();
+    if (dragVec2(app, "Tile Size", tileSize, 0.5f, "Resize Parallax Tile"))
+        layer.setTileSize(tileSize);
+
+    Color color = layer.color();
+    if (colorEdit(app, "Color", color, "Recolor Parallax Layer"))
+        layer.setColor(color);
+
+    int zIndex = layer.zIndex();
+    if (dragIntProperty(app, "Z Index", zIndex, 1.0f, "Change Parallax Z Index", -100000, 100000))
+        layer.setZIndex(zIndex);
 }
 
 void drawPolygonProperties(EditorApplication& app, Polygon2D& polygon)
@@ -998,6 +1052,20 @@ void drawDirectionalLightProperties(EditorApplication& app, DirectionalLight2D& 
 
 void drawCameraProperties(EditorApplication& app, CameraComponent& cameraComponent)
 {
+    Scene& scene = app.scene();
+    const bool isActive = scene.activeCamera() == &cameraComponent;
+    if (isActive)
+        ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), ICON_MDI_CHECK_CIRCLE " Active camera");
+    else
+        ImGui::TextDisabled("Not the active camera");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(isActive);
+    if (ImGui::Button("Make Active"))
+        applyInstant(app, "Make Camera Active", [&] { scene.makeCameraActive(cameraComponent); });
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Scene::activeCamera() picks the enabled camera with the highest render priority.");
+
     float viewportW = cameraComponent.viewportWidth();
     float viewportH = cameraComponent.viewportHeight();
     bool viewportChanged = false;
@@ -2104,6 +2172,9 @@ void drawComponentProperties(EditorApplication& app, Component& component)
     case ComponentType::TileMap:
         drawTileMapProperties(app, static_cast<TileMapComponent&>(component));
         break;
+    case ComponentType::ParallaxLayer:
+        drawParallaxLayerProperties(app, static_cast<ParallaxLayerComponent&>(component));
+        break;
     case ComponentType::Polygon2D:
         drawPolygonProperties(app, static_cast<Polygon2D&>(component));
         break;
@@ -2381,143 +2452,146 @@ void InspectorPanel::drawContents()
         ImGui::OpenPopup("Add Component");
     if (ImGui::BeginPopup("Add Component"))
     {
-        if (componentMenuItem("Sprite", "Draw a texture on this object."))
+        if (ImGui::BeginMenu("Rendering"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
-            app().commitChange("Add Sprite Component", addBefore);
-        }
-        if (componentMenuItem("NinePatch", "Draw a scalable panel with fixed borders."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            NinePatchComponent* ninePatch = object->addComponent<NinePatchComponent>();
-            ninePatch->setTexture(placeholderSpriteTexture(app()));
-            app().commitChange("Add NinePatch Component", addBefore);
-        }
-        if (ImGui::BeginMenu("UI"))
-        {
-            if (componentMenuItem("UI Canvas", "Root marker for screen-space UI controls."))
+            if (componentMenuItem("Sprite", "Draw a texture on this object."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiCanvas>();
-                app().commitChange("Add UI Canvas", addBefore);
+                object->addComponent<SpriteComponent>(placeholderSpriteTexture(app()));
+                app().commitChange("Add Sprite Component", addBefore);
             }
-            if (componentMenuItem("Panel", "Screen-space coloured panel; can contain other UI nodes."))
+            if (componentMenuItem("NinePatch", "Draw a scalable panel with fixed borders."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiPanel>();
-                app().commitChange("Add UI Panel", addBefore);
+                NinePatchComponent* ninePatch = object->addComponent<NinePatchComponent>();
+                ninePatch->setTexture(placeholderSpriteTexture(app()));
+                app().commitChange("Add NinePatch Component", addBefore);
             }
-            if (componentMenuItem("Label", "Screen-space bitmap-font text."))
+            if (componentMenuItem("SpriteBatch", "Draw many sprites efficiently."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiLabel>();
-                app().commitChange("Add UI Label", addBefore);
+                object->addComponent<SpriteBatch>();
+                app().commitChange("Add SpriteBatch Component", addBefore);
             }
-            if (componentMenuItem("Button", "Screen-space clickable button."))
+            if (componentMenuItem("Animation2D", "Play a frame-based sprite animation."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiButton>();
-                app().commitChange("Add UI Button", addBefore);
+                Animation2D* anim = object->addComponent<Animation2D>();
+                anim->addClip("default", nullptr, 0, 0, 0, 10.0f, AnimationMode::Loop);
+                anim->play("default");
+                app().commitChange("Add Animation2D Component", addBefore);
             }
-            if (componentMenuItem("CheckBox", "Screen-space boolean control."))
+            if (componentMenuItem("Polygon2D", "Draw a filled custom polygon."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiCheckBox>();
-                app().commitChange("Add UI CheckBox", addBefore);
+                Polygon2D* polygon = object->addComponent<Polygon2D>();
+                const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
+                                                    Math::Vec2(-26.0f, 20.0f)};
+                polygon->setPolygon(defaultShape, 3);
+                app().commitChange("Add Polygon2D Component", addBefore);
             }
-            if (componentMenuItem("Slider", "Screen-space numeric control."))
+            if (componentMenuItem("Line2D", "Draw an editable line or outline."))
             {
                 const EditorApplication::SceneChange addBefore = app().beginChange();
-                object->addComponent<UiSlider>();
-                app().commitChange("Add UI Slider", addBefore);
+                Line2D* line = object->addComponent<Line2D>();
+                const Math::Vec2 defaultPoints[2] = {Math::Vec2(-30.0f, 0.0f), Math::Vec2(30.0f, 0.0f)};
+                line->setPoints(defaultPoints, 2);
+                app().commitChange("Add Line2D Component", addBefore);
+            }
+            if (componentMenuItem("Circle Shape", "Draw a visual circle. Use Circle Collider for physics."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<CircleShape>();
+                app().commitChange("Add Circle Shape Component", addBefore);
+            }
+            if (componentMenuItem("Rect Shape", "Draw a visual rectangle. Use Box Collider for physics."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<RectShape>();
+                app().commitChange("Add Rect Shape Component", addBefore);
+            }
+            if (componentMenuItem("Capsule Shape", "Draw a visual filled or outlined capsule."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<CapsuleShape>();
+                app().commitChange("Add Capsule Shape Component", addBefore);
+            }
+            if (componentMenuItem("TileMap", "Draw a grid of tiles from a texture atlas."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                TileMapComponent* tileMap = object->addComponent<TileMapComponent>();
+                tileMap->setMapSize(8, 8);
+                app().commitChange("Add TileMap Component", addBefore);
+            }
+            if (componentMenuItem("Parallax Layer",
+                                  "Camera-relative repeating background layer for parallax scrolling."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                ParallaxLayerComponent* layer = object->addComponent<ParallaxLayerComponent>();
+                Texture* texture = placeholderSpriteTexture(app());
+                layer->setTexture(texture);
+                layer->setMotionScale(Math::Vec2(0.5f, 0.5f));
+                app().commitChange("Add Parallax Layer Component", addBefore);
+            }
+            if (componentMenuItem("Particle", "Emit and simulate a particle effect."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                ParticleComponent* particle = object->addComponent<ParticleComponent>();
+                particle->system().SetTexture(app().particlePlaceholderTexture());
+                particle->system().SetMode(ParticleMode::Loop);
+                particle->system().SetEmissionRate(20.0f);
+                ParticlePrefab prefab;
+                prefab.spreadDegrees = 40.0f;
+                prefab.speedMin = 40.0f;
+                prefab.speedMax = 90.0f;
+                prefab.lifeMin = 0.8f;
+                prefab.lifeMax = 1.6f;
+                prefab.sizeMin = 6.0f;
+                prefab.sizeMax = 12.0f;
+                prefab.endSize = 2.0f;
+                prefab.fadeOut = 0.4f;
+                particle->system().SetPrefab(prefab);
+                particle->system().Start();
+                app().commitChange("Add Particle Component", addBefore);
             }
             ImGui::EndMenu();
         }
-        if (componentMenuItem("TileMap", "Draw a grid of tiles from a texture atlas."))
+        if (ImGui::BeginMenu("Lighting"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            TileMapComponent* tileMap = object->addComponent<TileMapComponent>();
-            tileMap->setMapSize(8, 8);
-            app().commitChange("Add TileMap Component", addBefore);
+            if (componentMenuItem("Point Light", "Illuminate an area from this object's position."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<Light2D>();
+                app().commitChange("Add Point Light Component", addBefore);
+            }
+            if (componentMenuItem("Directional Light", "Illuminate the scene with one direction."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<DirectionalLight2D>();
+                app().commitChange("Add Directional Light Component", addBefore);
+            }
+            if (componentMenuItem("Light Occluder", "Block shadows cast by 2D lights."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                LightOccluder2D* occluder = object->addComponent<LightOccluder2D>();
+                const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
+                                                    Math::Vec2(-26.0f, 20.0f)};
+                occluder->setPolygon(defaultShape, 3);
+                app().commitChange("Add Light Occluder Component", addBefore);
+            }
+            ImGui::EndMenu();
         }
-        if (componentMenuItem("Polygon2D", "Draw a filled custom polygon."))
+        if (ImGui::BeginMenu("Camera"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            Polygon2D* polygon = object->addComponent<Polygon2D>();
-            const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
-                                                Math::Vec2(-26.0f, 20.0f)};
-            polygon->setPolygon(defaultShape, 3);
-            app().commitChange("Add Polygon2D Component", addBefore);
+            if (componentMenuItem("Camera", "Control the Game view and optionally follow another object."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<CameraComponent>();
+                app().commitChange("Add Camera Component", addBefore);
+            }
+            ImGui::EndMenu();
         }
-        if (componentMenuItem("Navigation Region 2D", "Editable walkable polygon; does not require a TileMap."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            NavigationRegion2D* region = object->addComponent<NavigationRegion2D>();
-            const Math::Vec2 defaultShape[4] = {Math::Vec2(-160.0f, -100.0f), Math::Vec2(160.0f, -100.0f),
-                                                Math::Vec2(160.0f, 100.0f), Math::Vec2(-160.0f, 100.0f)};
-            region->setPolygon(defaultShape, 4);
-            app().commitChange("Add Navigation Region 2D", addBefore);
-        }
-        if (componentMenuItem("Navigation Agent 2D", "Gets a path from a Navigation Region. Auto Move is optional."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<NavigationAgent2D>();
-            app().commitChange("Add Navigation Agent 2D", addBefore);
-        }
-        if (componentMenuItem("Line2D", "Draw an editable line or outline."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            Line2D* line = object->addComponent<Line2D>();
-            const Math::Vec2 defaultPoints[2] = {Math::Vec2(-30.0f, 0.0f), Math::Vec2(30.0f, 0.0f)};
-            line->setPoints(defaultPoints, 2);
-            app().commitChange("Add Line2D Component", addBefore);
-        }
-        if (componentMenuItem("Circle Shape", "Draw a visual circle. Use Circle Collider for physics."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<CircleShape>();
-            app().commitChange("Add Circle Shape Component", addBefore);
-        }
-        if (componentMenuItem("Rect Shape", "Draw a visual rectangle. Use Box Collider for physics."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<RectShape>();
-            app().commitChange("Add Rect Shape Component", addBefore);
-        }
-        if (componentMenuItem("Capsule Shape", "Draw a visual filled or outlined capsule."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<CapsuleShape>();
-            app().commitChange("Add Capsule Shape Component", addBefore);
-        }
-        if (componentMenuItem("Audio Player", "Play an SFX or music asset during Play."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<AudioPlayer>();
-            app().commitChange("Add Audio Player Component", addBefore);
-        }
-        if (componentMenuItem("SpriteBatch", "Draw many sprites efficiently."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<SpriteBatch>();
-            app().commitChange("Add SpriteBatch Component", addBefore);
-        }
-        if (componentMenuItem("Animation2D", "Play a frame-based sprite animation."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            Animation2D* anim = object->addComponent<Animation2D>();
-            anim->addClip("default", nullptr, 0, 0, 0, 10.0f, AnimationMode::Loop);
-            anim->play("default");
-            app().commitChange("Add Animation2D Component", addBefore);
-        }
-        if (componentMenuItem("Zen Script", "Run a Python-style Zen script with self.node."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<ZenScriptComponent>();
-            app().commitChange("Add Zen Script Component", addBefore);
-        }
-        if (ImGui::BeginMenu("Physics 2D"))
+        if (ImGui::BeginMenu("Physics"))
         {
             if (componentMenuItem("Rigid Body", "Simulate this object with Physics 2D during Play."))
             {
@@ -2573,55 +2647,85 @@ void InspectorPanel::drawContents()
             }
             ImGui::EndMenu();
         }
-        if (componentMenuItem("Particle", "Emit and simulate a particle effect."))
+        if (ImGui::BeginMenu("Navigation"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            ParticleComponent* particle = object->addComponent<ParticleComponent>();
-            particle->system().SetTexture(app().particlePlaceholderTexture());
-            particle->system().SetMode(ParticleMode::Loop);
-            particle->system().SetEmissionRate(20.0f);
-            ParticlePrefab prefab;
-            prefab.spreadDegrees = 40.0f;
-            prefab.speedMin = 40.0f;
-            prefab.speedMax = 90.0f;
-            prefab.lifeMin = 0.8f;
-            prefab.lifeMax = 1.6f;
-            prefab.sizeMin = 6.0f;
-            prefab.sizeMax = 12.0f;
-            prefab.endSize = 2.0f;
-            prefab.fadeOut = 0.4f;
-            particle->system().SetPrefab(prefab);
-            particle->system().Start();
-            app().commitChange("Add Particle Component", addBefore);
+            if (componentMenuItem("Navigation Region 2D", "Editable walkable polygon; does not require a TileMap."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                NavigationRegion2D* region = object->addComponent<NavigationRegion2D>();
+                const Math::Vec2 defaultShape[4] = {Math::Vec2(-160.0f, -100.0f), Math::Vec2(160.0f, -100.0f),
+                                                    Math::Vec2(160.0f, 100.0f), Math::Vec2(-160.0f, 100.0f)};
+                region->setPolygon(defaultShape, 4);
+                app().commitChange("Add Navigation Region 2D", addBefore);
+            }
+            if (componentMenuItem("Navigation Agent 2D",
+                                  "Gets a path from a Navigation Region. Auto Move is optional."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<NavigationAgent2D>();
+                app().commitChange("Add Navigation Agent 2D", addBefore);
+            }
+            ImGui::EndMenu();
         }
-        ImGui::Separator();
-        if (componentMenuItem("Point Light", "Illuminate an area from this object's position."))
+        if (ImGui::BeginMenu("UI"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<Light2D>();
-            app().commitChange("Add Point Light Component", addBefore);
+            if (componentMenuItem("UI Canvas", "Root marker for screen-space UI controls."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiCanvas>();
+                app().commitChange("Add UI Canvas", addBefore);
+            }
+            if (componentMenuItem("Panel", "Screen-space coloured panel; can contain other UI nodes."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiPanel>();
+                app().commitChange("Add UI Panel", addBefore);
+            }
+            if (componentMenuItem("Label", "Screen-space bitmap-font text."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiLabel>();
+                app().commitChange("Add UI Label", addBefore);
+            }
+            if (componentMenuItem("Button", "Screen-space clickable button."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiButton>();
+                app().commitChange("Add UI Button", addBefore);
+            }
+            if (componentMenuItem("CheckBox", "Screen-space boolean control."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiCheckBox>();
+                app().commitChange("Add UI CheckBox", addBefore);
+            }
+            if (componentMenuItem("Slider", "Screen-space numeric control."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<UiSlider>();
+                app().commitChange("Add UI Slider", addBefore);
+            }
+            ImGui::EndMenu();
         }
-        if (componentMenuItem("Directional Light", "Illuminate the scene with one direction."))
+        if (ImGui::BeginMenu("Audio"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<DirectionalLight2D>();
-            app().commitChange("Add Directional Light Component", addBefore);
+            if (componentMenuItem("Audio Player", "Play an SFX or music asset during Play."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<AudioPlayer>();
+                app().commitChange("Add Audio Player Component", addBefore);
+            }
+            ImGui::EndMenu();
         }
-        if (componentMenuItem("Light Occluder", "Block shadows cast by 2D lights."))
+        if (ImGui::BeginMenu("Scripting"))
         {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            LightOccluder2D* occluder = object->addComponent<LightOccluder2D>();
-            const Math::Vec2 defaultShape[3] = {Math::Vec2(0.0f, -30.0f), Math::Vec2(26.0f, 20.0f),
-                                                Math::Vec2(-26.0f, 20.0f)};
-            occluder->setPolygon(defaultShape, 3);
-            app().commitChange("Add Light Occluder Component", addBefore);
-        }
-        ImGui::Separator();
-        if (componentMenuItem("Camera", "Control the Game view and optionally follow another object."))
-        {
-            const EditorApplication::SceneChange addBefore = app().beginChange();
-            object->addComponent<CameraComponent>();
-            app().commitChange("Add Camera Component", addBefore);
+            if (componentMenuItem("Zen Script", "Run a Python-style Zen script with self.node."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<ZenScriptComponent>();
+                app().commitChange("Add Zen Script Component", addBefore);
+            }
+            ImGui::EndMenu();
         }
         ImGui::EndPopup();
     }

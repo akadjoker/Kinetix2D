@@ -18,11 +18,6 @@
 
 #include <ImGuiFileDialog.h>
 
-namespace k2d
-{
-class PhysicsWorld2D;
-}
-
 namespace k2d::editor
 {
 
@@ -97,10 +92,6 @@ class EditorApplication
     {
         return mPlaying;
     }
-    PhysicsWorld2D* physicsWorld() const
-    {
-        return mPhysicsWorld;
-    }
     void applyPhysicsSettings();
     void reloadChangedScripts();
 
@@ -155,6 +146,8 @@ class EditorApplication
 
     void preloadTextures(const ct::Json& node);
     Texture* particlePlaceholderTexture();
+    GameObject* createSpriteNodeFromImage(const ct::String& imagePath, GameObject* parent = nullptr,
+                                          const Math::Vec2* worldPosition = nullptr);
 
     const ct::String& currentScenePath() const
     {
@@ -215,7 +208,6 @@ class EditorApplication
     ct::String mPreviewPrefabPath;
     bool mInitialized = false;
     bool mPlaying = false;
-    PhysicsWorld2D* mPhysicsWorld = nullptr;
     ScenePhysics mScenePhysics;
     bool mPaused = false;
     int mThemeKind = 0;

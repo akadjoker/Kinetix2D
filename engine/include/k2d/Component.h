@@ -44,6 +44,7 @@ enum class ComponentType : uint8_t
     CharacterBody,
     Skeleton,
     Bone,
+    ParallaxLayer,
     Count
 };
 

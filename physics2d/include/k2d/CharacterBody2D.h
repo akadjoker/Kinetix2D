@@ -1,12 +1,14 @@
 #pragma once
 
 #include "k2d/Component.h"
-#include "k2d/PhysicsWorld2D.h"
+#include "k2d/CollisionInfo.h"
 
 #include <ct/vector.hpp>
 
 namespace k2d
 {
+
+class RigidBody2D;
 
 // Script-driven kinematic body. It uses the RigidBody2D + Collider2D on
 // the same GameObject, but never runs through the impulse solver itself.

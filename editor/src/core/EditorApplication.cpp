@@ -38,14 +38,16 @@
 #include <k2d/ProfilerUI.h>
 #include <k2d/RectShape.h>
 #include <k2d/ScreenFade.h>
+#include <k2d/SpriteComponent.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Serializer.h>
 #include <k2d/Physics2DSerializer.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/UiControls.h>
 #include <k2d/UiTheme.h>
+
+#include <kx/world.h>
 
 #include <SDL.h>
 
@@ -250,8 +252,6 @@ int EditorApplication::run()
             mRuntimeScene.update(mDevice.DeltaTime());
             if (CameraComponent* camera = mRuntimeScene.activeCamera())
                 GetAudio().SetListenerPosition(camera->camera().position);
-            if (mPhysicsWorld)
-                mPhysicsWorld->step(mDevice.DeltaTime());
             DispatchZenScriptEvents(mRuntimeScene.root());
         }
         if (!mPlaying && mSettings.viewportLivePreview)
@@ -497,11 +497,9 @@ void EditorApplication::startPlay()
         for (size_t i = 0; i < children.size(); ++i)
             Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
 
-    delete mPhysicsWorld;
-    mPhysicsWorld = new PhysicsWorld2D();
+    RouteZenScriptCollisions(mRuntimeScene);
+    mRuntimeScene.setSimulationEnabled(true);
     applyPhysicsSettings();
-    RouteZenScriptCollisions(*mPhysicsWorld);
-    mPhysicsWorld->build(mRuntimeScene.root());
 
     SetZenScriptsEnabled(true);
     mPlaying = true;
@@ -517,21 +515,20 @@ Math::Vec2 EditorApplication::effectiveGravity() const
 
 void EditorApplication::applyPhysicsSettings()
 {
-    if (!mPhysicsWorld)
-        return;
     const PhysicsSettings& physics = mProject.physics();
-    mPhysicsWorld->setGravity(effectiveGravity());
-    mPhysicsWorld->setFixedTimeStep(physics.fixedTimeStep);
-    mPhysicsWorld->world().SetVelocityIterations(physics.velocityIterations);
-    mPhysicsWorld->world().SetTreeBroadphase(physics.treeBroadphase);
+    mRuntimeScene.setGravity(effectiveGravity());
+    mRuntimeScene.setFixedTimeStep(physics.fixedTimeStep);
+    if (kx::World* world = mRuntimeScene.physicsWorld())
+    {
+        world->SetVelocityIterations(physics.velocityIterations);
+        world->SetTreeBroadphase(physics.treeBroadphase);
+    }
 }
 
 void EditorApplication::stopPlay()
 {
     SetZenScriptsEnabled(false);
-    delete mPhysicsWorld;
-    mPhysicsWorld = nullptr;
-    PhysicsWorld2D::SetActive(nullptr);
+    mRuntimeScene.setSimulationEnabled(false);
     mRuntimeScene.clear();
     ZenBlackboard::clear();
     GetAudio().StopAll();
@@ -546,8 +543,6 @@ void EditorApplication::stepPlay()
     if (mPlaying && mPaused)
     {
         mRuntimeScene.update(1.0f / 60.0f);
-        if (mPhysicsWorld)
-            mPhysicsWorld->step(1.0f / 60.0f);
         DispatchZenScriptEvents(mRuntimeScene.root());
     }
 }
@@ -974,6 +969,44 @@ void EditorApplication::preloadTextures(const ct::Json& node)
         for (size_t i = 0; i < node.size(); ++i)
             preloadTextures(node[i]);
     }
+}
+
+GameObject* EditorApplication::createSpriteNodeFromImage(const ct::String& imagePath, GameObject* parent,
+                                                          const Math::Vec2* worldPosition)
+{
+    Texture* texture = mAssets.GetTexture(imagePath.c_str());
+    if (!texture)
+        texture = mAssets.LoadTexture(imagePath.c_str(), imagePath.c_str(), true, false);
+    if (!texture)
+    {
+        log("Sprite drop failed: could not load image");
+        mToasts.error("Could not load image");
+        return nullptr;
+    }
+
+    GameObject* destination = parent ? parent : &mScene.root();
+    const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(imagePath));
+
+    const SceneChange before = beginChange();
+    GameObject* created = mScene.createObject(name.empty() ? "Sprite" : name.c_str(), destination);
+    if (!created)
+    {
+        mToasts.error("Could not create sprite node");
+        return nullptr;
+    }
+    SpriteComponent* sprite = created->addComponent<SpriteComponent>(texture);
+    sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
+    if (worldPosition)
+        created->setPosition(*worldPosition);
+
+    mSelection.select(created);
+    commitChange("Create Sprite from Image", before);
+
+    ct::String message("Created sprite: ");
+    message += created->name();
+    log(message);
+    mToasts.success(message);
+    return created;
 }
 
 Texture* EditorApplication::particlePlaceholderTexture()

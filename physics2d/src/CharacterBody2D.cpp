@@ -2,6 +2,9 @@
 
 #include "k2d/GameObject.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Scene.h"
+
+#include <kx/world.h>
 
 #include <cmath>
 
@@ -52,14 +55,15 @@ CollisionInfo CharacterBody2D::moveAndCollide(const Math::Vec2& motion, bool tes
     CollisionInfo collision;
     collision.self = owner();
     RigidBody2D* rigid = rigidBody();
-    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
-    if (!rigid || !rigid->body() || !physics || rigid->bodyType() != kx::BodyType::Kinematic)
+    Scene* scene = owner() ? owner()->scene() : nullptr;
+    kx::World* world = scene ? scene->physicsWorld() : nullptr;
+    if (!rigid || !rigid->body() || !world || rigid->bodyType() != kx::BodyType::Kinematic)
         return collision;
 
     kx::MotionResult result;
-    physics->world().TestMotion(*rigid->body(), motion, result, mSafeMargin);
+    world->TestMotion(*rigid->body(), motion, result, mSafeMargin);
     collision.hit = result.hit;
-    collision.other = PhysicsWorld2D::objectFor(result.body);
+    collision.other = Scene::objectForBody(result.body);
     collision.point = result.point;
     collision.normal = result.normal;
     collision.travel = result.travel;
@@ -89,22 +93,24 @@ bool CharacterBody2D::testMove(const Math::Vec2& motion, CollisionInfo* out) con
 bool CharacterBody2D::placeFree(float x, float y) const
 {
     RigidBody2D* rigid = rigidBody();
-    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
-    if (!rigid || !rigid->body() || !physics)
+    Scene* scene = owner() ? owner()->scene() : nullptr;
+    kx::World* world = scene ? scene->physicsWorld() : nullptr;
+    if (!rigid || !rigid->body() || !world)
         return true;
     kx::MotionResult result;
-    return !physics->world().TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+    return !world->TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
 }
 
 GameObject* CharacterBody2D::placeMeeting(float x, float y) const
 {
     RigidBody2D* rigid = rigidBody();
-    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
-    if (!rigid || !rigid->body() || !physics)
+    Scene* scene = owner() ? owner()->scene() : nullptr;
+    kx::World* world = scene ? scene->physicsWorld() : nullptr;
+    if (!rigid || !rigid->body() || !world)
         return nullptr;
     kx::MotionResult result;
-    physics->world().TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
-    return PhysicsWorld2D::objectFor(result.body);
+    world->TestPosition(*rigid->body(), globalPositionFromLocal(*owner(), x, y), result);
+    return Scene::objectForBody(result.body);
 }
 
 void CharacterBody2D::classifyCollision(const CollisionInfo& collision)
@@ -129,8 +135,8 @@ void CharacterBody2D::classifyCollision(const CollisionInfo& collision)
 
 bool CharacterBody2D::moveAndSlide()
 {
-    PhysicsWorld2D* physics = PhysicsWorld2D::Active();
-    const float delta = physics ? physics->fixedTimeStep() : 0.0f;
+    Scene* scene = owner() ? owner()->scene() : nullptr;
+    const float delta = scene ? scene->fixedTimeStep() : 0.0f;
     mOnFloor = mOnWall = mOnCeiling = false;
     mFloorNormal = Math::Vec2(0.0f, 0.0f);
     mSlideCollisions.clear();

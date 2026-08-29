@@ -1,7 +1,9 @@
 #include "HierarchyPanel.h"
 
 #include "core/EditorApplication.h"
+#include "panels/AssetsPanel.h"
 
+#include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
 #include <k2d/Serializer.h>
@@ -119,6 +121,19 @@ void HierarchyPanel::createNode()
     app().commitChange("Create Node", before);
 }
 
+void HierarchyPanel::createCameraNode()
+{
+    const EditorApplication::SceneChange before = app().beginChange();
+    GameObject *parent = app().selection().resolve(app().scene());
+    if (!parent)
+        parent = &app().scene().root();
+    GameObject *created = app().scene().createObject("Camera", parent);
+    if (created)
+        created->addComponent<CameraComponent>();
+    app().selection().select(created);
+    app().commitChange("Create Camera", before);
+}
+
 void HierarchyPanel::duplicateSelected()
 {
     const ct::Vector<uint64_t> ids = app().selection().ids();
@@ -199,13 +214,16 @@ void HierarchyPanel::drawObject(GameObject &object)
     const bool filtering = mSearchFilter[0] != '\0';
     const bool selfMatches = !filtering || containsCaseInsensitive(object.name(), mSearchFilter);
 
+    // A drop below may add a child mid-call; TreePop must follow what TreeNodeEx actually pushed.
+    const bool hadChildren = object.childCount() != 0;
+
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
                                ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (object.childCount() == 0)
+    if (!hadChildren)
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     if (app().selection().isSelected(object.id()))
         flags |= ImGuiTreeNodeFlags_Selected;
-    if (filtering && object.childCount() != 0)
+    if (filtering && hadChildren)
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
 
     if (selfMatches && filtering)
@@ -232,8 +250,14 @@ void HierarchyPanel::drawObject(GameObject &object)
         if (!app().selection().isSelected(object.id()))
             app().selection().select(&object);
 
-        if (ImGui::MenuItem(ICON_MDI_PLUS " Create Child"))
-            createNode();
+        if (ImGui::BeginMenu(ICON_MDI_PLUS " Create"))
+        {
+            if (ImGui::MenuItem("Empty"))
+                createNode();
+            if (ImGui::MenuItem(ICON_MDI_CAMERA " Camera"))
+                createCameraNode();
+            ImGui::EndMenu();
+        }
         ImGui::BeginDisabled(isRoot);
         if (ImGui::MenuItem(ICON_MDI_CONTENT_DUPLICATE " Duplicate"))
             duplicateSelected();
@@ -275,10 +299,15 @@ void HierarchyPanel::drawObject(GameObject &object)
                 }
             }
         }
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+        {
+            const char *path = static_cast<const char *>(payload->Data);
+            app().createSpriteNodeFromImage(path, isRoot ? nullptr : &object);
+        }
         ImGui::EndDragDropTarget();
     }
 
-    if (open && object.childCount() != 0)
+    if (open && hadChildren)
     {
         for (size_t i = 0; i < object.childCount(); ++i)
             drawObject(*object.child(i));

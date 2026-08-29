@@ -1,9 +1,17 @@
 #pragma once
 
+#include "k2d/Camera2D.h"
+#include "k2d/CollisionInfo.h"
 #include "k2d/GameObject.h"
 #include "k2d/RenderQueue.h"
 
 #include <ct/vector.hpp>
+
+namespace kx
+{
+class World;
+class Body;
+} // namespace kx
 
 namespace k2d
 {
@@ -11,6 +19,8 @@ namespace k2d
     class CanvasRenderer;
     class CameraComponent;
     class UiControl;
+    class RigidBody2D;
+    struct ScenePhysics;
 
     class Scene
     {
@@ -39,6 +49,12 @@ namespace k2d
         // the oldest object, so the choice is deterministic.
         CameraComponent *activeCamera();
         const CameraComponent *activeCamera() const;
+        void makeCameraActive(CameraComponent &camera);
+
+        void setRenderCamera(const Camera2D *camera, float viewportWidth, float viewportHeight);
+        const Camera2D *renderCamera() const { return mRenderCamera; }
+        float renderViewportWidth() const { return mRenderViewportWidth; }
+        float renderViewportHeight() const { return mRenderViewportHeight; }
 
         void update(float deltaTime);
         void render(CanvasRenderer &canvas);
@@ -51,8 +67,33 @@ namespace k2d
 
         void clear();
 
+        void setSimulationEnabled(bool enabled);
+        bool simulationEnabled() const;
+
+        void setGravity(const Math::Vec2 &gravity);
+        Math::Vec2 gravity() const;
+        void setFixedTimeStep(float seconds);
+        float fixedTimeStep() const;
+        void setCollisionCallback(CollisionCallback callback, void *user);
+
+        GameObject *raycast(const Math::Vec2 &origin, const Math::Vec2 &direction, float distance,
+                            Math::Vec2 *outPoint = nullptr, Math::Vec2 *outNormal = nullptr,
+                            const GameObject *ignore = nullptr);
+        GameObject *objectAtPoint(const Math::Vec2 &point);
+        void overlapCircle(const Math::Vec2 &center, float radius, ct::Vector<GameObject *> &out);
+
+        std::size_t physicsBodyCount() const;
+        std::size_t physicsContactCount() const;
+        kx::World *physicsWorld();
+
+        void debugDrawPhysics(CanvasRenderer &canvas, unsigned flags);
+
+        static GameObject *objectForBody(const kx::Body *body);
+        void markPhysicsDirty(RigidBody2D &rigidBody);
+
     private:
         friend class GameObject;
+        friend class RigidBody2D;
 
         void markTopologyChanged() { ++mTopologyVersion; }
 
@@ -65,6 +106,13 @@ namespace k2d
         void flushDisposed();
         GameObject *findRecursive(const GameObject *from, const char *name) const;
         void collectDisposed(GameObject *object, ct::Vector<GameObject *> &out);
+
+        void attachPhysicsBody(RigidBody2D &rigidBody);
+        void detachPhysicsBody(RigidBody2D &rigidBody);
+        void physicsStep(float deltaTime);
+        static ScenePhysics *createPhysics();
+        void clearPhysics();
+        void teardownPhysics();
 
         GameObject mRoot;
         RenderQueue mRenderQueue;
@@ -80,6 +128,10 @@ namespace k2d
         ct::Vector<Component *> mRenderComponents;
         ct::Vector<CameraComponent *> mCameras;
         ct::Vector<UiControl *> mUiControls;
+        ScenePhysics *mPhysics;
+        const Camera2D *mRenderCamera;
+        float mRenderViewportWidth;
+        float mRenderViewportHeight;
     };
 
 }

@@ -10,7 +10,8 @@
 namespace k2d
 {
 
-    class PhysicsWorld2D;
+    class Scene;
+    struct ScenePhysics;
 
     class RigidBody2D : public Component
     {
@@ -54,11 +55,12 @@ namespace k2d
         bool inWorld() const { return mBody != nullptr; }
 
     private:
-        friend class PhysicsWorld2D;
-           friend class Collider2D;
+        friend class Scene;
+        friend struct ScenePhysics;
+
+        void markDirty();
 
         kx::Body *mBody;
-        PhysicsWorld2D *mWorld;
         kx::BodyType mBodyType;
         float mDensity;
         float mFriction;
