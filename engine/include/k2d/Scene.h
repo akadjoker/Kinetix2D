@@ -6,6 +6,7 @@
 #include "k2d/DynamicTree2D.h"
 #include "k2d/GameObject.h"
 #include "k2d/Geometry2D.h"
+#include "k2d/ParticlePhysics2D.h"
 #include "k2d/RenderQueue.h"
 
 #include <ct/hashmap.hpp>
@@ -86,6 +87,11 @@ namespace k2d
         int velocityIterations() const { return mVelocityIterations; }
         void setTreeBroadphase(bool enabled) { mUseTree = enabled; }
         bool treeBroadphase() const { return mUseTree; }
+        // Scene-owned VFX projectiles. Stepped with the rest of the physics,
+        // so they only advance while the simulation is enabled.
+        ParticlePhysics2D &particles() { return mParticles; }
+        const ParticlePhysics2D &particles() const { return mParticles; }
+
         void setCollisionCallback(CollisionCallback callback, void *user);
         void setAnimationEventCallback(AnimationEventCallback callback, void *user);
         void dispatchAnimationEvent(GameObject *object, const char *clip, const char *event, bool finished);
@@ -242,6 +248,7 @@ namespace k2d
         void *mAnimationEventCallbackUser;
         bool mSimulationEnabled;
         bool mHasDirtyBodies;
+        ParticlePhysics2D mParticles;
     };
 
 }

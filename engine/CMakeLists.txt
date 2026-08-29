@@ -130,6 +130,7 @@ add_library(k2d STATIC
     src/DirectionalLight2D.cpp
     src/ParticleSystem.cpp
     src/ParticleComponent.cpp
+    src/ParticlePhysics2D.cpp
     src/LightOccluder2D.cpp
     src/Scene.cpp
     src/SceneManager.cpp

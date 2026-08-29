@@ -259,6 +259,26 @@ def on_collision(self, other, began):   # began is True on enter, False on exit
 Sensors report through the same hook without blocking, so a trigger volume is a collider with
 Sensor ticked plus an `on_collision`.
 
+**Effect particles** are cheap projectiles owned by the scene: they sweep against the colliders,
+draw themselves, and never enter the solver.
+
+```python
+particle_explode(x, y, 24, 80, 260, 1.5, "blood", 4, 1, "stick")
+#                x  y  count speed_min speed_max life texture size tag response
+particle_emit(x, y, vx, vy, 0.8, "spark", 2)   # one particle, returns its id
+particle_count()                               # how many are alive
+particle_clear()
+```
+
+`response` is `"kill"`, `"bounce"` or `"stick"`. A trailing argument after it turns the fade to
+transparent off. An empty texture name simulates and reports hits without drawing anything.
+A hit reaches `on_particle_hit`, on the scripts of the object that was struck:
+
+```python
+def on_particle_hit(self, x, y, nx, ny, tag):
+    emit("splatter", tag)
+```
+
 **Queries** work on the running world:
 
 ```python
@@ -399,6 +419,7 @@ SetZenScriptUserData(&userData); // optional: enables user_data_* in scripts
 SetZenScriptOutput(fn, user);    // route print() into your console
 SetZenScriptsEnabled(true);      // scripts idle until this is on
 RouteZenScriptCollisions(world); // makes on_collision fire
+RouteZenScriptParticleHits(world); // makes on_particle_hit fire
 // each frame, after scene.update():
 DispatchZenScriptEvents(scene.root());
 ```

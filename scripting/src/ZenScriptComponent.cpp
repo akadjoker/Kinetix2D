@@ -884,6 +884,102 @@ int natGetGravity(zen::VM*, zen::Value* args, int)
     return 2;
 }
 
+ParticleResponse particleResponseFromName(const char* name, ParticleResponse fallback)
+{
+    if (!name || !name[0])
+        return fallback;
+    if (std::strcmp(name, "kill") == 0)
+        return ParticleResponse::Kill;
+    if (std::strcmp(name, "bounce") == 0)
+        return ParticleResponse::Bounce;
+    if (std::strcmp(name, "stick") == 0)
+        return ParticleResponse::Stick;
+    return fallback;
+}
+
+Texture* particleTexture(zen::VM* vm, zen::Value* args, int nargs, int index)
+{
+    if (nargs <= index || !gZenAssets)
+        return nullptr;
+    char small[128];
+    const char* name = valueToCString(vm, args[index], small, sizeof(small));
+    if (!name || !name[0])
+        return nullptr;
+    Texture* texture = gZenAssets->GetTexture(name);
+    return texture ? texture : gZenAssets->LoadTexture(name, name, true, false);
+}
+
+void particleFillVisuals(zen::VM* vm, zen::Value* args, int nargs, int first, ParticleSpawn2D& spawn)
+{
+    spawn.texture = particleTexture(vm, args, nargs, first);
+    const float size = nargs >= first + 2 ? (float)zen::to_number(args[first + 1]) : 4.0f;
+    spawn.size = Math::Vec2(size, size);
+    spawn.userTag = nargs >= first + 3 ? (uint32_t)zen::to_integer(args[first + 2]) : 0u;
+    spawn.colorStart = Color::White();
+    const bool fade = nargs >= first + 5 ? zen::to_number(args[first + 4]) != 0.0 : true;
+    spawn.colorEnd = fade ? Color(1.0f, 1.0f, 1.0f, 0.0f) : spawn.colorStart;
+}
+
+int natParticleExplode(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 6)
+    {
+        char small[32];
+        const char* responseName = nargs >= 10 ? valueToCString(vm, args[9], small, sizeof(small)) : nullptr;
+
+        ParticleSpawn2D style;
+        particleFillVisuals(vm, args, nargs, 6, style);
+
+        ParticlePhysics2D& particles = scene->particles();
+        particles.explode(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                          (size_t)zen::to_integer(args[2]), (float)zen::to_number(args[3]),
+                          (float)zen::to_number(args[4]), style.size.x * 0.5f, style.size.x * 0.5f,
+                          (float)zen::to_number(args[5]),
+                          style.userTag, particleResponseFromName(responseName, ParticleResponse::Bounce),
+                          style.texture, style.size, style.colorStart, style.colorEnd);
+    }
+    args[0] = zen::val_nil();
+    return 1;
+}
+
+int natParticleEmit(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    uint32_t id = ParticlePhysics2D::InvalidId;
+    if (scene && nargs >= 5)
+    {
+        char small[32];
+        const char* responseName = nargs >= 9 ? valueToCString(vm, args[8], small, sizeof(small)) : nullptr;
+
+        ParticleSpawn2D spawn;
+        particleFillVisuals(vm, args, nargs, 5, spawn);
+        spawn.position = Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        spawn.velocity = Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        spawn.life = (float)zen::to_number(args[4]);
+        spawn.radius = spawn.size.x * 0.5f;
+        spawn.response = particleResponseFromName(responseName, ParticleResponse::Kill);
+        id = scene->particles().emit(spawn);
+    }
+    args[0] = zen::val_int((int64_t)id);
+    return 1;
+}
+
+int natParticleCount(zen::VM*, zen::Value* args, int)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    args[0] = zen::val_int(scene ? (int64_t)scene->particles().count() : 0);
+    return 1;
+}
+
+int natParticleClear(zen::VM*, zen::Value* args, int)
+{
+    if (Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr)
+        scene->particles().clear();
+    args[0] = zen::val_nil();
+    return 1;
+}
+
 RigidBody2D* bodyFromSelf(zen::Value* args)
 {
     return zen::zen_instance_data<RigidBody2D>(args[-1]);
@@ -5236,6 +5332,10 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("user_data_read_text", &natUserDataReadText, -1);
     vm.def_native("user_data_write_text", &natUserDataWriteText, 2);
     vm.def_native("emit", &natEmit, -1);
+    vm.def_native("particle_explode", &natParticleExplode, -1);
+    vm.def_native("particle_emit", &natParticleEmit, -1);
+    vm.def_native("particle_count", &natParticleCount, 0);
+    vm.def_native("particle_clear", &natParticleClear, 0);
 
     vm.def_native("key_down", &natKeyDown, 1);
     vm.def_native("key_pressed", &natKeyPressed, 1);
@@ -5686,6 +5786,43 @@ void routeAnimationEvent(GameObject* object, const char* clip, const char* event
 void RouteZenScriptAnimationEvents(Scene& scene)
 {
     scene.setAnimationEventCallback(&routeAnimationEvent, nullptr);
+}
+
+bool ZenScriptComponent::callParticleHit(float x, float y, float normalX, float normalY, double userTag)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance())
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotParticleHit < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[5] = {zen::val_float(x), zen::val_float(y), zen::val_float(normalX),
+                          zen::val_float(normalY), zen::val_float(userTag)};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotParticleHit, args, 5);
+    return !impl.vm.had_error();
+}
+
+namespace
+{
+void routeParticleHit(const ParticleHit2D& hit, void*)
+{
+    if (!gZenScriptsEnabled || !hit.other)
+        return;
+    const size_t count = hit.other->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+        if (ZenScriptComponent* script = hit.other->getComponentAt<ZenScriptComponent>(i))
+            script->callParticleHit(hit.point.x, hit.point.y, hit.normal.x, hit.normal.y, (double)hit.userTag);
+}
+} // namespace
+
+void RouteZenScriptParticleHits(Scene& scene)
+{
+    scene.particles().setHitCallback(&routeParticleHit, nullptr);
 }
 
 bool ZenScriptComponent::callFunction(const char* name, double value)

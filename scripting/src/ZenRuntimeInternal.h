@@ -34,6 +34,7 @@ struct ZenScriptClass
     int slotCollision = -1;
     int slotAnimationEvent = -1;
     int slotAnimationFinished = -1;
+    int slotParticleHit = -1;
     long long timestamp = 0;
     unsigned int version = 1;
     ct::Vector<ZenScriptProperty> properties;
@@ -98,6 +99,7 @@ struct ZenRuntime::Impl
     int selectorCollision = -1;
     int selectorAnimationEvent = -1;
     int selectorAnimationFinished = -1;
+    int selectorParticleHit = -1;
 
     void initialize();
     bool compileClass(const char* source, const char* path, ZenScriptClass& out);

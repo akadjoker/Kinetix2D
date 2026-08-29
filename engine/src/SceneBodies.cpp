@@ -264,29 +264,31 @@ void Scene::stepBodies(float deltaTime)
         rebuildDirtyBodies();
     resolveJoints();
 
-    if (deltaTime <= 0.0f || mBodies.empty())
-        return;
-
-    pushTransforms();
-
-    if (mFixedStep <= 0.0f)
+    if (deltaTime > 0.0f && !mBodies.empty())
     {
-        step(deltaTime);
-    }
-    else
-    {
-        mAccumulator += deltaTime;
-        const float maxAccumulated = mFixedStep * 8.0f;
-        if (mAccumulator > maxAccumulated)
-            mAccumulator = maxAccumulated;
-        while (mAccumulator >= mFixedStep)
+        pushTransforms();
+
+        if (mFixedStep <= 0.0f)
         {
-            step(mFixedStep);
-            mAccumulator -= mFixedStep;
+            step(deltaTime);
         }
+        else
+        {
+            mAccumulator += deltaTime;
+            const float maxAccumulated = mFixedStep * 8.0f;
+            if (mAccumulator > maxAccumulated)
+                mAccumulator = maxAccumulated;
+            while (mAccumulator >= mFixedStep)
+            {
+                step(mFixedStep);
+                mAccumulator -= mFixedStep;
+            }
+        }
+
+        pullTransforms();
     }
 
-    pullTransforms();
+    mParticles.step(deltaTime);
 }
 
 }

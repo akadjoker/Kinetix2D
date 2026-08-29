@@ -2477,6 +2477,51 @@ static bool testUiSerializationAndInput()
     return ok;
 }
 
+static bool testParticlePhysicsExplosion()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    scene.setSimulationEnabled(true);
+    k2d::RouteZenScriptParticleHits(scene);
+
+    k2d::GameObject* floor = scene.createObject("floor");
+    floor->setPosition(Math::Vec2(0.0f, 200.0f));
+    floor->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    floor->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(2000.0f, 40.0f));
+
+    k2d::ZenScriptComponent* script = floor->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Ground(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        particle_explode(0, 0, 12, 50, 100, 3.0, \"\", 4, 5, \"kill\")\n"
+        "        set_number(\"spawned\", particle_count())\n"
+        "\n"
+        "    def on_particle_hit(self, x, y, nx, ny, tag):\n"
+        "        set_number(\"hits\", get_number(\"hits\", 0) + 1)\n"
+        "        set_number(\"nx\", nx)\n"
+        "        set_number(\"ny\", ny)\n"
+        "        set_number(\"tag\", tag)\n",
+        "particle_hits");
+
+    for (int i = 0; i < 240; ++i)
+        scene.update(1.0f / 60.0f);
+
+    bool ok = loaded && script->loaded();
+    const double spawned = k2d::ZenBlackboard::getNumber("spawned", 0.0);
+    const double hits = k2d::ZenBlackboard::getNumber("hits", 0.0);
+    ok = ok && nearEqual((float)spawned, 12.0f);
+    ok = ok && nearEqual((float)hits, 12.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("nx", 1.0), 0.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("ny", 0.0), -1.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("tag", 0.0), 5.0f);
+    // Every particle used the kill response, so the pool drains itself.
+    ok = ok && scene.particles().count() == 0;
+
+    std::printf("  particle_physics: spawned=%g hits=%g (expected 12 and 12)\n", spawned, hits);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 int main()
 {
     k2d::FileSystem::Instance().Init();
@@ -2536,6 +2581,7 @@ int main()
     const bool modules = testNetAndHttpModulesImport();
     const bool examples = testExampleScripts();
     const bool ui = testUiSerializationAndInput();
+    const bool particlePhysics = testParticlePhysicsExplosion();
 
     std::printf(
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
@@ -2547,7 +2593,7 @@ int main()
         "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
         "polygon_collider=%s chain_collider=%s navigation_region=%s astar_grid=%s "
         "node_api=%s active_camera=%s input=%s fade_virtual_input=%s audio_api=%s scene_manager=%s game_viewport_input=%s destroy=%s serialization=%s "
-        "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s\n",
+        "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s particle_physics=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
         components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
@@ -2568,7 +2614,7 @@ int main()
         audioApi ? "pass" : "fail", sceneManager ? "pass" : "fail", gameViewportInput ? "pass" : "fail",
         destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
-        ui ? "pass" : "fail");
+        ui ? "pass" : "fail", particlePhysics ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
                         allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
                         animationEvents && animationLag && animationFinished && animationEventsSaved &&
@@ -2581,7 +2627,8 @@ int main()
                         chainColliderApi && navigationRegionApi && astarGridApi &&
                         nodeApi && activeCamera &&
                         inputOk && fadeVirtualInput && audioApi && sceneManager && gameViewportInput && destroy &&
-                        serialization && spawnMath && gate && channel && hotReload && modules && examples && ui;
+                        serialization && spawnMath && gate && channel && hotReload && modules && examples && ui &&
+                        particlePhysics;
     k2d::FileSystem::Instance().Shutdown();
     return passed ? 0 : 1;
 }

@@ -525,6 +525,7 @@ void EditorApplication::startPlay()
 
     RouteZenScriptCollisions(mRuntimeScene);
     RouteZenScriptAnimationEvents(mRuntimeScene);
+    RouteZenScriptParticleHits(mRuntimeScene);
     mRuntimeScene.setSimulationEnabled(true);
     applyPhysicsSettings();
 

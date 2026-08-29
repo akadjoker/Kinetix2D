@@ -22,7 +22,7 @@ namespace k2d
           mBroadphaseStamp(0xFFFFFFFFu),
           mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
           mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
-          mSimulationEnabled(false), mHasDirtyBodies(false)
+          mSimulationEnabled(false), mHasDirtyBodies(false), mParticles(*this)
     {
         mRoot.mScene = this;
         mNarrowMs = 0.0f;
@@ -208,6 +208,7 @@ namespace k2d
             if (object && !object->disposed() && object->isActiveAndVisibleInHierarchy())
                 object->renderComponent(component, mRenderQueue);
         }
+        mParticles.submit(mRenderQueue);
         compactComponentLists();
         return mRenderQueue;
     }
@@ -227,6 +228,7 @@ namespace k2d
         mObjectCount = 0;
         mNextId = 1;
         mComponentListsDirty = false;
+        mParticles.clear();
     }
 
     void Scene::registerBranch(GameObject *object)

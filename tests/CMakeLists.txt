@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.16)
 add_executable(k2d_particle_tests k2d_particle_tests.cpp)
 target_link_libraries(k2d_particle_tests PRIVATE k2d)
 
+add_executable(k2d_particle_physics_tests k2d_particle_physics_tests.cpp)
+target_link_libraries(k2d_particle_physics_tests PRIVATE k2d_physics2d)
+target_compile_features(k2d_particle_physics_tests PRIVATE cxx_std_17)
+
 add_executable(k2d_spritebatch_tests k2d_spritebatch_tests.cpp)
 target_link_libraries(k2d_spritebatch_tests PRIVATE k2d)
 
@@ -92,6 +96,7 @@ set(K2D_ZEN_TEST_TARGETS
 
 set(K2D_TEST_TARGETS
     k2d_particle_tests
+    k2d_particle_physics_tests
     k2d_spritebatch_tests
     k2d_polygon2d_tests
     k2d_scene_tests

@@ -48,6 +48,7 @@ namespace k2d
         bool callCollision(GameObject *other, bool began);
         bool callAnimationEvent(const char *name);
         bool callAnimationFinished(const char *clip);
+        bool callParticleHit(float x, float y, float normalX, float normalY, double userTag);
         bool callFunction(const char *name, double value = 0.0);
         bool hasFunction(const char *name) const;
 
@@ -102,6 +103,9 @@ namespace k2d
     void DispatchZenScriptEvents(GameObject &root);
     void RouteZenScriptCollisions(Scene &scene);
     void RouteZenScriptAnimationEvents(Scene &scene);
+    // Physics particles report to the object they struck, not to an emitter:
+    // the scene owns the pool, so the hit object is the only script target.
+    void RouteZenScriptParticleHits(Scene &scene);
     void BroadcastZenScriptEvent(GameObject &root, const char *event, double value = 0.0);
 
     void SetZenScriptsEnabled(bool enabled);
