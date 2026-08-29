@@ -1898,7 +1898,25 @@ void drawSpriteBatchProperties(EditorApplication& app, SpriteBatch& batch)
             ImGui::Indent();
             Texture* newTexture = nullptr;
             if (textureField(app, "Texture", entry->texture, newTexture))
-                applyInstant(app, "Set Batch Entry Texture", [&] { entry->texture = newTexture; });
+            {
+                applyInstant(app, "Set Batch Entry Texture",
+                             [&]
+                             {
+                                 const Texture* previousTexture = entry->texture;
+                                 const Math::Vec2 previousSize = entry->size;
+                                 const bool sizeMatchedOldTexture =
+                                     previousTexture && previousSize.x == (float)previousTexture->Width() &&
+                                     previousSize.y == (float)previousTexture->Height();
+                                 entry->texture = newTexture;
+                                 if (newTexture && (sizeMatchedOldTexture || previousSize.x <= 0.0f ||
+                                                    previousSize.y <= 0.0f))
+                                 {
+                                     entry->size =
+                                         Math::Vec2((float)newTexture->Width(), (float)newTexture->Height());
+                                     entry->source = Math::Vec4(0.0f);
+                                 }
+                             });
+            }
             dragVec2(app, "Position", entry->position, 0.5f, "Move Batch Entry");
             dragVec2(app, "Size", entry->size, 0.5f, "Resize Batch Entry");
             dragVec4(app, "Source (x,y,w,h)", entry->source, 0.5f, "Adjust Batch Entry Source");
