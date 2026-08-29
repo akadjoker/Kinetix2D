@@ -116,6 +116,16 @@ void NavigationAgent2D::setRepathMoveThreshold(float value)
 
 void NavigationAgent2D::onAwake()
 {
+    // Spread the repath phase across the interval. A wave of agents spawned on
+    // the same frame otherwise keeps searching on the same frame for as long as
+    // it lives, and the whole crowd's pathfinding lands in one spike instead of
+    // being smeared over the interval it was given.
+    if (const GameObject* object = owner())
+    {
+        uint32_t state = ((uint32_t)object->id() * 2654435761u) | 1u;
+        state = state * 1664525u + 1013904223u;
+        mRepathTimer = mRepathInterval * (float)(state >> 8) * (1.0f / 16777216.0f);
+    }
     if (mHasTarget)
         retarget(mTarget, true);
 }

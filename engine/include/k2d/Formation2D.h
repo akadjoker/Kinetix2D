@@ -81,6 +81,7 @@ class Formation2D final : public Component
     }
 
   protected:
+    void onAwake() override;
     void onUpdate(float deltaTime) override;
 
   private:

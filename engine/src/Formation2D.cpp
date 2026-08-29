@@ -27,6 +27,19 @@ Formation2D::Formation2D() : Component(Type, ComponentEventUpdate)
 {
 }
 
+void Formation2D::onAwake()
+{
+    // Spread the recompute phase across the interval. A squad spawned on one
+    // frame otherwise asks for its places on the same frame for as long as it
+    // lives, and every repath the group needs lands in one spike.
+    if (const GameObject* object = owner())
+    {
+        uint32_t state = ((uint32_t)object->id() * 2246822519u) | 1u;
+        state = state * 1664525u + 1013904223u;
+        mTimer = mUpdateInterval * (float)(state >> 8) * (1.0f / 16777216.0f);
+    }
+}
+
 void Formation2D::setGroupTag(const char* tag)
 {
     mGroupTag = tag ? tag : "";

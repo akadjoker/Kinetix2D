@@ -502,6 +502,59 @@ bool TestDynamicAgentFacesItsPath()
     return ok;
 }
 
+bool TestSpawnedTogetherDoNotRepathTogether()
+{
+    const float dt = 1.0f / 60.0f;
+    const int count = 40;
+    k2d::Scene scene;
+    makeField(scene, 800.0f);
+    k2d::GameObject* quarry = makeWalker(scene, "quarry", Math::Vec2(400.0f, 400.0f), false);
+
+    // A wave: every one of them created on the same frame, the way a door
+    // opening spawns a room full of enemies.
+    ct::Vector<k2d::NavigationAgent2D*> agents;
+    for (int i = 0; i < count; ++i)
+    {
+        char name[24];
+        std::snprintf(name, sizeof(name), "wave%d", i);
+        k2d::GameObject* object = makeWalker(scene, name, Math::Vec2(40.0f + 4.0f * i, 40.0f), false);
+        object->setTag("wave");
+        k2d::NavigationAgent2D* agent = object->addComponent<k2d::NavigationAgent2D>();
+        agent->setMaxSpeed(100.0f);
+        agent->setAutoMove(true);
+        k2d::Formation2D* formation = object->addComponent<k2d::Formation2D>();
+        formation->setGroupTag("wave");
+        formation->setAnchorName("quarry");
+        formation->setSpacing(120.0f);
+        agents.push_back(agent);
+    }
+
+    scene.setSimulationEnabled(true);
+    int busiest = 0;
+    uint32_t previous = 0;
+    for (int frame = 0; frame < 240; ++frame)
+    {
+        // Keep the quarry moving so the places really do have to be recomputed.
+        quarry->setPosition(Math::Vec2(400.0f + 60.0f * std::cos(frame * 0.05f),
+                                       400.0f + 60.0f * std::sin(frame * 0.05f)));
+        scene.update(dt);
+        uint32_t total = 0;
+        for (std::size_t i = 0; i < agents.size(); ++i)
+            total += agents[i]->repathCount();
+        const int thisFrame = (int)(total - previous);
+        previous = total;
+        if (frame > 30 && thisFrame > busiest)
+            busiest = thisFrame;
+    }
+
+    // Spread over a quarter-second interval at 60fps, a fair share is about a
+    // sixth of them per frame. Half the crowd in one frame is a stampede.
+    const bool ok = busiest < count / 2;
+    std::printf("navigation wave repaths spread out: busiest frame repathed %d of %d %s\n", busiest, count,
+                ok ? "pass" : "fail");
+    return ok;
+}
+
 bool TestSurroundIgnoresTheAnchorFacing()
 {
     const float dt = 1.0f / 60.0f;
@@ -1161,6 +1214,7 @@ int main()
     const bool crowdApart = TestDynamicAgentsDoNotOverlap();
     const bool formationSpread = TestFormationSpreadsTheGroup();
     const bool surroundStable = TestSurroundIgnoresTheAnchorFacing();
+    const bool waveSpread = TestSpawnedTogetherDoNotRepathTogether();
     const bool dynamicFacing = TestDynamicAgentFacesItsPath();
     const bool separationSpread = TestSeparationSpreadsACrowd();
     const bool separationSources = TestSeparationOnlySeesBodies();
@@ -1183,7 +1237,7 @@ int main()
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&
-                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && formationSpread && surroundStable && dynamicFacing && separationSpread &&
+                   outsideMesh && steeringForces && steeringNeutral && followAfterResolve && crowdApart && formationSpread && surroundStable && waveSpread && dynamicFacing && separationSpread &&
            separationSources &&
                    obstacleAside && steeringList
                ? 0
