@@ -235,31 +235,97 @@ void NavigationAgent2D::onUpdate(float deltaTime)
 
     const Math::Vec2 pathDesire = following ? delta * (mMaxSpeed / length) : Math::Vec2(0.0f, 0.0f);
     Scene *scene = owner()->scene();
+    // Steering behaviours are asked what to do about the direction the agent is
+    // actually travelling. Handing them the path desire instead left every
+    // velocity-driven behaviour - obstacle avoidance above all - reading a zero
+    // speed and returning no force whenever the agent had no path.
+    const Math::Vec2 sense = mVelocity.LengthSquared() > 0.0001f ? mVelocity : pathDesire;
+    bool vetoed = false;
     const Math::Vec2 steering =
-        scene ? scene->steeringForce(*owner(), pathDesire, deltaTime) : Math::Vec2(0.0f, 0.0f);
+        scene ? scene->steeringForce(*owner(), sense, deltaTime, &vetoed) : Math::Vec2(0.0f, 0.0f);
 
-    if (steering.x == 0.0f && steering.y == 0.0f)
+    const Math::Vec2 before = owner()->globalPosition();
+    if (!vetoed && steering.x == 0.0f && steering.y == 0.0f)
     {
         if (!following)
+        {
+            mVelocity = Math::Vec2(0.0f, 0.0f);
+            mSmoothedAcceleration = Math::Vec2(0.0f, 0.0f);
             return;
+        }
         const float distance = Min(length, mMaxSpeed * deltaTime);
         translateGlobal(delta * (distance / length));
+        recordVelocity(before, deltaTime);
         advance();
         return;
     }
 
-    Math::Vec2 desired = pathDesire + steering * mMaxSpeed;
-    float speed = desired.Length();
-    if (speed > mMaxSpeed)
-    {
-        desired = desired * (mMaxSpeed / speed);
-        speed = mMaxSpeed;
-    }
+    // A steering force is an acceleration, never a velocity. Assigning it as a
+    // velocity turned a purely lateral avoidance force into purely lateral
+    // motion, so the agent lost all forward momentum and thrashed side to side
+    // instead of curving around what it was avoiding.
+    Math::Vec2 force = steering * mMaxSpeed;
+    if (!vetoed && following)
+        force += pathDesire - mVelocity;
+    applySteeringForce(force, deltaTime);
+
+    const float speed = mVelocity.Length();
     if (speed > 0.0001f)
     {
         const float step = following ? Min(length, speed * deltaTime) : speed * deltaTime;
-        translateGlobal(desired * (step / speed));
+        translateGlobal(mVelocity * (step / speed));
     }
     advance();
+}
+
+// Port of OpenSteer's SimpleVehicle::applySteeringForce, including
+// adjustRawSteeringForce, which is what stops a stationary agent from being
+// shoved backwards or sideways by a force it has no momentum to absorb.
+void NavigationAgent2D::applySteeringForce(Math::Vec2 force, float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+        return;
+
+    const float speed = mVelocity.Length();
+    const float maxAdjustedSpeed = 0.2f * mMaxSpeed;
+    const float forceLength = force.Length();
+    if (speed <= maxAdjustedSpeed && forceLength > 0.0f && speed > 0.0001f)
+    {
+        const Math::Vec2 forward = mVelocity * (1.0f / speed);
+        const float range = maxAdjustedSpeed > 0.0f ? speed / maxAdjustedSpeed : 1.0f;
+        const float cone = 1.0f - 2.0f * std::pow(range, 20.0f);
+        const Math::Vec2 direction = force * (1.0f / forceLength);
+        if (direction.Dot(forward) < cone)
+        {
+            Math::Vec2 perpendicular = force - forward * force.Dot(forward);
+            const float perpendicularLength = perpendicular.Length();
+            perpendicular = perpendicularLength > 0.0001f ? perpendicular * (1.0f / perpendicularLength)
+                                                          : Math::Vec2(-forward.y, forward.x);
+            const float sine = std::sqrt(Max(0.0f, 1.0f - cone * cone));
+            force = (forward * cone + perpendicular * sine) * forceLength;
+        }
+    }
+
+    // OpenSteer's Pedestrian runs maxSpeed 2 against maxForce 8, so a vehicle
+    // can change its whole velocity four times a second.
+    const float maxForce = mMaxSpeed * 4.0f;
+    const float clipped = force.Length();
+    if (clipped > maxForce)
+        force = force * (maxForce / clipped);
+
+    const float smoothRate = Clamp(9.0f * deltaTime, 0.15f, 0.4f);
+    mSmoothedAcceleration += (force - mSmoothedAcceleration) * smoothRate;
+    mVelocity += mSmoothedAcceleration * deltaTime;
+
+    const float newSpeed = mVelocity.Length();
+    if (newSpeed > mMaxSpeed)
+        mVelocity = mVelocity * (mMaxSpeed / newSpeed);
+}
+
+void NavigationAgent2D::recordVelocity(const Math::Vec2 &before, float deltaTime)
+{
+    if (deltaTime <= 0.0001f || !owner())
+        return;
+    mVelocity = (owner()->globalPosition() - before) * (1.0f / deltaTime);
 }
 } // namespace k2d

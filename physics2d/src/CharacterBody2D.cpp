@@ -139,9 +139,14 @@ bool CharacterBody2D::moveAndSlide()
     if (delta <= 0.0f)
         return false;
 
+    // The first pass runs even with no motion: it is what lifts the body out
+    // of anything it is already inside, and a body standing still inside a
+    // wall has to come out too.
     Math::Vec2 motion = mVelocity * delta;
-    for (int index = 0; index < mMaxSlides && motion.LengthSquared() > 0.0000001f; ++index)
+    for (int index = 0; index < mMaxSlides; ++index)
     {
+        if (index > 0 && motion.LengthSquared() <= 0.0000001f)
+            break;
         CollisionInfo collision = moveAndCollide(motion);
         if (!collision.hit)
             break;

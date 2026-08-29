@@ -257,13 +257,13 @@
           {
             "type": "ObstacleAvoidance2D",
             "data": {
-              "weight": 2.5,
+              "weight": 1.0,
               "target": "",
               "targetPosition": [
                 0.0,
                 0.0
               ],
-              "lookAhead": 0.7,
+              "lookAhead": 3.0,
               "mask": 65535
             }
           }

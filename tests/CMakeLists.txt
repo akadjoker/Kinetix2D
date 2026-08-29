@@ -122,3 +122,6 @@ foreach(test_target IN LISTS K2D_ALL_TEST_TARGETS)
         set_tests_properties(${test_target} PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     endif()
 endforeach()
+
+add_executable(k2d_character_tests k2d_character_tests.cpp)
+target_link_libraries(k2d_character_tests PRIVATE k2d_physics2d)

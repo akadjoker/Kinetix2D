@@ -25,6 +25,12 @@ namespace k2d
         // behaviour never has to know how fast the thing it steers can move.
         virtual Math::Vec2 force(float deltaTime, const Math::Vec2 &position, const Math::Vec2 &velocity) const = 0;
 
+        // OpenSteer's obstacle avoidance is a veto, not one vote among many:
+        // the Pedestrian plugin runs the other behaviours only when avoidance
+        // returned nothing. Summing them instead lets a seek drag the agent
+        // straight back into the wall it was turning away from.
+        virtual bool vetoes() const { return false; }
+
         float weight() const { return mWeight; }
         void setWeight(float weight);
 

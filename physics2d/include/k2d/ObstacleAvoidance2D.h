@@ -10,7 +10,8 @@ namespace k2d
     public:
         ObstacleAvoidance2D();
 
-        // Seconds of travel at the current speed that are probed ahead.
+        // OpenSteer's minTimeToCollision: seconds of travel at the current
+        // speed that are swept ahead for obstacles.
         float lookAhead() const { return mLookAhead; }
         void setLookAhead(float seconds);
 
@@ -19,6 +20,7 @@ namespace k2d
         void setMask(uint16_t mask);
 
         Math::Vec2 force(float deltaTime, const Math::Vec2 &position, const Math::Vec2 &velocity) const override;
+        bool vetoes() const override { return true; }
 
     private:
         float mLookAhead;

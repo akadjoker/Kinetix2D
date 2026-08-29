@@ -506,6 +506,86 @@ bool Scene::rayCastClosest(const Math::Vec2& origin, const Math::Vec2& translati
     return true;
 }
 
+Math::Vec2 Scene::recoverOverlap(RigidBody2D& body, const Math::Vec2& position, float margin) const
+{
+    Math::Vec2 recovery(0.0f, 0.0f);
+    if (body.ShapeCount() == 0)
+        return recovery;
+
+    const float target = margin > kLinearSlop ? margin : kLinearSlop;
+    const ct::Vector<Shape>& selfShapes = body.Shapes();
+    for (int pass = 0; pass < 4; ++pass)
+    {
+        const Transform selfTransform = MakeTransform(position + recovery, body.Angle());
+        const AABB bounds = ComputeBodyAABB(body, selfTransform);
+        mBodyScratch.clear();
+        queryAABB(bounds, mBodyScratch);
+
+        Math::Vec2 push(0.0f, 0.0f);
+        int contacts = 0;
+        for (size_t candidateIndex = 0; candidateIndex < mBodyScratch.size(); ++candidateIndex)
+        {
+            RigidBody2D* other = mBodyScratch[candidateIndex];
+            if (!other || other == &body || other->ShapeCount() == 0)
+                continue;
+            const Transform otherTransform = other->GetTransform();
+            const ct::Vector<Shape>& otherShapes = other->Shapes();
+            for (int selfIndex = 0; selfIndex < body.ShapeCount(); ++selfIndex)
+            {
+                const Shape& selfShape = selfShapes[(size_t)selfIndex];
+                const AABB selfAabb = ComputeShapeAABB(selfShape, selfTransform);
+                for (int otherIndex = 0; otherIndex < other->ShapeCount(); ++otherIndex)
+                {
+                    const Shape& otherShape = otherShapes[(size_t)otherIndex];
+                    if (selfShape.isSensor || otherShape.isSensor ||
+                        !ShouldCollide(selfShape.filter, otherShape.filter) ||
+                        !TestOverlap(selfAabb, ComputeShapeAABB(otherShape, otherTransform)))
+                        continue;
+
+                    Manifold manifold;
+                    bool flipped = false;
+                    if (!CollideShapePair(manifold, flipped, selfShape, selfTransform, otherShape, otherTransform) ||
+                        manifold.pointCount == 0)
+                        continue;
+
+                    WorldManifold worldManifold;
+                    Math::Vec2 normal;
+                    if (flipped)
+                    {
+                        worldManifold.Initialize(&manifold, otherTransform, ShapeRadius(otherShape), selfTransform,
+                                                 ShapeRadius(selfShape));
+                        normal = worldManifold.normal;
+                    }
+                    else
+                    {
+                        worldManifold.Initialize(&manifold, selfTransform, ShapeRadius(selfShape), otherTransform,
+                                                 ShapeRadius(otherShape));
+                        normal = -worldManifold.normal;
+                    }
+
+                    float depth = 0.0f;
+                    for (int32_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex)
+                    {
+                        const float separation = -worldManifold.separations[pointIndex];
+                        if (separation > depth)
+                            depth = separation;
+                    }
+                    if (depth <= 0.0f)
+                        continue;
+
+                    push += normal * (depth + target * 0.25f);
+                    ++contacts;
+                }
+            }
+        }
+
+        if (contacts == 0)
+            break;
+        recovery += push / (float)contacts;
+    }
+    return recovery;
+}
+
 bool Scene::testMotion(RigidBody2D& body, const Math::Vec2& motion, MotionResult& out, float safeMargin) const
 {
     out = MotionResult();
@@ -515,7 +595,8 @@ bool Scene::testMotion(RigidBody2D& body, const Math::Vec2& motion, MotionResult
         return false;
     }
 
-    const Transform selfTransform = body.GetTransform();
+    const Math::Vec2 recovery = recoverOverlap(body, body.Position(), safeMargin);
+    const Transform selfTransform = MakeTransform(body.Position() + recovery, body.Angle());
     const AABB start = ComputeBodyAABB(body, selfTransform);
     Transform endTransform = selfTransform;
     endTransform.tx += motion.x;
@@ -579,7 +660,7 @@ bool Scene::testMotion(RigidBody2D& body, const Math::Vec2& motion, MotionResult
 
     if (!bestBody)
     {
-        out.travel = motion;
+        out.travel = recovery + motion;
         return false;
     }
 
@@ -591,8 +672,8 @@ bool Scene::testMotion(RigidBody2D& body, const Math::Vec2& motion, MotionResult
     out.point = best.point;
     out.normal = best.normal;
     out.fraction = best.fraction;
-    out.travel = safeFraction * motion;
-    out.remainder = motion - out.travel;
+    out.travel = recovery + safeFraction * motion;
+    out.remainder = motion - safeFraction * motion;
     out.hit = true;
     return true;
 }
@@ -718,9 +799,12 @@ Steering2D* Scene::steeringAt(std::size_t index) const
     return index < mSteerings.size() ? mSteerings[index] : nullptr;
 }
 
-Math::Vec2 Scene::steeringForce(const GameObject& object, const Math::Vec2& velocity, float deltaTime) const
+Math::Vec2 Scene::steeringForce(const GameObject& object, const Math::Vec2& velocity, float deltaTime,
+                                bool* outVetoed) const
 {
     Math::Vec2 total(0.0f, 0.0f);
+    Math::Vec2 veto(0.0f, 0.0f);
+    bool vetoed = false;
     const Math::Vec2 position = object.globalPosition();
     for (Component* component = object.mComponents[static_cast<uint8_t>(ComponentType::Steering)]; component;
          component = component->mNextSibling)
@@ -729,10 +813,22 @@ Math::Vec2 Scene::steeringForce(const GameObject& object, const Math::Vec2& velo
             continue;
         Steering2D* steering = static_cast<Steering2D*>(component);
         const Math::Vec2 contribution = steering->force(deltaTime, position, velocity) * steering->weight();
-        if (std::isfinite(contribution.x) && std::isfinite(contribution.y))
-            total += contribution;
+        if (!std::isfinite(contribution.x) || !std::isfinite(contribution.y))
+            continue;
+        if (steering->vetoes())
+        {
+            if (contribution.x != 0.0f || contribution.y != 0.0f)
+            {
+                veto += contribution;
+                vetoed = true;
+            }
+            continue;
+        }
+        total += contribution;
     }
-    return total;
+    if (outVetoed)
+        *outVetoed = vetoed;
+    return vetoed ? veto : total;
 }
 
 std::size_t Scene::queryNeighbours(const GameObject& self, const Math::Vec2& center, float radius,

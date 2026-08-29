@@ -41,21 +41,22 @@ Math::Vec2 Separation2D::force(float, const Math::Vec2 &position, const Math::Ve
         if (!(distance < mRadius))
             continue;
 
-        // Repel from every neighbour inside the radius, summed with a falloff.
-        // Reacting only to the closest one lets a group collapse into a dense
-        // ball where the pushes cancel out and fight each other every frame.
+        // OpenSteer steerForSeparation: away from each neighbour with a 1/d
+        // falloff, summed, then normalised to a pure direction. Returning the
+        // raw sum instead let the force fade to nothing at any real spacing,
+        // so a crowd never actually separated.
         if (!(distance > kSteeringEpsilon))
         {
             push += Math::Vec2(object->id() < neighbour->id() ? -1.0f : 1.0f, 0.0f);
             continue;
         }
-        push += away * ((1.0f - distance / mRadius) / distance);
+        push += away * (1.0f / (distance * distance));
     }
 
     const float strength = push.Length();
     if (!(strength > kSteeringEpsilon))
         return Math::Vec2(0.0f, 0.0f);
-    return strength > 1.0f ? push * (1.0f / strength) : push;
+    return push * (1.0f / strength);
 }
 
 }

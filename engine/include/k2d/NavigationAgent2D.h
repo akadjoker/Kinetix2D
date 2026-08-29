@@ -88,6 +88,10 @@ class NavigationAgent2D final : public Component
     {
         return mMaxSpeed;
     }
+    const Math::Vec2& velocity() const
+    {
+        return mVelocity;
+    }
     void setAutoMove(bool value)
     {
         mAutoMove = value;
@@ -133,6 +137,8 @@ class NavigationAgent2D final : public Component
 
     Math::Vec2 mTarget{0.0f};
     Math::Vec2 mLastPathedTarget{0.0f};
+    Math::Vec2 mVelocity{0.0f};
+    Math::Vec2 mSmoothedAcceleration{0.0f};
     ct::Vector<Math::Vec2> mPath;
     std::size_t mPathIndex = 0;
     float mPathDesiredDistance = 8.0f;
@@ -147,6 +153,9 @@ class NavigationAgent2D final : public Component
     GameObject* mFollowTarget = nullptr;
     uint32_t mFollowVersion = 0;
     bool mHasTarget = false;
+    void recordVelocity(const Math::Vec2 &before, float deltaTime);
+    void applySteeringForce(Math::Vec2 force, float deltaTime);
+
     float mLastDeltaTime = 0.0f;
     bool mHasPathedTarget = false;
     bool mAutoMove = false;

@@ -104,9 +104,14 @@ namespace k2d
         bool testMotion(RigidBody2D &body, const Math::Vec2 &motion, MotionResult &out,
                         float safeMargin = kLinearSlop) const;
         bool testPosition(RigidBody2D &body, const Math::Vec2 &position, MotionResult &out) const;
+        // Offset that lifts the body out of anything it already overlaps. A
+        // shape cast reports no hit from inside a shape, so without this a
+        // character that ends a frame embedded walks straight through walls.
+        Math::Vec2 recoverOverlap(RigidBody2D &body, const Math::Vec2 &position, float margin) const;
 
         // Sums the weighted forces of the object's own steering components.
-        Math::Vec2 steeringForce(const GameObject &object, const Math::Vec2 &velocity, float deltaTime) const;
+        Math::Vec2 steeringForce(const GameObject &object, const Math::Vec2 &velocity, float deltaTime,
+                                 bool *outVetoed = nullptr) const;
         std::size_t steeringCount() const { return mSteerings.size(); }
         Steering2D *steeringAt(std::size_t index) const;
 
