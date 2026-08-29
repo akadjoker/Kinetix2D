@@ -161,6 +161,7 @@ class NavigationAgent2D final : public Component
     uint32_t mFollowVersion = kUnresolvedFollowVersion;
     bool mHasTarget = false;
     void recordVelocity(const Math::Vec2 &before, float deltaTime);
+    void releaseBody();
     void applySteeringForce(Math::Vec2 force, float deltaTime);
 
     float mLastDeltaTime = 0.0f;

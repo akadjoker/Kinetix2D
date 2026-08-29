@@ -95,6 +95,7 @@ class Formation2D final : public Component
     float mUpdateInterval = 0.25f;
     float mTimer = 0.0f;
     uint32_t mGroupVersion = 0xFFFFFFFFu;
+    bool mHolding = false;
     int mSlot = 0;
     int mMemberCount = 1;
     Shape mShape = Shape::Surround;

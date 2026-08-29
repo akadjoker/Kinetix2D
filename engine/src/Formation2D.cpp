@@ -1,7 +1,6 @@
 #include "k2d/Formation2D.h"
 
 #include "k2d/GameObject.h"
-#include "k2d/Navigation2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/Scene.h"
 #include "k2d/Utils.h"
@@ -147,15 +146,32 @@ void Formation2D::onUpdate(float deltaTime)
     if (!computeGoal(goal))
         return;
 
-    // A slot inside a wall is no use to anyone. Fall back on the anchor itself,
-    // which is walkable by definition if he is standing there.
-    Scene* scene = object->scene();
-    if (scene && !Navigation2D::Contains(*scene, goal))
-        goal = mAnchor->globalPosition();
-
+    // A slot inside a wall used to fall back on the anchor itself, which sent
+    // the member to stand where the anchor already stands and left it grinding
+    // against him for good. Pathing snaps an unreachable end onto the mesh, so
+    // handing the slot over as it is puts the member as close to its place as
+    // the map allows.
     mGoal = goal;
-    // setTargetPosition only repaths once the goal has really moved, so calling
-    // it on the interval costs a compare and not a search.
+
+    // Re-sending a goal the member has already reached makes it walk the last
+    // few units over and over, because arriving leaves it with no path and a
+    // fresh target is what asks for another one. Two distances and not one:
+    // hold and set out again on the same radius and the member paces across it
+    // for ever, since settling drifts it a little either way.
+    const float arrived = agent->pathDesiredDistance();
+    const float leave = arrived * 3.0f;
+    const float distance = DistanceSquared(object->globalPosition(), goal);
+    if (mHolding)
+    {
+        if (distance <= leave * leave)
+            return;
+        mHolding = false;
+    }
+    else if (distance <= arrived * arrived)
+    {
+        mHolding = true;
+        return;
+    }
     agent->setTargetPosition(goal);
 }
 

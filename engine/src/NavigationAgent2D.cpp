@@ -251,6 +251,7 @@ void NavigationAgent2D::onUpdate(float deltaTime)
         {
             mVelocity = Math::Vec2(0.0f, 0.0f);
             mSmoothedAcceleration = Math::Vec2(0.0f, 0.0f);
+            releaseBody();
             return;
         }
         const float distance = Min(length, mMaxSpeed * deltaTime);
@@ -320,6 +321,19 @@ void NavigationAgent2D::applySteeringForce(Math::Vec2 force, float deltaTime)
     const float newSpeed = mVelocity.Length();
     if (newSpeed > mMaxSpeed)
         mVelocity = mVelocity * (mMaxSpeed / newSpeed);
+}
+
+// A dynamic body is driven by having its velocity written every frame, so
+// arriving has to be said out loud. Falling silent leaves the body coasting on
+// the last velocity it was given, which carries it off the spot it just
+// reached and straight into being sent back again.
+void NavigationAgent2D::releaseBody()
+{
+    if (!owner())
+        return;
+    RigidBody2D* body = owner()->getComponent<RigidBody2D>();
+    if (body && body->bodyType() == BodyType::Dynamic)
+        body->setVelocity(Math::Vec2(0.0f, 0.0f));
 }
 
 void NavigationAgent2D::recordVelocity(const Math::Vec2 &before, float deltaTime)
