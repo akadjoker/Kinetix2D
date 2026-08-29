@@ -51,6 +51,3 @@ class Npc(ScriptComponent):
             if distance >= self.resume_distance:
                 self.moving = True
                 self.agent.set_auto_move(True)
-
-        set_number("npc_distance", distance)
-        set_flag("npc_moving", self.moving)
