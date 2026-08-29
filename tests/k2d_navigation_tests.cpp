@@ -332,17 +332,24 @@ bool TestPathEndpointsOutsideTheMesh()
                                   Math::Vec2(0.0f, 100.0f)};
     region->setPolygon(polygon, 4);
 
+    // Godot snaps a query onto the map instead of refusing it. Refusing was
+    // what stranded an agent for good: a character standing against a wall sits
+    // outside a mesh that was never shrunk by its radius, so most requests
+    // failed and nothing ever recovered.
     ct::Vector<Math::Vec2> path;
-    const bool startOutside = !k2d::Navigation2D::GetPath(scene, Math::Vec2(-50.0f, 50.0f), Math::Vec2(50.0f, 50.0f),
-                                                          path);
-    const bool endOutside = !k2d::Navigation2D::GetPath(scene, Math::Vec2(50.0f, 50.0f), Math::Vec2(150.0f, 50.0f),
-                                                        path);
-    const bool bothOutside = !k2d::Navigation2D::GetPath(scene, Math::Vec2(-50.0f, -50.0f),
-                                                         Math::Vec2(150.0f, 150.0f), path);
+    const bool startOutside =
+        k2d::Navigation2D::GetPath(scene, Math::Vec2(-50.0f, 50.0f), Math::Vec2(50.0f, 50.0f), path) &&
+        region->containsPoint(path[0]);
+    const bool endOutside =
+        k2d::Navigation2D::GetPath(scene, Math::Vec2(50.0f, 50.0f), Math::Vec2(150.0f, 50.0f), path) &&
+        region->containsPoint(path[path.size() - 1]) && std::fabs(path[path.size() - 1].x - 100.0f) < 1.0f;
+    const bool bothOutside =
+        k2d::Navigation2D::GetPath(scene, Math::Vec2(-50.0f, -50.0f), Math::Vec2(150.0f, 150.0f), path) &&
+        region->containsPoint(path[0]) && region->containsPoint(path[path.size() - 1]);
     const bool inside = k2d::Navigation2D::GetPath(scene, Math::Vec2(10.0f, 10.0f), Math::Vec2(90.0f, 90.0f), path);
 
     const bool ok = startOutside && endOutside && bothOutside && inside;
-    std::printf("navigation outside mesh: start=%s end=%s both=%s inside_still_works=%s\n",
+    std::printf("navigation outside mesh snapped: start=%s end=%s both=%s inside_still_works=%s\n",
                startOutside ? "pass" : "fail", endOutside ? "pass" : "fail", bothOutside ? "pass" : "fail",
                inside ? "pass" : "fail");
     return ok;
@@ -670,22 +677,28 @@ bool TestUnreachableTargetIsStillThrottled()
                                   Math::Vec2(0.0f, 200.0f)};
     region->setPolygon(polygon, 4);
 
-    // Parked well outside the mesh: every path request must fail.
-    k2d::GameObject* player = scene.createObject("offmesh_player");
-    player->setPosition(Math::Vec2(900.0f, 900.0f));
+    // A target that never stops moving defeats the "has it moved enough"
+    // shortcut, so only the interval is left holding the line. One second at a
+    // quarter-second interval is a handful of paths, not sixty.
+    k2d::GameObject* player = scene.createObject("restless_player");
+    player->setPosition(Math::Vec2(180.0f, 180.0f));
 
-    k2d::GameObject* agentObject = scene.createObject("chaser_unreachable");
+    k2d::GameObject* agentObject = scene.createObject("chaser_throttled");
     agentObject->setPosition(Math::Vec2(10.0f, 10.0f));
     k2d::NavigationAgent2D* agent = agentObject->addComponent<k2d::NavigationAgent2D>();
     agent->setRepathInterval(0.25f);
-    agent->setFollowTargetName("offmesh_player");
+    agent->setFollowTargetName("restless_player");
 
     for (int i = 0; i < 60; ++i)
+    {
+        const float wobble = (i % 2) ? 40.0f : -40.0f;
+        player->setPosition(Math::Vec2(180.0f + wobble, 180.0f - wobble));
         scene.update(1.0f / 60.0f);
+    }
 
     const uint32_t repaths = agent->repathCount();
-    const bool ok = repaths >= 1 && repaths <= 6 && !agent->hasPath();
-    std::printf("navigation unreachable throttle: repaths=%u %s\n", static_cast<unsigned>(repaths),
+    const bool ok = repaths >= 1 && repaths <= 6;
+    std::printf("navigation repath throttle: repaths=%u over 60 frames %s\n", static_cast<unsigned>(repaths),
                 ok ? "pass" : "fail");
     return ok;
 }
@@ -913,7 +926,8 @@ int main()
         region->valid() &&
         k2d::Navigation2D::GetPath(scene, Math::Vec2(12.0f, 96.0f), Math::Vec2(96.0f, 12.0f), path) && path.size() >= 2;
     const bool outsideRejected =
-        !k2d::Navigation2D::GetPath(scene, Math::Vec2(-1.0f, 0.0f), Math::Vec2(96.0f, 12.0f), path);
+        k2d::Navigation2D::GetPath(scene, Math::Vec2(-1.0f, 0.0f), Math::Vec2(96.0f, 12.0f), path) &&
+        region->containsPoint(path[0]);
 
     k2d::GameObject* agentObject = scene.createObject("agent");
     agentObject->setPosition(Math::Vec2(12.0f, 96.0f));
@@ -938,7 +952,7 @@ int main()
     const bool obstacleAside = TestObstacleAvoidanceSteersAside();
     const bool steeringList = TestSceneTracksSteeringComponents();
 
-    std::printf("navigation: concave=%s outside=%s agent=%s triangles=%d waypoints=%d\n", concavePath ? "pass" : "fail",
+    std::printf("navigation: concave=%s outside_snapped=%s agent=%s triangles=%d waypoints=%d\n", concavePath ? "pass" : "fail",
                outsideRejected ? "pass" : "fail", agentPath ? "pass" : "fail",
                static_cast<int>(region->triangles().size() / 3), static_cast<int>(agent->path().size()));
     const bool straightPath = TestStraightPathHasNoZigzag();

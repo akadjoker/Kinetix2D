@@ -57,6 +57,9 @@ class NavigationRegion2D final : public Component
     // query: the mesh is immutable between setPolygon calls, and rebuilding a
     // face graph plus six vectors on every path request is the whole cost.
     void bakeFaces();
+    // Face containing the point, or the nearest one with the point pulled onto
+    // it. Never fails while the mesh has faces.
+    int faceNear(const Math::Vec2& localPoint, Math::Vec2& outSnapped) const;
 
     ct::Vector<Face> mFaces;
     mutable ct::Vector<float> mCost;

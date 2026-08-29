@@ -92,13 +92,44 @@ void NavigationRegion2D::onDestroy()
     Navigation2D::Unregister(this);
 }
 
+namespace
+{
+bool segmentsCross(const Math::Vec2& a1, const Math::Vec2& a2, const Math::Vec2& b1, const Math::Vec2& b2)
+{
+    const float d1 = cross(b1, b2, a1);
+    const float d2 = cross(b1, b2, a2);
+    const float d3 = cross(a1, a2, b1);
+    const float d4 = cross(a1, a2, b2);
+    return ((d1 > 0.0f) != (d2 > 0.0f)) && ((d3 > 0.0f) != (d4 > 0.0f));
+}
+
+// A crossed outline has no inside, so whatever the triangulator makes of it is
+// meaningless. Endpoints shared by neighbouring edges are not crossings.
+bool outlineCrossesItself(const Math::Vec2* points, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        const int iNext = (i + 1) % count;
+        for (int j = i + 1; j < count; ++j)
+        {
+            const int jNext = (j + 1) % count;
+            if (j == iNext || jNext == i)
+                continue;
+            if (segmentsCross(points[i], points[iNext], points[j], points[jNext]))
+                return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
 void NavigationRegion2D::setPolygon(const Math::Vec2* points, int count)
 {
     mPolygon.clear();
     mHoles.clear();
     mTriangles.clear();
     mFaces.clear();
-    if (!points || count < 3)
+    if (!points || count < 3 || outlineCrossesItself(points, count))
         return;
     for (int i = 0; i < count; ++i)
         mPolygon.push_back(points[i]);
@@ -117,7 +148,7 @@ void NavigationRegion2D::setPolygonWithHoles(const Math::Vec2* outline, int outl
     mHoles.clear();
     mTriangles.clear();
     mFaces.clear();
-    if (!outline || outlineCount < 3)
+    if (!outline || outlineCount < 3 || outlineCrossesItself(outline, outlineCount))
         return;
     for (int i = 0; i < outlineCount; ++i)
         mPolygon.push_back(outline[i]);
@@ -205,6 +236,53 @@ void NavigationRegion2D::bakeFaces()
     mClosed.resize(triangleCount);
 }
 
+namespace
+{
+Math::Vec2 closestOnSegment(const Math::Vec2& a, const Math::Vec2& b, const Math::Vec2& point)
+{
+    const Math::Vec2 edge = b - a;
+    const float lengthSq = edge.x * edge.x + edge.y * edge.y;
+    if (lengthSq < 0.000001f)
+        return a;
+    float t = ((point.x - a.x) * edge.x + (point.y - a.y) * edge.y) / lengthSq;
+    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    return a + edge * t;
+}
+} // namespace
+
+// Godot snaps both ends of a query onto the map before pathing
+// (map_get_closest_point). Refusing a point that is a hair outside the mesh is
+// what left an agent lost for good: it only takes one corner cut, or a target
+// standing against a wall the mesh does not quite reach, and every later
+// request fails from the same spot.
+int NavigationRegion2D::faceNear(const Math::Vec2& localPoint, Math::Vec2& outSnapped) const
+{
+    outSnapped = localPoint;
+    for (size_t i = 0; i < mFaces.size(); ++i)
+        if (contains(mFaces[i], localPoint))
+            return static_cast<int>(i);
+
+    int best = -1;
+    float bestDistance = 0.0f;
+    for (size_t i = 0; i < mFaces.size(); ++i)
+    {
+        const Face& face = mFaces[i];
+        for (int edge = 0; edge < 3; ++edge)
+        {
+            const Math::Vec2 candidate =
+                closestOnSegment(face.points[edge], face.points[(edge + 1) % 3], localPoint);
+            const float distance = distanceSq(candidate, localPoint);
+            if (best < 0 || distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = static_cast<int>(i);
+                outSnapped = candidate;
+            }
+        }
+    }
+    return best;
+}
+
 bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, ct::Vector<Math::Vec2>& outPath) const
 {
     outPath.clear();
@@ -218,20 +296,18 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
     const Math::Vec2 localFrom = inverse.Transform(from);
     const Math::Vec2 localTo = inverse.Transform(to);
 
-    int start = -1, end = -1;
-    for (size_t i = 0; i < mFaces.size(); ++i)
-    {
-        if (contains(mFaces[i], localFrom))
-            start = static_cast<int>(i);
-        if (contains(mFaces[i], localTo))
-            end = static_cast<int>(i);
-    }
+    Math::Vec2 snappedFrom = localFrom;
+    Math::Vec2 snappedTo = localTo;
+    const int start = faceNear(localFrom, snappedFrom);
+    const int end = faceNear(localTo, snappedTo);
     if (start < 0 || end < 0)
         return false;
+    const Math::Vec2 worldStart = transform.Transform(snappedFrom);
+    const Math::Vec2 worldEnd = transform.Transform(snappedTo);
     if (start == end)
     {
-        outPath.push_back(from);
-        outPath.push_back(to);
+        outPath.push_back(worldStart);
+        outPath.push_back(worldEnd);
         return true;
     }
 
@@ -245,7 +321,7 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
     }
     mOpen.clear();
     mCost[start] = 0.0f;
-    mScore[start] = std::sqrt(distanceSq(mFaces[start].center, localTo));
+    mScore[start] = std::sqrt(distanceSq(mFaces[start].center, snappedTo));
     mOpen.push_back(start);
     while (!mOpen.empty())
     {
@@ -270,7 +346,7 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
                 continue;
             mParent[neighbor] = current;
             mCost[neighbor] = next;
-            mScore[neighbor] = next + std::sqrt(distanceSq(mFaces[neighbor].center, localTo));
+            mScore[neighbor] = next + std::sqrt(distanceSq(mFaces[neighbor].center, snappedTo));
             mOpen.push_back(neighbor);
         }
     }
@@ -287,18 +363,18 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
     for (size_t i = mReverse.size(); i-- > 0;)
         mCorridor.push_back(mReverse[i]);
 
-    outPath.push_back(from);
+    outPath.push_back(worldStart);
 
-    Math::Vec2 apex = localFrom;
-    Math::Vec2 portalLeft = localFrom;
-    Math::Vec2 portalRight = localFrom;
+    Math::Vec2 apex = snappedFrom;
+    Math::Vec2 portalLeft = snappedFrom;
+    Math::Vec2 portalRight = snappedFrom;
     size_t leftIndex = 0;
     size_t rightIndex = 0;
 
     for (size_t i = 1; i <= mCorridor.size(); ++i)
     {
-        Math::Vec2 left = localTo;
-        Math::Vec2 right = localTo;
+        Math::Vec2 left = snappedTo;
+        Math::Vec2 right = snappedTo;
         if (i < mCorridor.size() &&
             !portalBetween(mFaces[mCorridor[i - 1]], mFaces[mCorridor[i]], apex, left, right))
             continue;
@@ -342,7 +418,7 @@ bool NavigationRegion2D::getPath(const Math::Vec2& from, const Math::Vec2& to, c
         }
     }
 
-    outPath.push_back(to);
+    outPath.push_back(worldEnd);
 
     // The funnel can leave a vertex that lies on the segment it joins, which
     // is a turn the agent does not need to make.
