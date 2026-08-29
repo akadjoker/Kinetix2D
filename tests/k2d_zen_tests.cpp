@@ -540,6 +540,145 @@ static bool testLight2DApi()
     return ok;
 }
 
+static bool testAnimationEvents()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::RouteZenScriptAnimationEvents(scene);
+
+    k2d::GameObject* object = scene.createObject("runner");
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
+    animation->addClip("run", nullptr, 16, 16, 6, 60.0f, k2d::AnimationMode::Loop);
+    animation->addEvent("run", 3, "step");
+    animation->addEvent("run", 5, "land");
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Runner(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        self.node.get_component<Animation>().play(\"run\")\n"
+        "\n"
+        "    def on_animation_event(self, name):\n"
+        "        set_number(name, get_number(name, 0) + 1)\n"
+        "\n"
+        "    def on_animation_finished(self, clip):\n"
+        "        set_number(\"finished\", get_number(\"finished\", 0) + 1)\n",
+        "animation_events");
+
+    // 60 fps clip of 6 frames: 12 frames of playback is exactly two loops.
+    for (int i = 0; i < 12; ++i)
+        scene.update(1.0f / 60.0f);
+
+    bool ok = loaded && script->loaded();
+    const double steps = k2d::ZenBlackboard::getNumber("step", 0.0);
+    const double lands = k2d::ZenBlackboard::getNumber("land", 0.0);
+    ok = ok && nearEqual((float)steps, 2.0f) && nearEqual((float)lands, 2.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("finished", 0.0), 0.0f);
+
+    std::printf("  animation_events: step=%g land=%g (expected 2 and 2)\n", steps, lands);
+    return ok;
+}
+
+static bool testAnimationEventsSurviveLagSpike()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::RouteZenScriptAnimationEvents(scene);
+
+    k2d::GameObject* object = scene.createObject("laggy");
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
+    animation->addClip("run", nullptr, 16, 16, 6, 60.0f, k2d::AnimationMode::Loop);
+    animation->addEvent("run", 1, "a");
+    animation->addEvent("run", 2, "b");
+    animation->addEvent("run", 3, "c");
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Laggy(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        self.node.get_component<Animation>().play(\"run\")\n"
+        "\n"
+        "    def on_animation_event(self, name):\n"
+        "        set_number(name, get_number(name, 0) + 1)\n",
+        "animation_lag");
+
+    scene.update(0.0f);
+    // One update worth five frames at once: nothing may be skipped.
+    scene.update(5.0f / 60.0f);
+
+    bool ok = loaded && script->loaded();
+    const double a = k2d::ZenBlackboard::getNumber("a", 0.0);
+    const double b = k2d::ZenBlackboard::getNumber("b", 0.0);
+    const double c = k2d::ZenBlackboard::getNumber("c", 0.0);
+    ok = ok && nearEqual((float)a, 1.0f) && nearEqual((float)b, 1.0f) && nearEqual((float)c, 1.0f);
+
+    std::printf("  animation_lag: a=%g b=%g c=%g after one 5-frame step\n", a, b, c);
+    return ok;
+}
+
+static bool testAnimationFinished()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::RouteZenScriptAnimationEvents(scene);
+
+    k2d::GameObject* object = scene.createObject("attacker");
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
+    animation->addClip("attack", nullptr, 16, 16, 4, 60.0f, k2d::AnimationMode::OneShot);
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Attacker(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        self.node.get_component<Animation>().play(\"attack\")\n"
+        "\n"
+        "    def on_animation_finished(self, clip):\n"
+        "        set_string(\"clip\", clip)\n"
+        "        set_number(\"finished\", get_number(\"finished\", 0) + 1)\n",
+        "animation_finished");
+
+    for (int i = 0; i < 30; ++i)
+        scene.update(1.0f / 60.0f);
+
+    bool ok = loaded && script->loaded();
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("finished", 0.0), 1.0f);
+    ok = ok && k2d::ZenBlackboard::getString("clip") == ct::String("attack");
+    ok = ok && !animation->playing();
+
+    std::printf("  animation_finished: count=%g clip=%s playing=%d\n",
+                k2d::ZenBlackboard::getNumber("finished", 0.0), k2d::ZenBlackboard::getString("clip").c_str(),
+                animation->playing() ? 1 : 0);
+    return ok;
+}
+
+static bool testAnimationEventsRoundTrip()
+{
+    k2d::Scene source;
+    k2d::GameObject* object = source.createObject("clipped");
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
+    animation->addClip("run", nullptr, 16, 16, 6, 12.0f, k2d::AnimationMode::Loop);
+    animation->addEvent("run", 2, "step");
+    animation->addEvent("run", 4, "land");
+
+    const ct::Json json = k2d::Serializer::WriteObject(*object);
+
+    k2d::Scene target;
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(target, json);
+    k2d::Animation2D* out = loaded ? loaded->getComponent<k2d::Animation2D>() : nullptr;
+
+    bool ok = out && out->eventCount("run") == 2;
+    if (ok)
+    {
+        const k2d::AnimationEvent* first = out->eventAt("run", 0);
+        const k2d::AnimationEvent* second = out->eventAt("run", 1);
+        ok = first && second && first->frame == 2 && second->frame == 4 &&
+             first->name == ct::String("step") && second->name == ct::String("land");
+    }
+
+    std::printf("  animation_event_serializer: events=%d\n", out ? (int)out->eventCount("run") : -1);
+    return ok;
+}
+
 static bool testTileMapApi()
 {
     k2d::ZenBlackboard::clear();
@@ -2181,6 +2320,10 @@ int main()
     const bool audioPlayerApi = testAudioPlayerApi();
     const bool light2DApi = testLight2DApi();
     const bool tileMapApi = testTileMapApi();
+    const bool animationEvents = testAnimationEvents();
+    const bool animationLag = testAnimationEventsSurviveLagSpike();
+    const bool animationFinished = testAnimationFinished();
+    const bool animationEventsSaved = testAnimationEventsRoundTrip();
     const bool navigationAgentApi = testNavigationAgentApi();
     const bool directionalLightApi = testDirectionalLightApi();
     const bool lightOccluderApi = testLightOccluderApi();
@@ -2219,6 +2362,7 @@ int main()
     std::printf(
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
         "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
+        "animation_events=%s animation_lag=%s animation_finished=%s animation_events_saved=%s "
         "navigation_agent=%s directional_light=%s light_occluder=%s motion_tween=%s motion_streak=%s sprite_batch=%s "
         "line_2d=%s polygon_2d=%s nine_patch=%s "
         "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
@@ -2229,7 +2373,9 @@ int main()
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
         components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
         skeletonOk ? "pass" : "fail", audioPlayerApi ? "pass" : "fail", light2DApi ? "pass" : "fail",
-        tileMapApi ? "pass" : "fail", navigationAgentApi ? "pass" : "fail",
+        tileMapApi ? "pass" : "fail", animationEvents ? "pass" : "fail", animationLag ? "pass" : "fail",
+        animationFinished ? "pass" : "fail", animationEventsSaved ? "pass" : "fail",
+        navigationAgentApi ? "pass" : "fail",
         directionalLightApi ? "pass" : "fail", lightOccluderApi ? "pass" : "fail", motionTweenApi ? "pass" : "fail",
         motionStreakApi ? "pass" : "fail", spriteBatchApi ? "pass" : "fail", line2DApi ? "pass" : "fail",
         polygon2DApi ? "pass" : "fail", ninePatchApi ? "pass" : "fail",
@@ -2244,6 +2390,7 @@ int main()
         ui ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
                         allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
+                        animationEvents && animationLag && animationFinished && animationEventsSaved &&
                         navigationAgentApi &&
                         directionalLightApi && lightOccluderApi && motionTweenApi && motionStreakApi &&
                         spriteBatchApi && line2DApi && polygon2DApi && ninePatchApi &&

@@ -353,6 +353,7 @@ int main(int argc, char** argv)
         scene.setGravity(physicsConfig.gravity);
         scene.setFixedTimeStep(physicsConfig.fixedTimeStep);
         k2d::RouteZenScriptCollisions(scene);
+        k2d::RouteZenScriptAnimationEvents(scene);
         scene.setSimulationEnabled(true);
         scene.setVelocityIterations(physicsConfig.velocityIterations);
         scene.setTreeBroadphase(physicsConfig.treeBroadphase);

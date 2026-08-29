@@ -156,6 +156,8 @@ namespace k2d
         entry.slotDestroy = rebuilt.slotDestroy;
         entry.slotEvent = rebuilt.slotEvent;
         entry.slotCollision = rebuilt.slotCollision;
+        entry.slotAnimationEvent = rebuilt.slotAnimationEvent;
+        entry.slotAnimationFinished = rebuilt.slotAnimationFinished;
         entry.properties.clear();
         for (size_t i = 0; i < rebuilt.properties.size(); ++i)
             entry.properties.push_back(rebuilt.properties[i]);
@@ -338,6 +340,8 @@ namespace k2d
             mImpl->selectorDestroy = mImpl->vm.intern_selector("on_destroy", 10);
             mImpl->selectorEvent = mImpl->vm.intern_selector("on_event", 8);
             mImpl->selectorCollision = mImpl->vm.intern_selector("on_collision", 12);
+            mImpl->selectorAnimationEvent = mImpl->vm.intern_selector("on_animation_event", 18);
+            mImpl->selectorAnimationFinished = mImpl->vm.intern_selector("on_animation_finished", 21);
         }
 
         ZenScriptClass entry;
@@ -358,6 +362,8 @@ namespace k2d
         entry.slotDestroy = slotIfPresent(mImpl->selectorDestroy);
         entry.slotEvent = slotIfPresent(mImpl->selectorEvent);
         entry.slotCollision = slotIfPresent(mImpl->selectorCollision);
+        entry.slotAnimationEvent = slotIfPresent(mImpl->selectorAnimationEvent);
+        entry.slotAnimationFinished = slotIfPresent(mImpl->selectorAnimationFinished);
         BuildZenClassProperties(entry, nullptr);
         mImpl->addClass(entry);
         return true;
@@ -438,6 +444,8 @@ namespace k2d
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
             selectorCollision = vm.intern_selector("on_collision", 12);
+            selectorAnimationEvent = vm.intern_selector("on_animation_event", 18);
+            selectorAnimationFinished = vm.intern_selector("on_animation_finished", 21);
         }
 
         zen::ObjClass *klass = zen::as_class(found);
@@ -456,6 +464,8 @@ namespace k2d
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
+        out.slotAnimationEvent = slotIfPresent(selectorAnimationEvent);
+        out.slotAnimationFinished = slotIfPresent(selectorAnimationFinished);
         BuildZenClassProperties(out, source);
         return true;
     }
@@ -511,6 +521,8 @@ namespace k2d
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
             selectorCollision = vm.intern_selector("on_collision", 12);
+            selectorAnimationEvent = vm.intern_selector("on_animation_event", 18);
+            selectorAnimationFinished = vm.intern_selector("on_animation_finished", 21);
         }
 
         zen::ObjClass *klass = zen::as_class(found);
@@ -531,6 +543,8 @@ namespace k2d
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
+        out.slotAnimationEvent = slotIfPresent(selectorAnimationEvent);
+        out.slotAnimationFinished = slotIfPresent(selectorAnimationFinished);
         BuildZenClassProperties(out, nullptr);
         return true;
     }

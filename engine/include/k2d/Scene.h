@@ -86,6 +86,8 @@ namespace k2d
         void setTreeBroadphase(bool enabled) { mUseTree = enabled; }
         bool treeBroadphase() const { return mUseTree; }
         void setCollisionCallback(CollisionCallback callback, void *user);
+        void setAnimationEventCallback(AnimationEventCallback callback, void *user);
+        void dispatchAnimationEvent(GameObject *object, const char *clip, const char *event, bool finished);
 
         GameObject *raycast(const Math::Vec2 &origin, const Math::Vec2 &direction, float distance,
                             Math::Vec2 *outPoint = nullptr, Math::Vec2 *outNormal = nullptr,
@@ -214,6 +216,8 @@ namespace k2d
         float mAccumulator;
         CollisionCallback mCollisionCallback;
         void *mCollisionCallbackUser;
+        AnimationEventCallback mAnimationEventCallback;
+        void *mAnimationEventCallbackUser;
         bool mSimulationEnabled;
         bool mHasDirtyBodies;
     };

@@ -497,6 +497,7 @@ void EditorApplication::startPlay()
             Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
 
     RouteZenScriptCollisions(mRuntimeScene);
+    RouteZenScriptAnimationEvents(mRuntimeScene);
     mRuntimeScene.setSimulationEnabled(true);
     applyPhysicsSettings();
 

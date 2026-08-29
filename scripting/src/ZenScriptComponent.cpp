@@ -4937,6 +4937,67 @@ void RouteZenScriptCollisions(Scene& scene)
     scene.setCollisionCallback(&routeCollision, nullptr);
 }
 
+bool ZenScriptComponent::callAnimationEvent(const char* name)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance() || !name)
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotAnimationEvent < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[1] = {zen::val_obj((zen::Obj*)impl.vm.make_string(name))};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotAnimationEvent, args, 1);
+    return !impl.vm.had_error();
+}
+
+bool ZenScriptComponent::callAnimationFinished(const char* clip)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance() || !clip)
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotAnimationFinished < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[1] = {zen::val_obj((zen::Obj*)impl.vm.make_string(clip))};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotAnimationFinished, args, 1);
+    return !impl.vm.had_error();
+}
+
+namespace
+{
+void routeAnimationEvent(GameObject* object, const char* clip, const char* event, bool finished, void*)
+{
+    if (!gZenScriptsEnabled || !object)
+        return;
+    const size_t count = object->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        ZenScriptComponent* script = object->getComponentAt<ZenScriptComponent>(i);
+        if (!script)
+            continue;
+        if (finished)
+            script->callAnimationFinished(clip);
+        else
+            script->callAnimationEvent(event);
+    }
+}
+} // namespace
+
+void RouteZenScriptAnimationEvents(Scene& scene)
+{
+    scene.setAnimationEventCallback(&routeAnimationEvent, nullptr);
+}
+
 bool ZenScriptComponent::callFunction(const char* name, double value)
 {
     ZenCallbackScope callbackScope(owner());

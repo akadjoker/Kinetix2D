@@ -1,6 +1,7 @@
 #include "k2d/Animation2D.h"
 
 #include "k2d/GameObject.h"
+#include "k2d/Scene.h"
 #include "k2d/SpriteComponent.h"
 #include "k2d/Texture.h"
 
@@ -170,6 +171,49 @@ namespace k2d
         return clip && index < clip->frames.size() ? &clip->frames[index] : nullptr;
     }
 
+    bool Animation2D::addEvent(const char *clipName, int frame, const char *name)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || !name)
+            return false;
+        AnimationEvent event;
+        event.frame = frame;
+        event.name = name;
+        clip->events.push_back(event);
+        return true;
+    }
+
+    bool Animation2D::removeEvent(const char *clipName, size_t index)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->events.size())
+            return false;
+        clip->events.erase(clip->events.begin() + index);
+        return true;
+    }
+
+    bool Animation2D::setEvent(const char *clipName, size_t index, int frame, const char *name)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->events.size() || !name)
+            return false;
+        clip->events[index].frame = frame;
+        clip->events[index].name = name;
+        return true;
+    }
+
+    size_t Animation2D::eventCount(const char *clipName) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip ? clip->events.size() : 0u;
+    }
+
+    const AnimationEvent *Animation2D::eventAt(const char *clipName, size_t index) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip && index < clip->events.size() ? &clip->events[index] : nullptr;
+    }
+
     bool Animation2D::play(const char *name)
     {
         AnimationClip *clip = findClip(name);
@@ -275,6 +319,7 @@ namespace k2d
                     clip->frame += clip->direction;
                     if (clip->frame >= frameCount - 1) { clip->frame = frameCount - 1; clip->direction = -1; }
                     else if (clip->frame <= 0) { clip->frame = 0; clip->direction = 1; }
+                    fireFrameEvents(*clip);
                 }
             }
             else
@@ -283,12 +328,47 @@ namespace k2d
                 if (clip->frame >= frameCount)
                 {
                     if (clip->mode == AnimationMode::Loop)
+                    {
                         clip->frame = 0;
-                    else { clip->frame = frameCount - 1; clip->playing = false; }
+                        fireFrameEvents(*clip);
+                    }
+                    else
+                    {
+                        clip->frame = frameCount - 1;
+                        clip->playing = false;
+                        fireClipFinished(*clip);
+                    }
+                }
+                else
+                {
+                    fireFrameEvents(*clip);
                 }
             }
         }
         applyFrame();
+    }
+
+    void Animation2D::fireFrameEvents(const AnimationClip &clip)
+    {
+        GameObject *object = owner();
+        Scene *scene = object ? object->scene() : nullptr;
+        if (!scene)
+            return;
+        for (size_t i = 0; i < clip.events.size(); ++i)
+        {
+            const AnimationEvent &event = clip.events[i];
+            if (event.frame == clip.frame)
+                scene->dispatchAnimationEvent(object, clip.name.c_str(), event.name.c_str(), false);
+        }
+    }
+
+    void Animation2D::fireClipFinished(const AnimationClip &clip)
+    {
+        GameObject *object = owner();
+        Scene *scene = object ? object->scene() : nullptr;
+        if (!scene)
+            return;
+        scene->dispatchAnimationEvent(object, clip.name.c_str(), "", true);
     }
 
     void Animation2D::applyFrame()

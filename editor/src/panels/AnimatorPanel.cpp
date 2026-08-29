@@ -11,6 +11,7 @@
 #include <imgui.h>
 #include <IconsMaterialDesignIcons.h>
 
+#include <cstdio>
 #include <functional>
 
 namespace k2d::editor
@@ -23,6 +24,43 @@ void commit(EditorApplication &app, const char *label, const std::function<void(
     change();
     app.commitChange(label, before);
 }
+}
+
+void AnimatorPanel::drawFrameEventMarker(Animation2D &animation, AnimationClip &clip, std::size_t frameIndex)
+{
+    const int frame = static_cast<int>(frameIndex);
+    int eventIndex = -1;
+    for (std::size_t i = 0; i < clip.events.size(); ++i)
+        if (clip.events[i].frame == frame)
+        {
+            eventIndex = static_cast<int>(i);
+            break;
+        }
+
+    ImGui::PushID("event");
+    if (eventIndex < 0)
+    {
+        if (ImGui::SmallButton(ICON_MDI_PLUS))
+            commit(app(), "Add Animation Event",
+                   [&] { animation.addEvent(clip.name.c_str(), frame, "event"); });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Fire a named event when playback enters this frame");
+    }
+    else
+    {
+        char buffer[64];
+        std::snprintf(buffer, sizeof(buffer), "%s", clip.events[static_cast<std::size_t>(eventIndex)].name.c_str());
+        ImGui::SetNextItemWidth(58.0f);
+        if (ImGui::InputText("##eventName", buffer, sizeof(buffer)))
+            commit(app(), "Rename Animation Event",
+                   [&] { animation.setEvent(clip.name.c_str(), static_cast<std::size_t>(eventIndex), frame, buffer); });
+        if (ImGui::SmallButton(ICON_MDI_BELL_OFF))
+            commit(app(), "Remove Animation Event",
+                   [&] { animation.removeEvent(clip.name.c_str(), static_cast<std::size_t>(eventIndex)); });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Remove this frame's event");
+    }
+    ImGui::PopID();
 }
 
 void AnimatorPanel::drawContents()
@@ -99,7 +137,7 @@ void AnimatorPanel::drawContents()
         return;
     }
     ImGui::PopStyleColor();
-    ImGui::BeginChild("##frames_row", ImVec2(0.0f, 108.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("##frames_row", ImVec2(0.0f, 148.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
     if (clip->frames.empty())
         ImGui::TextDisabled("Drag rects from Sprite Editor here");
     for (size_t i = 0; i < clip->frames.size(); ++i)
@@ -123,6 +161,7 @@ void AnimatorPanel::drawContents()
         if (ImGui::IsItemClicked())
             mSelectedFrame = static_cast<int>(i);
         ImGui::Text("%d", static_cast<int>(i) + 1);
+        drawFrameEventMarker(*animation, *clip, i);
         ImGui::EndGroup();
         if (i + 1 < clip->frames.size()) ImGui::SameLine();
         ImGui::PopID();

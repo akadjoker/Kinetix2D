@@ -23,4 +23,7 @@ struct CollisionInfo
 
 using CollisionCallback = void (*)(const CollisionInfo& info, void* user);
 
+using AnimationEventCallback = void (*)(GameObject* object, const char* clip, const char* event, bool finished,
+                                        void* user);
+
 } // namespace k2d

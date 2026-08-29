@@ -845,6 +845,19 @@ void WriteAnimation(const Component& component, ct::Json& data, Assets* assets)
             }
             clipJson.set("frames", frames);
         }
+        if (!clip->events.empty())
+        {
+            ct::Json events = ct::Json::array();
+            for (size_t eventIndex = 0; eventIndex < clip->events.size(); ++eventIndex)
+            {
+                const AnimationEvent& event = clip->events[eventIndex];
+                ct::Json eventJson = ct::Json::object();
+                eventJson.set("frame", ct::Json(event.frame));
+                eventJson.set("name", ct::Json(event.name.c_str()));
+                events.push_back(eventJson);
+            }
+            clipJson.set("events", events);
+        }
         clips.push_back(clipJson);
     }
     data.set("clips", clips);
@@ -896,6 +909,17 @@ void ReadAnimation(Component& component, const ct::Json& data, Assets* assets)
                     const size_t frameCount = anim.frameCount(clipName);
                     if (frameCount > 0)
                         anim.setFrameOffset(clipName, frameCount - 1, ReadVec2(frame["offset"]));
+                }
+            }
+
+            const ct::Json& events = clip["events"];
+            if (events.is_array())
+            {
+                const char* clipName = clip["name"].as_cstr("");
+                for (size_t eventIndex = 0; eventIndex < events.size(); ++eventIndex)
+                {
+                    const ct::Json& event = events[eventIndex];
+                    anim.addEvent(clipName, (int)event["frame"].as_int(0), event["name"].as_cstr(""));
                 }
             }
         }

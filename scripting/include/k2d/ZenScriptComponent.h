@@ -46,6 +46,8 @@ namespace k2d
 
         bool callEvent(const char *event, double value = 0.0);
         bool callCollision(GameObject *other, bool began);
+        bool callAnimationEvent(const char *name);
+        bool callAnimationFinished(const char *clip);
         bool callFunction(const char *name, double value = 0.0);
         bool hasFunction(const char *name) const;
 
@@ -99,6 +101,7 @@ namespace k2d
 
     void DispatchZenScriptEvents(GameObject &root);
     void RouteZenScriptCollisions(Scene &scene);
+    void RouteZenScriptAnimationEvents(Scene &scene);
     void BroadcastZenScriptEvent(GameObject &root, const char *event, double value = 0.0);
 
     void SetZenScriptsEnabled(bool enabled);

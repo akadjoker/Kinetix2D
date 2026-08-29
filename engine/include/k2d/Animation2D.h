@@ -30,6 +30,12 @@ namespace k2d
         Math::Vec2 offset = Math::Vec2(0.0f);
     };
 
+    struct AnimationEvent
+    {
+        int frame = 0;
+        ct::String name;
+    };
+
     struct AnimationClip
     {
         ct::String name;
@@ -46,6 +52,7 @@ namespace k2d
         bool playing;
         AnimationMode mode;
         ct::Vector<AnimationFrame> frames;
+        ct::Vector<AnimationEvent> events;
 
         AnimationClip();
         AnimationClip(const char *clipName, Texture *clipTexture, int width, int height,
@@ -85,6 +92,12 @@ namespace k2d
         size_t frameCount(const char *clipName) const;
         const AnimationFrame *frameAt(const char *clipName, size_t index) const;
 
+        bool addEvent(const char *clipName, int frame, const char *name);
+        bool removeEvent(const char *clipName, size_t index);
+        bool setEvent(const char *clipName, size_t index, int frame, const char *name);
+        size_t eventCount(const char *clipName) const;
+        const AnimationEvent *eventAt(const char *clipName, size_t index) const;
+
         void setSpriteSheet(Texture *texture, int frameWidth, int frameHeight,
                             int frameCount, float framesPerSecond);
         void setMode(AnimationMode mode);
@@ -110,6 +123,8 @@ namespace k2d
     private:
         static int actualFrameCount(const AnimationClip &clip);
         void applyFrame();
+        void fireFrameEvents(const AnimationClip &clip);
+        void fireClipFinished(const AnimationClip &clip);
 
         AnimationClip *activeClip();
         const AnimationClip *activeClip() const;

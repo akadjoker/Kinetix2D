@@ -16,7 +16,8 @@ namespace k2d
           mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
           mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1),
           mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
-          mCollisionCallbackUser(nullptr), mSimulationEnabled(false), mHasDirtyBodies(false)
+          mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
+          mSimulationEnabled(false), mHasDirtyBodies(false)
     {
         mRoot.mScene = this;
         mNarrowMs = 0.0f;
@@ -28,6 +29,18 @@ namespace k2d
         clearBodies();
         mRoot.deleteChildrenRaw();
         mRoot.mScene = nullptr;
+    }
+
+    void Scene::setAnimationEventCallback(AnimationEventCallback callback, void *user)
+    {
+        mAnimationEventCallback = callback;
+        mAnimationEventCallbackUser = user;
+    }
+
+    void Scene::dispatchAnimationEvent(GameObject *object, const char *clip, const char *event, bool finished)
+    {
+        if (mAnimationEventCallback)
+            mAnimationEventCallback(object, clip, event, finished, mAnimationEventCallbackUser);
     }
 
     GameObject &Scene::root()
