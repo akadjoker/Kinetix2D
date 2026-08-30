@@ -25,6 +25,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <IconsMaterialDesignIcons.h>
+#include <k2d/ActionSequence2D.h>
 #include <k2d/Animation2D.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/CameraComponent.h>
@@ -762,6 +763,14 @@ void EditorApplication::tickEditPreview(GameObject& object, float deltaTime)
             anim->Advance(deltaTime);
     }
 
+    const size_t actionCount = object.componentCount<ActionSequence2D>();
+    for (size_t i = 0; i < actionCount; ++i)
+    {
+        ActionSequence2D* sequence = object.getComponentAt<ActionSequence2D>(i);
+        if (sequence && sequence->active() && sequence->playing())
+            sequence->Advance(deltaTime);
+    }
+
     const size_t cameraCount = object.componentCount<CameraComponent>();
     for (size_t i = 0; i < cameraCount; ++i)
     {
@@ -790,6 +799,11 @@ void EditorApplication::restartEditPreview(GameObject& object)
     for (size_t i = 0; i < animCount; ++i)
         if (Animation2D* anim = object.getComponentAt<Animation2D>(i))
             anim->reset();
+
+    const size_t actionCount = object.componentCount<ActionSequence2D>();
+    for (size_t i = 0; i < actionCount; ++i)
+        if (ActionSequence2D* sequence = object.getComponentAt<ActionSequence2D>(i))
+            sequence->restart();
 
     for (size_t i = 0; i < object.childCount(); ++i)
         restartEditPreview(*object.child(i));

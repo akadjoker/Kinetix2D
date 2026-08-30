@@ -98,6 +98,19 @@ class ActionSequence2D final : public Component
         return mAutoplay;
     }
 
+    // For the editor's edit-mode viewport preview, the same way
+    // Animation2D::Advance() is used there -- not part of the normal
+    // Component update path.
+    void Advance(float deltaTime)
+    {
+        onUpdate(deltaTime);
+    }
+    void restart()
+    {
+        if (!mSteps.empty())
+            beginStep(0);
+    }
+
   protected:
     void onAwake() override;
     void onUpdate(float deltaTime) override;
