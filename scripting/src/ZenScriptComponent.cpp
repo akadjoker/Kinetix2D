@@ -34,6 +34,8 @@
 #include "k2d/Line2D.h"
 #include "k2d/MotionStreak2D.h"
 #include "k2d/MotionTween2D.h"
+#include "k2d/PathMotion2D.h"
+#include "k2d/ActionSequence2D.h"
 #include "k2d/Navigation2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/Steering2D.h"
@@ -2536,6 +2538,257 @@ int natMotionTweenAddTrack(zen::VM* vm, zen::Value* args, int nargs)
     return 0;
 }
 
+PathMotionLoop parsePathMotionLoop(const char* name)
+{
+    if (std::strcmp(name, "repeat") == 0)
+        return PathMotionLoop::Repeat;
+    if (std::strcmp(name, "ping_pong") == 0)
+        return PathMotionLoop::PingPong;
+    return PathMotionLoop::None;
+}
+
+const char* pathMotionLoopName(PathMotionLoop loop)
+{
+    switch (loop)
+    {
+    case PathMotionLoop::Repeat:
+        return "repeat";
+    case PathMotionLoop::PingPong:
+        return "ping_pong";
+    default:
+        return "none";
+    }
+}
+
+int natPathMotionPlay(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion)
+        motion->play(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natPathMotionStop(zen::VM*, zen::Value* args, int)
+{
+    if (PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]))
+        motion->stop();
+    return 0;
+}
+
+int natPathMotionPause(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion)
+        motion->pause(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natPathMotionIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->playing());
+    return 1;
+}
+
+int natPathMotionIsPaused(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->paused());
+    return 1;
+}
+
+int natPathMotionGetTime(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_float(motion ? motion->time() : 0.0f);
+    return 1;
+}
+
+int natPathMotionGetLoop(zen::VM* vm, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(pathMotionLoopName(motion ? motion->loop() : PathMotionLoop::None)));
+    return 1;
+}
+
+int natPathMotionSetLoop(zen::VM* vm, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 1)
+    {
+        char small[16];
+        motion->setLoop(parsePathMotionLoop(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natPathMotionGetOneShot(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->oneShot());
+    return 1;
+}
+
+int natPathMotionSetOneShot(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 1)
+        motion->setOneShot(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natPathMotionClearKeyframes(zen::VM*, zen::Value* args, int)
+{
+    if (PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]))
+        motion->clearKeyframes();
+    return 0;
+}
+
+int natPathMotionKeyframeCount(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_int(motion ? (int64_t)motion->keyframeCount() : 0);
+    return 1;
+}
+
+int natPathMotionAddKeyframe(zen::VM* vm, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 6)
+    {
+        PathMotionKeyframe kf;
+        kf.position = Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        kf.scale = Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        kf.angleDegrees = (float)zen::to_number(args[4]);
+        kf.duration = (float)zen::to_number(args[5]);
+        char easeBuf[16];
+        kf.ease = nargs >= 7 ? parseMotionEase(valueToCString(vm, args[6], easeBuf, sizeof(easeBuf))) : MotionEase::Linear;
+        motion->addKeyframe(kf);
+    }
+    return 0;
+}
+
+ActionKind parseActionKind(const char* name)
+{
+    if (std::strcmp(name, "color") == 0)
+        return ActionKind::Color;
+    if (std::strcmp(name, "move") == 0)
+        return ActionKind::Move;
+    if (std::strcmp(name, "scale") == 0)
+        return ActionKind::Scale;
+    if (std::strcmp(name, "turn") == 0)
+        return ActionKind::Turn;
+    return ActionKind::Pause;
+}
+
+ActionSequenceLoop parseActionSequenceLoop(const char* name)
+{
+    return std::strcmp(name, "loop") == 0 ? ActionSequenceLoop::Loop : ActionSequenceLoop::OneShot;
+}
+
+const char* actionSequenceLoopName(ActionSequenceLoop loop)
+{
+    return loop == ActionSequenceLoop::Loop ? "loop" : "one_shot";
+}
+
+int natActionSequencePlay(zen::VM*, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence)
+        sequence->play(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natActionSequenceStop(zen::VM*, zen::Value* args, int)
+{
+    if (ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]))
+        sequence->stop();
+    return 0;
+}
+
+int natActionSequencePause(zen::VM*, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence)
+        sequence->pause(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natActionSequenceIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_bool(sequence && sequence->playing());
+    return 1;
+}
+
+int natActionSequenceIsPaused(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_bool(sequence && sequence->paused());
+    return 1;
+}
+
+int natActionSequenceCurrentStep(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_int(sequence ? (int64_t)sequence->currentStep() : -1);
+    return 1;
+}
+
+int natActionSequenceGetLoop(zen::VM* vm, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_obj(
+        (zen::Obj*)vm->make_string(actionSequenceLoopName(sequence ? sequence->loop() : ActionSequenceLoop::OneShot)));
+    return 1;
+}
+
+int natActionSequenceSetLoop(zen::VM* vm, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence && nargs >= 1)
+    {
+        char small[16];
+        sequence->setLoop(parseActionSequenceLoop(valueToCString(vm, args[0], small, sizeof(small))));
+    }
+    return 0;
+}
+
+int natActionSequenceClearSteps(zen::VM*, zen::Value* args, int)
+{
+    if (ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]))
+        sequence->clearSteps();
+    return 0;
+}
+
+int natActionSequenceStepCount(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_int(sequence ? (int64_t)sequence->stepCount() : 0);
+    return 1;
+}
+
+int natActionSequenceAddStep(zen::VM* vm, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence && nargs >= 9)
+    {
+        char kindBuf[16];
+        ActionStep step;
+        step.kind = parseActionKind(valueToCString(vm, args[0], kindBuf, sizeof(kindBuf)));
+        step.vector = Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+        step.angleDegrees = (float)zen::to_number(args[3]);
+        step.color = Color::FromBytes((unsigned char)zen::to_integer(args[4]), (unsigned char)zen::to_integer(args[5]),
+                                      (unsigned char)zen::to_integer(args[6]), (unsigned char)zen::to_integer(args[7]));
+        step.duration = (float)zen::to_number(args[8]);
+        char easeBuf[16];
+        step.ease =
+            nargs >= 10 ? parseMotionEase(valueToCString(vm, args[9], easeBuf, sizeof(easeBuf))) : MotionEase::Linear;
+        sequence->addStep(step);
+    }
+    return 0;
+}
+
 int natMotionStreakReset(zen::VM*, zen::Value* args, int)
 {
     if (MotionStreak2D* streak = zen::zen_instance_data<MotionStreak2D>(args[-1]))
@@ -3364,6 +3617,8 @@ const ComponentBinding kComponentBindings[] = {
     {{"MotionStreak", "MotionStreak2D", nullptr}, &componentGet<MotionStreak2D>, &componentAdd<MotionStreak2D>, &componentHas<MotionStreak2D>},
     {{"Skeleton", "Skeleton2D", nullptr}, &componentGet<Skeleton2D>, &componentAdd<Skeleton2D>, &componentHas<Skeleton2D>},
     {{"Bone", "Bone2D", nullptr}, &componentGet<Bone2D>, &componentAdd<Bone2D>, &componentHas<Bone2D>},
+    {{"PathMotion", "PathMotion2D", nullptr}, &componentGet<PathMotion2D>, &componentAdd<PathMotion2D>, &componentHas<PathMotion2D>},
+    {{"ActionSequence", "ActionSequence2D", nullptr}, &componentGet<ActionSequence2D>, &componentAdd<ActionSequence2D>, &componentHas<ActionSequence2D>},
 };
 
 const ComponentBinding* findComponentBinding(const char* name)
@@ -5105,6 +5360,40 @@ void ZenRuntime::Impl::initialize()
     motionTween.persistent(true).constructable(false);
     zen::ObjClass* motionTweenClass = motionTween.end();
 
+    auto pathMotion = vm.def_class("PathMotion");
+    pathMotion.parent("Component");
+    pathMotion.method("play", &natPathMotionPlay, -1);
+    pathMotion.method("stop", &natPathMotionStop, 0);
+    pathMotion.method("pause", &natPathMotionPause, -1);
+    pathMotion.method("is_playing", &natPathMotionIsPlaying, 0);
+    pathMotion.method("is_paused", &natPathMotionIsPaused, 0);
+    pathMotion.method("get_time", &natPathMotionGetTime, 0);
+    pathMotion.method("get_loop", &natPathMotionGetLoop, 0);
+    pathMotion.method("set_loop", &natPathMotionSetLoop, 1);
+    pathMotion.method("get_one_shot", &natPathMotionGetOneShot, 0);
+    pathMotion.method("set_one_shot", &natPathMotionSetOneShot, 1);
+    pathMotion.method("clear_keyframes", &natPathMotionClearKeyframes, 0);
+    pathMotion.method("keyframe_count", &natPathMotionKeyframeCount, 0);
+    pathMotion.method("add_keyframe", &natPathMotionAddKeyframe, -1);
+    pathMotion.persistent(true).constructable(false);
+    zen::ObjClass* pathMotionClass = pathMotion.end();
+
+    auto actionSequence = vm.def_class("ActionSequence");
+    actionSequence.parent("Component");
+    actionSequence.method("play", &natActionSequencePlay, -1);
+    actionSequence.method("stop", &natActionSequenceStop, 0);
+    actionSequence.method("pause", &natActionSequencePause, -1);
+    actionSequence.method("is_playing", &natActionSequenceIsPlaying, 0);
+    actionSequence.method("is_paused", &natActionSequenceIsPaused, 0);
+    actionSequence.method("current_step", &natActionSequenceCurrentStep, 0);
+    actionSequence.method("get_loop", &natActionSequenceGetLoop, 0);
+    actionSequence.method("set_loop", &natActionSequenceSetLoop, 1);
+    actionSequence.method("clear_steps", &natActionSequenceClearSteps, 0);
+    actionSequence.method("step_count", &natActionSequenceStepCount, 0);
+    actionSequence.method("add_step", &natActionSequenceAddStep, -1);
+    actionSequence.persistent(true).constructable(false);
+    zen::ObjClass* actionSequenceClass = actionSequence.end();
+
     auto motionStreak = vm.def_class("MotionStreak");
     motionStreak.parent("Component");
     motionStreak.method("reset", &natMotionStreakReset, 0);
@@ -5255,6 +5544,7 @@ void ZenRuntime::Impl::initialize()
         {"MotionTween2D", motionTweenClass}, {"MotionStreak2D", motionStreakClass},
         {"Skeleton2D", skeletonClass}, {"Bone2D", boneClass},
         {"Steering2D", steeringClass},
+        {"PathMotion2D", pathMotionClass}, {"ActionSequence2D", actionSequenceClass},
     };
     (void)light2DClass;
     for (const Alias& alias : aliases)

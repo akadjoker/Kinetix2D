@@ -3,13 +3,20 @@
 #include <k2d/ScriptComponent.h>
 #include <k2d/Light2D.h>
 #include <k2d/DirectionalLight2D.h>
+#include <k2d/PathMotion2D.h>
+#include <k2d/ActionSequence2D.h>
 
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
 namespace
 {
     bool g_ok = true;
+    bool nearEqual(float a, float b)
+    {
+        return std::fabs(a - b) < 0.001f;
+    }
     void Check(bool cond, const char *label)
     {
         if (!cond)
@@ -192,6 +199,100 @@ namespace
 
         return ok;
     }
+
+    bool TestPathMotionKeyframeInterp()
+    {
+        k2d::Scene scene;
+        k2d::GameObject *obj = scene.createObject("path");
+        k2d::PathMotion2D *motion = obj->addComponent<k2d::PathMotion2D>();
+
+        k2d::PathMotionKeyframe a;
+        a.position = Math::Vec2(0.0f, 0.0f);
+        a.scale = Math::Vec2(1.0f, 1.0f);
+        a.angleDegrees = 0.0f;
+        a.duration = 1.0f;
+        motion->addKeyframe(a);
+
+        k2d::PathMotionKeyframe b;
+        b.position = Math::Vec2(100.0f, 0.0f);
+        b.scale = Math::Vec2(2.0f, 2.0f);
+        b.angleDegrees = 90.0f;
+        b.duration = 1.0f;
+        motion->addKeyframe(b);
+
+        motion->setLoop(k2d::PathMotionLoop::Repeat);
+        motion->setOneShot(false);
+        motion->play(true);
+
+        bool ok = true;
+        ok &= motion->playing();
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 50.0f);
+        ok &= nearEqual(obj->scale().x, 1.5f);
+        ok &= nearEqual(obj->rotationDegrees(), 45.0f);
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 100.0f);
+
+        // Past the last keyframe, Repeat wraps back toward keyframe 0 using
+        // the last keyframe's own duration as the wrap segment.
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 50.0f);
+        ok &= motion->playing();
+
+        return ok;
+    }
+
+    bool TestActionSequencePlayback()
+    {
+        k2d::Scene scene;
+        k2d::GameObject *obj = scene.createObject("action");
+        k2d::ActionSequence2D *sequence = obj->addComponent<k2d::ActionSequence2D>();
+
+        k2d::ActionStep move;
+        move.kind = k2d::ActionKind::Move;
+        move.vector = Math::Vec2(100.0f, 0.0f);
+        move.duration = 1.0f;
+        sequence->addStep(move);
+
+        k2d::ActionStep pause;
+        pause.kind = k2d::ActionKind::Pause;
+        pause.duration = 0.5f;
+        sequence->addStep(pause);
+
+        k2d::ActionStep turn;
+        turn.kind = k2d::ActionKind::Turn;
+        turn.angleDegrees = 90.0f;
+        turn.duration = 1.0f;
+        sequence->addStep(turn);
+
+        sequence->setLoop(k2d::ActionSequenceLoop::OneShot);
+        sequence->play(true);
+
+        bool ok = true;
+        ok &= sequence->playing();
+        ok &= sequence->currentStep() == 0;
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 50.0f);
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 100.0f);
+        ok &= sequence->currentStep() == 1;
+
+        scene.update(0.5f);
+        ok &= sequence->currentStep() == 2;
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->rotationDegrees(), 45.0f);
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->rotationDegrees(), 90.0f);
+        ok &= !sequence->playing();
+
+        return ok;
+    }
 }
 
 int main()
@@ -201,13 +302,17 @@ int main()
     bool siblingRemove = TestSiblingRemovalDuringUpdate();
     bool lightMatch = TestLightComponentMatchDisambiguation();
     bool backwardCompat = TestBackwardCompatSingleAdd();
+    bool pathMotion = TestPathMotionKeyframeInterp();
+    bool actionSequence = TestActionSequencePlayback();
 
     std::printf("multicomponent: basics=%s self_remove=%s sibling_remove=%s "
-                "light_match=%s backward_compat=%s\n",
+                "light_match=%s backward_compat=%s path_motion=%s action_sequence=%s\n",
                 basics ? "pass" : "fail", selfRemove ? "pass" : "fail",
                 siblingRemove ? "pass" : "fail", lightMatch ? "pass" : "fail",
-                backwardCompat ? "pass" : "fail");
+                backwardCompat ? "pass" : "fail", pathMotion ? "pass" : "fail",
+                actionSequence ? "pass" : "fail");
 
-    bool allOk = g_ok && basics && selfRemove && siblingRemove && lightMatch && backwardCompat;
+    bool allOk = g_ok && basics && selfRemove && siblingRemove && lightMatch && backwardCompat && pathMotion &&
+                 actionSequence;
     return allOk ? 0 : 1;
 }

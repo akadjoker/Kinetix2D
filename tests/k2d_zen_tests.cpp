@@ -40,6 +40,8 @@
 #include <k2d/Line2D.h>
 #include <k2d/MotionStreak2D.h>
 #include <k2d/MotionTween2D.h>
+#include <k2d/PathMotion2D.h>
+#include <k2d/ActionSequence2D.h>
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
@@ -1045,6 +1047,97 @@ static bool testMotionTweenApi()
     return ok;
 }
 
+static bool testPathMotionApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("flyer");
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::PathMotion2D* motion = object->addComponent<k2d::PathMotion2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Flyer(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        m = self.node.get_component<PathMotion>()\n"
+        "        set_flag(\"has_motion\", m != None)\n"
+        "        m.set_one_shot(False)\n"
+        "        set_flag(\"one_shot\", m.get_one_shot())\n"
+        "        m.set_loop(\"repeat\")\n"
+        "        set_string(\"loop\", m.get_loop())\n"
+        "        m.add_keyframe(0.0, 0.0, 1.0, 1.0, 0.0, 1.0, \"linear\")\n"
+        "        m.add_keyframe(100.0, 0.0, 1.0, 1.0, 0.0, 1.0, \"linear\")\n"
+        "        set_number(\"keyframes\", m.keyframe_count())\n"
+        "        m.play(True)\n"
+        "        set_flag(\"playing\", m.is_playing())\n"
+        "        set_flag(\"not_paused\", not m.is_paused())\n"
+        "        set_number(\"time0\", m.get_time())\n",
+        "path_motion");
+
+    // Same ordering caveat as testMotionTweenApi: PathMotion2D was added
+    // before the script, so its onUpdate for frame 1 runs before on_start
+    // builds the keyframes -- the pose only visibly advances from frame 2 on.
+    scene.update(0.016f);
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_motion", false);
+    ok = ok && !k2d::ZenBlackboard::getBool("one_shot", true);
+    ok = ok && k2d::ZenBlackboard::getString("loop") == ct::String("repeat");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("keyframes"), 2.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("playing", false);
+    ok = ok && k2d::ZenBlackboard::getBool("not_paused", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("time0"), 0.0f);
+    ok = ok && !motion->oneShot();
+    ok = ok && motion->loop() == k2d::PathMotionLoop::Repeat;
+    ok = ok && motion->keyframeCount() == 2;
+    ok = ok && motion->playing();
+    ok = ok && nearEqual(object->position().x, 1.6f) && nearEqual(object->position().y, 0.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
+static bool testActionSequenceApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("pulser");
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::ActionSequence2D* sequence = object->addComponent<k2d::ActionSequence2D>();
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class Pulser(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        a = self.node.get_component<ActionSequence>()\n"
+        "        set_flag(\"has_sequence\", a != None)\n"
+        "        a.set_loop(\"loop\")\n"
+        "        set_string(\"loop\", a.get_loop())\n"
+        "        a.add_step(\"move\", 100.0, 0.0, 0.0, 255, 255, 255, 255, 1.0, \"linear\")\n"
+        "        set_number(\"steps\", a.step_count())\n"
+        "        a.play(True)\n"
+        "        set_flag(\"playing\", a.is_playing())\n"
+        "        set_number(\"step0\", a.current_step())\n",
+        "action_sequence");
+
+    // Same ordering caveat as testMotionTweenApi/testPathMotionApi.
+    scene.update(0.016f);
+    scene.update(0.016f);
+    bool ok = loaded && script->loaded();
+    ok = ok && k2d::ZenBlackboard::getBool("has_sequence", false);
+    ok = ok && k2d::ZenBlackboard::getString("loop") == ct::String("loop");
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("steps"), 1.0f);
+    ok = ok && k2d::ZenBlackboard::getBool("playing", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("step0"), 0.0f);
+    ok = ok && sequence->loop() == k2d::ActionSequenceLoop::Loop;
+    ok = ok && sequence->stepCount() == 1;
+    ok = ok && sequence->playing();
+    ok = ok && nearEqual(object->position().x, 1.6f) && nearEqual(object->position().y, 0.0f);
+
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testMotionStreakApi()
 {
     k2d::ZenBlackboard::clear();
@@ -1792,6 +1885,8 @@ static bool testAllComponentHandles()
     object->addComponent<k2d::Skeleton2D>();
     object->addComponent<k2d::Bone2D>();
     object->addComponent<k2d::Steering2D>();
+    object->addComponent<k2d::PathMotion2D>();
+    object->addComponent<k2d::ActionSequence2D>();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
@@ -1836,6 +1931,8 @@ static bool testAllComponentHandles()
         "        self.check(\"skeleton\", self.node.get_component<Skeleton>())\n"
         "        self.check(\"bone\", self.node.get_component<Bone>())\n"
         "        self.check(\"steering\", self.node.get_component<Steering>())\n"
+        "        self.check(\"path_motion\", self.node.get_component<PathMotion>())\n"
+        "        self.check(\"action_sequence\", self.node.get_component<ActionSequence>())\n"
         "    def check(self, name, component):\n"
         "        set_flag(name, component != None)\n"
         "        if component != None:\n"
@@ -1852,7 +1949,7 @@ static bool testAllComponentHandles()
                            "light_2d", "directional_light", "occluder", "audio", "circle_shape", "rect_shape",
                            "capsule_shape", "canvas", "panel", "label", "button", "checkbox", "slider",
                            "navigation_region", "navigation_agent", "motion_tween", "motion_streak",
-                           "skeleton", "bone", "steering"};
+                           "skeleton", "bone", "steering", "path_motion", "action_sequence"};
     for (const char* name : names)
     {
         ok = ok && k2d::ZenBlackboard::getBool(name, false);
@@ -2539,6 +2636,8 @@ int main()
     const bool directionalLightApi = testDirectionalLightApi();
     const bool lightOccluderApi = testLightOccluderApi();
     const bool motionTweenApi = testMotionTweenApi();
+    const bool pathMotionApi = testPathMotionApi();
+    const bool actionSequenceApi = testActionSequenceApi();
     const bool motionStreakApi = testMotionStreakApi();
     const bool spriteBatchApi = testSpriteBatchApi();
     const bool line2DApi = testLine2DApi();
@@ -2577,7 +2676,8 @@ int main()
         "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
         "animation_events=%s animation_lag=%s animation_finished=%s animation_events_saved=%s "
         "agent_orientation=%s "
-        "navigation_agent=%s steering_api=%s directional_light=%s light_occluder=%s motion_tween=%s motion_streak=%s sprite_batch=%s "
+        "navigation_agent=%s steering_api=%s directional_light=%s light_occluder=%s motion_tween=%s "
+        "path_motion=%s action_sequence=%s motion_streak=%s sprite_batch=%s "
         "line_2d=%s polygon_2d=%s nine_patch=%s "
         "circle_shape=%s rect_shape=%s capsule_shape=%s box_collider=%s circle_collider=%s edge_collider=%s "
         "polygon_collider=%s chain_collider=%s navigation_region=%s astar_grid=%s "
@@ -2592,6 +2692,7 @@ int main()
         agentOrientation ? "pass" : "fail",
         navigationAgentApi ? "pass" : "fail", steeringApi ? "pass" : "fail",
         directionalLightApi ? "pass" : "fail", lightOccluderApi ? "pass" : "fail", motionTweenApi ? "pass" : "fail",
+        pathMotionApi ? "pass" : "fail", actionSequenceApi ? "pass" : "fail",
         motionStreakApi ? "pass" : "fail", spriteBatchApi ? "pass" : "fail", line2DApi ? "pass" : "fail",
         polygon2DApi ? "pass" : "fail", ninePatchApi ? "pass" : "fail",
         circleShapeApi ? "pass" : "fail", rectShapeApi ? "pass" : "fail", capsuleShapeApi ? "pass" : "fail",
@@ -2609,7 +2710,8 @@ int main()
                         animationEvents && animationLag && animationFinished && animationEventsSaved &&
                         agentOrientation &&
                         navigationAgentApi && steeringApi &&
-                        directionalLightApi && lightOccluderApi && motionTweenApi && motionStreakApi &&
+                        directionalLightApi && lightOccluderApi && motionTweenApi && pathMotionApi &&
+                        actionSequenceApi && motionStreakApi &&
                         spriteBatchApi && line2DApi && polygon2DApi && ninePatchApi &&
                         circleShapeApi && rectShapeApi && capsuleShapeApi &&
                         boxColliderApi && circleColliderApi && edgeColliderApi && polygonColliderApi &&

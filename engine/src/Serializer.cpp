@@ -8,6 +8,8 @@
 #include "k2d/Polygon2D.h"
 #include "k2d/NavigationRegion2D.h"
 #include "k2d/Formation2D.h"
+#include "k2d/PathMotion2D.h"
+#include "k2d/ActionSequence2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/Line2D.h"
 #include "k2d/CircleShape.h"
@@ -521,6 +523,235 @@ void ReadFormation(Component& component, const ct::Json& data, Assets*)
     formation.setShape(FormationShapeFromName(data["shape"].as_cstr("surround")));
     formation.setSpacing(static_cast<float>(data["spacing"].as_double(60.0)));
     formation.setUpdateInterval(static_cast<float>(data["updateInterval"].as_double(0.25)));
+}
+
+const char* MotionEaseName(MotionEase ease)
+{
+    switch (ease)
+    {
+    case MotionEase::InQuad:
+        return "inQuad";
+    case MotionEase::OutQuad:
+        return "outQuad";
+    case MotionEase::InOutQuad:
+        return "inOutQuad";
+    case MotionEase::InCubic:
+        return "inCubic";
+    case MotionEase::OutCubic:
+        return "outCubic";
+    case MotionEase::InOutCubic:
+        return "inOutCubic";
+    case MotionEase::InSine:
+        return "inSine";
+    case MotionEase::OutSine:
+        return "outSine";
+    case MotionEase::InOutSine:
+        return "inOutSine";
+    case MotionEase::InBack:
+        return "inBack";
+    case MotionEase::OutBack:
+        return "outBack";
+    case MotionEase::InOutBack:
+        return "inOutBack";
+    case MotionEase::InBounce:
+        return "inBounce";
+    case MotionEase::OutBounce:
+        return "outBounce";
+    case MotionEase::InOutBounce:
+        return "inOutBounce";
+    case MotionEase::InElastic:
+        return "inElastic";
+    case MotionEase::OutElastic:
+        return "outElastic";
+    case MotionEase::InOutElastic:
+        return "inOutElastic";
+    case MotionEase::Linear:
+        break;
+    }
+    return "linear";
+}
+
+MotionEase MotionEaseFromName(const char* name)
+{
+    static const struct
+    {
+        const char* name;
+        MotionEase ease;
+    } kNames[] = {
+        {"inQuad", MotionEase::InQuad}, {"outQuad", MotionEase::OutQuad}, {"inOutQuad", MotionEase::InOutQuad},
+        {"inCubic", MotionEase::InCubic}, {"outCubic", MotionEase::OutCubic}, {"inOutCubic", MotionEase::InOutCubic},
+        {"inSine", MotionEase::InSine}, {"outSine", MotionEase::OutSine}, {"inOutSine", MotionEase::InOutSine},
+        {"inBack", MotionEase::InBack}, {"outBack", MotionEase::OutBack}, {"inOutBack", MotionEase::InOutBack},
+        {"inBounce", MotionEase::InBounce}, {"outBounce", MotionEase::OutBounce},
+        {"inOutBounce", MotionEase::InOutBounce}, {"inElastic", MotionEase::InElastic},
+        {"outElastic", MotionEase::OutElastic}, {"inOutElastic", MotionEase::InOutElastic},
+    };
+    for (const auto& entry : kNames)
+        if (std::strcmp(name, entry.name) == 0)
+            return entry.ease;
+    return MotionEase::Linear;
+}
+
+Component* CreatePathMotion(GameObject& owner)
+{
+    return owner.addComponent<PathMotion2D>();
+}
+
+const char* PathMotionLoopName(PathMotionLoop loop)
+{
+    switch (loop)
+    {
+    case PathMotionLoop::Repeat:
+        return "repeat";
+    case PathMotionLoop::PingPong:
+        return "pingPong";
+    case PathMotionLoop::None:
+        break;
+    }
+    return "none";
+}
+
+PathMotionLoop PathMotionLoopFromName(const char* name)
+{
+    if (std::strcmp(name, "repeat") == 0)
+        return PathMotionLoop::Repeat;
+    if (std::strcmp(name, "pingPong") == 0)
+        return PathMotionLoop::PingPong;
+    return PathMotionLoop::None;
+}
+
+void WritePathMotion(const Component& component, ct::Json& data, Assets*)
+{
+    const PathMotion2D& motion = static_cast<const PathMotion2D&>(component);
+    data.set("loop", ct::Json(PathMotionLoopName(motion.loop())));
+    data.set("autoplay", ct::Json(motion.autoplay()));
+    data.set("oneShot", ct::Json(motion.oneShot()));
+    ct::Json keyframes = ct::Json::array();
+    for (std::size_t i = 0; i < motion.keyframeCount(); ++i)
+    {
+        const PathMotionKeyframe& kf = *motion.keyframeAt(i);
+        ct::Json entry = ct::Json::object();
+        entry.set("position", WriteVec2(kf.position));
+        entry.set("scale", WriteVec2(kf.scale));
+        entry.set("angle", ct::Json(static_cast<double>(kf.angleDegrees)));
+        entry.set("duration", ct::Json(static_cast<double>(kf.duration)));
+        entry.set("ease", ct::Json(MotionEaseName(kf.ease)));
+        keyframes.push_back(entry);
+    }
+    data.set("keyframes", keyframes);
+}
+
+void ReadPathMotion(Component& component, const ct::Json& data, Assets*)
+{
+    PathMotion2D& motion = static_cast<PathMotion2D&>(component);
+    motion.clearKeyframes();
+    motion.setLoop(PathMotionLoopFromName(data["loop"].as_cstr("none")));
+    motion.setAutoplay(data["autoplay"].as_bool(false));
+    motion.setOneShot(data["oneShot"].as_bool(false));
+    const ct::Json& keyframes = data["keyframes"];
+    if (!keyframes.is_array())
+        return;
+    for (std::size_t i = 0; i < keyframes.size(); ++i)
+    {
+        const ct::Json& entry = keyframes[i];
+        PathMotionKeyframe kf;
+        kf.position = ReadVec2(entry["position"]);
+        kf.scale = ReadVec2(entry["scale"], Math::Vec2(1.0f));
+        kf.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
+        kf.duration = static_cast<float>(entry["duration"].as_double(0.5));
+        kf.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
+        motion.addKeyframe(kf);
+    }
+}
+
+Component* CreateActionSequence(GameObject& owner)
+{
+    return owner.addComponent<ActionSequence2D>();
+}
+
+const char* ActionKindName(ActionKind kind)
+{
+    switch (kind)
+    {
+    case ActionKind::Color:
+        return "color";
+    case ActionKind::Move:
+        return "move";
+    case ActionKind::Scale:
+        return "scale";
+    case ActionKind::Turn:
+        return "turn";
+    case ActionKind::Pause:
+        break;
+    }
+    return "pause";
+}
+
+ActionKind ActionKindFromName(const char* name)
+{
+    if (std::strcmp(name, "color") == 0)
+        return ActionKind::Color;
+    if (std::strcmp(name, "move") == 0)
+        return ActionKind::Move;
+    if (std::strcmp(name, "scale") == 0)
+        return ActionKind::Scale;
+    if (std::strcmp(name, "turn") == 0)
+        return ActionKind::Turn;
+    return ActionKind::Pause;
+}
+
+const char* ActionSequenceLoopName(ActionSequenceLoop loop)
+{
+    return loop == ActionSequenceLoop::Loop ? "loop" : "oneShot";
+}
+
+ActionSequenceLoop ActionSequenceLoopFromName(const char* name)
+{
+    return std::strcmp(name, "loop") == 0 ? ActionSequenceLoop::Loop : ActionSequenceLoop::OneShot;
+}
+
+void WriteActionSequence(const Component& component, ct::Json& data, Assets*)
+{
+    const ActionSequence2D& sequence = static_cast<const ActionSequence2D&>(component);
+    data.set("loop", ct::Json(ActionSequenceLoopName(sequence.loop())));
+    data.set("autoplay", ct::Json(sequence.autoplay()));
+    ct::Json steps = ct::Json::array();
+    for (std::size_t i = 0; i < sequence.stepCount(); ++i)
+    {
+        const ActionStep& step = *sequence.stepAt(i);
+        ct::Json entry = ct::Json::object();
+        entry.set("kind", ct::Json(ActionKindName(step.kind)));
+        entry.set("vector", WriteVec2(step.vector));
+        entry.set("angle", ct::Json(static_cast<double>(step.angleDegrees)));
+        entry.set("color", WriteColor(step.color));
+        entry.set("duration", ct::Json(static_cast<double>(step.duration)));
+        entry.set("ease", ct::Json(MotionEaseName(step.ease)));
+        steps.push_back(entry);
+    }
+    data.set("steps", steps);
+}
+
+void ReadActionSequence(Component& component, const ct::Json& data, Assets*)
+{
+    ActionSequence2D& sequence = static_cast<ActionSequence2D&>(component);
+    sequence.clearSteps();
+    sequence.setLoop(ActionSequenceLoopFromName(data["loop"].as_cstr("oneShot")));
+    sequence.setAutoplay(data["autoplay"].as_bool(false));
+    const ct::Json& steps = data["steps"];
+    if (!steps.is_array())
+        return;
+    for (std::size_t i = 0; i < steps.size(); ++i)
+    {
+        const ct::Json& entry = steps[i];
+        ActionStep step;
+        step.kind = ActionKindFromName(entry["kind"].as_cstr("pause"));
+        step.vector = ReadVec2(entry["vector"]);
+        step.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
+        step.color = ReadColor(entry["color"]);
+        step.duration = static_cast<float>(entry["duration"].as_double(0.5));
+        step.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
+        sequence.addStep(step);
+    }
 }
 
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
@@ -1339,6 +1570,9 @@ const TypeEntry* AllEntries(std::size_t& count)
         {ComponentType::NavigationAgent, "NavigationAgent2D", &CreateNavigationAgent, &WriteNavigationAgent,
          &ReadNavigationAgent, nullptr},
         {ComponentType::Formation, "Formation2D", &CreateFormation, &WriteFormation, &ReadFormation, nullptr},
+        {ComponentType::PathMotion, "PathMotion2D", &CreatePathMotion, &WritePathMotion, &ReadPathMotion, nullptr},
+        {ComponentType::ActionSequence, "ActionSequence2D", &CreateActionSequence, &WriteActionSequence,
+         &ReadActionSequence, nullptr},
         {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
         {ComponentType::CircleShape, "CircleShape", &CreateCircleShape, &WriteCircleShape, &ReadCircleShape, nullptr},
         {ComponentType::RectShape, "RectShape", &CreateRectShape, &WriteRectShape, &ReadRectShape, nullptr},

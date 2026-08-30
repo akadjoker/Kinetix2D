@@ -51,6 +51,8 @@
 #include "k2d/Easing.h"
 #include "k2d/MotionTween2D.h"
 #include "k2d/MotionStreak2D.h"
+#include "k2d/PathMotion2D.h"
+#include "k2d/ActionSequence2D.h"
 #include "k2d/Serializer.h"
 #include "k2d/Prefab.h"
 #include "k2d/ScriptComponent.h"

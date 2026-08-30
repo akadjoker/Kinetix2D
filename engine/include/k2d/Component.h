@@ -48,6 +48,8 @@ enum class ComponentType : uint8_t
     ParallaxLayer,
     Steering,
     Formation,
+    PathMotion,
+    ActionSequence,
     Count
 };
 

@@ -16,6 +16,9 @@
 #include <k2d/LightOccluder2D.h>
 #include <k2d/Line2D.h>
 #include <k2d/Formation2D.h>
+#include <k2d/PathMotion2D.h>
+#include <k2d/ActionSequence2D.h>
+#include <k2d/Utils.h>
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/NinePatchComponent.h>
@@ -136,7 +139,9 @@ const char* componentName(ComponentType type)
                                   "Bone2D",
                                   "ParallaxLayer",
                                   "Steering2D",
-                                  "Formation2D"};
+                                  "Formation2D",
+                                  "PathMotion2D",
+                                  "ActionSequence2D"};
     // This list is indexed by ComponentType. Adding to the enum without adding
     // here used to leave the new component reading "Unknown" in the inspector
     // with nothing to say so.
@@ -259,6 +264,10 @@ const char* componentDescription(const Component& component)
         return "Requests paths in NavigationRegion2D and optionally follows them.";
     case ComponentType::Formation:
         return "Gives this member its own place in the group's formation and sends its agent there.";
+    case ComponentType::PathMotion:
+        return "Moves through a list of position/scale/angle keyframes, eased segment by segment.";
+    case ComponentType::ActionSequence:
+        return "Plays a list of typed steps (color, move, scale, turn, pause) one after another.";
     case ComponentType::Steering:
         return "Seek, flee, arrive and wander for a script to call, plus separation and obstacle avoidance "
                "that can also run on their own for this object's agent.";
@@ -792,6 +801,189 @@ void drawFormationProperties(EditorApplication& app, Formation2D& formation)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "No anchor: this member stays put");
     }
     ImGui::TextDisabled("Needs a NavigationAgent2D on this object.");
+}
+
+const char* kMotionEaseNames[] = {"Linear",      "In Quad",     "Out Quad",     "In-Out Quad",   "In Cubic",
+                                  "Out Cubic",   "In-Out Cubic", "In Sine",     "Out Sine",      "In-Out Sine",
+                                  "In Back",     "Out Back",    "In-Out Back",  "In Bounce",     "Out Bounce",
+                                  "In-Out Bounce", "In Elastic", "Out Elastic", "In-Out Elastic"};
+constexpr int kMotionEaseCount = sizeof(kMotionEaseNames) / sizeof(kMotionEaseNames[0]);
+
+bool motionEaseCombo(const char* label, MotionEase& ease)
+{
+    int index = static_cast<int>(ease);
+    const bool changed = ImGui::Combo(label, &index, kMotionEaseNames, kMotionEaseCount);
+    if (changed)
+        ease = static_cast<MotionEase>(index);
+    return changed;
+}
+
+void drawPathMotionProperties(EditorApplication& app, PathMotion2D& motion)
+{
+    static const char* kLoopNames[] = {"None", "Repeat", "Ping Pong"};
+    int loopIdx = static_cast<int>(motion.loop());
+    if (ImGui::Combo("Loop", &loopIdx, kLoopNames, 3))
+        applyInstant(app, "Set Path Motion Loop", [&] { motion.setLoop(static_cast<PathMotionLoop>(loopIdx)); });
+
+    bool autoplay = motion.autoplay();
+    if (ImGui::Checkbox("Autoplay", &autoplay))
+        applyInstant(app, "Set Path Motion Autoplay", [&] { motion.setAutoplay(autoplay); });
+    ImGui::SameLine();
+    bool oneShot = motion.oneShot();
+    if (ImGui::Checkbox("One Shot", &oneShot))
+        applyInstant(app, "Set Path Motion One Shot", [&] { motion.setOneShot(oneShot); });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("A ship's reusable flight path wants this off; a one-off entrance move wants it on.");
+
+    if (ImGui::Button(ICON_MDI_PLAY "  Play"))
+        motion.play(true);
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_PAUSE "  Pause"))
+        motion.pause(!motion.paused());
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_STOP "  Stop"))
+        motion.stop();
+
+    ImGui::Separator();
+    std::size_t indexToDelete = static_cast<std::size_t>(-1);
+    for (std::size_t i = 0; i < motion.keyframeCount(); ++i)
+    {
+        PathMotionKeyframe* kf = motion.keyframeAt(i);
+        if (!kf)
+            continue;
+        ImGui::PushID(static_cast<int>(i));
+        const bool open =
+            ImGui::TreeNodeEx("##keyframe", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
+                              "Keyframe %d", static_cast<int>(i));
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_MDI_DELETE))
+            indexToDelete = i;
+        if (open)
+        {
+            float position[2] = {kf->position.x, kf->position.y};
+            if (ImGui::DragFloat2("Position", position, 1.0f))
+                applyInstant(app, "Set Path Keyframe Position",
+                             [&] { kf->position = Math::Vec2(position[0], position[1]); });
+            float scale[2] = {kf->scale.x, kf->scale.y};
+            if (ImGui::DragFloat2("Scale", scale, 0.01f))
+                applyInstant(app, "Set Path Keyframe Scale", [&] { kf->scale = Math::Vec2(scale[0], scale[1]); });
+            float angle = kf->angleDegrees;
+            if (dragFloatProperty(app, "Angle", angle, 1.0f, "Set Path Keyframe Angle"))
+                kf->angleDegrees = angle;
+            float duration = kf->duration;
+            if (dragFloatProperty(app, "Duration To Next", duration, 0.05f, "Set Path Keyframe Duration", 0.0f,
+                                  60.0f))
+                kf->duration = Max(0.0f, duration);
+            MotionEase ease = kf->ease;
+            if (motionEaseCombo("Ease To Next", ease))
+                applyInstant(app, "Set Path Keyframe Ease", [&] { kf->ease = ease; });
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    if (indexToDelete != static_cast<std::size_t>(-1))
+        applyInstant(app, "Delete Path Keyframe", [&] { motion.removeKeyframe(indexToDelete); });
+
+    if (ImGui::Button(ICON_MDI_PLUS "  Add Keyframe"))
+    {
+        applyInstant(app, "Add Path Keyframe",
+                     [&]
+                     {
+                         PathMotionKeyframe kf;
+                         if (motion.keyframeCount() > 0)
+                             kf = *motion.keyframeAt(motion.keyframeCount() - 1);
+                         motion.addKeyframe(kf);
+                     });
+    }
+}
+
+void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequence)
+{
+    static const char* kLoopNames[] = {"One Shot", "Loop"};
+    static const char* kKindNames[] = {"Color", "Move", "Scale", "Turn", "Pause"};
+
+    int loopIdx = static_cast<int>(sequence.loop());
+    if (ImGui::Combo("Loop", &loopIdx, kLoopNames, 2))
+        applyInstant(app, "Set Action Sequence Loop",
+                     [&] { sequence.setLoop(static_cast<ActionSequenceLoop>(loopIdx)); });
+
+    bool autoplay = sequence.autoplay();
+    if (ImGui::Checkbox("Autoplay", &autoplay))
+        applyInstant(app, "Set Action Sequence Autoplay", [&] { sequence.setAutoplay(autoplay); });
+
+    if (ImGui::Button(ICON_MDI_PLAY "  Play"))
+        sequence.play(true);
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_PAUSE "  Pause"))
+        sequence.pause(!sequence.paused());
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_MDI_STOP "  Stop"))
+        sequence.stop();
+    ImGui::TextDisabled("Step %d of %d", sequence.currentStep() + 1, static_cast<int>(sequence.stepCount()));
+
+    ImGui::Separator();
+    std::size_t indexToDelete = static_cast<std::size_t>(-1);
+    for (std::size_t i = 0; i < sequence.stepCount(); ++i)
+    {
+        ActionStep* step = sequence.stepAt(i);
+        if (!step)
+            continue;
+        ImGui::PushID(static_cast<int>(i));
+        const bool isCurrent = sequence.currentStep() == static_cast<int>(i);
+        const bool open =
+            ImGui::TreeNodeEx("##step", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth, "%s%s",
+                              kKindNames[static_cast<int>(step->kind)], isCurrent ? "  (playing)" : "");
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_MDI_DELETE))
+            indexToDelete = i;
+        if (open)
+        {
+            int kindIdx = static_cast<int>(step->kind);
+            if (ImGui::Combo("Kind", &kindIdx, kKindNames, 5))
+                applyInstant(app, "Set Action Step Kind", [&] { step->kind = static_cast<ActionKind>(kindIdx); });
+            switch (step->kind)
+            {
+            case ActionKind::Move:
+            case ActionKind::Scale:
+            {
+                float vector[2] = {step->vector.x, step->vector.y};
+                if (ImGui::DragFloat2(step->kind == ActionKind::Move ? "Target Position" : "Target Scale", vector,
+                                      step->kind == ActionKind::Move ? 1.0f : 0.01f))
+                    applyInstant(app, "Set Action Step Target",
+                                 [&] { step->vector = Math::Vec2(vector[0], vector[1]); });
+                break;
+            }
+            case ActionKind::Turn:
+            {
+                float angle = step->angleDegrees;
+                if (dragFloatProperty(app, "Target Angle", angle, 1.0f, "Set Action Step Angle"))
+                    step->angleDegrees = angle;
+                break;
+            }
+            case ActionKind::Color:
+                colorEdit(app, "Target Color", step->color, "Set Action Step Color");
+                break;
+            case ActionKind::Pause:
+                break;
+            }
+            float duration = step->duration;
+            if (dragFloatProperty(app, "Duration", duration, 0.05f, "Set Action Step Duration", 0.0f, 60.0f))
+                step->duration = Max(0.0f, duration);
+            if (step->kind != ActionKind::Pause)
+            {
+                MotionEase ease = step->ease;
+                if (motionEaseCombo("Ease", ease))
+                    applyInstant(app, "Set Action Step Ease", [&] { step->ease = ease; });
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    if (indexToDelete != static_cast<std::size_t>(-1))
+        applyInstant(app, "Delete Action Step", [&] { sequence.removeStep(indexToDelete); });
+
+    if (ImGui::Button(ICON_MDI_PLUS "  Add Step"))
+        applyInstant(app, "Add Action Step", [&] { sequence.addStep(ActionStep{}); });
 }
 
 void drawNavigationAgentProperties(EditorApplication& app, NavigationAgent2D& agent)
@@ -2796,6 +2988,12 @@ void drawComponentProperties(EditorApplication& app, Component& component)
     case ComponentType::Formation:
         drawFormationProperties(app, static_cast<Formation2D&>(component));
         break;
+    case ComponentType::PathMotion:
+        drawPathMotionProperties(app, static_cast<PathMotion2D&>(component));
+        break;
+    case ComponentType::ActionSequence:
+        drawActionSequenceProperties(app, static_cast<ActionSequence2D&>(component));
+        break;
     case ComponentType::NavigationAgent:
         drawNavigationAgentProperties(app, static_cast<NavigationAgent2D&>(component));
         break;
@@ -3360,6 +3558,26 @@ void InspectorPanel::drawContents()
                 const EditorApplication::SceneChange addBefore = app().beginChange();
                 object->addComponent<Formation2D>();
                 app().commitChange("Add Formation 2D", addBefore);
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Motion"))
+        {
+            if (componentMenuItem("Path Motion 2D",
+                                  "Moves through a list of position/scale/angle keyframes, eased segment by "
+                                  "segment. Loop or one-shot, play/pause from a script."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<PathMotion2D>();
+                app().commitChange("Add Path Motion 2D", addBefore);
+            }
+            if (componentMenuItem("Action Sequence 2D",
+                                  "Plays a list of typed steps (color, move, scale, turn, pause) one after "
+                                  "another, like a pulse or a scripted flourish."))
+            {
+                const EditorApplication::SceneChange addBefore = app().beginChange();
+                object->addComponent<ActionSequence2D>();
+                app().commitChange("Add Action Sequence 2D", addBefore);
             }
             ImGui::EndMenu();
         }

@@ -158,6 +158,8 @@ add_library(k2d STATIC
     src/Easing.cpp
     src/MotionTween2D.cpp
     src/MotionStreak2D.cpp
+    src/PathMotion2D.cpp
+    src/ActionSequence2D.cpp
     src/Serializer.cpp
     src/Prefab.cpp
     src/Triangulate2D.cpp
