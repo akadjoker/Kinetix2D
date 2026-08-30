@@ -29,6 +29,7 @@ private:
     void duplicateSelected();
     void moveSelected(int direction);
     void deleteSelected();
+    void saveSelectedAsPrefab();
 
     char mSearchFilter[128] = "";
 };

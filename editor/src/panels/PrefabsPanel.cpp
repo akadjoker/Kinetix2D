@@ -32,6 +32,14 @@ void PrefabsPanel::drawContents()
         return;
 
     ImGui::TextDisabled("%s", mLoadedPath.c_str());
+    ImGui::BeginDisabled(app().prefabModeActive());
+    if (ImGui::Button("Edit"))
+    {
+        app().enterPrefabMode(mLoadedPath.c_str());
+        return;
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
     if (ImGui::Button("Clear Preview"))
     {
         app().previewPrefab("");

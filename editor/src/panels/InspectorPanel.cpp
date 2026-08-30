@@ -2404,6 +2404,48 @@ void drawAnimationProperties(EditorApplication& app, Animation2D& anim)
     if (ImGui::Combo("Mode", &mode, modeNames, 3))
         applyInstant(app, "Set Animation Mode", [&] { anim.setMode(static_cast<AnimationMode>(mode)); });
 
+    ImGui::TextDisabled("%zu clip(s)", anim.clipCount());
+    if (const char* currentName = anim.currentClip())
+    {
+        int activeIndex = -1;
+        AnimationClip* activeClip = nullptr;
+        for (size_t i = 0; i < anim.clipCount(); ++i)
+        {
+            AnimationClip* clip = anim.clipAt(i);
+            if (clip && clip->name == currentName)
+            {
+                activeIndex = static_cast<int>(i);
+                activeClip = clip;
+            }
+        }
+        if (anim.clipCount() > 0 && ImGui::BeginCombo("Clip", currentName))
+        {
+            for (size_t i = 0; i < anim.clipCount(); ++i)
+            {
+                AnimationClip* clip = anim.clipAt(i);
+                if (!clip)
+                    continue;
+                const bool selected = static_cast<int>(i) == activeIndex;
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::Selectable(clip->name.c_str(), selected))
+                    applyInstant(app, "Select Animation Clip", [&] { anim.play(clip->name.c_str()); });
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+                ImGui::SameLine();
+                ImGui::TextDisabled("(%zu)", clip->frames.size());
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        if (activeClip)
+        {
+            char nameBuf[128];
+            std::snprintf(nameBuf, sizeof(nameBuf), "%s", activeClip->name.c_str());
+            if (ImGui::InputText("Clip Name", nameBuf, sizeof(nameBuf)) && nameBuf[0] != '\0')
+                applyInstant(app, "Rename Animation Clip", [&] { activeClip->name = nameBuf; });
+        }
+    }
+
     if (ImGui::Button(anim.playing() ? "Stop Preview" : "Preview in Scene"))
     {
         applyInstant(app, anim.playing() ? "Stop Animation" : "Play Animation",
@@ -2418,8 +2460,17 @@ void drawAnimationProperties(EditorApplication& app, Animation2D& anim)
                          }
                      });
     }
-    ImGui::SameLine();
-    ImGui::Text("Frame %d / %d", anim.frame(), anim.frameCount());
+    if (anim.playing())
+    {
+        ImGui::SameLine();
+        ImGui::Text("Frame %d / %d", anim.frame(), anim.frameCount());
+    }
+    else if (anim.frameCount() > 0)
+    {
+        int frame = anim.frame();
+        if (ImGui::SliderInt("Frame", &frame, 0, anim.frameCount() - 1))
+            anim.setFrame(frame);
+    }
     ImGui::TextDisabled("Edit the sprite library, clips and timeline in Window > Animator.");
     return;
 

@@ -36,6 +36,7 @@
 #include <k2d/FileSystem.h>
 #include <k2d/InputActionMap.h>
 #include <k2d/ParticleComponent.h>
+#include <k2d/Prefab.h>
 #include <k2d/Profiler.h>
 #include <k2d/ProfilerUI.h>
 #include <k2d/RectShape.h>
@@ -79,6 +80,16 @@ Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
         return fallback;
     return Math::Vec2(static_cast<float>(value[0].as_double(fallback.x)),
                       static_cast<float>(value[1].as_double(fallback.y)));
+}
+
+GameObject* findById(GameObject& object, uint64_t id)
+{
+    if (object.id() == id)
+        return &object;
+    for (size_t i = 0; i < object.childCount(); ++i)
+        if (GameObject* found = findById(*object.child(i), id))
+            return found;
+    return nullptr;
 }
 
 void configureDefaultInputActions()
@@ -214,6 +225,8 @@ bool EditorApplication::initialize()
     bool opened = false;
     if (!mSettings.lastProjectPath.empty() && mProject.load(mSettings.lastProjectPath.c_str()))
     {
+        FileSystem::Instance().ResetSearchPaths();
+        FileSystem::Instance().AddSearchPath(mProject.root().c_str());
         ct::String message("Project restored: ");
         message += mProject.root();
         log(message);
@@ -250,10 +263,10 @@ int EditorApplication::run()
         {
             SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
             GetScreenFade().Update(mDevice.DeltaTime());
-            mRuntimeScene.update(mDevice.DeltaTime());
-            if (CameraComponent* camera = mRuntimeScene.activeCamera())
+            mScene.update(mDevice.DeltaTime());
+            if (CameraComponent* camera = mScene.activeCamera())
                 GetAudio().SetListenerPosition(camera->camera().position);
-            DispatchZenScriptEvents(mRuntimeScene.root());
+            DispatchZenScriptEvents(mScene.root());
         }
         if (!mPlaying && mSettings.viewportLivePreview)
             tickEditPreview(mScene.root(), mDevice.DeltaTime());
@@ -329,7 +342,9 @@ void EditorApplication::createPanels()
     mPanels.push_back(ct::make_unique<HierarchyPanel>(*this));
     mPanels.push_back(ct::make_unique<SettingsPanel>(*this));
     mPanels.push_back(ct::make_unique<InspectorPanel>(*this));
-    mPanels.push_back(ct::make_unique<SceneViewportPanel>(*this));
+    ct::Unique<SceneViewportPanel> sceneViewport = ct::make_unique<SceneViewportPanel>(*this);
+    mSceneViewport = sceneViewport.get();
+    mPanels.push_back(ct::detail::move(sceneViewport));
     mPanels.push_back(ct::make_unique<GamePanel>(*this));
     mPanels.push_back(ct::make_unique<ParticlePanel>(*this));
     mPanels.push_back(ct::make_unique<TileMapPanel>(*this));
@@ -361,6 +376,12 @@ void EditorApplication::openImageEditor(const char* path)
         return;
     mImageEditor->open() = true;
     mImageEditor->openImage(path);
+}
+
+void EditorApplication::focusOnObject(GameObject& object)
+{
+    if (mSceneViewport)
+        mSceneViewport->focusOn(object);
 }
 
 void EditorApplication::log(const char* message)
@@ -504,35 +525,27 @@ void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selected
 
 void EditorApplication::startPlay()
 {
-    mRuntimeScene.clear();
+    // Play simulates the real scene in place -- the same GameObjects the
+    // Hierarchy/Viewport already show, not a disconnected clone -- so
+    // anything a script spawns or destroys is visible immediately. The
+    // snapshot is what makes that safe: Stop discards every change physics
+    // and scripts made by restoring it, the same mechanism Prefab Mode
+    // already uses to discard.
+    mPlaySnapshot = snapshotScene();
+    mPlaySelectionId = mSelection.objectId();
+    mPlayHadSelection = mSelection.hasSelection();
     ZenBlackboard::clear();
 
-    const ct::Json rootJson = Serializer::WriteObject(mScene.root(), &mAssets);
-    GameObject& runtimeRoot = mRuntimeScene.root();
-    runtimeRoot.setName(rootJson["name"].as_cstr("Scene"));
-    runtimeRoot.setTag(rootJson["tag"].as_cstr(""));
-    runtimeRoot.setActive(rootJson["active"].as_bool(true));
-    runtimeRoot.setVisible(rootJson["visible"].as_bool(true));
-    runtimeRoot.setZIndex(static_cast<int>(rootJson["zIndex"].as_int(0)));
-    runtimeRoot.setPosition(readVec2(rootJson["position"], Math::Vec2(0.0f)));
-    runtimeRoot.setRotationDegrees(static_cast<float>(rootJson["rotation"].as_double(0.0)));
-    runtimeRoot.setScale(readVec2(rootJson["scale"], Math::Vec2(1.0f)));
-
-    const ct::Json& children = rootJson["children"];
-    if (children.is_array())
-        for (size_t i = 0; i < children.size(); ++i)
-            Serializer::ReadObject(mRuntimeScene, children[i], &runtimeRoot, &mAssets);
-
-    RouteZenScriptCollisions(mRuntimeScene);
-    RouteZenScriptAnimationEvents(mRuntimeScene);
-    RouteZenScriptParticleHits(mRuntimeScene);
-    mRuntimeScene.setSimulationEnabled(true);
+    RouteZenScriptCollisions(mScene);
+    RouteZenScriptAnimationEvents(mScene);
+    RouteZenScriptParticleHits(mScene);
+    mScene.setSimulationEnabled(true);
     applyPhysicsSettings();
 
     SetZenScriptsEnabled(true);
     mPlaying = true;
     mPaused = false;
-    log("Play: runtime scene cloned from the edited scene");
+    log("Play: simulating the real scene");
     mToasts.info("Play");
 }
 
@@ -544,10 +557,10 @@ Math::Vec2 EditorApplication::effectiveGravity() const
 void EditorApplication::applyPhysicsSettings()
 {
     const PhysicsSettings& physics = mProject.physics();
-    mRuntimeScene.setGravity(effectiveGravity());
-    mRuntimeScene.setFixedTimeStep(physics.fixedTimeStep);
-    mRuntimeScene.setVelocityIterations(physics.velocityIterations);
-    mRuntimeScene.setTreeBroadphase(physics.treeBroadphase);
+    mScene.setGravity(effectiveGravity());
+    mScene.setFixedTimeStep(physics.fixedTimeStep);
+    mScene.setVelocityIterations(physics.velocityIterations);
+    mScene.setTreeBroadphase(physics.treeBroadphase);
 }
 
 void EditorApplication::applyCursorSettings()
@@ -562,11 +575,12 @@ void EditorApplication::applyCursorSettings()
 void EditorApplication::stopPlay()
 {
     SetZenScriptsEnabled(false);
-    mRuntimeScene.setSimulationEnabled(false);
-    mRuntimeScene.clear();
-    ZenBlackboard::clear();
+    mScene.setSimulationEnabled(false);
     GetAudio().StopAll();
     GetScreenFade().SetClear();
+    restoreScene(mPlaySnapshot, mPlayHadSelection ? mPlaySelectionId : 0, mPlayHadSelection);
+    mPlaySnapshot = ct::Json();
+    ZenBlackboard::clear();
     mPlaying = false;
     mPaused = false;
     log("Stopped preview");
@@ -576,8 +590,8 @@ void EditorApplication::stepPlay()
 {
     if (mPlaying && mPaused)
     {
-        mRuntimeScene.update(1.0f / 60.0f);
-        DispatchZenScriptEvents(mRuntimeScene.root());
+        mScene.update(1.0f / 60.0f);
+        DispatchZenScriptEvents(mScene.root());
     }
 }
 
@@ -1173,6 +1187,13 @@ bool EditorApplication::newProject(const char* rootDirectory, const char* name)
         return false;
     }
 
+    // Lets a script/prefab "path" authored relative to the project root
+    // (e.g. "assets/scripts/prota.py") resolve on any machine, the same way
+    // runner/src/main.cpp already does for exported builds -- without this,
+    // only absolute, single-machine paths ever worked from the editor.
+    FileSystem::Instance().ResetSearchPaths();
+    FileSystem::Instance().AddSearchPath(mProject.root().c_str());
+
     mSettings.lastProjectPath = mProject.projectFile();
     mSettings.touchRecentProject(mProject.projectFile());
     mSettings.assetsDirectory = mProject.assetsDirectory();
@@ -1194,6 +1215,9 @@ bool EditorApplication::openProject(const char* projectFile)
         mToasts.error("Could not open project");
         return false;
     }
+
+    FileSystem::Instance().ResetSearchPaths();
+    FileSystem::Instance().AddSearchPath(mProject.root().c_str());
 
     mSettings.lastProjectPath = mProject.projectFile();
     mSettings.touchRecentProject(mProject.projectFile());
@@ -1218,6 +1242,118 @@ void EditorApplication::openFileDialog(FileDialogPurpose purpose, ImGuiFileDialo
     mFileDialog.Open(mode, std::filesystem::path(startDirectory.c_str()), initialName.c_str());
 }
 
+bool EditorApplication::enterPrefabMode(const char* path)
+{
+    if (mPlaying || mPrefabModeActive || !path || !path[0])
+        return false;
+
+    Prefab prefab;
+    if (!prefab.Load(path))
+    {
+        ct::String message("Could not open prefab: ");
+        message += path;
+        log(message);
+        mToasts.error(message);
+        return false;
+    }
+
+    mPrefabModeSavedScene = snapshotScene();
+    mPrefabModeSavedPath = mCurrentScenePath;
+    mPrefabModeSavedSelectionId = mSelection.objectId();
+    mPrefabModeHadSelection = mSelection.hasSelection();
+
+    mSelection.clear();
+    mScene.clear();
+    mCommands.clear();
+    mTransactionActive = false;
+
+    // Instantiate keeps the prefab's own name, tag and (crucially) its
+    // components -- restoreScene() only ever populates a scene root's name/
+    // tag/transform/children, since a real scene's implicit root never has
+    // components of its own. Yes, this nests the prefab's root one level
+    // under mScene.root() (an extra Hierarchy row) -- see the comment on
+    // mScene.root()'s renaming below for why that is the lesser problem.
+    GameObject* root = prefab.Instantiate(mScene, nullptr, &mAssets);
+    if (!root)
+    {
+        restoreScene(mPrefabModeSavedScene, mPrefabModeHadSelection ? mPrefabModeSavedSelectionId : 0,
+                    mPrefabModeHadSelection);
+        mCurrentScenePath = mPrefabModeSavedPath;
+        ct::String message("Could not instantiate prefab: ");
+        message += path;
+        log(message);
+        mToasts.error(message);
+        return false;
+    }
+
+    // Named distinctly from the prefab's own root so the wrapper row in the
+    // Hierarchy doesn't look like an accidental duplicate of it.
+    mScene.root().setName("(Prefab Root)");
+    mPrefabModeRootId = root->id();
+    mPrefabModePath = path;
+    mCurrentScenePath.clear();
+    mPrefabModeActive = true;
+    mSelection.select(root);
+
+    ct::String message("Editing prefab: ");
+    message += path;
+    log(message);
+    return true;
+}
+
+void EditorApplication::exitPrefabMode(bool save)
+{
+    if (!mPrefabModeActive)
+        return;
+
+    if (save)
+    {
+        GameObject* root = findById(mScene.root(), mPrefabModeRootId);
+        if (root)
+        {
+            Prefab out;
+            if (out.SaveToFile(mPrefabModePath.c_str(), *root, &mAssets))
+            {
+                ct::String toast("Saved ");
+                toast += EditorFileSystem::fileName(mPrefabModePath);
+                mToasts.success(toast);
+            }
+            else
+            {
+                ct::String message("Could not save prefab: ");
+                message += mPrefabModePath;
+                log(message);
+                mToasts.error(message);
+            }
+        }
+        else
+        {
+            ct::String message("Prefab root was deleted -- nothing saved: ");
+            message += mPrefabModePath;
+            log(message);
+            mToasts.warning(message);
+        }
+    }
+
+    restoreScene(mPrefabModeSavedScene, mPrefabModeHadSelection ? mPrefabModeSavedSelectionId : 0,
+                mPrefabModeHadSelection);
+    mCommands.clear();
+    mTransactionActive = false;
+    mCurrentScenePath = mPrefabModeSavedPath;
+    mPrefabModeActive = false;
+    mPrefabModePath.clear();
+    mPrefabModeSavedScene = ct::Json();
+}
+
+void EditorApplication::requestSaveObjectAsPrefab(uint64_t objectId, const ct::String& suggestedName)
+{
+    mPendingPrefabExportId = objectId;
+    ct::String initialName = suggestedName.empty() ? ct::String("prefab.k2dprefab") : suggestedName;
+    openFileDialog(FileDialogPurpose::SaveSelectionAsPrefab, ImGuiFileDialog::Mode::SaveFile,
+                   mProject.valid() ? mProject.prefabsDirectory() : EditorFileSystem::currentDirectory(),
+                   initialName);
+}
+
 void EditorApplication::drawWorkspace()
 {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -1237,6 +1373,7 @@ void EditorApplication::drawWorkspace()
 
     drawMenuBar();
     drawToolbar();
+    drawPrefabModeBar();
     drawFileDialog();
     drawNewProjectNameDialog();
 
@@ -1279,9 +1416,9 @@ void EditorApplication::drawMenuBar()
             mProject.save();
 
         ImGui::Separator();
-        if (ImGui::MenuItem("New Scene", "Ctrl+N"))
+        if (ImGui::MenuItem("New Scene", "Ctrl+N", false, !mPrefabModeActive))
             newScene();
-        if (ImGui::BeginMenu("New Example Scene"))
+        if (ImGui::BeginMenu("New Example Scene", !mPrefabModeActive))
         {
             if (ImGui::MenuItem("Shapes"))
                 createShapesExampleScene();
@@ -1291,15 +1428,24 @@ void EditorApplication::drawMenuBar()
                 createBunnymarkExampleScene();
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Open Scene..."))
+        if (ImGui::MenuItem("Open Scene...", nullptr, false, !mPrefabModeActive))
             openFileDialog(FileDialogPurpose::OpenScene, ImGuiFileDialog::Mode::OpenFile,
                            mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory());
-        if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, !mCurrentScenePath.empty()))
+        if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, !mPrefabModeActive && !mCurrentScenePath.empty()))
             saveScene(mCurrentScenePath.c_str());
-        if (ImGui::MenuItem("Save Scene As..."))
+        if (ImGui::MenuItem("Save Scene As...", nullptr, false, !mPrefabModeActive))
             openFileDialog(FileDialogPurpose::SaveScene, ImGuiFileDialog::Mode::SaveFile,
                            mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory(),
                            "scene.k2dscene");
+
+        ImGui::Separator();
+        if (ImGui::MenuItem("New Prefab...", nullptr, false, !mPrefabModeActive))
+            openFileDialog(FileDialogPurpose::NewPrefab, ImGuiFileDialog::Mode::SaveFile,
+                           mProject.valid() ? mProject.prefabsDirectory() : EditorFileSystem::currentDirectory(),
+                           "prefab.k2dprefab");
+        if (ImGui::MenuItem("Open Prefab...", nullptr, false, !mPrefabModeActive))
+            openFileDialog(FileDialogPurpose::OpenPrefab, ImGuiFileDialog::Mode::OpenFile,
+                           mProject.valid() ? mProject.prefabsDirectory() : EditorFileSystem::currentDirectory());
 
         ImGui::Separator();
         if (ImGui::MenuItem("Capture Screenshot", "F9"))
@@ -1456,6 +1602,47 @@ void EditorApplication::drawFileDialog()
     case FileDialogPurpose::SaveScene:
         saveScene(path.c_str());
         break;
+    case FileDialogPurpose::NewPrefab:
+    {
+        Scene scratch;
+        GameObject* obj = scratch.createObject(EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)).c_str());
+        Prefab prefab;
+        if (obj && prefab.SaveToFile(path.c_str(), *obj, &mAssets))
+            enterPrefabMode(path.c_str());
+        else
+        {
+            ct::String message("Could not create prefab: ");
+            message += path;
+            log(message);
+            mToasts.error(message);
+        }
+        break;
+    }
+    case FileDialogPurpose::OpenPrefab:
+        enterPrefabMode(path.c_str());
+        break;
+    case FileDialogPurpose::SaveSelectionAsPrefab:
+    {
+        GameObject* object = findById(mScene.root(), mPendingPrefabExportId);
+        if (object)
+        {
+            Prefab prefab;
+            if (prefab.SaveToFile(path.c_str(), *object, &mAssets))
+            {
+                ct::String toast("Saved ");
+                toast += EditorFileSystem::fileName(path);
+                mToasts.success(toast);
+            }
+            else
+            {
+                ct::String message("Could not save prefab: ");
+                message += path;
+                log(message);
+                mToasts.error(message);
+            }
+        }
+        break;
+    }
     default:
         break;
     }
@@ -1501,6 +1688,26 @@ void EditorApplication::drawNewProjectNameDialog()
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
+}
+
+void EditorApplication::drawPrefabModeBar()
+{
+    if (!mPrefabModeActive)
+        return;
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TabActive));
+    ImGui::BeginChild("##prefabModeBar", ImVec2(0.0f, 30.0f), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::SetCursorPos(ImVec2(10.0f, 5.0f));
+    ImGui::Text(ICON_MDI_CUBE_OUTLINE " Editing Prefab: %s",
+               EditorFileSystem::fileName(mPrefabModePath).c_str());
+    ImGui::SameLine(ImGui::GetWindowWidth() - 190.0f);
+    if (ImGui::Button("Save & Close", ImVec2(90.0f, 20.0f)))
+        exitPrefabMode(true);
+    ImGui::SameLine();
+    if (ImGui::Button("Discard", ImVec2(80.0f, 20.0f)))
+        exitPrefabMode(false);
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
 }
 
 void EditorApplication::drawStatusBar()
@@ -1554,14 +1761,14 @@ void EditorApplication::drawToolbar()
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::SetCursorPos(ImVec2(8.0f, 4.0f));
 
-    if (toolbarIcon("new", ICON_MDI_FILE_DOCUMENT_OUTLINE, "New scene"))
+    if (toolbarIcon("new", ICON_MDI_FILE_DOCUMENT_OUTLINE, "New scene", false, !mPrefabModeActive))
         newScene();
     toolbarSameLine();
-    if (toolbarIcon("open", ICON_MDI_FOLDER_OPEN, "Open scene"))
+    if (toolbarIcon("open", ICON_MDI_FOLDER_OPEN, "Open scene", false, !mPrefabModeActive))
         openFileDialog(FileDialogPurpose::OpenScene, ImGuiFileDialog::Mode::OpenFile,
                        mProject.valid() ? mProject.scenesDirectory() : EditorFileSystem::currentDirectory());
     toolbarSameLine();
-    if (toolbarIcon("save", ICON_MDI_CONTENT_SAVE, "Save scene"))
+    if (toolbarIcon("save", ICON_MDI_CONTENT_SAVE, "Save scene", false, !mPrefabModeActive))
     {
         if (!mCurrentScenePath.empty())
             saveScene(mCurrentScenePath.c_str());
@@ -1580,10 +1787,10 @@ void EditorApplication::drawToolbar()
     const float playbackWidth = 30.0f * 5.0f + 3.0f * 4.0f;
     ImGui::SameLine();
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - playbackWidth) * 0.5f);
-    if (toolbarIcon("play", ICON_MDI_PLAY, "Play", mPlaying && !mPaused, !mPlaying))
+    if (toolbarIcon("play", ICON_MDI_PLAY, "Play", mPlaying && !mPaused, !mPlaying && !mPrefabModeActive))
         startPlay();
     toolbarSameLine();
-    if (toolbarIcon("run", ICON_MDI_LAUNCH, "Run in a standalone game window"))
+    if (toolbarIcon("run", ICON_MDI_LAUNCH, "Run in a standalone game window", false, !mPrefabModeActive))
         runStandalone();
     toolbarSameLine();
     if (toolbarIcon("pause", ICON_MDI_PAUSE, "Pause", mPaused, mPlaying))

@@ -43,6 +43,39 @@ bool containsCaseInsensitive(const ct::String &haystack, const char *needle)
         return true;
     return toLower(haystack).find(toLower(ct::String(needle))) != ct::String::npos;
 }
+
+ct::String baseNameWithoutCount(const ct::String &name)
+{
+    size_t i = name.size();
+    while (i > 0 && name[i - 1] >= '0' && name[i - 1] <= '9')
+        --i;
+    if (i > 1 && i < name.size() && name[i - 1] == '_')
+        return name.substr(0, i - 1);
+    return name;
+}
+
+ct::String uniqueChildName(GameObject *parent, const ct::String &originalName)
+{
+    const ct::String base = baseNameWithoutCount(originalName);
+    ct::String candidate;
+    for (int n = 1;; ++n)
+    {
+        candidate = base;
+        candidate += "_";
+        candidate.append_number(n);
+        if (!parent->findChild(candidate.c_str(), false))
+            return candidate;
+    }
+}
+
+void moveChildToIndex(GameObject *parent, GameObject *child, size_t targetIndex)
+{
+    size_t current = parent->childIndex(child);
+    while (current > targetIndex && parent->moveChildUp(child))
+        --current;
+    while (current < targetIndex && parent->moveChildDown(child))
+        ++current;
+}
 }
 
 void HierarchyPanel::drawContents()
@@ -155,10 +188,14 @@ void HierarchyPanel::duplicateSelected()
         GameObject *object = findById(app().scene().root(), ids[i]);
         if (!object || object == &app().scene().root() || !object->parent())
             continue;
+        GameObject *parent = object->parent();
         const ct::Json data = Serializer::WriteObject(*object, &app().assets());
-        GameObject *duplicate = Serializer::ReadObject(app().scene(), data, object->parent(), &app().assets());
-        if (duplicate)
-            duplicates.push_back(duplicate);
+        GameObject *duplicate = Serializer::ReadObject(app().scene(), data, parent, &app().assets());
+        if (!duplicate)
+            continue;
+        duplicate->setName(uniqueChildName(parent, object->name()));
+        moveChildToIndex(parent, duplicate, parent->childIndex(object) + 1);
+        duplicates.push_back(duplicate);
     }
     if (duplicates.empty())
         return;
@@ -172,6 +209,17 @@ void HierarchyPanel::duplicateSelected()
     message += " node(s)";
     app().log(message);
     app().toasts().success(message);
+}
+
+void HierarchyPanel::saveSelectedAsPrefab()
+{
+    GameObject *object = app().selection().resolve(app().scene());
+    if (!object || object == &app().scene().root())
+        return;
+
+    ct::String suggested = object->name().empty() ? ct::String("prefab") : object->name();
+    suggested += ".k2dprefab";
+    app().requestSaveObjectAsPrefab(object->id(), suggested);
 }
 
 void HierarchyPanel::moveSelected(int direction)
@@ -260,6 +308,8 @@ void HierarchyPanel::drawObject(GameObject &object)
         message += object.name();
         app().log(message);
     }
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        app().focusOnObject(object);
 
     if (ImGui::BeginPopupContextItem())
     {
@@ -283,6 +333,8 @@ void HierarchyPanel::drawObject(GameObject &object)
             object.setLocked(!object.locked());
             app().commitChange(object.locked() ? "Lock Node" : "Unlock Node", lockBefore);
         }
+        if (ImGui::MenuItem(ICON_MDI_CUBE_OUTLINE " Save Selection as Prefab..."))
+            saveSelectedAsPrefab();
         ImGui::Separator();
         if (ImGui::MenuItem(ICON_MDI_TRASH_CAN_OUTLINE " Delete"))
             deleteSelected();

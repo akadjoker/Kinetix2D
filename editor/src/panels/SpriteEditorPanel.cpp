@@ -323,9 +323,18 @@ void SpriteEditorPanel::drawContents()
         const Math::Vec4 &r = region->rect;
         const ImU32 color = mSelectedRegion == static_cast<int>(i) ? IM_COL32(255, 205, 65, 255)
                                                                     : IM_COL32(100, 200, 255, 190);
-        draw->AddRect(ImVec2(origin.x + r.x * mZoom, origin.y + r.y * mZoom),
-                      ImVec2(origin.x + (r.x + r.z) * mZoom, origin.y + (r.y + r.w) * mZoom),
-                      color, 0.0f, 0, mSelectedRegion == static_cast<int>(i) ? 2.0f : 1.0f);
+        const ImVec2 rectTopLeft(origin.x + r.x * mZoom, origin.y + r.y * mZoom);
+        draw->AddRect(rectTopLeft, ImVec2(origin.x + (r.x + r.z) * mZoom, origin.y + (r.y + r.w) * mZoom), color,
+                      0.0f, 0, mSelectedRegion == static_cast<int>(i) ? 2.0f : 1.0f);
+
+        // Editor-only overlay, drawn on top of the canvas each frame -- never
+        // written into the atlas texture or the region data.
+        const ImVec2 labelSize = ImGui::CalcTextSize(region->id.c_str());
+        const ImVec2 labelPos(rectTopLeft.x, rectTopLeft.y - labelSize.y - 4.0f);
+        draw->AddRectFilled(ImVec2(labelPos.x - 2.0f, labelPos.y - 1.0f),
+                            ImVec2(labelPos.x + labelSize.x + 2.0f, labelPos.y + labelSize.y + 1.0f),
+                            IM_COL32(0, 0, 0, 170));
+        draw->AddText(labelPos, color, region->id.c_str());
     }
     if (mSelectedRect.z > 0.0f && mSelectedRect.w > 0.0f)
     {

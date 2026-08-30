@@ -23,6 +23,7 @@ namespace k2d::editor
 
 class ScriptEditorPanel;
 class ImageEditorPanel;
+class SceneViewportPanel;
 
 class EditorApplication
 {
@@ -40,7 +41,10 @@ class EditorApplication
         NewProjectFolder,
         OpenProject,
         OpenScene,
-        SaveScene
+        SaveScene,
+        NewPrefab,
+        OpenPrefab,
+        SaveSelectionAsPrefab
     };
 
     EditorApplication() = default;
@@ -53,10 +57,6 @@ class EditorApplication
     Scene& scene()
     {
         return mScene;
-    }
-    Scene& runtimeScene()
-    {
-        return mRuntimeScene;
     }
     Assets& assets()
     {
@@ -155,6 +155,18 @@ class EditorApplication
         mPreviewPrefabPath = path ? path : "";
     }
 
+    bool prefabModeActive() const
+    {
+        return mPrefabModeActive;
+    }
+    const ct::String& prefabModePath() const
+    {
+        return mPrefabModePath;
+    }
+    bool enterPrefabMode(const char* path);
+    void exitPrefabMode(bool save);
+    void requestSaveObjectAsPrefab(uint64_t objectId, const ct::String& suggestedName);
+
     void restartEditPreview();
 
     void preloadTextures(const ct::Json& node);
@@ -173,6 +185,7 @@ class EditorApplication
     bool openProject(const char* projectFile);
     void openScriptEditor(const char* path);
     void openImageEditor(const char* path);
+    void focusOnObject(GameObject& object);
     void openFileDialog(FileDialogPurpose purpose, ImGuiFileDialog::Mode mode, const ct::String& startDirectory,
                         const ct::String& initialName = ct::String());
 
@@ -183,6 +196,7 @@ class EditorApplication
     void drawToolbar();
     void drawFileDialog();
     void drawNewProjectNameDialog();
+    void drawPrefabModeBar();
     void drawStatusBar();
     void createDefaultDockLayout(unsigned int dockspaceId);
     void newScene();
@@ -207,7 +221,9 @@ class EditorApplication
     Device mDevice;
     Assets mAssets;
     Scene mScene;
-    Scene mRuntimeScene;
+    ct::Json mPlaySnapshot;
+    uint64_t mPlaySelectionId = 0;
+    bool mPlayHadSelection = false;
     EditorSelection mSelection;
     EditorSettings mSettings;
     UserData mUserData;
@@ -217,9 +233,18 @@ class EditorApplication
     ct::Vector<ct::Unique<EditorPanel>> mPanels;
     ScriptEditorPanel* mScriptEditor = nullptr;
     ImageEditorPanel* mImageEditor = nullptr;
+    SceneViewportPanel* mSceneViewport = nullptr;
     ct::String mConsoleText;
     ct::String mCurrentScenePath;
     ct::String mPreviewPrefabPath;
+    bool mPrefabModeActive = false;
+    ct::String mPrefabModePath;
+    uint64_t mPrefabModeRootId = 0;
+    ct::Json mPrefabModeSavedScene;
+    ct::String mPrefabModeSavedPath;
+    uint64_t mPrefabModeSavedSelectionId = 0;
+    bool mPrefabModeHadSelection = false;
+    uint64_t mPendingPrefabExportId = 0;
     bool mInitialized = false;
     bool mPlaying = false;
     ScenePhysics mScenePhysics;

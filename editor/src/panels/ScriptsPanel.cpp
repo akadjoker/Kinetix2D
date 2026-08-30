@@ -213,8 +213,7 @@ void ScriptsPanel::drawContents()
     }
     if (ImGui::BeginTabItem("Scripts"))
     {
-        Scene &scene = app().playing() ? app().runtimeScene() : app().scene();
-        drawScriptList(scene.root(), 0);
+        drawScriptList(app().scene().root(), 0);
         ImGui::EndTabItem();
     }
     ImGui::EndTabBar();

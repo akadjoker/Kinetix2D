@@ -27,6 +27,8 @@ public:
     explicit SceneViewportPanel(EditorApplication &application);
     ~SceneViewportPanel() override;
 
+    void focusOn(const GameObject &object);
+
 private:
     void drawContents() override;
     void drawGrid(ImDrawList &drawList, const ImVec2 &min, const ImVec2 &max) const;

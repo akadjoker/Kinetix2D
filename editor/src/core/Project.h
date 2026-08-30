@@ -30,6 +30,7 @@ public:
     const ct::String &projectFile() const { return mProjectFile; }
     ct::String scenesDirectory() const;
     ct::String assetsDirectory() const;
+    ct::String prefabsDirectory() const;
 
     const ct::Vector<ct::String> &scenes() const { return mScenes; }
     void addScene(const char *relativePath);

@@ -91,7 +91,7 @@ void GamePanel::renderScene(int width, int height)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    Scene& scene = app().runtimeScene();
+    Scene& scene = app().scene();
     CameraComponent* camera = scene.activeCamera();
     Camera2D& defaultCamera = mDefaultCamera;
     if (camera)
@@ -127,7 +127,7 @@ void GamePanel::renderScene(int width, int height)
 
 void GamePanel::drawAgentPaths(const ImVec2& position, float width, float height)
 {
-    Scene& scene = app().runtimeScene();
+    Scene& scene = app().scene();
     CameraComponent* camera = scene.activeCamera();
     if (!camera)
         return;

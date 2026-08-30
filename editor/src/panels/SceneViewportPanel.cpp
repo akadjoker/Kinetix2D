@@ -109,6 +109,12 @@ SceneViewportPanel::SceneViewportPanel(EditorApplication& application) : EditorP
     mCanvasInitialized = mCanvas.Init();
 }
 
+void SceneViewportPanel::focusOn(const GameObject& object)
+{
+    const Math::Vec2 pos = object.globalPosition();
+    mPan = ImVec2(-pos.x * mZoom, -pos.y * mZoom);
+}
+
 SceneViewportPanel::~SceneViewportPanel()
 {
     destroyFramebuffer();

@@ -517,6 +517,17 @@ void AssetsPanel::handleEntryInteraction(const EditorFileEntry& entry, bool clic
         ct::String message("Prefab preview: ");
         message += entry.name;
         app().log(message);
+        return;
+    }
+    if (isPrefab(ext) && doubleClicked)
+    {
+        app().enterPrefabMode(entry.path.c_str());
+        return;
+    }
+    if (isScene(ext) && doubleClicked)
+    {
+        app().openScene(entry.path.c_str());
+        return;
     }
 }
 

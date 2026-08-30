@@ -152,6 +152,11 @@ ct::String Project::assetsDirectory() const
     return EditorFileSystem::join(mRoot, "assets");
 }
 
+ct::String Project::prefabsDirectory() const
+{
+    return EditorFileSystem::join(mRoot, "assets/prefabs");
+}
+
 bool Project::hasScene(const char *relativePath) const
 {
     if (!relativePath)
