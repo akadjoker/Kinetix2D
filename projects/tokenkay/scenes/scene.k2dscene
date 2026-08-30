@@ -136,274 +136,6 @@
         "children": []
       },
       {
-        "name": "player",
-        "tag": "",
-        "active": true,
-        "visible": true,
-        "locked": false,
-        "zIndex": 0,
-        "position": [
-          822.4569091796875,
-          690.422607421875
-        ],
-        "rotation": 0.0,
-        "scale": [
-          1.0,
-          1.0
-        ],
-        "components": [
-          {
-            "type": "Sprite",
-            "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-              "size": [
-                29.0,
-                71.0
-              ],
-              "pivot": [
-                0.5,
-                0.5
-              ],
-              "tiling": [
-                1.0,
-                1.0
-              ],
-              "color": [
-                1.0,
-                1.0,
-                1.0,
-                1.0
-              ],
-              "sourceRect": [
-                85.0,
-                48.0,
-                29.0,
-                71.0
-              ],
-              "lightMask": 1,
-              "flipX": false,
-              "flipY": false,
-              "ySort": false,
-              "blendMode": 0
-            }
-          },
-          {
-            "type": "ZenScript",
-            "data": {
-              "path": "assets/scripts/player.py"
-            }
-          },
-          {
-            "type": "Animation2D",
-            "data": {
-              "clips": [
-                {
-                  "name": "default",
-                  "frameWidth": 0,
-                  "frameHeight": 0,
-                  "frameCount": 8,
-                  "atlasPadding": [
-                    0.0,
-                    0.0
-                  ],
-                  "atlasGap": [
-                    0.0,
-                    0.0
-                  ],
-                  "framesPerSecond": 10.0,
-                  "mode": 1,
-                  "frames": [
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        85.0,
-                        48.0,
-                        29.0,
-                        71.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        715.0,
-                        48.0,
-                        51.0,
-                        72.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        1574.0,
-                        48.0,
-                        48.0,
-                        73.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        303.0,
-                        49.0,
-                        24.0,
-                        71.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        1364.0,
-                        49.0,
-                        34.0,
-                        70.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        508.0,
-                        50.0,
-                        35.0,
-                        69.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        937.0,
-                        52.0,
-                        40.0,
-                        71.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    },
-                    {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/player.png",
-                      "rect": [
-                        1161.0,
-                        53.0,
-                        26.0,
-                        67.0
-                      ],
-                      "offset": [
-                        0.0,
-                        0.0
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "idle",
-                  "frameWidth": 0,
-                  "frameHeight": 0,
-                  "frameCount": 0,
-                  "atlasPadding": [
-                    0.0,
-                    0.0
-                  ],
-                  "atlasGap": [
-                    0.0,
-                    0.0
-                  ],
-                  "framesPerSecond": 10.0,
-                  "mode": 1
-                }
-              ],
-              "activeClip": "idle",
-              "playing": false
-            }
-          },
-          {
-            "type": "RigidBody2D",
-            "data": {
-              "bodyType": "kinematic",
-              "density": 1.0,
-              "friction": 0.30000001192092896,
-              "restitution": 0.0,
-              "linearDamping": 0.0,
-              "angularDamping": 0.0,
-              "gravityScale": 1.0,
-              "fixedRotation": false,
-              "bullet": false
-            }
-          },
-          {
-            "type": "CircleCollider2D",
-            "data": {
-              "offset": [
-                0.0,
-                0.0
-              ],
-              "sensor": false,
-              "category": 1,
-              "mask": 65535,
-              "radius": 8.5
-            }
-          },
-          {
-            "type": "CircleShape",
-            "data": {
-              "radius": 13.0,
-              "segments": 32,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                255,
-                255,
-                255,
-                255
-              ],
-              "blendMode": 0
-            }
-          },
-          {
-            "type": "CharacterBody2D",
-            "data": {
-              "velocity": [
-                0.0,
-                0.0
-              ],
-              "safeMargin": 0.5,
-              "maxSlides": 4,
-              "motionMode": "floating",
-              "upDirection": [
-                0.0,
-                -1.0
-              ],
-              "floorMaxAngle": 45.0
-            }
-          }
-        ],
-        "children": []
-      },
-      {
         "name": "boat",
         "tag": "",
         "active": true,
@@ -476,17 +208,29 @@
               "capacity": 128,
               "mode": 0,
               "emitterShape": 0,
-              "emitterSize": [0.0, 0.0],
-              "emitterPosition": [0.0, 0.0],
+              "emitterSize": [
+                0.0,
+                0.0
+              ],
+              "emitterPosition": [
+                0.0,
+                0.0
+              ],
               "emissionRate": 0.0,
               "oneShotCount": 12,
-              "gravity": [0.0, 0.0],
+              "gravity": [
+                0.0,
+                0.0
+              ],
               "playing": false,
               "blendMode": 1,
               "ySort": false,
               "followOwner": false,
               "prefab": {
-                "direction": [0.0, -1.0],
+                "direction": [
+                  0.0,
+                  -1.0
+                ],
                 "spreadDegrees": 360.0,
                 "speedMin": 60.0,
                 "speedMax": 160.0,
@@ -504,9 +248,24 @@
                 "faceDirectionOffsetDegrees": 0.0,
                 "fadeIn": 0.0,
                 "fadeOut": 0.20000000298023224,
-                "colorStart": [1.0, 0.8999999761581421, 0.4000000059604645, 1.0],
-                "colorEnd": [0.699999988079071, 0.20000000298023224, 0.05000000074505806, 0.0],
-                "atlasBounds": [0.0, 0.0, 0.0, 0.0]
+                "colorStart": [
+                  1.0,
+                  0.8999999761581421,
+                  0.4000000059604645,
+                  1.0
+                ],
+                "colorEnd": [
+                  0.699999988079071,
+                  0.20000000298023224,
+                  0.05000000074505806,
+                  0.0
+                ],
+                "atlasBounds": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
               }
             }
           }
@@ -646,7 +405,7 @@
                 ],
                 [
                   1102.6309814453125,
-                  172.71817016601563
+                  172.71817016601562
                 ],
                 [
                   1081.5391845703125,
@@ -698,7 +457,7 @@
                 ],
                 [
                   1122.1495361328125,
-                  533.9356079101563
+                  533.9356079101562
                 ],
                 [
                   1136.0179443359375,
@@ -718,11 +477,11 @@
                 ],
                 [
                   1223.53271484375,
-                  548.2822875976563
+                  548.2822875976562
                 ],
                 [
                   1244.574462890625,
-                  536.3267211914063
+                  536.3267211914062
                 ],
                 [
                   1253.1824951171875,
@@ -766,11 +525,11 @@
                 ],
                 [
                   1046.7823486328125,
-                  677.1365356445313
+                  677.1365356445312
                 ],
                 [
                   1034.18701171875,
-                  695.2080688476563
+                  695.2080688476562
                 ],
                 [
                   972.0,
@@ -785,7 +544,7 @@
                   593.35009765625
                 ],
                 [
-                  851.2808227539063,
+                  851.2808227539062,
                   566.5165405273438
                 ],
                 [
@@ -858,7 +617,7 @@
                 ],
                 [
                   383.8468017578125,
-                  543.1599731445313
+                  543.1599731445312
                 ],
                 [
                   378.1754455566406,
@@ -874,7 +633,7 @@
                 ],
                 [
                   434.373291015625,
-                  623.5899047851563
+                  623.5899047851562
                 ],
                 [
                   470.979248046875,
@@ -882,7 +641,7 @@
                 ],
                 [
                   541.6132202148438,
-                  631.3235473632813
+                  631.3235473632812
                 ],
                 [
                   557.5961303710938,
@@ -914,7 +673,7 @@
                 ],
                 [
                   693.7083740234375,
-                  572.0322875976563
+                  572.0322875976562
                 ],
                 [
                   726.0,
@@ -929,12 +688,12 @@
                   612.0
                 ],
                 [
-                  850.4436645507813,
+                  850.4436645507812,
                   625.6522216796875
                 ],
                 [
-                  967.4795532226563,
-                  686.4902954101563
+                  967.4795532226562,
+                  686.4902954101562
                 ],
                 [
                   918.0,
@@ -945,7 +704,7 @@
                   737.0167846679688
                 ],
                 [
-                  943.7630004882813,
+                  943.7630004882812,
                   766.4046630859375
                 ],
                 [
@@ -953,8 +712,8 @@
                   796.30810546875
                 ],
                 [
-                  923.1399536132813,
-                  813.8377075195313
+                  923.1399536132812,
+                  813.8377075195312
                 ],
                 [
                   864.0,
@@ -965,7 +724,7 @@
                   870.0
                 ],
                 [
-                  845.2879028320313,
+                  845.2879028320312,
                   865.3953857421875
                 ],
                 [
@@ -973,7 +732,7 @@
                   841.6788330078125
                 ],
                 [
-                  909.7349243164063,
+                  909.7349243164062,
                   803.0106201171875
                 ],
                 [
@@ -1038,7 +797,7 @@
                 ],
                 [
                   537.8204345703125,
-                  751.4612426757813
+                  751.4612426757812
                 ],
                 [
                   528.0,
@@ -1058,7 +817,7 @@
                 ],
                 [
                   431.6761169433594,
-                  764.3067016601563
+                  764.3067016601562
                 ],
                 [
                   396.0,
@@ -1094,7 +853,7 @@
                 ],
                 [
                   76.73490905761719,
-                  779.8565063476563
+                  779.8565063476562
                 ],
                 [
                   229.5286407470703,
@@ -1193,7 +952,7 @@
                   282.0
                 ],
                 [
-                  550.9639282226563,
+                  550.9639282226562,
                   315.67352294921875
                 ],
                 [
@@ -1209,7 +968,7 @@
                   282.0
                 ],
                 [
-                  652.6731567382813,
+                  652.6731567382812,
                   274.8960876464844
                 ],
                 [
@@ -1269,7 +1028,7 @@
               "mask": 65535,
               "points": [
                 [
-                  824.5064086914063,
+                  824.5064086914062,
                   353.9415588378906
                 ],
                 [
@@ -1293,11 +1052,11 @@
                   472.6006774902344
                 ],
                 [
-                  981.5552368164063,
+                  981.5552368164062,
                   483.07061767578125
                 ],
                 [
-                  964.6870727539063,
+                  964.6870727539062,
                   492.9588623046875
                 ],
                 [
@@ -1305,15 +1064,15 @@
                   487.6174011230469
                 ],
                 [
-                  870.4319458007813,
+                  870.4319458007812,
                   432.37646484375
                 ],
                 [
-                  875.6926879882813,
+                  875.6926879882812,
                   427.81268310546875
                 ],
                 [
-                  954.2171020507813,
+                  954.2171020507812,
                   472.0190124511719
                 ],
                 [
@@ -1337,7 +1096,7 @@
                   366.0
                 ],
                 [
-                  769.8301391601563,
+                  769.8301391601562,
                   396.4029235839844
                 ],
                 [
@@ -1349,15 +1108,15 @@
                   468.0
                 ],
                 [
-                  883.8359985351563,
+                  883.8359985351562,
                   477.25396728515625
                 ],
                 [
-                  912.2498168945313,
+                  912.2498168945312,
                   506.2031555175781
                 ],
                 [
-                  908.8474731445313,
+                  908.8474731445312,
                   509.24542236328125
                 ],
                 [
@@ -1973,7 +1732,7 @@
                     510.0
                   ],
                   [
-                    841.5374145507813,
+                    841.5374145507812,
                     398.8726806640625
                   ],
                   [
@@ -2008,300 +1767,6 @@
                   ]
                 ]
               ]
-            }
-          }
-        ],
-        "children": []
-      },
-      {
-        "name": "agent",
-        "tag": "hunters",
-        "active": true,
-        "visible": true,
-        "locked": false,
-        "zIndex": 0,
-        "position": [
-          335.29998779296875,
-          338.5
-        ],
-        "rotation": 0.0,
-        "scale": [
-          1.0,
-          1.0
-        ],
-        "components": [
-          {
-            "type": "ZenScript",
-            "data": {
-              "path": "assets/scripts/npc.py"
-            }
-          },
-          {
-            "type": "RigidBody2D",
-            "data": {
-              "bodyType": "dynamic",
-              "density": 1.0,
-              "friction": 0.30000001192092896,
-              "restitution": 0.0,
-              "linearDamping": 6.0,
-              "angularDamping": 0.0,
-              "gravityScale": 1.0,
-              "fixedRotation": true,
-              "bullet": false
-            }
-          },
-          {
-            "type": "CircleCollider2D",
-            "data": {
-              "offset": [
-                0.0,
-                0.0
-              ],
-              "sensor": false,
-              "category": 1,
-              "mask": 65535,
-              "radius": 12.0
-            }
-          },
-          {
-            "type": "CircleShape",
-            "data": {
-              "radius": 19.5,
-              "segments": 32,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                253,
-                0,
-                0,
-                255
-              ],
-              "blendMode": 0
-            }
-          },
-          {
-            "type": "NavigationAgent2D",
-            "data": {
-              "hasTarget": false,
-              "target": [
-                0.0,
-                0.0
-              ],
-              "pathDesiredDistance": 8.0,
-              "maxSpeed": 160.0,
-              "autoMove": false,
-              "orientToPath": false,
-              "rotationLerpSpeed": 12.0,
-              "rotationOffsetDegrees": 0.0,
-              "followTarget": "",
-              "repathInterval": 0.25,
-              "repathMoveThreshold": 16.0
-            }
-          },
-          {
-            "type": "Formation2D",
-            "data": {
-              "group": "hunters",
-              "anchor": "player",
-              "shape": "surround",
-              "spacing": 60.0,
-              "updateInterval": 0.25
-            }
-          }
-        ],
-        "children": []
-      },
-      {
-        "name": "agent2",
-        "tag": "hunters",
-        "active": true,
-        "visible": true,
-        "locked": false,
-        "zIndex": 0,
-        "position": [
-          980.0,
-          250.0
-        ],
-        "rotation": 0.0,
-        "scale": [
-          1.0,
-          1.0
-        ],
-        "components": [
-          {
-            "type": "ZenScript",
-            "data": {
-              "path": "assets/scripts/npc.py"
-            }
-          },
-          {
-            "type": "RigidBody2D",
-            "data": {
-              "bodyType": "dynamic",
-              "density": 1.0,
-              "friction": 0.30000001192092896,
-              "restitution": 0.0,
-              "linearDamping": 6.0,
-              "angularDamping": 0.0,
-              "gravityScale": 1.0,
-              "fixedRotation": true,
-              "bullet": false
-            }
-          },
-          {
-            "type": "CircleCollider2D",
-            "data": {
-              "offset": [
-                0.0,
-                0.0
-              ],
-              "sensor": false,
-              "category": 1,
-              "mask": 65535,
-              "radius": 12.0
-            }
-          },
-          {
-            "type": "CircleShape",
-            "data": {
-              "radius": 19.5,
-              "segments": 32,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                0,
-                255,
-                7,
-                255
-              ],
-              "blendMode": 0
-            }
-          },
-          {
-            "type": "NavigationAgent2D",
-            "data": {
-              "hasTarget": false,
-              "target": [
-                0.0,
-                0.0
-              ],
-              "pathDesiredDistance": 8.0,
-              "maxSpeed": 160.0,
-              "autoMove": false,
-              "orientToPath": false,
-              "rotationLerpSpeed": 12.0,
-              "rotationOffsetDegrees": 0.0,
-              "followTarget": "",
-              "repathInterval": 0.25,
-              "repathMoveThreshold": 16.0
-            }
-          },
-          {
-            "type": "Formation2D",
-            "data": {
-              "group": "hunters",
-              "anchor": "player",
-              "shape": "surround",
-              "spacing": 60.0,
-              "updateInterval": 0.25
-            }
-          }
-        ],
-        "children": []
-      },
-      {
-        "name": "agent3",
-        "tag": "hunters",
-        "active": true,
-        "visible": true,
-        "locked": false,
-        "zIndex": 0,
-        "position": [
-          1120.0,
-          640.0
-        ],
-        "rotation": 0.0,
-        "scale": [
-          1.0,
-          1.0
-        ],
-        "components": [
-          {
-            "type": "ZenScript",
-            "data": {
-              "path": "assets/scripts/npc.py"
-            }
-          },
-          {
-            "type": "RigidBody2D",
-            "data": {
-              "bodyType": "dynamic",
-              "density": 1.0,
-              "friction": 0.30000001192092896,
-              "restitution": 0.0,
-              "linearDamping": 6.0,
-              "angularDamping": 0.0,
-              "gravityScale": 1.0,
-              "fixedRotation": true,
-              "bullet": false
-            }
-          },
-          {
-            "type": "CircleCollider2D",
-            "data": {
-              "offset": [
-                0.0,
-                0.0
-              ],
-              "sensor": false,
-              "category": 1,
-              "mask": 65535,
-              "radius": 12.0
-            }
-          },
-          {
-            "type": "CircleShape",
-            "data": {
-              "radius": 19.5,
-              "segments": 32,
-              "mode": 0,
-              "lineWidth": 2.0,
-              "color": [
-                15,
-                0,
-                253,
-                255
-              ],
-              "blendMode": 0
-            }
-          },
-          {
-            "type": "NavigationAgent2D",
-            "data": {
-              "hasTarget": false,
-              "target": [
-                0.0,
-                0.0
-              ],
-              "pathDesiredDistance": 8.0,
-              "maxSpeed": 160.0,
-              "autoMove": false,
-              "orientToPath": false,
-              "rotationLerpSpeed": 12.0,
-              "rotationOffsetDegrees": 0.0,
-              "followTarget": "",
-              "repathInterval": 0.25,
-              "repathMoveThreshold": 16.0
-            }
-          },
-          {
-            "type": "Formation2D",
-            "data": {
-              "group": "hunters",
-              "anchor": "player",
-              "shape": "surround",
-              "spacing": 60.0,
-              "updateInterval": 0.25
             }
           }
         ],
