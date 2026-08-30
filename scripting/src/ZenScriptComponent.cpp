@@ -752,9 +752,27 @@ int natNodeSpawn(zen::VM* vm, zen::Value* args, int nargs)
                 preloadPrefabTextures(prefab->data);
                 prefab->texturesPreloaded = true;
             }
-            spawned = Serializer::ReadObject(*node->scene(), prefab->data, nullptr, gZenAssets);
-            if (spawned && nargs >= 3)
-                spawned->setPosition(Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2])));
+            // Position must land in the JSON before ReadObject runs: reading a
+            // RigidBody2D attaches it to the world right there, seeding its
+            // simulated position from the object's position at that instant.
+            // Setting position on the returned object afterward is too late
+            // for a Dynamic body -- pushTransforms() never re-syncs one from
+            // the transform, so it would snap back to wherever it was created
+            // (the prefab's authored position, typically the origin) on the
+            // very next physics step.
+            if (nargs >= 3)
+            {
+                ct::Json spawnData(prefab->data);
+                ct::Json position = ct::Json::array();
+                position.push_back(ct::Json((double)zen::to_number(args[1])));
+                position.push_back(ct::Json((double)zen::to_number(args[2])));
+                spawnData.set("position", position);
+                spawned = Serializer::ReadObject(*node->scene(), spawnData, nullptr, gZenAssets);
+            }
+            else
+            {
+                spawned = Serializer::ReadObject(*node->scene(), prefab->data, nullptr, gZenAssets);
+            }
         }
     }
     args[0] = (spawned && state) ? state->instanceFor(state->nodeClass, spawned) : zen::val_nil();
@@ -3737,6 +3755,24 @@ int natNodeSetTag(zen::VM* vm, zen::Value* args, int nargs)
     return 0;
 }
 
+int natNodeCall(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    bool called = false;
+    if (node && nargs >= 1)
+    {
+        char small[32];
+        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const double value = nargs >= 2 ? zen::to_number(args[1]) : 0.0;
+        const size_t count = node->componentCount<ZenScriptComponent>();
+        for (size_t i = 0; i < count; ++i)
+            if (ZenScriptComponent* script = node->getComponentAt<ZenScriptComponent>(i))
+                called = script->callFunction(name, value) || called;
+    }
+    args[0] = zen::val_bool(called);
+    return 1;
+}
+
 int natNodeGetGlobalPosition(zen::VM*, zen::Value* args, int)
 {
     GameObject* node = nodeFromSelf(args);
@@ -5035,6 +5071,7 @@ void ZenRuntime::Impl::initialize()
     node.method("set_name", &natNodeSetName, 1);
     node.method("get_tag", &natNodeGetTag, 0);
     node.method("set_tag", &natNodeSetTag, 1);
+    node.method("call", &natNodeCall, -1);
     node.method("get_global_position", &natNodeGetGlobalPosition, 0);
     node.method("get_right", &natNodeGetRight, 0);
     node.method("get_up", &natNodeGetUp, 0);
