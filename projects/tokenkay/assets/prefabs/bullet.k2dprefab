@@ -1,0 +1,82 @@
+{
+  "name": "bullet",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/32_Disparo.png",
+        "size": [
+          4.0,
+          4.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/bullet.py"
+      }
+    },
+    {
+      "type": "RigidBody2D",
+      "data": {
+        "bodyType": "dynamic",
+        "density": 1.0,
+        "friction": 0.30000001192092896,
+        "restitution": 0.0,
+        "linearDamping": 0.0,
+        "angularDamping": 0.0,
+        "gravityScale": 0.0,
+        "fixedRotation": true,
+        "bullet": true
+      }
+    },
+    {
+      "type": "CircleCollider2D",
+      "data": {
+        "offset": [
+          0.0,
+          0.0
+        ],
+        "sensor": false,
+        "category": 1,
+        "mask": 65535,
+        "radius": 2.0
+      }
+    }
+  ],
+  "children": []
+}

@@ -1,0 +1,1056 @@
+{
+  "name": "Player",
+  "tag": "player",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+        "size": [
+          213.0,
+          171.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sourceRect": [
+          428.0,
+          0.0,
+          213.0,
+          171.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": true,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/prota.py"
+      }
+    },
+    {
+      "type": "Animation2D",
+      "data": {
+        "clips": [
+          {
+            "name": "idle",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 1,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 1.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  0.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "run_e",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 8,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 12.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1712.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1498.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  642.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "run_ne",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 8,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 12.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  642.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1712.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1498.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "run_n",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 8,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 12.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  1548.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  1376.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1712.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1498.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  1548.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "run_s",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 8,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 12.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  1376.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1712.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1498.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  856.0,
+                  1548.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "run_se",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 8,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 12.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  1548.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  1376.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  1204.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  516.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shoot_e",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 3,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 15.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  0.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  214.0,
+                  0.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  0.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shoot_ne",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 3,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 15.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shoot_n",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 3,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 15.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1284.0,
+                  344.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1070.0,
+                  344.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  1498.0,
+                  172.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shoot_s",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 3,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 15.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  642.0,
+                  344.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  428.0,
+                  344.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  214.0,
+                  1720.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shoot_se",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 3,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 15.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  214.0,
+                  1032.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  214.0,
+                  860.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                "rect": [
+                  214.0,
+                  688.0,
+                  213.0,
+                  171.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ],
+        "activeClip": "idle",
+        "playing": false
+      }
+    },
+    {
+      "type": "RigidBody2D",
+      "data": {
+        "bodyType": "kinematic",
+        "density": 1.0,
+        "friction": 0.30000001192092896,
+        "restitution": 0.0,
+        "linearDamping": 0.0,
+        "angularDamping": 0.0,
+        "gravityScale": 1.0,
+        "fixedRotation": false,
+        "bullet": false
+      }
+    },
+    {
+      "type": "CircleCollider2D",
+      "data": {
+        "offset": [
+          0.0,
+          22.0
+        ],
+        "sensor": false,
+        "category": 1,
+        "mask": 65535,
+        "radius": 9.0
+      }
+    },
+    {
+      "type": "BoxCollider2D",
+      "data": {
+        "offset": [
+          0.0,
+          0.0
+        ],
+        "sensor": false,
+        "category": 1,
+        "mask": 65535,
+        "size": [
+          10.0,
+          46.0
+        ]
+      }
+    },
+    {
+      "type": "CharacterBody2D",
+      "data": {
+        "velocity": [
+          0.0,
+          0.0
+        ],
+        "safeMargin": 0.5,
+        "maxSlides": 4,
+        "motionMode": "floating",
+        "upDirection": [
+          0.0,
+          -1.0
+        ],
+        "floorMaxAngle": 45.0
+      }
+    }
+  ],
+  "children": []
+}

@@ -1,0 +1,88 @@
+{
+  "name": "ImpactParticles",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Particle",
+      "data": {
+        "texture": "__editor_particle_placeholder",
+        "capacity": 128,
+        "mode": 0,
+        "emitterShape": 0,
+        "emitterSize": [
+          0.0,
+          0.0
+        ],
+        "emitterPosition": [
+          0.0,
+          0.0
+        ],
+        "emissionRate": 0.0,
+        "oneShotCount": 12,
+        "gravity": [
+          0.0,
+          0.0
+        ],
+        "playing": false,
+        "blendMode": 1,
+        "ySort": false,
+        "followOwner": false,
+        "prefab": {
+          "direction": [
+            0.0,
+            -1.0
+          ],
+          "spreadDegrees": 360.0,
+          "speedMin": 60.0,
+          "speedMax": 160.0,
+          "lifeMin": 0.15000000596046448,
+          "lifeMax": 0.3499999940395355,
+          "sizeMin": 3.0,
+          "sizeMax": 6.0,
+          "endSize": 0.5,
+          "rotationMin": 0.0,
+          "rotationMax": 360.0,
+          "angularVelocityMin": -180.0,
+          "angularVelocityMax": 180.0,
+          "drag": 2.0,
+          "faceDirection": false,
+          "faceDirectionOffsetDegrees": 0.0,
+          "fadeIn": 0.0,
+          "fadeOut": 0.20000000298023224,
+          "colorStart": [
+            1.0,
+            0.8999999761581421,
+            0.4000000059604645,
+            1.0
+          ],
+          "colorEnd": [
+            0.699999988079071,
+            0.20000000298023224,
+            0.05000000074505806,
+            0.0
+          ],
+          "atlasBounds": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  ],
+  "children": []
+}
