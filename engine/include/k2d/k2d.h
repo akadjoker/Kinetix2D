@@ -48,6 +48,7 @@
 #include "k2d/Navigation2D.h"
 #include "k2d/NavigationRegion2D.h"
 #include "k2d/NavigationAgent2D.h"
+#include "k2d/Easing.h"
 #include "k2d/MotionTween2D.h"
 #include "k2d/MotionStreak2D.h"
 #include "k2d/Serializer.h"

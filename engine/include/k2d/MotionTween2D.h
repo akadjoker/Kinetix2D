@@ -1,33 +1,12 @@
 #pragma once
 
 #include "k2d/Component.h"
+#include "k2d/Easing.h"
 #include <ct/vector.hpp>
 #include <mathc.h>
 
 namespace k2d
 {
-enum class MotionEase : unsigned char
-{
-    Linear,
-    InQuad,
-    OutQuad,
-    InOutQuad,
-    InCubic,
-    OutCubic,
-    InOutCubic,
-    InSine,
-    OutSine,
-    InOutSine,
-    InBack,
-    OutBack,
-    InOutBack,
-    InBounce,
-    OutBounce,
-    InOutBounce,
-    InElastic,
-    OutElastic,
-    InOutElastic
-};
 enum class MotionTweenProperty : unsigned char
 {
     Position,
@@ -57,7 +36,10 @@ class MotionTween2D final : public Component
   public:
     static const ComponentType Type = ComponentType::MotionTween;
     MotionTween2D();
-    static float Ease(float value, MotionEase ease);
+    static float Ease(float value, MotionEase ease)
+    {
+        return k2d::Ease(value, ease);
+    }
     void clearTracks();
     void addTrack(const MotionTweenTrack& track);
     std::size_t trackCount() const
