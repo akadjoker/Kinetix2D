@@ -125,3 +125,7 @@ class Prota(ScriptComponent):
         if self.current_clip != name or not self.anim.is_playing():
             self.anim.play(name)
             self.current_clip = name
+
+    def on_animation_event(self, name):
+        print("player animation event: " + name)
+b

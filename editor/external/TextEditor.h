@@ -401,6 +401,7 @@ private:
 	void MoveUpCurrentLines();
 	void MoveDownCurrentLines();
 	void ToggleLineComment();
+	void SetLineComment(bool aAddComment, bool aOnlyIfNeeded = true);
 	void RemoveCurrentLines();
 	void DuplicateCurrentLines();
 

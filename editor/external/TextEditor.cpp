@@ -1631,11 +1631,43 @@ void TextEditor::ToggleLineComment()
 	if (mLanguageDefinition == nullptr)
 		return;
 	const std::string& commentString = mLanguageDefinition->mSingleLineComment;
+	if (commentString.empty())
+		return;
+
+	bool shouldAddComment = false;
+	for (int c = mState.mCurrentCursor; c > -1 && !shouldAddComment; c--)
+	{
+		for (int currentLine = mState.mCursors[c].GetSelectionEnd().mLine; currentLine >= mState.mCursors[c].GetSelectionStart().mLine; currentLine--)
+		{
+			if (Coordinates{ currentLine, 0 } == mState.mCursors[c].GetSelectionEnd() && mState.mCursors[c].GetSelectionEnd() != mState.mCursors[c].GetSelectionStart())
+				continue;
+			int currentIndex = 0;
+			while (currentIndex < mLines[currentLine].size() && (mLines[currentLine][currentIndex].mChar == ' ' || mLines[currentLine][currentIndex].mChar == '\t')) currentIndex++;
+			if (currentIndex == mLines[currentLine].size())
+				continue;
+			int i = 0;
+			while (i < commentString.length() && currentIndex + i < mLines[currentLine].size() && mLines[currentLine][currentIndex + i].mChar == commentString[i]) i++;
+			shouldAddComment = i != commentString.length();
+			if (shouldAddComment)
+				break;
+		}
+	}
+
+	SetLineComment(shouldAddComment, false);
+}
+
+void TextEditor::SetLineComment(bool aAddComment, bool aOnlyIfNeeded)
+{
+	assert(!mReadOnly);
+	if (mLanguageDefinition == nullptr)
+		return;
+	const std::string& commentString = mLanguageDefinition->mSingleLineComment;
+	if (commentString.empty())
+		return;
 
 	UndoRecord u;
 	u.mBefore = mState;
 
-	bool shouldAddComment = false;
 	std::unordered_set<int> affectedLines;
 	for (int c = mState.mCurrentCursor; c > -1; c--)
 	{
@@ -1643,7 +1675,6 @@ void TextEditor::ToggleLineComment()
 		{
 			if (Coordinates{ currentLine, 0 } == mState.mCursors[c].GetSelectionEnd() && mState.mCursors[c].GetSelectionEnd() != mState.mCursors[c].GetSelectionStart()) // when selection ends at line start
 				continue;
-			affectedLines.insert(currentLine);
 			int currentIndex = 0;
 			while (currentIndex < mLines[currentLine].size() && (mLines[currentLine][currentIndex].mChar == ' ' || mLines[currentLine][currentIndex].mChar == '\t')) currentIndex++;
 			if (currentIndex == mLines[currentLine].size())
@@ -1651,11 +1682,12 @@ void TextEditor::ToggleLineComment()
 			int i = 0;
 			while (i < commentString.length() && currentIndex + i < mLines[currentLine].size() && mLines[currentLine][currentIndex + i].mChar == commentString[i]) i++;
 			bool matched = i == commentString.length();
-			shouldAddComment |= !matched;
+			if (!aOnlyIfNeeded || (aAddComment ? !matched : matched))
+				affectedLines.insert(currentLine);
 		}
 	}
 
-	if (shouldAddComment)
+	if (aAddComment)
 	{
 		for (int currentLine : affectedLines) // order doesn't matter as changes are not multiline
 		{
@@ -1688,6 +1720,9 @@ void TextEditor::ToggleLineComment()
 			Colorize(currentLine, 1);
 		}
 	}
+
+	if (u.mOperations.empty())
+		return;
 
 	u.mAfter = mState;
 	AddUndo(u);
@@ -2294,6 +2329,10 @@ void TextEditor::HandleKeyboardInputs(bool aParentIsFocused)
 			MoveDownCurrentLines();
 		else if (!mReadOnly && !alt && ctrl && !shift && !super && ImGui::IsKeyPressed(ImGuiKey_Slash))
 			ToggleLineComment();
+		else if (!mReadOnly && !alt && ctrl && !shift && !super && ImGui::IsKeyPressed(ImGuiKey_K))
+			SetLineComment(true);
+		else if (!mReadOnly && !alt && ctrl && !shift && !super && ImGui::IsKeyPressed(ImGuiKey_U))
+			SetLineComment(false);
 		else if (isCtrlOnly && ImGui::IsKeyPressed(ImGuiKey_Insert))
 			Copy();
 		else if (isShortcut && ImGui::IsKeyPressed(ImGuiKey_C))

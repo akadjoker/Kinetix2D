@@ -69,6 +69,7 @@ private:
 
     void drawSpriteBatchEntries(ImDrawList &drawList, GameObject &object, SpriteBatch &batch, const ImVec2 &origin) const;
     void drawCameraGizmo(ImDrawList &drawList, CameraComponent &camera, const ImVec2 &origin) const;
+    void drawCameraGizmos(ImDrawList &drawList, GameObject &object, const ImVec2 &origin) const;
     void drawNavigationRegions(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
     int hitTestBatchEntry(GameObject &object, SpriteBatch &batch, const ImVec2 &mouse, const ImVec2 &origin) const;
 

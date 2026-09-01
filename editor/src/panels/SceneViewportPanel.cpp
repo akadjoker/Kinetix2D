@@ -1017,6 +1017,19 @@ void SceneViewportPanel::drawCameraGizmo(ImDrawList& drawList, CameraComponent& 
     }
 }
 
+void SceneViewportPanel::drawCameraGizmos(ImDrawList& drawList, GameObject& object, const ImVec2& origin) const
+{
+    const size_t count = object.componentCount<CameraComponent>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (CameraComponent* camera = object.getComponentAt<CameraComponent>(i))
+            drawCameraGizmo(drawList, *camera, origin);
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        drawCameraGizmos(drawList, *object.child(i), origin);
+}
+
 void SceneViewportPanel::pickObject(GameObject& object, const ImVec2& mouse, const ImVec2& origin, GameObject*& best,
                                     float& bestDistance)
 {
@@ -1180,6 +1193,7 @@ void SceneViewportPanel::drawContents()
     drawList.AddLine(ImVec2(min.x, axis.y), ImVec2(max.x, axis.y), IM_COL32(150, 60, 60, 180));
     drawList.AddLine(ImVec2(axis.x, min.y), ImVec2(axis.x, max.y), IM_COL32(60, 150, 80, 180));
     drawObject(drawList, app().scene().root(), origin);
+    drawCameraGizmos(drawList, app().scene().root(), origin);
     GameObject* selected = app().selection().resolve(app().scene());
     // The overlay is a debug toggle, but the point handles are how a selected
     // collider is edited, so the selected object's colliders draw either way.
@@ -1243,9 +1257,6 @@ void SceneViewportPanel::drawContents()
 
     if (selectedBatch)
         drawSpriteBatchEntries(drawList, *selected, *selectedBatch, origin);
-    if (selected)
-        if (CameraComponent* selectedCamera = selected->getComponent<CameraComponent>())
-            drawCameraGizmo(drawList, *selectedCamera, origin);
     drawList.PopClipRect();
 
     ImGui::InvisibleButton("##scene_canvas", size,

@@ -75,7 +75,7 @@ void AnimatorPanel::drawContents()
     if (!owner->getComponent<SpriteComponent>())
         ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.3f, 1.0f),
                            "Add a Sprite Renderer to preview this animation in Scene.");
-    ImGui::TextDisabled("Drag a rect from Sprite Editor directly into a clip. No sprite-library nodes are created.");
+    ImGui::TextDisabled("Drag Sprite Editor regions or images from Assets into a clip. No sprite-library nodes are created.");
 
     static char newClip[64] = "idle";
     static float newClipFps = 10.0f;
@@ -121,7 +121,7 @@ void AnimatorPanel::drawContents()
         return;
     }
 
-    ImGui::Text("Timeline: %s  (drag rects into this row)", clip->name.c_str());
+    ImGui::Text("Timeline: %s  (drop regions or images into this row)", clip->name.c_str());
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.36f, 0.14f, 0.16f, 1.0f));
     if (ImGui::SmallButton(ICON_MDI_DELETE "  Delete Clip"))
@@ -139,7 +139,7 @@ void AnimatorPanel::drawContents()
     ImGui::PopStyleColor();
     ImGui::BeginChild("##frames_row", ImVec2(0.0f, 148.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
     if (clip->frames.empty())
-        ImGui::TextDisabled("Drag rects from Sprite Editor here");
+        ImGui::TextDisabled("Drag regions from Sprite Editor or images from Assets here");
     for (size_t i = 0; i < clip->frames.size(); ++i)
     {
         const AnimationFrame &frame = clip->frames[i];
@@ -150,8 +150,11 @@ void AnimatorPanel::drawContents()
         {
             const float width = static_cast<float>(frame.texture->Width());
             const float height = static_cast<float>(frame.texture->Height());
-            const ImVec2 uv0(frame.rect.x / width, frame.rect.y / height);
-            const ImVec2 uv1((frame.rect.x + frame.rect.z) / width, (frame.rect.y + frame.rect.w) / height);
+            const bool fullImage = frame.rect.z <= 0.0f || frame.rect.w <= 0.0f;
+            const ImVec2 uv0 = fullImage ? ImVec2(0.0f, 0.0f) : ImVec2(frame.rect.x / width, frame.rect.y / height);
+            const ImVec2 uv1 = fullImage ? ImVec2(1.0f, 1.0f)
+                                         : ImVec2((frame.rect.x + frame.rect.z) / width,
+                                                  (frame.rect.y + frame.rect.w) / height);
             ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(frame.texture->Id())),
                          ImVec2(72.0f, 72.0f), uv0, uv1, ImVec4(1, 1, 1, 1),
                          selected ? ImVec4(0.25f, 0.65f, 1.0f, 1.0f) : ImVec4(0, 0, 0, 0));
@@ -161,6 +164,8 @@ void AnimatorPanel::drawContents()
         if (ImGui::IsItemClicked())
             mSelectedFrame = static_cast<int>(i);
         ImGui::Text("%d", static_cast<int>(i) + 1);
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", (frame.rect.z <= 0.0f || frame.rect.w <= 0.0f) ? "Image" : "Region");
         drawFrameEventMarker(*animation, *clip, i);
         ImGui::EndGroup();
         if (i + 1 < clip->frames.size()) ImGui::SameLine();
@@ -182,6 +187,26 @@ void AnimatorPanel::drawContents()
                 animation->play(clip->name.c_str());
                 mSelectedFrame = static_cast<int>(clip->frames.size()) - 1;
             });
+        }
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
+        {
+            const char *imagePath = static_cast<const char *>(payload->Data);
+            Texture *texture = app().loadOrGetTexture(imagePath);
+            if (!texture)
+                app().toasts().error("Could not load animation frame image");
+            else
+            {
+                const char *texturePath = app().assets().FindTextureName(texture);
+                commit(app(), "Add Animation Image Frame", [&]
+                {
+                    // A zero rect means the full texture, so image frames and
+                    // atlas-region frames can live in the same clip.
+                    animation->addFrame(clip->name.c_str(), texture, Math::Vec4(0.0f), texturePath);
+                    app().settings().viewportLivePreview = true;
+                    animation->play(clip->name.c_str());
+                    mSelectedFrame = static_cast<int>(clip->frames.size()) - 1;
+                });
+            }
         }
         ImGui::EndDragDropTarget();
     }

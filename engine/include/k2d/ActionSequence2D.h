@@ -113,6 +113,7 @@ class ActionSequence2D final : public Component
 
   protected:
     void onAwake() override;
+    void onStart() override;
     void onUpdate(float deltaTime) override;
 
   private:

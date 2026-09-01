@@ -1,0 +1,78 @@
+{
+  "name": "prop_barrel",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+        "size": [
+          42.0,
+          54.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+        "size": [
+          42.0,
+          54.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    }
+  ],
+  "children": []
+}

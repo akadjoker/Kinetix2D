@@ -1,0 +1,175 @@
+{
+  "name": "radar",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    218.4538116455078,
+    -129.27511596679688
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [],
+  "children": [
+    {
+      "name": "base",
+      "tag": "",
+      "active": true,
+      "visible": true,
+      "locked": false,
+      "zIndex": 0,
+      "position": [
+        0.0,
+        0.0
+      ],
+      "rotation": 0.0,
+      "scale": [
+        1.0,
+        1.0
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/5_Mapa_2.png",
+            "size": [
+              112.0,
+              112.0
+            ],
+            "pivot": [
+              0.5,
+              0.5
+            ],
+            "tiling": [
+              1.0,
+              1.0
+            ],
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "lightMask": 1,
+            "flipX": false,
+            "flipY": false,
+            "ySort": false,
+            "blendMode": 0
+          }
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "circle",
+      "tag": "",
+      "active": true,
+      "visible": true,
+      "locked": false,
+      "zIndex": 0,
+      "position": [
+        0.0,
+        0.0
+      ],
+      "rotation": 0.0,
+      "scale": [
+        1.0,
+        1.0
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/6_Mapa_4.png",
+            "size": [
+              99.0,
+              99.0
+            ],
+            "pivot": [
+              0.5,
+              0.5
+            ],
+            "tiling": [
+              1.0,
+              1.0
+            ],
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "lightMask": 1,
+            "flipX": false,
+            "flipY": false,
+            "ySort": false,
+            "blendMode": 0
+          }
+        },
+        {
+          "type": "ActionSequence2D",
+          "data": {
+            "loop": "loop",
+            "autoplay": true,
+            "steps": [
+              {
+                "kind": "turn",
+                "vector": [
+                  0.0,
+                  0.0
+                ],
+                "angle": 61.0,
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "duration": 0.5,
+                "ease": "linear"
+              },
+              {
+                "kind": "pause",
+                "vector": [
+                  0.0,
+                  0.0
+                ],
+                "angle": 0.0,
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "duration": 0.5,
+                "ease": "linear"
+              },
+              {
+                "kind": "turn",
+                "vector": [
+                  0.0,
+                  0.0
+                ],
+                "angle": -60.0,
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "duration": 0.5,
+                "ease": "linear"
+              }
+            ]
+          }
+        }
+      ],
+      "children": []
+    }
+  ]
+}

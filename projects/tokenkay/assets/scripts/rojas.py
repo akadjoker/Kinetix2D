@@ -44,8 +44,8 @@ class Rojas(ScriptComponent):
     def on_update(self, dt):
         if self.dead:
             self.death_timer = self.death_timer - dt
-            if self.death_timer <= 0.0:
-                self.node.queue_destroy()
+            #if self.death_timer <= 0.0:
+            #    self.node.queue_destroy()
             return
 
         if self.agent == None:
@@ -74,6 +74,7 @@ class Rojas(ScriptComponent):
         bucket = self.bucket_for_heading(heading)
         self.last_bucket = bucket
         self.play_clip(RUN_CLIPS[bucket], FLIPS[bucket])
+
 
     def bucket_for_heading(self, heading):
         degrees = math.degrees(heading)
@@ -109,9 +110,16 @@ class Rojas(ScriptComponent):
 
     def die(self):
         self.dead = True
+        print("morreu")
         self.death_timer = self.death_delay
         if self.agent != None:
             self.agent.set_auto_move(False)
             self.agent.clear_follow_target()
             self.agent.clear_path()
         self.play_clip("death", False)
+
+    def on_animation_event(self, name):
+        print("roja animation event: " + name)
+        x, y = self.node.get_position()
+        blood = self.node.spawn("assets/prefabs/blood.k2dprefab", 40+x,10+y)
+ 

@@ -101,6 +101,14 @@ void ActionSequence2D::onAwake()
     if (mAutoplay)
         play();
 }
+void ActionSequence2D::onStart()
+{
+    // Serialized components are configured after attachment, and an editor
+    // preview may have already finished before Play starts. Re-arm autoplay
+    // at the beginning of the simulation as well.
+    if (mAutoplay)
+        play(true);
+}
 void ActionSequence2D::onUpdate(float dt)
 {
     if (!mPlaying || mPaused || mSteps.empty())

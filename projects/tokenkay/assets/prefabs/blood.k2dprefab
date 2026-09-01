@@ -1,0 +1,99 @@
+{
+  "name": "Noblood",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": -5,
+  "position": [
+    1085.338623046875,
+    630.9534912109375
+  ],
+  "rotation": 0.0,
+  "scale": [
+    0.07999999821186066,
+    0.03999999910593033
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/111_Charco_Sangre.png",
+        "size": [
+          40.0,
+          25.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          0.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "loop",
+        "autoplay": true,
+        "steps": [
+          {
+            "kind": "scale",
+            "vector": [
+              1.0,
+              1.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "duration": 0.5,
+            "ease": "linear"
+          }
+        ]
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "loop",
+        "autoplay": true,
+        "steps": [
+          {
+            "kind": "color",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "duration": 0.75,
+            "ease": "linear"
+          }
+        ]
+      }
+    }
+  ],
+  "children": []
+}
