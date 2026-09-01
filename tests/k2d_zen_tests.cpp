@@ -1104,13 +1104,16 @@ static bool testActionSequenceApi()
     k2d::GameObject* object = scene.createObject("pulser");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
     k2d::ActionSequence2D* sequence = object->addComponent<k2d::ActionSequence2D>();
+    object->addComponent<k2d::ActionSequence2D>();
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
         "class Pulser(ScriptComponent):\n"
         "    def on_start(self):\n"
         "        a = self.node.get_component<ActionSequence>()\n"
+        "        actions = self.node.get_components<ActionSequence>()\n"
         "        set_flag(\"has_sequence\", a != None)\n"
+        "        set_number(\"action_sequence_count\", len(actions))\n"
         "        a.set_loop(\"loop\")\n"
         "        set_string(\"loop\", a.get_loop())\n"
         "        a.add_step(\"move\", 100.0, 0.0, 0.0, 255, 255, 255, 255, 1.0, \"linear\")\n"
@@ -1125,6 +1128,7 @@ static bool testActionSequenceApi()
     scene.update(0.016f);
     bool ok = loaded && script->loaded();
     ok = ok && k2d::ZenBlackboard::getBool("has_sequence", false);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("action_sequence_count"), 2.0f);
     ok = ok && k2d::ZenBlackboard::getString("loop") == ct::String("loop");
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("steps"), 1.0f);
     ok = ok && k2d::ZenBlackboard::getBool("playing", false);

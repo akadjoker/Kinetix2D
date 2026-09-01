@@ -226,6 +226,11 @@ The ``Node`` class
 
    Returns the component of the matching type on the object, or ``None``.
 
+.. py:method:: Node.get_components(type)
+
+   Returns a list of every component matching ``type``. Use ``len(...)`` for
+   the number of components.
+
 The ``Sprite`` class
 --------------------
 

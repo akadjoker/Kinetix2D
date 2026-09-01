@@ -3576,17 +3576,29 @@ struct ComponentBinding
 {
     const char* names[3];
     Component* (*get)(GameObject&);
+    Component* (*getAt)(GameObject&, std::size_t);
     Component* (*add)(GameObject&);
     bool (*has)(const GameObject&);
+    std::size_t (*count)(const GameObject&);
 };
 
 template <class T> Component* componentGet(GameObject& node) { return node.getComponent<T>(); }
+template <class T> Component* componentGetAt(GameObject& node, std::size_t index)
+{
+    return node.getComponentAt<T>(index);
+}
 template <class T> Component* componentAdd(GameObject& node) { return node.addComponent<T>(); }
 template <class T> bool componentHas(const GameObject& node) { return node.contains<T>(); }
+template <class T> std::size_t componentCount(const GameObject& node) { return node.componentCount<T>(); }
 
 template <ComponentType kType> Component* componentGetRaw(GameObject& node)
 {
     return node.rawComponent(kType);
+}
+
+template <ComponentType kType> Component* componentGetAtRaw(GameObject& node, std::size_t index)
+{
+    return node.rawComponent(kType, index);
 }
 
 template <ComponentType kType> bool componentHasRaw(const GameObject& node)
@@ -3594,49 +3606,68 @@ template <ComponentType kType> bool componentHasRaw(const GameObject& node)
     return node.rawComponentCount(kType) > 0;
 }
 
-const ComponentBinding kComponentBindings[] = {
-    {{"RigidBody", "Body", "RigidBody2D"}, &componentGet<RigidBody2D>, &componentAdd<RigidBody2D>, &componentHas<RigidBody2D>},
-    {{"Sprite", "SpriteComponent", nullptr}, &componentGet<SpriteComponent>, &componentAdd<SpriteComponent>, &componentHas<SpriteComponent>},
-    {{"Animation", "Animation2D", nullptr}, &componentGet<Animation2D>, &componentAdd<Animation2D>, &componentHas<Animation2D>},
-    {{"Camera", "CameraComponent", nullptr}, &componentGet<CameraComponent>, &componentAdd<CameraComponent>, &componentHas<CameraComponent>},
-    {{"Particle", "ParticleComponent", nullptr}, &componentGet<ParticleComponent>, &componentAdd<ParticleComponent>, &componentHas<ParticleComponent>},
-    {{"ScriptComponent", nullptr, nullptr}, &componentGet<ZenScriptComponent>, &componentAdd<ZenScriptComponent>, &componentHas<ZenScriptComponent>},
-    {{"CharacterBody", "CharacterBody2D", nullptr}, &componentGet<CharacterBody2D>, &componentAdd<CharacterBody2D>, &componentHas<CharacterBody2D>},
-    {{"Collider", "Collider2D", nullptr}, &componentGetRaw<ComponentType::Collider>, nullptr, &componentHasRaw<ComponentType::Collider>},
-    {{"BoxCollider", "BoxCollider2D", nullptr}, &componentGet<BoxCollider2D>, &componentAdd<BoxCollider2D>, &componentHas<BoxCollider2D>},
-    {{"CircleCollider", "CircleCollider2D", nullptr}, &componentGet<CircleCollider2D>, &componentAdd<CircleCollider2D>, &componentHas<CircleCollider2D>},
-    {{"EdgeCollider", "EdgeCollider2D", nullptr}, &componentGet<EdgeCollider2D>, &componentAdd<EdgeCollider2D>, &componentHas<EdgeCollider2D>},
-    {{"PolygonCollider", "PolygonCollider2D", nullptr}, &componentGet<PolygonCollider2D>, &componentAdd<PolygonCollider2D>, &componentHas<PolygonCollider2D>},
-    {{"ChainCollider", "ChainCollider2D", nullptr}, &componentGet<ChainCollider2D>, &componentAdd<ChainCollider2D>, &componentHas<ChainCollider2D>},
-    {{"TileMap", "TileMapComponent", nullptr}, &componentGet<TileMapComponent>, &componentAdd<TileMapComponent>, &componentHas<TileMapComponent>},
-    {{"SpriteBatch", nullptr, nullptr}, &componentGet<SpriteBatch>, &componentAdd<SpriteBatch>, &componentHas<SpriteBatch>},
-    {{"Polygon2D", nullptr, nullptr}, &componentGet<Polygon2D>, &componentAdd<Polygon2D>, &componentHas<Polygon2D>},
-    {{"Line2D", nullptr, nullptr}, &componentGet<Line2D>, &componentAdd<Line2D>, &componentHas<Line2D>},
-    {{"NinePatch", "NinePatchComponent", nullptr}, &componentGet<NinePatchComponent>, &componentAdd<NinePatchComponent>, &componentHas<NinePatchComponent>},
-    {{"Light", nullptr, nullptr}, &componentGetRaw<ComponentType::Light>, nullptr, &componentHasRaw<ComponentType::Light>},
-    {{"Light2D", nullptr, nullptr}, &componentGet<Light2D>, &componentAdd<Light2D>, &componentHas<Light2D>},
-    {{"DirectionalLight2D", nullptr, nullptr}, &componentGet<DirectionalLight2D>, &componentAdd<DirectionalLight2D>, &componentHas<DirectionalLight2D>},
-    {{"LightOccluder", "LightOccluder2D", nullptr}, &componentGet<LightOccluder2D>, &componentAdd<LightOccluder2D>, &componentHas<LightOccluder2D>},
-    {{"AudioPlayer", nullptr, nullptr}, &componentGet<AudioPlayer>, &componentAdd<AudioPlayer>, &componentHas<AudioPlayer>},
-    {{"CircleShape", nullptr, nullptr}, &componentGet<CircleShape>, &componentAdd<CircleShape>, &componentHas<CircleShape>},
-    {{"RectShape", nullptr, nullptr}, &componentGet<RectShape>, &componentAdd<RectShape>, &componentHas<RectShape>},
-    {{"CapsuleShape", nullptr, nullptr}, &componentGet<CapsuleShape>, &componentAdd<CapsuleShape>, &componentHas<CapsuleShape>},
-    {{"UiCanvas", nullptr, nullptr}, &componentGet<UiCanvas>, &componentAdd<UiCanvas>, &componentHas<UiCanvas>},
-    {{"Panel", "UiPanel", nullptr}, &componentGet<UiPanel>, &componentAdd<UiPanel>, &componentHas<UiPanel>},
-    {{"Label", "UiLabel", nullptr}, &componentGet<UiLabel>, &componentAdd<UiLabel>, &componentHas<UiLabel>},
-    {{"Button", "UiButton", nullptr}, &componentGet<UiButton>, &componentAdd<UiButton>, &componentHas<UiButton>},
-    {{"CheckBox", "UiCheckBox", nullptr}, &componentGet<UiCheckBox>, &componentAdd<UiCheckBox>, &componentHas<UiCheckBox>},
-    {{"Slider", "UiSlider", nullptr}, &componentGet<UiSlider>, &componentAdd<UiSlider>, &componentHas<UiSlider>},
-    {{"NavigationRegion", "NavigationRegion2D", nullptr}, &componentGet<NavigationRegion2D>, &componentAdd<NavigationRegion2D>, &componentHas<NavigationRegion2D>},
-    {{"NavigationAgent", "NavigationAgent2D", nullptr}, &componentGet<NavigationAgent2D>, &componentAdd<NavigationAgent2D>, &componentHas<NavigationAgent2D>},
-    {{"Steering", "Steering2D", nullptr}, &componentGet<Steering2D>, &componentAdd<Steering2D>, &componentHas<Steering2D>},
+template <ComponentType kType> std::size_t componentCountRaw(const GameObject& node)
+{
+    return node.rawComponentCount(kType);
+}
 
-    {{"MotionTween", "MotionTween2D", nullptr}, &componentGet<MotionTween2D>, &componentAdd<MotionTween2D>, &componentHas<MotionTween2D>},
-    {{"MotionStreak", "MotionStreak2D", nullptr}, &componentGet<MotionStreak2D>, &componentAdd<MotionStreak2D>, &componentHas<MotionStreak2D>},
-    {{"Skeleton", "Skeleton2D", nullptr}, &componentGet<Skeleton2D>, &componentAdd<Skeleton2D>, &componentHas<Skeleton2D>},
-    {{"Bone", "Bone2D", nullptr}, &componentGet<Bone2D>, &componentAdd<Bone2D>, &componentHas<Bone2D>},
-    {{"PathMotion", "PathMotion2D", nullptr}, &componentGet<PathMotion2D>, &componentAdd<PathMotion2D>, &componentHas<PathMotion2D>},
-    {{"ActionSequence", "ActionSequence2D", nullptr}, &componentGet<ActionSequence2D>, &componentAdd<ActionSequence2D>, &componentHas<ActionSequence2D>},
+template <class T>
+ComponentBinding componentBinding(const char* first, const char* second = nullptr, const char* third = nullptr)
+{
+    return {{first, second, third}, &componentGet<T>, &componentGetAt<T>, &componentAdd<T>, &componentHas<T>,
+            &componentCount<T>};
+}
+
+template <ComponentType kType>
+ComponentBinding abstractComponentBinding(const char* first, const char* second = nullptr, const char* third = nullptr)
+{
+    return {{first, second, third}, &componentGetRaw<kType>, &componentGetAtRaw<kType>, nullptr,
+            &componentHasRaw<kType>, &componentCountRaw<kType>};
+}
+
+const ComponentBinding kComponentBindings[] = {
+    componentBinding<RigidBody2D>("RigidBody", "Body", "RigidBody2D"),
+    componentBinding<SpriteComponent>("Sprite", "SpriteComponent"),
+    componentBinding<Animation2D>("Animation", "Animation2D"),
+    componentBinding<CameraComponent>("Camera", "CameraComponent"),
+    componentBinding<ParticleComponent>("Particle", "ParticleComponent"),
+    componentBinding<ZenScriptComponent>("ScriptComponent"),
+    componentBinding<CharacterBody2D>("CharacterBody", "CharacterBody2D"),
+    abstractComponentBinding<ComponentType::Collider>("Collider", "Collider2D"),
+    componentBinding<BoxCollider2D>("BoxCollider", "BoxCollider2D"),
+    componentBinding<CircleCollider2D>("CircleCollider", "CircleCollider2D"),
+    componentBinding<EdgeCollider2D>("EdgeCollider", "EdgeCollider2D"),
+    componentBinding<PolygonCollider2D>("PolygonCollider", "PolygonCollider2D"),
+    componentBinding<ChainCollider2D>("ChainCollider", "ChainCollider2D"),
+    componentBinding<TileMapComponent>("TileMap", "TileMapComponent"),
+    componentBinding<SpriteBatch>("SpriteBatch"),
+    componentBinding<Polygon2D>("Polygon2D"),
+    componentBinding<Line2D>("Line2D"),
+    componentBinding<NinePatchComponent>("NinePatch", "NinePatchComponent"),
+    abstractComponentBinding<ComponentType::Light>("Light"),
+    componentBinding<Light2D>("Light2D"),
+    componentBinding<DirectionalLight2D>("DirectionalLight2D"),
+    componentBinding<LightOccluder2D>("LightOccluder", "LightOccluder2D"),
+    componentBinding<AudioPlayer>("AudioPlayer"),
+    componentBinding<CircleShape>("CircleShape"),
+    componentBinding<RectShape>("RectShape"),
+    componentBinding<CapsuleShape>("CapsuleShape"),
+    componentBinding<UiCanvas>("UiCanvas"),
+    componentBinding<UiPanel>("Panel", "UiPanel"),
+    componentBinding<UiLabel>("Label", "UiLabel"),
+    componentBinding<UiButton>("Button"),
+    componentBinding<UiCheckBox>("CheckBox", "UiCheckBox"),
+    componentBinding<UiSlider>("Slider", "UiSlider"),
+    componentBinding<NavigationRegion2D>("NavigationRegion", "NavigationRegion2D"),
+    componentBinding<NavigationAgent2D>("NavigationAgent", "NavigationAgent2D"),
+    componentBinding<Steering2D>("Steering", "Steering2D"),
+
+    componentBinding<MotionTween2D>("MotionTween", "MotionTween2D"),
+    componentBinding<MotionStreak2D>("MotionStreak", "MotionStreak2D"),
+    componentBinding<Skeleton2D>("Skeleton", "Skeleton2D"),
+    componentBinding<Bone2D>("Bone", "Bone2D"),
+    componentBinding<PathMotion2D>("PathMotion", "PathMotion2D"),
+    componentBinding<ActionSequence2D>("ActionSequence", "ActionSequence2D"),
 };
 
 const ComponentBinding* findComponentBinding(const char* name)
@@ -3667,6 +3698,29 @@ int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
     const ComponentBinding* binding = findComponentBinding(name);
     Component* component = binding ? binding->get(*node) : nullptr;
     args[0] = component ? state->instanceFor(requested, component) : zen::val_nil();
+    return 1;
+}
+
+int natNodeGetComponents(zen::VM* vm, zen::Value* args, int nargs)
+{
+    zen::GC& gc = vm->get_gc();
+    zen::ObjArray* result = zen::new_array(&gc);
+    GameObject* node = nodeFromSelf(args);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    {
+        args[0] = zen::val_obj((zen::Obj*)result);
+        return 1;
+    }
+
+    zen::ObjClass* requested = zen::as_class(args[0]);
+    const char* name = requested->name ? requested->name->chars : "";
+    if (const ComponentBinding* binding = findComponentBinding(name))
+        for (std::size_t index = 0; index < binding->count(*node); ++index)
+            if (Component* component = binding->getAt(*node, index))
+                zen::array_push(&gc, result, state->instanceFor(requested, component));
+
+    args[0] = zen::val_obj((zen::Obj*)result);
     return 1;
 }
 
@@ -5064,6 +5118,7 @@ void ZenRuntime::Impl::initialize()
     node.method("get_checkbox", &natNodeGetCheckBox, 0);
     node.method("get_slider", &natNodeGetSlider, 0);
     node.method("get_component", &natNodeGetComponent, 1);
+    node.method("get_components", &natNodeGetComponents, 1);
     node.method("add_component", &natNodeAddComponent, 1);
     node.method("has_component", &natNodeHasComponent, 1);
     node.method("remove_component", &natNodeRemoveComponent, 1);
