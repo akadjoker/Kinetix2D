@@ -89,6 +89,7 @@ void ActionSequence2D::beginAction(const ActionData& action, ActionState& state)
         state.fromAngle = owner()->rotationDegrees();
         break;
     case ActionKind::Color:
+    case ActionKind::Fade:
         if (SpriteComponent* sprite = owner()->getComponent<SpriteComponent>())
             state.fromColor = sprite->material().color();
         break;
@@ -119,6 +120,16 @@ void ActionSequence2D::applyAction(const ActionData& action, const ActionState& 
             Color c = Color::Lerp(state.fromColor, action.color, easedT);
             sprite->setColor(static_cast<unsigned char>(c.r * 255.0f + 0.5f), static_cast<unsigned char>(c.g * 255.0f + 0.5f),
                               static_cast<unsigned char>(c.b * 255.0f + 0.5f), static_cast<unsigned char>(c.a * 255.0f + 0.5f));
+        }
+        break;
+    case ActionKind::Fade:
+        if (SpriteComponent* sprite = owner()->getComponent<SpriteComponent>())
+        {
+            const float alpha = state.fromColor.a + (action.alpha - state.fromColor.a) * easedT;
+            sprite->setColor(static_cast<unsigned char>(state.fromColor.r * 255.0f + 0.5f),
+                             static_cast<unsigned char>(state.fromColor.g * 255.0f + 0.5f),
+                             static_cast<unsigned char>(state.fromColor.b * 255.0f + 0.5f),
+                             static_cast<unsigned char>(alpha * 255.0f + 0.5f));
         }
         break;
     case ActionKind::Pause:

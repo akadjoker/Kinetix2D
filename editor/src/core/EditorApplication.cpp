@@ -522,6 +522,9 @@ void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selected
         if (!mSelection.resolve(mScene))
             mSelection.clear();
     }
+
+    if (!mPlaying && mSettings.viewportLivePreview)
+        restartEditPreview();
 }
 
 void EditorApplication::startPlay()
@@ -536,6 +539,7 @@ void EditorApplication::startPlay()
     mPlaySelectionId = mSelection.objectId();
     mPlayHadSelection = mSelection.hasSelection();
     ZenBlackboard::clear();
+    ZenRuntime::instance().clearPrefabCache();
 
     RouteZenScriptCollisions(mScene);
     RouteZenScriptAnimationEvents(mScene);
@@ -585,6 +589,8 @@ void EditorApplication::stopPlay()
     ZenBlackboard::clear();
     mPlaying = false;
     mPaused = false;
+    if (mSettings.viewportLivePreview)
+        restartEditPreview();
     log("Stopped preview");
 }
 
@@ -804,7 +810,12 @@ void EditorApplication::restartEditPreview(GameObject& object)
     const size_t actionCount = object.componentCount<ActionSequence2D>();
     for (size_t i = 0; i < actionCount; ++i)
         if (ActionSequence2D* sequence = object.getComponentAt<ActionSequence2D>(i))
-            sequence->restart();
+        {
+            if (sequence->autoplay())
+                sequence->play(true);
+            else
+                sequence->stop();
+        }
 
     for (size_t i = 0; i < object.childCount(); ++i)
         restartEditPreview(*object.child(i));

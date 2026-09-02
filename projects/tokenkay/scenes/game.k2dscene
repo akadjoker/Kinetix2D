@@ -2962,7 +2962,7 @@
                   "events": [
                     {
                       "frame": 7,
-                      "name": "die"
+                      "name": "blood"
                     }
                   ]
                 }
@@ -3031,6 +3031,135 @@
               "followTarget": "",
               "repathInterval": 0.25,
               "repathMoveThreshold": 16.0
+            }
+          },
+          {
+            "type": "ActionSequence2D",
+            "data": {
+              "loop": "oneShot",
+              "autoplay": false,
+              "steps": [
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 0.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 1.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 0.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 1.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 0.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "fade",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 1.0,
+                  "duration": 0.15000000596046448,
+                  "ease": "linear"
+                },
+                {
+                  "kind": "event",
+                  "vector": [
+                    0.0,
+                    0.0
+                  ],
+                  "angle": 0.0,
+                  "color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "alpha": 1.0,
+                  "duration": 0.0,
+                  "ease": "linear",
+                  "event": "rojas_cleanup"
+                }
+              ]
             }
           }
         ],
@@ -5109,6 +5238,7 @@
                             1.0,
                             1.0
                           ],
+                          "alpha": 1.0,
                           "duration": 0.5,
                           "ease": "linear"
                         },
@@ -5125,6 +5255,7 @@
                             1.0,
                             1.0
                           ],
+                          "alpha": 1.0,
                           "duration": 0.5,
                           "ease": "linear"
                         },
@@ -5141,6 +5272,7 @@
                             1.0,
                             1.0
                           ],
+                          "alpha": 1.0,
                           "duration": 0.5,
                           "ease": "linear"
                         }

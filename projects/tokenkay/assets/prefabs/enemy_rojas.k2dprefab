@@ -1716,6 +1716,12 @@
                   0.0
                 ]
               }
+            ],
+            "events": [
+              {
+                "frame": 6,
+                "name": "blood"
+              }
             ]
           }
         ],
@@ -1783,6 +1789,22 @@
         "followTarget": "",
         "repathInterval": 0.25,
         "repathMoveThreshold": 16.0
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "oneShot",
+        "autoplay": false,
+        "steps": [
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
+          {"kind": "event", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "event": "rojas_cleanup", "duration": 0.0, "ease": "linear"}
+        ]
       }
     }
   ],

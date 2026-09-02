@@ -899,18 +899,18 @@ void drawPathMotionProperties(EditorApplication& app, PathMotion2D& motion)
 
 const char* actionKindLabel(ActionKind kind)
 {
-    static const char* kNames[] = {"Color", "Move", "Scale", "Turn", "Pause", "Parallel", "Event"};
+    static const char* kNames[] = {"Color", "Move", "Scale", "Turn", "Pause", "Fade", "Parallel", "Event"};
     return kNames[static_cast<int>(kind)];
 }
 
 void drawActionStepProperties(EditorApplication& app, ActionData& step, bool allowParallel)
 {
     static const ActionKind kAllKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale, ActionKind::Turn,
-                                           ActionKind::Pause, ActionKind::Parallel, ActionKind::Event};
+                                           ActionKind::Pause, ActionKind::Fade, ActionKind::Parallel, ActionKind::Event};
     static const ActionKind kLeafKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale,
-                                            ActionKind::Turn, ActionKind::Pause, ActionKind::Event};
+                                            ActionKind::Turn, ActionKind::Pause, ActionKind::Fade, ActionKind::Event};
     const ActionKind* kinds = allowParallel ? kAllKinds : kLeafKinds;
-    const int kindCount = allowParallel ? 7 : 6;
+    const int kindCount = allowParallel ? 8 : 7;
     int kindIndex = 0;
     for (; kindIndex < kindCount; ++kindIndex)
         if (kinds[kindIndex] == step.kind)
@@ -950,6 +950,13 @@ void drawActionStepProperties(EditorApplication& app, ActionData& step, bool all
     case ActionKind::Color:
         colorEdit(app, "Target Color", step.color, "Set Action Step Color");
         break;
+    case ActionKind::Fade:
+    {
+        float alpha = step.alpha;
+        if (dragFloatProperty(app, "Target Alpha", alpha, 0.01f, "Set Action Fade Alpha", 0.0f, 1.0f))
+            step.alpha = alpha;
+        break;
+    }
     case ActionKind::Event:
     {
         char event[128];
@@ -1033,6 +1040,8 @@ void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequ
                     if (actionOpen)
                     {
                         drawActionStepProperties(app, action, false);
+                        if (ImGui::Button(ICON_MDI_DELETE " Remove Action"))
+                            actionToDelete = actionIndex;
                         ImGui::TreePop();
                     }
                     ImGui::PopID();
@@ -1043,6 +1052,8 @@ void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequ
                 if (ImGui::Button(ICON_MDI_PLUS "  Add Parallel Action"))
                     applyInstant(app, "Add Parallel Action", [&] { sequence.addParallelAction(i, ActionStep{}); });
             }
+            if (ImGui::Button(ICON_MDI_DELETE " Remove Action"))
+                indexToDelete = i;
             ImGui::TreePop();
         }
         ImGui::PopID();

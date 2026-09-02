@@ -33,6 +33,9 @@ namespace k2d
         unsigned int generation() const { return mGeneration; }
 
         void reset();
+        // Spawned prefabs are cached as JSON. The editor clears this at the
+        // start of Play so edits saved since the previous run are picked up.
+        void clearPrefabCache();
         bool invalidate(const char *path);
         bool recompile(const char *path);
         std::size_t refreshChangedFiles();

@@ -16,6 +16,8 @@ enum class ActionKind : unsigned char
     Scale,
     Turn,
     Pause,
+    // Changes only the Sprite alpha, preserving its RGB tint.
+    Fade,
     // Runs its child actions at the same time. Parallel actions cannot be
     // nested; the sequence itself remains the ordering mechanism.
     Parallel,
@@ -40,6 +42,8 @@ struct ActionData
     float angleDegrees = 0.0f;
     // Target tint (Color); unused otherwise.
     Color color = Color::White();
+    // Target opacity in the 0..1 range (Fade); unused otherwise.
+    float alpha = 1.0f;
     // Pause: how long to wait. Every other kind: time to reach the target.
     float duration = 0.5f;
     MotionEase ease = MotionEase::Linear;

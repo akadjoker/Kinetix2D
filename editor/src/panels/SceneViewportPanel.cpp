@@ -1161,7 +1161,7 @@ void SceneViewportPanel::drawContents()
         app().log(mLivePreview ? "Live preview enabled" : "Live preview paused");
     }
     toolbarSameLine();
-    if (toolbarIcon("restartpreview", ICON_MDI_RESTART, "Restart particle/animation preview"))
+    if (toolbarIcon("restartpreview", ICON_MDI_RESTART, "Restart particle, animation and action preview"))
     {
         app().restartEditPreview();
         app().log("Preview restarted");

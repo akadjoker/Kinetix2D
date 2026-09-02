@@ -683,6 +683,8 @@ const char* ActionKindName(ActionKind kind)
         return "turn";
     case ActionKind::Pause:
         return "pause";
+    case ActionKind::Fade:
+        return "fade";
     case ActionKind::Parallel:
         return "parallel";
     case ActionKind::Event:
@@ -701,6 +703,8 @@ ActionKind ActionKindFromName(const char* name)
         return ActionKind::Scale;
     if (std::strcmp(name, "turn") == 0)
         return ActionKind::Turn;
+    if (std::strcmp(name, "fade") == 0)
+        return ActionKind::Fade;
     if (std::strcmp(name, "parallel") == 0)
         return ActionKind::Parallel;
     if (std::strcmp(name, "event") == 0)
@@ -725,6 +729,7 @@ ct::Json WriteActionData(const ActionData& action)
     entry.set("vector", WriteVec2(action.vector));
     entry.set("angle", ct::Json(static_cast<double>(action.angleDegrees)));
     entry.set("color", WriteColor(action.color));
+    entry.set("alpha", ct::Json(static_cast<double>(action.alpha)));
     entry.set("duration", ct::Json(static_cast<double>(action.duration)));
     entry.set("ease", ct::Json(MotionEaseName(action.ease)));
     if (!action.event.empty())
@@ -752,6 +757,7 @@ ActionData ReadActionData(const ct::Json& entry)
     action.vector = ReadVec2(entry["vector"]);
     action.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
     action.color = ReadColor(entry["color"]);
+    action.alpha = static_cast<float>(entry["alpha"].as_double(action.color.a));
     action.duration = static_cast<float>(entry["duration"].as_double(0.5));
     action.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
     action.event = entry["event"].as_cstr("");

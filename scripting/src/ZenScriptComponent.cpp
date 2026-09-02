@@ -2696,6 +2696,8 @@ ActionKind parseActionKind(const char* name)
         return ActionKind::Scale;
     if (std::strcmp(name, "turn") == 0)
         return ActionKind::Turn;
+    if (std::strcmp(name, "fade") == 0)
+        return ActionKind::Fade;
     return ActionKind::Pause;
 }
 
@@ -2798,6 +2800,7 @@ int natActionSequenceAddStep(zen::VM* vm, zen::Value* args, int nargs)
         step.angleDegrees = (float)zen::to_number(args[3]);
         step.color = Color::FromBytes((unsigned char)zen::to_integer(args[4]), (unsigned char)zen::to_integer(args[5]),
                                       (unsigned char)zen::to_integer(args[6]), (unsigned char)zen::to_integer(args[7]));
+        step.alpha = step.color.a;
         step.duration = (float)zen::to_number(args[8]);
         char easeBuf[16];
         step.ease =

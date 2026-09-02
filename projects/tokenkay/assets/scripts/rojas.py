@@ -25,9 +25,12 @@ class Rojas(ScriptComponent):
         self.agent = self.node.get_component<NavigationAgent>()
         self.anim = self.node.get_component<Animation>()
         self.sprite = self.node.get_component<Sprite>()
+        self.blink = self.node.get_component<ActionSequence>()
         self.current_clip = ""
         self.last_bucket = 0
         self.dead = False
+        self.blood_spawned = False
+        self.blink_started = False
         self.death_timer = 0.0
         set_flag("enemy_has_agent", self.agent != None)
         if self.agent == None:
@@ -119,7 +122,28 @@ class Rojas(ScriptComponent):
         self.play_clip("death", False)
 
     def on_animation_event(self, name):
-        print("roja animation event: " + name)
+        # "die" is accepted for scene instances saved before this event was
+        # renamed to "blood" in the prefab.
+        if not self.dead or self.blood_spawned or (name != "blood" and name != "die"):
+            return
+        self.blood_spawned = True
         x, y = self.node.get_position()
-        blood = self.node.spawn("assets/prefabs/blood.k2dprefab", 40+x,10+y)
- 
+        blood = self.node.spawn("assets/prefabs/blood.k2dprefab", x, y)
+        if blood != None:
+            blood.reparent(self.node)
+            blood.set_position(40, 10)
+
+    # Called by blood.py after the blood sequence emits "blood_finished".
+    # node.call() supplies a numeric value, even when none was passed.
+    def finish_death(self, value):
+        if self.blink_started:
+            return
+        self.blink_started = True
+        if self.blink != None:
+            self.blink.play(True)
+        else:
+            self.node.queue_destroy()
+
+    def on_event(self, name, value):
+        if name == "rojas_cleanup":
+            self.node.queue_destroy()

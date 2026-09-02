@@ -1122,6 +1122,7 @@ static bool testActionSequenceApi()
     k2d::RouteZenScriptActionEvents(scene);
     k2d::GameObject* object = scene.createObject("pulser");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::SpriteComponent* sprite = object->addComponent<k2d::SpriteComponent>();
     k2d::ActionSequence2D* sequence = object->addComponent<k2d::ActionSequence2D>();
     object->addComponent<k2d::ActionSequence2D>();
 
@@ -1175,8 +1176,13 @@ static bool testActionSequenceApi()
     scale.kind = k2d::ActionKind::Scale;
     scale.vector = Math::Vec2(2.0f, 2.0f);
     scale.duration = 0.25f;
+    k2d::ActionData fade;
+    fade.kind = k2d::ActionKind::Fade;
+    fade.alpha = 0.0f;
+    fade.duration = 0.25f;
     parallel.actions.push_back(move);
     parallel.actions.push_back(scale);
+    parallel.actions.push_back(fade);
     sequence->addStep(parallel);
     k2d::ActionStep event;
     event.kind = k2d::ActionKind::Event;
@@ -1184,7 +1190,8 @@ static bool testActionSequenceApi()
     sequence->addStep(event);
     sequence->play();
     scene.update(0.25f);
-    ok = ok && nearEqual(object->position().x, 5.0f) && nearEqual(object->scale().x, 2.0f);
+    ok = ok && nearEqual(object->position().x, 5.0f) && nearEqual(object->scale().x, 2.0f) &&
+         nearEqual(sprite->material().color().a, 0.0f);
     scene.update(0.25f);
     ok = ok && k2d::ZenBlackboard::getBool("parallel_done", false);
 

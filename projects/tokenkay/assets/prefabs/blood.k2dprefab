@@ -45,11 +45,34 @@
       }
     },
     {
+      "type": "ZenScript",
+      "data": {
+        "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/blood.py"
+      }
+    },
+    {
       "type": "ActionSequence2D",
       "data": {
-        "loop": "loop",
+        "loop": "oneShot",
         "autoplay": true,
         "steps": [
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.5,
+            "ease": "linear"
+          },
           {
             "kind": "scale",
             "vector": [
@@ -63,20 +86,12 @@
               1.0,
               1.0
             ],
+            "alpha": 1.0,
             "duration": 0.5,
             "ease": "linear"
-          }
-        ]
-      }
-    },
-    {
-      "type": "ActionSequence2D",
-      "data": {
-        "loop": "loop",
-        "autoplay": true,
-        "steps": [
+          },
           {
-            "kind": "color",
+            "kind": "event",
             "vector": [
               0.0,
               0.0
@@ -88,7 +103,9 @@
               1.0,
               1.0
             ],
-            "duration": 0.75,
+            "alpha": 1.0,
+            "event": "blood_finished",
+            "duration": 0.0,
             "ease": "linear"
           }
         ]

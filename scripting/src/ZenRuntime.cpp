@@ -134,6 +134,11 @@ namespace k2d
         ++mGeneration;
     }
 
+    void ZenRuntime::clearPrefabCache()
+    {
+        mImpl->prefabs.clear();
+    }
+
     long long ZenFileTimestamp(const char *path)
     {
         if (!path || !path[0])
