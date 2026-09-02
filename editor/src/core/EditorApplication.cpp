@@ -539,6 +539,7 @@ void EditorApplication::startPlay()
 
     RouteZenScriptCollisions(mScene);
     RouteZenScriptAnimationEvents(mScene);
+    RouteZenScriptActionEvents(mScene);
     RouteZenScriptParticleHits(mScene);
     mScene.setSimulationEnabled(true);
     applyPhysicsSettings();

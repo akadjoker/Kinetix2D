@@ -26,4 +26,8 @@ using CollisionCallback = void (*)(const CollisionInfo& info, void* user);
 using AnimationEventCallback = void (*)(GameObject* object, const char* clip, const char* event, bool finished,
                                         void* user);
 
+// Named events emitted by ActionSequence2D steps. They belong to the object
+// running the sequence, unlike broadcast script events.
+using ActionEventCallback = void (*)(GameObject* object, const char* event, void* user);
+
 } // namespace k2d

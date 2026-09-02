@@ -1,6 +1,7 @@
 #include "k2d/ActionSequence2D.h"
 #include "k2d/Utils.h"
 #include "k2d/GameObject.h"
+#include "k2d/Scene.h"
 #include "k2d/SpriteComponent.h"
 
 namespace k2d
@@ -19,6 +20,28 @@ void ActionSequence2D::addStep(const ActionStep& step)
 {
     mSteps.push_back(step);
 }
+void ActionSequence2D::addParallelStep()
+{
+    ActionStep step;
+    step.kind = ActionKind::Parallel;
+    mSteps.push_back(step);
+}
+ActionData* ActionSequence2D::addParallelAction(std::size_t stepIndex, const ActionData& action)
+{
+    ActionStep* step = stepAt(stepIndex);
+    if (!step || step->kind != ActionKind::Parallel || action.kind == ActionKind::Parallel)
+        return nullptr;
+    step->actions.push_back(action);
+    return &step->actions.back();
+}
+bool ActionSequence2D::removeParallelAction(std::size_t stepIndex, std::size_t actionIndex)
+{
+    ActionStep* step = stepAt(stepIndex);
+    if (!step || step->kind != ActionKind::Parallel || actionIndex >= step->actions.size())
+        return false;
+    step->actions.erase(step->actions.begin() + actionIndex);
+    return true;
+}
 bool ActionSequence2D::removeStep(std::size_t index)
 {
     if (index >= mSteps.size())
@@ -30,54 +53,88 @@ void ActionSequence2D::beginStep(std::size_t index)
 {
     mIndex = index;
     mTime = 0.0f;
-    if (!owner() || index >= mSteps.size())
+    mParallelStates.clear();
+    if (index >= mSteps.size())
         return;
-    switch (mSteps[index].kind)
+    const ActionStep& step = mSteps[index];
+    if (step.kind == ActionKind::Parallel)
+    {
+        for (std::size_t i = 0; i < step.actions.size(); ++i)
+        {
+            mParallelStates.push_back(ActionState{});
+            beginAction(step.actions[i], mParallelStates.back());
+        }
+        return;
+    }
+    beginAction(step, mActionState);
+}
+void ActionSequence2D::beginAction(const ActionData& action, ActionState& state)
+{
+    if (action.kind == ActionKind::Event)
+    {
+        dispatchEvent(action.event);
+        return;
+    }
+    if (!owner())
+        return;
+    switch (action.kind)
     {
     case ActionKind::Move:
-        mFromVector = owner()->position();
+        state.fromVector = owner()->position();
         break;
     case ActionKind::Scale:
-        mFromVector = owner()->scale();
+        state.fromVector = owner()->scale();
         break;
     case ActionKind::Turn:
-        mFromAngle = owner()->rotationDegrees();
+        state.fromAngle = owner()->rotationDegrees();
         break;
     case ActionKind::Color:
         if (SpriteComponent* sprite = owner()->getComponent<SpriteComponent>())
-            mFromColor = sprite->material().color();
+            state.fromColor = sprite->material().color();
         break;
     case ActionKind::Pause:
+    case ActionKind::Parallel:
+    case ActionKind::Event:
         break;
     }
 }
-void ActionSequence2D::apply(float easedT)
+void ActionSequence2D::applyAction(const ActionData& action, const ActionState& state, float easedT)
 {
-    if (!owner() || mIndex >= mSteps.size())
+    if (!owner())
         return;
-    const ActionStep& step = mSteps[mIndex];
-    switch (step.kind)
+    switch (action.kind)
     {
     case ActionKind::Move:
-        owner()->setPosition(mFromVector + (step.vector - mFromVector) * easedT);
+        owner()->setPosition(state.fromVector + (action.vector - state.fromVector) * easedT);
         break;
     case ActionKind::Scale:
-        owner()->setScale(mFromVector + (step.vector - mFromVector) * easedT);
+        owner()->setScale(state.fromVector + (action.vector - state.fromVector) * easedT);
         break;
     case ActionKind::Turn:
-        owner()->setRotationDegrees(mFromAngle + (step.angleDegrees - mFromAngle) * easedT);
+        owner()->setRotationDegrees(state.fromAngle + (action.angleDegrees - state.fromAngle) * easedT);
         break;
     case ActionKind::Color:
         if (SpriteComponent* sprite = owner()->getComponent<SpriteComponent>())
         {
-            Color c = Color::Lerp(mFromColor, step.color, easedT);
+            Color c = Color::Lerp(state.fromColor, action.color, easedT);
             sprite->setColor(static_cast<unsigned char>(c.r * 255.0f + 0.5f), static_cast<unsigned char>(c.g * 255.0f + 0.5f),
                               static_cast<unsigned char>(c.b * 255.0f + 0.5f), static_cast<unsigned char>(c.a * 255.0f + 0.5f));
         }
         break;
     case ActionKind::Pause:
+    case ActionKind::Parallel:
+    case ActionKind::Event:
         break;
     }
+}
+float ActionSequence2D::durationFor(const ActionData& action) const
+{
+    return action.kind == ActionKind::Event ? 0.0f : Max(0.0f, action.duration);
+}
+void ActionSequence2D::dispatchEvent(const ct::String& event)
+{
+    if (!event.empty() && owner() && owner()->scene())
+        owner()->scene()->dispatchActionEvent(owner(), event.c_str());
 }
 void ActionSequence2D::play(bool restart)
 {
@@ -115,9 +172,25 @@ void ActionSequence2D::onUpdate(float dt)
         return;
     mTime += dt;
     const ActionStep& step = mSteps[mIndex];
-    float dur = Max(0.0f, step.duration);
+    float dur = step.kind == ActionKind::Parallel ? 0.0f : durationFor(step);
+    if (step.kind == ActionKind::Parallel)
+        for (std::size_t i = 0; i < step.actions.size(); ++i)
+            dur = Max(dur, durationFor(step.actions[i]));
     float local = dur <= 0.0f ? 1.0f : Max(0.0f, Min(1.0f, mTime / dur));
-    apply(Ease(local, step.ease));
+    if (step.kind == ActionKind::Parallel)
+    {
+        for (std::size_t i = 0; i < step.actions.size(); ++i)
+        {
+            const ActionData& action = step.actions[i];
+            const float actionDuration = durationFor(action);
+            const float actionTime = actionDuration <= 0.0f ? 1.0f : Max(0.0f, Min(1.0f, mTime / actionDuration));
+            applyAction(action, mParallelStates[i], Ease(actionTime, action.ease));
+        }
+    }
+    else
+    {
+        applyAction(step, mActionState, Ease(local, step.ease));
+    }
     if (mTime >= dur)
     {
         std::size_t next = mIndex + 1;

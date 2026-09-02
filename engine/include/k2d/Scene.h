@@ -95,6 +95,8 @@ namespace k2d
         void setCollisionCallback(CollisionCallback callback, void *user);
         void setAnimationEventCallback(AnimationEventCallback callback, void *user);
         void dispatchAnimationEvent(GameObject *object, const char *clip, const char *event, bool finished);
+        void setActionEventCallback(ActionEventCallback callback, void *user);
+        void dispatchActionEvent(GameObject *object, const char *event);
 
         GameObject *raycast(const Math::Vec2 &origin, const Math::Vec2 &direction, float distance,
                             Math::Vec2 *outPoint = nullptr, Math::Vec2 *outNormal = nullptr,
@@ -251,6 +253,8 @@ namespace k2d
         void *mCollisionCallbackUser;
         AnimationEventCallback mAnimationEventCallback;
         void *mAnimationEventCallbackUser;
+        ActionEventCallback mActionEventCallback;
+        void *mActionEventCallbackUser;
         bool mSimulationEnabled;
         bool mHasDirtyBodies;
         ParticlePhysics2D mParticles;

@@ -43,7 +43,8 @@ field set by the engine before ``__init__`` runs.
 
 .. py:method:: on_event(name, value)
 
-   Called for every broadcast event. ``value`` is a number, 0 by default.
+   Called for every broadcast event, and for an ``Event`` step emitted by an
+   Action Sequence on the same node. ``value`` is a number, 0 by default.
 
 .. py:method:: on_collision(other, began)
 

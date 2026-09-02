@@ -897,10 +897,87 @@ void drawPathMotionProperties(EditorApplication& app, PathMotion2D& motion)
     }
 }
 
+const char* actionKindLabel(ActionKind kind)
+{
+    static const char* kNames[] = {"Color", "Move", "Scale", "Turn", "Pause", "Parallel", "Event"};
+    return kNames[static_cast<int>(kind)];
+}
+
+void drawActionStepProperties(EditorApplication& app, ActionData& step, bool allowParallel)
+{
+    static const ActionKind kAllKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale, ActionKind::Turn,
+                                           ActionKind::Pause, ActionKind::Parallel, ActionKind::Event};
+    static const ActionKind kLeafKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale,
+                                            ActionKind::Turn, ActionKind::Pause, ActionKind::Event};
+    const ActionKind* kinds = allowParallel ? kAllKinds : kLeafKinds;
+    const int kindCount = allowParallel ? 7 : 6;
+    int kindIndex = 0;
+    for (; kindIndex < kindCount; ++kindIndex)
+        if (kinds[kindIndex] == step.kind)
+            break;
+    if (kindIndex == kindCount)
+        kindIndex = 0;
+
+    if (ImGui::BeginCombo("Kind", actionKindLabel(kinds[kindIndex])))
+    {
+        for (int i = 0; i < kindCount; ++i)
+            if (ImGui::Selectable(actionKindLabel(kinds[i]), i == kindIndex))
+                applyInstant(app, "Set Action Step Kind", [&] { step.kind = kinds[i]; });
+        ImGui::EndCombo();
+    }
+
+    if (step.kind == ActionKind::Parallel)
+        return;
+
+    switch (step.kind)
+    {
+    case ActionKind::Move:
+    case ActionKind::Scale:
+    {
+        float vector[2] = {step.vector.x, step.vector.y};
+        if (ImGui::DragFloat2(step.kind == ActionKind::Move ? "Target Position" : "Target Scale", vector,
+                              step.kind == ActionKind::Move ? 1.0f : 0.01f))
+            applyInstant(app, "Set Action Step Target", [&] { step.vector = Math::Vec2(vector[0], vector[1]); });
+        break;
+    }
+    case ActionKind::Turn:
+    {
+        float angle = step.angleDegrees;
+        if (dragFloatProperty(app, "Target Angle", angle, 1.0f, "Set Action Step Angle"))
+            step.angleDegrees = angle;
+        break;
+    }
+    case ActionKind::Color:
+        colorEdit(app, "Target Color", step.color, "Set Action Step Color");
+        break;
+    case ActionKind::Event:
+    {
+        char event[128];
+        std::snprintf(event, sizeof(event), "%s", step.event.c_str());
+        if (ImGui::InputText("Event", event, sizeof(event)))
+            applyInstant(app, "Set Action Event", [&] { step.event = event; });
+        ImGui::TextDisabled("Calls on_event on scripts attached to this node.");
+        return;
+    }
+    case ActionKind::Pause:
+    case ActionKind::Parallel:
+        break;
+    }
+
+    float duration = step.duration;
+    if (dragFloatProperty(app, "Duration", duration, 0.05f, "Set Action Step Duration", 0.0f, 60.0f))
+        step.duration = Max(0.0f, duration);
+    if (step.kind != ActionKind::Pause)
+    {
+        MotionEase ease = step.ease;
+        if (motionEaseCombo("Ease", ease))
+            applyInstant(app, "Set Action Step Ease", [&] { step.ease = ease; });
+    }
+}
+
 void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequence)
 {
     static const char* kLoopNames[] = {"One Shot", "Loop"};
-    static const char* kKindNames[] = {"Color", "Move", "Scale", "Turn", "Pause"};
 
     int loopIdx = static_cast<int>(sequence.loop());
     if (ImGui::Combo("Loop", &loopIdx, kLoopNames, 2))
@@ -932,48 +1009,39 @@ void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequ
         const bool isCurrent = sequence.currentStep() == static_cast<int>(i);
         const bool open =
             ImGui::TreeNodeEx("##step", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth, "%s%s",
-                              kKindNames[static_cast<int>(step->kind)], isCurrent ? "  (playing)" : "");
+                              actionKindLabel(step->kind), isCurrent ? "  (playing)" : "");
         ImGui::SameLine();
         if (ImGui::SmallButton(ICON_MDI_DELETE))
             indexToDelete = i;
         if (open)
         {
-            int kindIdx = static_cast<int>(step->kind);
-            if (ImGui::Combo("Kind", &kindIdx, kKindNames, 5))
-                applyInstant(app, "Set Action Step Kind", [&] { step->kind = static_cast<ActionKind>(kindIdx); });
-            switch (step->kind)
+            drawActionStepProperties(app, *step, true);
+            if (step->kind == ActionKind::Parallel)
             {
-            case ActionKind::Move:
-            case ActionKind::Scale:
-            {
-                float vector[2] = {step->vector.x, step->vector.y};
-                if (ImGui::DragFloat2(step->kind == ActionKind::Move ? "Target Position" : "Target Scale", vector,
-                                      step->kind == ActionKind::Move ? 1.0f : 0.01f))
-                    applyInstant(app, "Set Action Step Target",
-                                 [&] { step->vector = Math::Vec2(vector[0], vector[1]); });
-                break;
-            }
-            case ActionKind::Turn:
-            {
-                float angle = step->angleDegrees;
-                if (dragFloatProperty(app, "Target Angle", angle, 1.0f, "Set Action Step Angle"))
-                    step->angleDegrees = angle;
-                break;
-            }
-            case ActionKind::Color:
-                colorEdit(app, "Target Color", step->color, "Set Action Step Color");
-                break;
-            case ActionKind::Pause:
-                break;
-            }
-            float duration = step->duration;
-            if (dragFloatProperty(app, "Duration", duration, 0.05f, "Set Action Step Duration", 0.0f, 60.0f))
-                step->duration = Max(0.0f, duration);
-            if (step->kind != ActionKind::Pause)
-            {
-                MotionEase ease = step->ease;
-                if (motionEaseCombo("Ease", ease))
-                    applyInstant(app, "Set Action Step Ease", [&] { step->ease = ease; });
+                ImGui::SeparatorText("Actions running together");
+                std::size_t actionToDelete = static_cast<std::size_t>(-1);
+                for (std::size_t actionIndex = 0; actionIndex < step->actions.size(); ++actionIndex)
+                {
+                    ActionData& action = step->actions[actionIndex];
+                    ImGui::PushID(static_cast<int>(actionIndex));
+                    const bool actionOpen = ImGui::TreeNodeEx("##parallelAction",
+                                                               ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
+                                                               "%s", actionKindLabel(action.kind));
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ICON_MDI_DELETE))
+                        actionToDelete = actionIndex;
+                    if (actionOpen)
+                    {
+                        drawActionStepProperties(app, action, false);
+                        ImGui::TreePop();
+                    }
+                    ImGui::PopID();
+                }
+                if (actionToDelete != static_cast<std::size_t>(-1))
+                    applyInstant(app, "Delete Parallel Action",
+                                 [&] { sequence.removeParallelAction(i, actionToDelete); });
+                if (ImGui::Button(ICON_MDI_PLUS "  Add Parallel Action"))
+                    applyInstant(app, "Add Parallel Action", [&] { sequence.addParallelAction(i, ActionStep{}); });
             }
             ImGui::TreePop();
         }

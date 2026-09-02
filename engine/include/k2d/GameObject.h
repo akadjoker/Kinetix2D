@@ -27,6 +27,12 @@ namespace k2d
     class GameObject final
     {
     public:
+        // The scripting runtime keeps persistent handles for Nodes. It uses
+        // this hook to release a handle before the object's address can be
+        // reused after a scene restore.
+        using RemovedCallback = void (*)(GameObject *object, void *user);
+        static void SetRemovedCallback(RemovedCallback callback, void *user);
+
         ~GameObject();
 
         GameObject(const GameObject &) = delete;
@@ -164,6 +170,7 @@ namespace k2d
         friend class Scene;
 
         explicit GameObject(const char *name = "");
+        static void notifyRemoved(GameObject *object);
 
         bool addChildRaw(GameObject *child);
         GameObject *removeChildRaw(GameObject *child);

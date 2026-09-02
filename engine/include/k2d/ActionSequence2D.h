@@ -3,6 +3,7 @@
 #include "k2d/Color.h"
 #include "k2d/Component.h"
 #include "k2d/Easing.h"
+#include <ct/string.hpp>
 #include <ct/vector.hpp>
 #include <mathc.h>
 
@@ -14,7 +15,12 @@ enum class ActionKind : unsigned char
     Move,
     Scale,
     Turn,
-    Pause
+    Pause,
+    // Runs its child actions at the same time. Parallel actions cannot be
+    // nested; the sequence itself remains the ordering mechanism.
+    Parallel,
+    // Dispatches its named event to scripts on the owner, then continues.
+    Event
 };
 
 enum class ActionSequenceLoop : unsigned char
@@ -23,7 +29,9 @@ enum class ActionSequenceLoop : unsigned char
     Loop
 };
 
-struct ActionStep
+// A leaf action. Parallel groups contain these values, so the data remains
+// deliberately one level deep and cannot form recursive action trees.
+struct ActionData
 {
     ActionKind kind = ActionKind::Pause;
     // Target position (Move) or target scale (Scale); unused otherwise.
@@ -35,12 +43,19 @@ struct ActionStep
     // Pause: how long to wait. Every other kind: time to reach the target.
     float duration = 0.5f;
     MotionEase ease = MotionEase::Linear;
+    // Event: name delivered to the owner. Parallel: actions started together.
+    ct::String event;
+};
+
+struct ActionStep : public ActionData
+{
+    ct::Vector<ActionData> actions;
 };
 
 // A "pulse"-style behaviour: a list of typed steps played one after another,
 // each easing the owner (or its sprite tint) from wherever it stood when the
-// step began to the step's target, over its own duration. Unlike
-// MotionTween2D's tracks, steps never run in parallel.
+// step began to the step's target, over its own duration. A Parallel step is
+// the explicit exception: its child actions run together.
 class ActionSequence2D final : public Component
 {
   public:
@@ -49,6 +64,9 @@ class ActionSequence2D final : public Component
 
     void clearSteps();
     void addStep(const ActionStep& step);
+    void addParallelStep();
+    ActionData* addParallelAction(std::size_t stepIndex, const ActionData& action);
+    bool removeParallelAction(std::size_t stepIndex, std::size_t actionIndex);
     bool removeStep(std::size_t index);
     std::size_t stepCount() const
     {
@@ -117,14 +135,23 @@ class ActionSequence2D final : public Component
     void onUpdate(float deltaTime) override;
 
   private:
+    struct ActionState
+    {
+        Math::Vec2 fromVector{0.0f};
+        float fromAngle = 0.0f;
+        Color fromColor;
+    };
+
     void beginStep(std::size_t index);
-    void apply(float easedT);
+    void beginAction(const ActionData& action, ActionState& state);
+    void applyAction(const ActionData& action, const ActionState& state, float easedT);
+    float durationFor(const ActionData& action) const;
+    void dispatchEvent(const ct::String& event);
     ct::Vector<ActionStep> mSteps;
     std::size_t mIndex = 0;
     float mTime = 0.0f;
-    Math::Vec2 mFromVector{0.0f};
-    float mFromAngle = 0.0f;
-    Color mFromColor;
+    ActionState mActionState;
+    ct::Vector<ActionState> mParallelStates;
     bool mPlaying = false, mPaused = false, mAutoplay = false;
     ActionSequenceLoop mLoop = ActionSequenceLoop::OneShot;
 };

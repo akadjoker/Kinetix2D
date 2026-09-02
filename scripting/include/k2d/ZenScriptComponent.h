@@ -103,6 +103,7 @@ namespace k2d
     void DispatchZenScriptEvents(GameObject &root);
     void RouteZenScriptCollisions(Scene &scene);
     void RouteZenScriptAnimationEvents(Scene &scene);
+    void RouteZenScriptActionEvents(Scene &scene);
     // Physics particles report to the object they struck, not to an emitter:
     // the scene owns the pool, so the hit object is the only script target.
     void RouteZenScriptParticleHits(Scene &scene);

@@ -72,6 +72,11 @@ namespace k2d
         return mImpl->classes.size();
     }
 
+    std::size_t ZenRuntime::cachedInstanceCount() const
+    {
+        return mImpl->instances.size();
+    }
+
     bool ZenRuntime::hasCachedInstance(const void *pointer) const
     {
         return mImpl->instances.find(const_cast<void *>(pointer)) != nullptr;

@@ -66,7 +66,8 @@ The class method set
 
 ``on_event(name, value)`` (optional)
    Called for every event broadcast in the running scene (see
-   :ref:`scripting-events`). ``value`` is a number and defaults to 0.
+   :ref:`scripting-events`), and for ``Event`` actions fired by an Action
+   Sequence on the same object. ``value`` is a number and defaults to 0.
 
 ``on_collision(other, began)`` (optional)
    Called on the scripts of the object that was touched. ``other`` is the Node

@@ -682,7 +682,11 @@ const char* ActionKindName(ActionKind kind)
     case ActionKind::Turn:
         return "turn";
     case ActionKind::Pause:
-        break;
+        return "pause";
+    case ActionKind::Parallel:
+        return "parallel";
+    case ActionKind::Event:
+        return "event";
     }
     return "pause";
 }
@@ -697,6 +701,10 @@ ActionKind ActionKindFromName(const char* name)
         return ActionKind::Scale;
     if (std::strcmp(name, "turn") == 0)
         return ActionKind::Turn;
+    if (std::strcmp(name, "parallel") == 0)
+        return ActionKind::Parallel;
+    if (std::strcmp(name, "event") == 0)
+        return ActionKind::Event;
     return ActionKind::Pause;
 }
 
@@ -710,6 +718,61 @@ ActionSequenceLoop ActionSequenceLoopFromName(const char* name)
     return std::strcmp(name, "loop") == 0 ? ActionSequenceLoop::Loop : ActionSequenceLoop::OneShot;
 }
 
+ct::Json WriteActionData(const ActionData& action)
+{
+    ct::Json entry = ct::Json::object();
+    entry.set("kind", ct::Json(ActionKindName(action.kind)));
+    entry.set("vector", WriteVec2(action.vector));
+    entry.set("angle", ct::Json(static_cast<double>(action.angleDegrees)));
+    entry.set("color", WriteColor(action.color));
+    entry.set("duration", ct::Json(static_cast<double>(action.duration)));
+    entry.set("ease", ct::Json(MotionEaseName(action.ease)));
+    if (!action.event.empty())
+        entry.set("event", ct::Json(action.event.c_str()));
+    return entry;
+}
+
+ct::Json WriteActionStep(const ActionStep& step)
+{
+    ct::Json entry = WriteActionData(step);
+    if (step.kind == ActionKind::Parallel)
+    {
+        ct::Json actions = ct::Json::array();
+        for (std::size_t i = 0; i < step.actions.size(); ++i)
+            actions.push_back(WriteActionData(step.actions[i]));
+        entry.set("actions", actions);
+    }
+    return entry;
+}
+
+ActionData ReadActionData(const ct::Json& entry)
+{
+    ActionData action;
+    action.kind = ActionKindFromName(entry["kind"].as_cstr("pause"));
+    action.vector = ReadVec2(entry["vector"]);
+    action.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
+    action.color = ReadColor(entry["color"]);
+    action.duration = static_cast<float>(entry["duration"].as_double(0.5));
+    action.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
+    action.event = entry["event"].as_cstr("");
+    return action;
+}
+
+ActionStep ReadActionStep(const ct::Json& entry)
+{
+    ActionStep step;
+    static_cast<ActionData&>(step) = ReadActionData(entry);
+    const ct::Json& actions = entry["actions"];
+    if (step.kind == ActionKind::Parallel && actions.is_array())
+        for (std::size_t i = 0; i < actions.size(); ++i)
+        {
+            ActionData action = ReadActionData(actions[i]);
+            if (action.kind != ActionKind::Parallel)
+                step.actions.push_back(action);
+        }
+    return step;
+}
+
 void WriteActionSequence(const Component& component, ct::Json& data, Assets*)
 {
     const ActionSequence2D& sequence = static_cast<const ActionSequence2D&>(component);
@@ -717,17 +780,7 @@ void WriteActionSequence(const Component& component, ct::Json& data, Assets*)
     data.set("autoplay", ct::Json(sequence.autoplay()));
     ct::Json steps = ct::Json::array();
     for (std::size_t i = 0; i < sequence.stepCount(); ++i)
-    {
-        const ActionStep& step = *sequence.stepAt(i);
-        ct::Json entry = ct::Json::object();
-        entry.set("kind", ct::Json(ActionKindName(step.kind)));
-        entry.set("vector", WriteVec2(step.vector));
-        entry.set("angle", ct::Json(static_cast<double>(step.angleDegrees)));
-        entry.set("color", WriteColor(step.color));
-        entry.set("duration", ct::Json(static_cast<double>(step.duration)));
-        entry.set("ease", ct::Json(MotionEaseName(step.ease)));
-        steps.push_back(entry);
-    }
+        steps.push_back(WriteActionStep(*sequence.stepAt(i)));
     data.set("steps", steps);
 }
 
@@ -741,17 +794,7 @@ void ReadActionSequence(Component& component, const ct::Json& data, Assets*)
     if (!steps.is_array())
         return;
     for (std::size_t i = 0; i < steps.size(); ++i)
-    {
-        const ct::Json& entry = steps[i];
-        ActionStep step;
-        step.kind = ActionKindFromName(entry["kind"].as_cstr("pause"));
-        step.vector = ReadVec2(entry["vector"]);
-        step.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
-        step.color = ReadColor(entry["color"]);
-        step.duration = static_cast<float>(entry["duration"].as_double(0.5));
-        step.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
-        sequence.addStep(step);
-    }
+        sequence.addStep(ReadActionStep(steps[i]));
 }
 
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)

@@ -22,6 +22,7 @@ namespace k2d
           mBroadphaseStamp(0xFFFFFFFFu),
           mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
           mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
+          mActionEventCallback(nullptr), mActionEventCallbackUser(nullptr),
           mSimulationEnabled(false), mHasDirtyBodies(false), mParticles(*this)
     {
         mRoot.mScene = this;
@@ -46,6 +47,18 @@ namespace k2d
     {
         if (mAnimationEventCallback)
             mAnimationEventCallback(object, clip, event, finished, mAnimationEventCallbackUser);
+    }
+
+    void Scene::setActionEventCallback(ActionEventCallback callback, void *user)
+    {
+        mActionEventCallback = callback;
+        mActionEventCallbackUser = user;
+    }
+
+    void Scene::dispatchActionEvent(GameObject *object, const char *event)
+    {
+        if (mActionEventCallback)
+            mActionEventCallback(object, event, mActionEventCallbackUser);
     }
 
     GameObject &Scene::root()

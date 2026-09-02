@@ -253,6 +253,24 @@ static bool testComponents()
     return ok;
 }
 
+static bool testNodeHandleCleanup()
+{
+    const std::size_t before = k2d::ZenRuntime::instance().cachedInstanceCount();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("node_cache_cleanup");
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource("class NodeCacheCleanup:\n"
+                                           "    def __init__(self, node):\n"
+                                           "        self.node = node\n"
+                                           "    def on_start(self):\n"
+                                           "        self.node.get_name()\n",
+                                           "node_cache_cleanup");
+    scene.update(0.016f);
+    const bool cached = k2d::ZenRuntime::instance().cachedInstanceCount() > before;
+    scene.clear();
+    return loaded && cached && k2d::ZenRuntime::instance().cachedInstanceCount() == before;
+}
+
 static bool testGenericAngleBracketCalls()
 {
     k2d::ZenBlackboard::clear();
@@ -1101,6 +1119,7 @@ static bool testActionSequenceApi()
 {
     k2d::ZenBlackboard::clear();
     k2d::Scene scene;
+    k2d::RouteZenScriptActionEvents(scene);
     k2d::GameObject* object = scene.createObject("pulser");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
     k2d::ActionSequence2D* sequence = object->addComponent<k2d::ActionSequence2D>();
@@ -1120,7 +1139,10 @@ static bool testActionSequenceApi()
         "        set_number(\"steps\", a.step_count())\n"
         "        a.play(True)\n"
         "        set_flag(\"playing\", a.is_playing())\n"
-        "        set_number(\"step0\", a.current_step())\n",
+        "        set_number(\"step0\", a.current_step())\n"
+        "    def on_event(self, name, value):\n"
+        "        if name == \"parallel_done\":\n"
+        "            set_flag(\"parallel_done\", True)\n",
         "action_sequence");
 
     // Same ordering caveat as testMotionTweenApi/testPathMotionApi.
@@ -1137,6 +1159,34 @@ static bool testActionSequenceApi()
     ok = ok && sequence->stepCount() == 1;
     ok = ok && sequence->playing();
     ok = ok && nearEqual(object->position().x, 1.6f) && nearEqual(object->position().y, 0.0f);
+
+    sequence->stop();
+    sequence->clearSteps();
+    sequence->setLoop(k2d::ActionSequenceLoop::OneShot);
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    object->setScale(Math::Vec2(1.0f, 1.0f));
+    k2d::ActionStep parallel;
+    parallel.kind = k2d::ActionKind::Parallel;
+    k2d::ActionData move;
+    move.kind = k2d::ActionKind::Move;
+    move.vector = Math::Vec2(10.0f, 0.0f);
+    move.duration = 0.5f;
+    k2d::ActionData scale;
+    scale.kind = k2d::ActionKind::Scale;
+    scale.vector = Math::Vec2(2.0f, 2.0f);
+    scale.duration = 0.25f;
+    parallel.actions.push_back(move);
+    parallel.actions.push_back(scale);
+    sequence->addStep(parallel);
+    k2d::ActionStep event;
+    event.kind = k2d::ActionKind::Event;
+    event.event = "parallel_done";
+    sequence->addStep(event);
+    sequence->play();
+    scene.update(0.25f);
+    ok = ok && nearEqual(object->position().x, 5.0f) && nearEqual(object->scale().x, 2.0f);
+    scene.update(0.25f);
+    ok = ok && k2d::ZenBlackboard::getBool("parallel_done", false);
 
     k2d::ZenBlackboard::clear();
     return ok;
@@ -2624,6 +2674,7 @@ int main()
     const bool bunnymark = testBunnymarkSpawn();
     const bool hierarchy = testHierarchy();
     const bool components = testComponents();
+    const bool nodeHandleCleanup = testNodeHandleCleanup();
     const bool genericAngleBrackets = testGenericAngleBracketCalls();
     const bool allComponentHandles = testAllComponentHandles();
     const bool skeletonOk = testSkeleton();
@@ -2676,7 +2727,7 @@ int main()
     const bool particlePhysics = testParticlePhysicsExplosion();
 
     std::printf(
-        "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s "
+        "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s node_handle_cleanup=%s "
         "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
         "animation_events=%s animation_lag=%s animation_finished=%s animation_events_saved=%s "
         "agent_orientation=%s "
@@ -2689,7 +2740,7 @@ int main()
         "spawn_math=%s gate=%s channel=%s hot_reload=%s modules=%s examples=%s ui=%s particle_physics=%s\n",
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
-        components ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
+        components ? "pass" : "fail", nodeHandleCleanup ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
         skeletonOk ? "pass" : "fail", audioPlayerApi ? "pass" : "fail", light2DApi ? "pass" : "fail",
         tileMapApi ? "pass" : "fail", animationEvents ? "pass" : "fail", animationLag ? "pass" : "fail",
         animationFinished ? "pass" : "fail", animationEventsSaved ? "pass" : "fail",
@@ -2709,7 +2760,7 @@ int main()
         destroy ? "pass" : "fail", serialization ? "pass" : "fail", spawnMath ? "pass" : "fail", gate ? "pass" : "fail",
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
         ui ? "pass" : "fail", particlePhysics ? "pass" : "fail");
-    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && genericAngleBrackets &&
+    const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && nodeHandleCleanup && genericAngleBrackets &&
                         allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
                         animationEvents && animationLag && animationFinished && animationEventsSaved &&
                         agentOrientation &&

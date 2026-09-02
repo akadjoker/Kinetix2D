@@ -4973,10 +4973,16 @@ static void forgetRemovedComponent(Component* component, void* user)
     static_cast<ZenRuntime::Impl*>(user)->forgetInstance(component);
 }
 
+static void forgetRemovedObject(GameObject* object, void* user)
+{
+    static_cast<ZenRuntime::Impl*>(user)->forgetInstance(object);
+}
+
 void ZenRuntime::Impl::initialize()
 {
     zen_host_set_writer(&zenHostWriter, nullptr);
     Component::SetRemovedCallback(&forgetRemovedComponent, this);
+    GameObject::SetRemovedCallback(&forgetRemovedObject, this);
 
     vm.open_lib_globals(&zen::zen_lib_base);
     vm.register_lib(&zen::zen_lib_math);
@@ -6119,6 +6125,25 @@ void routeAnimationEvent(GameObject* object, const char* clip, const char* event
 void RouteZenScriptAnimationEvents(Scene& scene)
 {
     scene.setAnimationEventCallback(&routeAnimationEvent, nullptr);
+}
+
+namespace
+{
+void routeActionEvent(GameObject* object, const char* event, void*)
+{
+    if (!gZenScriptsEnabled || !object || !event)
+        return;
+    const size_t count = object->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+        if (ZenScriptComponent* script = object->getComponentAt<ZenScriptComponent>(i))
+            if (script->active())
+                script->callEvent(event);
+}
+} // namespace
+
+void RouteZenScriptActionEvents(Scene& scene)
+{
+    scene.setActionEventCallback(&routeActionEvent, nullptr);
 }
 
 bool ZenScriptComponent::callParticleHit(float x, float y, float normalX, float normalY, double userTag)
