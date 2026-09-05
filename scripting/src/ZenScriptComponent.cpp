@@ -24,14 +24,19 @@
 #include "k2d/CapsuleShape.h"
 #include "k2d/CircleShape.h"
 #include "k2d/DirectionalLight2D.h"
+#include "k2d/DistanceJoint2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
+#include "k2d/GearJoint2D.h"
 #include "k2d/Input.h"
 #include "k2d/InputActionMap.h"
+#include "k2d/Joint2D.h"
 #include "k2d/Light2D.h"
 #include "k2d/LightOccluder2D.h"
 #include "k2d/Line2D.h"
+#include "k2d/MotorJoint2D.h"
+#include "k2d/MouseJoint2D.h"
 #include "k2d/MotionStreak2D.h"
 #include "k2d/MotionTween2D.h"
 #include "k2d/PathMotion2D.h"
@@ -45,6 +50,7 @@
 #include "k2d/Polygon2D.h"
 #include "k2d/RectShape.h"
 #include "k2d/RenderQueue.h"
+#include "k2d/RevoluteJoint2D.h"
 #include "k2d/Scene.h"
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneManager.h"
@@ -56,6 +62,7 @@
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
 #include "k2d/VirtualPad.h"
+#include "k2d/WheelJoint2D.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -3071,6 +3078,502 @@ int natLineSetColor(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+int natLineSetTexture(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    if (line)
+        line->setTexture(particleTexture(vm, args, nargs, 0));
+    return 0;
+}
+
+int natJointGetTargetName(zen::VM* vm, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->targetName().c_str() : ""));
+    return 1;
+}
+
+int natJointSetTargetName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        char small[128];
+        joint->setTargetName(valueToCString(vm, args[0], small, sizeof(small)));
+    }
+    return 0;
+}
+
+int natJointGetCollideConnected(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->collideConnected());
+    return 1;
+}
+
+int natJointSetCollideConnected(zen::VM*, zen::Value* args, int nargs)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setCollideConnected(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natJointIsConnected(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->isConnected());
+    return 1;
+}
+
+int natJointGetAnchorA(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->anchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natJointGetAnchorB(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->anchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natDistanceJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natDistanceJointGetLength(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->length() : 0.0f);
+    return 1;
+}
+
+int natDistanceJointSetLength(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setLength((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natDistanceJointGetLengthRange(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->minLength() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->maxLength() : 0.0f);
+    return 2;
+}
+
+int natDistanceJointSetLengthRange(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLengthRange((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natDistanceJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natDistanceJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natMouseJointGetTarget(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    const Math::Vec2 target = joint ? joint->target() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(target.x);
+    args[1] = zen::val_float(target.y);
+    return 2;
+}
+
+int natMouseJointSetTarget(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setTarget(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natMouseJointGetMaxForce(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxForce() : 0.0f);
+    return 1;
+}
+
+int natMouseJointSetMaxForce(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxForce((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMouseJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natMouseJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natRevoluteJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natRevoluteJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natRevoluteJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natRevoluteJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natRevoluteJointGetReferenceAngle(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->referenceAngle() : 0.0f);
+    return 1;
+}
+
+int natRevoluteJointSetReferenceAngle(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setReferenceAngle((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natRevoluteJointGetMotor(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->motorEnabled());
+    args[1] = zen::val_float(joint ? joint->motorSpeed() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->maxMotorTorque() : 0.0f);
+    return 3;
+}
+
+int natRevoluteJointSetMotor(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setMotor(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natRevoluteJointGetLimits(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->limitEnabled());
+    args[1] = zen::val_float(joint ? joint->lowerAngle() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->upperAngle() : 0.0f);
+    return 3;
+}
+
+int natRevoluteJointSetLimits(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setLimits(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natWheelJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetLocalAxisA(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 axis = joint ? joint->localAxisA() : Math::Vec2(1.0f, 0.0f);
+    args[0] = zen::val_float(axis.x);
+    args[1] = zen::val_float(axis.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAxisA(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAxisA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetMotor(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->motorEnabled());
+    args[1] = zen::val_float(joint ? joint->motorSpeed() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->maxMotorTorque() : 0.0f);
+    return 3;
+}
+
+int natWheelJointSetMotor(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setMotor(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natWheelJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natWheelJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natGearJointSetJointA(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        char small[128];
+        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const int index = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
+        joint->setJointA(name, index);
+    }
+    return 0;
+}
+
+int natGearJointGetJointA(zen::VM* vm, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->jointATargetName().c_str() : ""));
+    args[1] = zen::val_int(joint ? joint->jointAIndex() : 0);
+    return 2;
+}
+
+int natGearJointSetJointB(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        char small[128];
+        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const int index = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
+        joint->setJointB(name, index);
+    }
+    return 0;
+}
+
+int natGearJointGetJointB(zen::VM* vm, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->jointBTargetName().c_str() : ""));
+    args[1] = zen::val_int(joint ? joint->jointBIndex() : 0);
+    return 2;
+}
+
+int natGearJointGetRatio(zen::VM*, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->ratio() : 0.0f);
+    return 1;
+}
+
+int natGearJointSetRatio(zen::VM*, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setRatio((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetLinearOffset(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    const Math::Vec2 offset = joint ? joint->linearOffset() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(offset.x);
+    args[1] = zen::val_float(offset.y);
+    return 2;
+}
+
+int natMotorJointSetLinearOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLinearOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natMotorJointGetAngularOffset(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->angularOffset() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetAngularOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setAngularOffset((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetMaxForce(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxForce() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetMaxForce(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxForce((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetMaxTorque(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxTorque() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetMaxTorque(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxTorque((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetCorrectionFactor(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->correctionFactor() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetCorrectionFactor(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setCorrectionFactor((float)zen::to_number(args[0]));
+    return 0;
+}
+
 // Points are local to the polygon's own transform; RenderQueue applies
 // owner()->globalTransform() at render time, same as Polygon2D::onRender.
 int natPolygonSetPoints(zen::VM*, zen::Value* args, int nargs)
@@ -3677,6 +4180,13 @@ const ComponentBinding kComponentBindings[] = {
     componentBinding<EdgeCollider2D>("EdgeCollider", "EdgeCollider2D"),
     componentBinding<PolygonCollider2D>("PolygonCollider", "PolygonCollider2D"),
     componentBinding<ChainCollider2D>("ChainCollider", "ChainCollider2D"),
+    abstractComponentBinding<ComponentType::Joint>("Joint", "Joint2D"),
+    componentBinding<DistanceJoint2D>("DistanceJoint", "DistanceJoint2D"),
+    componentBinding<MouseJoint2D>("MouseJoint", "MouseJoint2D"),
+    componentBinding<RevoluteJoint2D>("RevoluteJoint", "RevoluteJoint2D"),
+    componentBinding<WheelJoint2D>("WheelJoint", "WheelJoint2D"),
+    componentBinding<GearJoint2D>("GearJoint", "GearJoint2D"),
+    componentBinding<MotorJoint2D>("MotorJoint", "MotorJoint2D"),
     componentBinding<TileMapComponent>("TileMap", "TileMapComponent"),
     componentBinding<SpriteBatch>("SpriteBatch"),
     componentBinding<Polygon2D>("Polygon2D"),
@@ -5371,8 +5881,103 @@ void ZenRuntime::Impl::initialize()
     chainCollider.persistent(true).constructable(false);
     zen::ObjClass* chainColliderClass = chainCollider.end();
 
+    auto joint = vm.def_class("Joint");
+    joint.parent("Component");
+    joint.method("get_target_name", &natJointGetTargetName, 0);
+    joint.method("set_target_name", &natJointSetTargetName, 1);
+    joint.method("get_collide_connected", &natJointGetCollideConnected, 0);
+    joint.method("set_collide_connected", &natJointSetCollideConnected, 1);
+    joint.method("is_connected", &natJointIsConnected, 0);
+    joint.method("get_anchor_a", &natJointGetAnchorA, 0);
+    joint.method("get_anchor_b", &natJointGetAnchorB, 0);
+    joint.persistent(true).constructable(false);
+    zen::ObjClass* jointClass = joint.end();
+
+    auto distanceJoint = vm.def_class("DistanceJoint");
+    distanceJoint.parent("Joint");
+    distanceJoint.method("get_local_anchor_a", &natDistanceJointGetLocalAnchorA, 0);
+    distanceJoint.method("set_local_anchor_a", &natDistanceJointSetLocalAnchorA, 2);
+    distanceJoint.method("get_local_anchor_b", &natDistanceJointGetLocalAnchorB, 0);
+    distanceJoint.method("set_local_anchor_b", &natDistanceJointSetLocalAnchorB, 2);
+    distanceJoint.method("get_length", &natDistanceJointGetLength, 0);
+    distanceJoint.method("set_length", &natDistanceJointSetLength, 1);
+    distanceJoint.method("get_length_range", &natDistanceJointGetLengthRange, 0);
+    distanceJoint.method("set_length_range", &natDistanceJointSetLengthRange, 2);
+    distanceJoint.method("get_spring", &natDistanceJointGetSpring, 0);
+    distanceJoint.method("set_spring", &natDistanceJointSetSpring, 2);
+    distanceJoint.persistent(true).constructable(false);
+    zen::ObjClass* distanceJointClass = distanceJoint.end();
+
+    auto mouseJoint = vm.def_class("MouseJoint");
+    mouseJoint.parent("Joint");
+    mouseJoint.method("get_target", &natMouseJointGetTarget, 0);
+    mouseJoint.method("set_target", &natMouseJointSetTarget, 2);
+    mouseJoint.method("get_max_force", &natMouseJointGetMaxForce, 0);
+    mouseJoint.method("set_max_force", &natMouseJointSetMaxForce, 1);
+    mouseJoint.method("get_spring", &natMouseJointGetSpring, 0);
+    mouseJoint.method("set_spring", &natMouseJointSetSpring, 2);
+    mouseJoint.persistent(true).constructable(false);
+    zen::ObjClass* mouseJointClass = mouseJoint.end();
+
+    auto revoluteJoint = vm.def_class("RevoluteJoint");
+    revoluteJoint.parent("Joint");
+    revoluteJoint.method("get_local_anchor_a", &natRevoluteJointGetLocalAnchorA, 0);
+    revoluteJoint.method("set_local_anchor_a", &natRevoluteJointSetLocalAnchorA, 2);
+    revoluteJoint.method("get_local_anchor_b", &natRevoluteJointGetLocalAnchorB, 0);
+    revoluteJoint.method("set_local_anchor_b", &natRevoluteJointSetLocalAnchorB, 2);
+    revoluteJoint.method("get_reference_angle", &natRevoluteJointGetReferenceAngle, 0);
+    revoluteJoint.method("set_reference_angle", &natRevoluteJointSetReferenceAngle, 1);
+    revoluteJoint.method("get_motor", &natRevoluteJointGetMotor, 0);
+    revoluteJoint.method("set_motor", &natRevoluteJointSetMotor, 3);
+    revoluteJoint.method("get_limits", &natRevoluteJointGetLimits, 0);
+    revoluteJoint.method("set_limits", &natRevoluteJointSetLimits, 3);
+    revoluteJoint.persistent(true).constructable(false);
+    zen::ObjClass* revoluteJointClass = revoluteJoint.end();
+
+    auto wheelJoint = vm.def_class("WheelJoint");
+    wheelJoint.parent("Joint");
+    wheelJoint.method("get_local_anchor_a", &natWheelJointGetLocalAnchorA, 0);
+    wheelJoint.method("set_local_anchor_a", &natWheelJointSetLocalAnchorA, 2);
+    wheelJoint.method("get_local_anchor_b", &natWheelJointGetLocalAnchorB, 0);
+    wheelJoint.method("set_local_anchor_b", &natWheelJointSetLocalAnchorB, 2);
+    wheelJoint.method("get_local_axis_a", &natWheelJointGetLocalAxisA, 0);
+    wheelJoint.method("set_local_axis_a", &natWheelJointSetLocalAxisA, 2);
+    wheelJoint.method("get_motor", &natWheelJointGetMotor, 0);
+    wheelJoint.method("set_motor", &natWheelJointSetMotor, 3);
+    wheelJoint.method("get_spring", &natWheelJointGetSpring, 0);
+    wheelJoint.method("set_spring", &natWheelJointSetSpring, 2);
+    wheelJoint.persistent(true).constructable(false);
+    zen::ObjClass* wheelJointClass = wheelJoint.end();
+
+    auto gearJoint = vm.def_class("GearJoint");
+    gearJoint.parent("Joint");
+    gearJoint.method("get_joint_a", &natGearJointGetJointA, 0);
+    gearJoint.method("set_joint_a", &natGearJointSetJointA, -1);
+    gearJoint.method("get_joint_b", &natGearJointGetJointB, 0);
+    gearJoint.method("set_joint_b", &natGearJointSetJointB, -1);
+    gearJoint.method("get_ratio", &natGearJointGetRatio, 0);
+    gearJoint.method("set_ratio", &natGearJointSetRatio, 1);
+    gearJoint.persistent(true).constructable(false);
+    zen::ObjClass* gearJointClass = gearJoint.end();
+
+    auto motorJoint = vm.def_class("MotorJoint");
+    motorJoint.parent("Joint");
+    motorJoint.method("get_linear_offset", &natMotorJointGetLinearOffset, 0);
+    motorJoint.method("set_linear_offset", &natMotorJointSetLinearOffset, 2);
+    motorJoint.method("get_angular_offset", &natMotorJointGetAngularOffset, 0);
+    motorJoint.method("set_angular_offset", &natMotorJointSetAngularOffset, 1);
+    motorJoint.method("get_max_force", &natMotorJointGetMaxForce, 0);
+    motorJoint.method("set_max_force", &natMotorJointSetMaxForce, 1);
+    motorJoint.method("get_max_torque", &natMotorJointGetMaxTorque, 0);
+    motorJoint.method("set_max_torque", &natMotorJointSetMaxTorque, 1);
+    motorJoint.method("get_correction_factor", &natMotorJointGetCorrectionFactor, 0);
+    motorJoint.method("set_correction_factor", &natMotorJointSetCorrectionFactor, 1);
+    motorJoint.persistent(true).constructable(false);
+    zen::ObjClass* motorJointClass = motorJoint.end();
+
     (void)characterBodyClass;
     (void)colliderClass;
+    (void)jointClass;
 
     auto panel = vm.def_class("Panel");
     panel.parent("Component");
@@ -5479,6 +6084,7 @@ void ZenRuntime::Impl::initialize()
     line.method("set_width", &natLineSetWidth, 1);
     line.method("get_color", &natLineGetColor, 0);
     line.method("set_color", &natLineSetColor, -1);
+    line.method("set_texture", &natLineSetTexture, 1);
     line.persistent(true).constructable(false);
     zen::ObjClass* lineClass = line.end();
 
@@ -5702,6 +6308,10 @@ void ZenRuntime::Impl::initialize()
         {"Collider2D", colliderClass}, {"BoxCollider2D", boxColliderClass},
         {"CircleCollider2D", circleColliderClass}, {"EdgeCollider2D", edgeColliderClass},
         {"PolygonCollider2D", polygonColliderClass}, {"ChainCollider2D", chainColliderClass},
+        {"Joint2D", jointClass}, {"DistanceJoint2D", distanceJointClass},
+        {"MouseJoint2D", mouseJointClass}, {"RevoluteJoint2D", revoluteJointClass},
+        {"WheelJoint2D", wheelJointClass}, {"GearJoint2D", gearJointClass},
+        {"MotorJoint2D", motorJointClass},
         {"TileMapComponent", tileMapClass}, {"NinePatchComponent", ninePatchClass},
         {"LightOccluder2D", occluderClass},
         {"UiPanel", panelClass}, {"UiLabel", labelClass},
