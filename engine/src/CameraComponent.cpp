@@ -8,7 +8,8 @@ namespace k2d
 
     CameraComponent::CameraComponent()
         : Component(Type, ComponentEventUpdate), mCamera(), mViewportWidth(0.0f), mViewportHeight(0.0f),
-          mRenderPriority(0)
+          mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f), mViewportScaleMode(ViewportScaleMode::Fit),
+          mIntegerScale(false), mRenderPriority(0)
     {
     }
 
@@ -57,7 +58,7 @@ namespace k2d
             if (mFollowTarget)
                 mCamera.setTarget(mFollowTarget->globalPosition());
         }
-        mCamera.update(deltaTime, mViewportWidth, mViewportHeight);
+        mCamera.update(deltaTime, renderViewportWidth(), renderViewportHeight());
         writeBackToOwner();
     }
 
@@ -65,23 +66,41 @@ namespace k2d
     {
         mViewportWidth = width > 0.0f ? width : 0.0f;
         mViewportHeight = height > 0.0f ? height : 0.0f;
+        mRenderViewportWidth = mViewportWidth;
+        mRenderViewportHeight = mViewportHeight;
+    }
+
+    void CameraComponent::setRenderViewport(float width, float height)
+    {
+        mRenderViewportWidth = width > 0.0f ? width : 0.0f;
+        mRenderViewportHeight = height > 0.0f ? height : 0.0f;
+    }
+
+    float CameraComponent::renderViewportWidth() const
+    {
+        return mRenderViewportWidth > 0.0f ? mRenderViewportWidth : mViewportWidth;
+    }
+
+    float CameraComponent::renderViewportHeight() const
+    {
+        return mRenderViewportHeight > 0.0f ? mRenderViewportHeight : mViewportHeight;
     }
 
     Math::Mat4 CameraComponent::projection() const
     {
-        return mCamera.Projection(mViewportWidth, mViewportHeight);
+        return mCamera.Projection(renderViewportWidth(), renderViewportHeight());
     }
 
     void CameraComponent::visibleRect(float &minX, float &minY,
                                       float &maxX, float &maxY) const
     {
         mCamera.VisibleRect(minX, minY, maxX, maxY,
-                            mViewportWidth, mViewportHeight);
+                            renderViewportWidth(), renderViewportHeight());
     }
 
     Math::Vec2 CameraComponent::screenToWorld(float x, float y) const
     {
-        return mCamera.ScreenToWorld(x, y, mViewportWidth, mViewportHeight);
+        return mCamera.ScreenToWorld(x, y, renderViewportWidth(), renderViewportHeight());
     }
 
 }

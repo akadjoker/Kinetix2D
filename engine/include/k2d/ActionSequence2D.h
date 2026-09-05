@@ -14,7 +14,13 @@ enum class ActionKind : unsigned char
     Color,
     Move,
     Scale,
+    // Absolute target rotation kept for existing sequences (shown as
+    // "Rotate To" in the editor).
     Turn,
+    // Incremental angular speed in degrees per second for duration seconds.
+    TurnRate,
+    // Incremental X/Y speed in units per second for duration seconds.
+    Force,
     Pause,
     // Changes only the Sprite alpha, preserving its RGB tint.
     Fade,
@@ -36,9 +42,9 @@ enum class ActionSequenceLoop : unsigned char
 struct ActionData
 {
     ActionKind kind = ActionKind::Pause;
-    // Target position (Move) or target scale (Scale); unused otherwise.
+    // Target position (Move), target scale (Scale), or units/second (Force).
     Math::Vec2 vector{0.0f};
-    // Target rotation in degrees (Turn); unused otherwise.
+    // Target rotation (Turn) or degrees/second (TurnRate).
     float angleDegrees = 0.0f;
     // Target tint (Color); unused otherwise.
     Color color = Color::White();
@@ -148,7 +154,7 @@ class ActionSequence2D final : public Component
 
     void beginStep(std::size_t index);
     void beginAction(const ActionData& action, ActionState& state);
-    void applyAction(const ActionData& action, const ActionState& state, float easedT);
+    void applyAction(const ActionData& action, const ActionState& state, float easedT, float elapsedTime);
     float durationFor(const ActionData& action) const;
     void dispatchEvent(const ct::String& event);
     ct::Vector<ActionStep> mSteps;

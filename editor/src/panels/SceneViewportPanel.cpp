@@ -1,4 +1,5 @@
 #include "SceneViewportPanel.h"
+#include <k2d/Profiler.h>
 
 #include "core/EditorApplication.h"
 #include "core/EditorFileSystem.h"
@@ -16,6 +17,7 @@
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/NavigationAgent2D.h>
 #include <k2d/NavigationRegion2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/ParticleComponent.h>
@@ -26,6 +28,7 @@
 #include <IconsMaterialDesignIcons.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <math.h>
 
 namespace k2d::editor
@@ -624,18 +627,28 @@ void SceneViewportPanel::drawObject(ImDrawList& drawList, GameObject& object, co
 {
     const Math::Vec2 world = object.globalPosition();
     const ImVec2 point = worldToScreen(world.x, world.y, origin);
-    if (object.parent())
+    // The scene root is only an editor/container node. Drawing links from its
+    // origin to every top-level object adds visual noise and does not express
+    // a useful transform relationship. Keep links between real parent/child
+    // objects only.
+    const bool selected = app().selection().hasSelection() && app().selection().objectId() == object.id();
+    const EditorSettings& settings = app().settings();
+
+    if (settings.showParentLinks && object.parent() && object.parent() != &app().scene().root())
     {
         const Math::Vec2 parentWorld = object.parent()->globalPosition();
         const ImVec2 parent = worldToScreen(parentWorld.x, parentWorld.y, origin);
         drawList.AddLine(parent, point, IM_COL32(100, 110, 125, 170), 1.0f);
     }
 
-    const bool selected = app().selection().hasSelection() && app().selection().objectId() == object.id();
-    drawList.AddCircleFilled(point, selected ? 6.0f : 4.0f,
-                             selected ? IM_COL32(255, 205, 65, 255) : IM_COL32(70, 180, 235, 255));
-    drawList.AddText(ImVec2(point.x + 8.0f, point.y - 8.0f), IM_COL32(220, 225, 235, 230),
-                     object.name().empty() ? "GameObject" : object.name().c_str());
+    // The selection stays visible whatever the overlays are set to: turning
+    // the decoration off is about the other few hundred nodes, not this one.
+    if (settings.showObjectMarkers || selected)
+        drawList.AddCircleFilled(point, selected ? 6.0f : 4.0f,
+                                 selected ? IM_COL32(255, 205, 65, 255) : IM_COL32(70, 180, 235, 255));
+    if (settings.showObjectNames || selected)
+        drawList.AddText(ImVec2(point.x + 8.0f, point.y - 8.0f), IM_COL32(220, 225, 235, 230),
+                         object.name().empty() ? "GameObject" : object.name().c_str());
 
     for (size_t i = 0; i < object.childCount(); ++i)
         drawObject(drawList, *object.child(i), origin);
@@ -914,6 +927,73 @@ bool SceneViewportPanel::removeRegionPoint(NavigationRegion2D& region, int loop,
     return true;
 }
 
+void SceneViewportPanel::drawNavigationAgents(ImDrawList& drawList, GameObject& object,
+                                               const ImVec2& origin)
+{
+    if (!object.isActiveInHierarchy())
+        return;
+
+    const size_t count = object.componentCount<NavigationAgent2D>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        const NavigationAgent2D* agent = object.getComponentAt<NavigationAgent2D>(i);
+        if (!agent || !agent->active())
+            continue;
+
+        const ImVec2 owner = worldToScreen(object.globalPosition().x, object.globalPosition().y, origin);
+        const ct::Vector<Math::Vec2>& path = agent->path();
+        const size_t next = agent->pathIndex();
+        Math::Vec2 targetWorld = agent->targetPosition();
+        bool hasDebugTarget = agent->hasTarget();
+        if (agent->hasFollowTarget())
+        {
+            if (GameObject* followed = app().scene().find(agent->followTargetName().c_str()))
+            {
+                targetWorld = followed->globalPosition();
+                hasDebugTarget = true;
+            }
+        }
+        if (agent->hasPath() && next < path.size())
+        {
+            ImVec2 previous = owner;
+            for (size_t pointIndex = next; pointIndex < path.size(); ++pointIndex)
+            {
+                const ImVec2 point = worldToScreen(path[pointIndex].x, path[pointIndex].y, origin);
+                drawList.AddLine(previous, point, IM_COL32(70, 225, 255, 235), 2.5f);
+                drawList.AddCircleFilled(point, 3.5f, IM_COL32(70, 225, 255, 245));
+                previous = point;
+            }
+            const ImVec2 waypoint = worldToScreen(path[next].x, path[next].y, origin);
+            const ImVec2 pathLabel((owner.x + waypoint.x) * 0.5f + 5.0f,
+                                   (owner.y + waypoint.y) * 0.5f - 16.0f);
+            drawList.AddText(pathLabel, IM_COL32(70, 225, 255, 255), "PATH");
+            drawList.AddCircle(waypoint, 7.0f, IM_COL32(255, 225, 70, 255), 16, 2.5f);
+            drawList.AddText(ImVec2(waypoint.x + 8.0f, waypoint.y - 8.0f), IM_COL32(255, 225, 70, 255), "NEXT");
+        }
+        else if (hasDebugTarget && path.empty() && app().playing())
+        {
+            const ImVec2 target = worldToScreen(targetWorld.x, targetWorld.y, origin);
+            drawList.AddLine(owner, target, IM_COL32(255, 75, 75, 190), 2.0f);
+            drawList.AddText(ImVec2(owner.x + 8.0f, owner.y - 20.0f), IM_COL32(255, 90, 90, 255), "NO PATH");
+        }
+
+        if (hasDebugTarget)
+        {
+            const ImVec2 target = worldToScreen(targetWorld.x, targetWorld.y, origin);
+            constexpr float arm = 7.0f;
+            drawList.AddLine(ImVec2(target.x - arm, target.y), ImVec2(target.x + arm, target.y),
+                             IM_COL32(255, 90, 220, 255), 2.5f);
+            drawList.AddLine(ImVec2(target.x, target.y - arm), ImVec2(target.x, target.y + arm),
+                             IM_COL32(255, 90, 220, 255), 2.5f);
+            drawList.AddCircle(target, 10.0f, IM_COL32(255, 90, 220, 230), 20, 2.0f);
+            drawList.AddText(ImVec2(target.x + 12.0f, target.y + 4.0f), IM_COL32(255, 120, 225, 255), "TARGET");
+        }
+    }
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        drawNavigationAgents(drawList, *object.child(i), origin);
+}
+
 void SceneViewportPanel::drawNavigationRegions(ImDrawList& drawList, GameObject& object, const ImVec2& origin)
 {
     const size_t count = object.componentCount<NavigationRegion2D>();
@@ -996,13 +1076,18 @@ void SceneViewportPanel::drawNavigationRegions(ImDrawList& drawList, GameObject&
 void SceneViewportPanel::drawCameraGizmo(ImDrawList& drawList, CameraComponent& camera, const ImVec2& origin) const
 {
     float minX, minY, maxX, maxY;
-    camera.visibleRect(minX, minY, maxX, maxY);
+    const float resolutionWidth = camera.viewportWidth();
+    const float resolutionHeight = camera.viewportHeight();
+    camera.camera().VisibleRect(minX, minY, maxX, maxY, resolutionWidth, resolutionHeight);
     if (maxX > minX && maxY > minY)
     {
         const ImVec2 corners[4] = {worldToScreen(minX, minY, origin), worldToScreen(maxX, minY, origin),
                                    worldToScreen(maxX, maxY, origin), worldToScreen(minX, maxY, origin)};
         drawList.AddPolyline(corners, 4, IM_COL32(90, 200, 255, 220), ImDrawFlags_Closed, 1.6f);
-        drawList.AddText(ImVec2(corners[0].x + 4.0f, corners[0].y + 4.0f), IM_COL32(90, 200, 255, 220), "Viewport");
+        char label[96];
+        std::snprintf(label, sizeof(label), "Resolution %.0f x %.0f | %s", resolutionWidth, resolutionHeight,
+                      camera.viewportScaleMode() == ViewportScaleMode::Expand ? "Expand" : "Fit");
+        drawList.AddText(ImVec2(corners[0].x + 4.0f, corners[0].y + 4.0f), IM_COL32(90, 200, 255, 220), label);
     }
 
     const Camera2D& camera2D = camera.camera();
@@ -1116,6 +1201,7 @@ int SceneViewportPanel::hitTestGizmo(GameObject& selected, const ImVec2& mouse, 
 
 void SceneViewportPanel::drawContents()
 {
+    ProfileScope profileScope("editor.viewport");
     app().settings().viewportPan = Math::Vec2(mPan.x, mPan.y);
     app().settings().viewportZoom = mZoom;
     app().settings().viewportTool = mTool;
@@ -1152,6 +1238,14 @@ void SceneViewportPanel::drawContents()
     {
         mShowGrid = !mShowGrid;
         app().log(mShowGrid ? "Grid shown" : "Grid hidden");
+    }
+    toolbarSameLine();
+    if (toolbarIcon("navigationdebug", ICON_MDI_MAP_MARKER_PATH,
+                    "Show navigation paths, next waypoints and targets",
+                    app().settings().showNavigationDebug))
+    {
+        app().settings().showNavigationDebug = !app().settings().showNavigationDebug;
+        app().log(app().settings().showNavigationDebug ? "Navigation debug on" : "Navigation debug off");
     }
     toolbarSameLine();
     if (toolbarIcon("livepreview", ICON_MDI_ANIMATION_PLAY_OUTLINE,
@@ -1192,18 +1286,31 @@ void SceneViewportPanel::drawContents()
     const ImVec2 axis = worldToScreen(0.0f, 0.0f, origin);
     drawList.AddLine(ImVec2(min.x, axis.y), ImVec2(max.x, axis.y), IM_COL32(150, 60, 60, 180));
     drawList.AddLine(ImVec2(axis.x, min.y), ImVec2(axis.x, max.y), IM_COL32(60, 150, 80, 180));
-    drawObject(drawList, app().scene().root(), origin);
-    drawCameraGizmos(drawList, app().scene().root(), origin);
-    GameObject* selected = app().selection().resolve(app().scene());
+    {
+        ProfileScope objectScope("editor.viewport.objects");
+        drawObject(drawList, app().scene().root(), origin);
+        drawCameraGizmos(drawList, app().scene().root(), origin);
+    }
+    GameObject* selected = nullptr;
+    {
+        ProfileScope resolveScope("editor.viewport.resolve");
+        selected = app().selection().resolve(app().scene());
+    }
     // The overlay is a debug toggle, but the point handles are how a selected
     // collider is edited, so the selected object's colliders draw either way.
-    if (app().settings().showColliders)
     {
-        drawColliders(drawList, app().scene().root(), origin);
-        drawNavigationRegions(drawList, app().scene().root(), origin);
+        ProfileScope colliderScope("editor.viewport.colliders");
+        if (app().settings().showColliders)
+        {
+            drawColliders(drawList, app().scene().root(), origin);
+            drawNavigationRegions(drawList, app().scene().root(), origin);
+        }
+        else if (selected && app().selection().componentId() != 0)
+            drawColliders(drawList, *selected, origin);
     }
-    else if (selected && app().selection().componentId() != 0)
-        drawColliders(drawList, *selected, origin);
+
+    if (app().settings().showNavigationDebug)
+        drawNavigationAgents(drawList, app().scene().root(), origin);
 
     const bool gizmoActive = selected && selected != &app().scene().root() && !selected->locked() && mTool >= 1 &&
                              mTool <= 3 && !mDraggedPointCollider && !mDraggedBatch && !mDraggedRegion;
@@ -1274,7 +1381,19 @@ void SceneViewportPanel::drawContents()
         mPan.y += delta.y;
     }
     if (hovered && ImGui::GetIO().MouseWheel != 0.0f)
-        mZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
+    {
+        // Keep the world point under the cursor fixed on screen. Updating only
+        // mZoom makes every wheel step pull the view toward the world origin.
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        const Math::Vec2 anchoredWorld = screenToWorld(mouse, origin);
+        const float nextZoom = clampValue(mZoom * (1.0f + ImGui::GetIO().MouseWheel * 0.1f), 0.1f, 8.0f);
+        if (nextZoom != mZoom)
+        {
+            mZoom = nextZoom;
+            mPan.x = mouse.x - origin.x - anchoredWorld.x * mZoom;
+            mPan.y = mouse.y - origin.y - anchoredWorld.y * mZoom;
+        }
+    }
     if (hovered && selectedRegion && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
     {
         int loop = -1;

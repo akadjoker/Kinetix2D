@@ -15,6 +15,7 @@
 #include "k2d/Assets.h"
 #include "k2d/Batch.h"
 #include "k2d/Camera2D.h"
+#include "k2d/GameViewport.h"
 #include "k2d/CameraComponent.h"
 #include "k2d/Animation2D.h"
 #include "k2d/Material2D.h"

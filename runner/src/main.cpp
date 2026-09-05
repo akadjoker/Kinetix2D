@@ -7,6 +7,7 @@
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
+#include <k2d/GameViewport.h>
 #include <k2d/InputActionMap.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/MouseCursor.h>
@@ -34,6 +35,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <filesystem>
 #include <string>
 
@@ -46,6 +48,33 @@ struct PhysicsConfig
     int velocityIterations = 8;
     bool treeBroadphase = true;
 };
+
+k2d::GameViewport gameViewportFor(const k2d::CameraComponent* camera, float outputWidth, float outputHeight)
+{
+    if (!camera)
+        return k2d::CalculateGameViewport(outputWidth, outputHeight, outputWidth, outputHeight);
+    return k2d::CalculateGameViewport(outputWidth, outputHeight, camera->viewportWidth(), camera->viewportHeight(),
+                                      camera->viewportScaleMode(), camera->integerScale());
+}
+
+void setGlViewport(const k2d::GameViewport& viewport)
+{
+    glViewport(static_cast<int>(std::lround(viewport.x)), static_cast<int>(std::lround(viewport.y)),
+               static_cast<int>(std::lround(viewport.width)), static_cast<int>(std::lround(viewport.height)));
+}
+
+k2d::GameViewport inputViewportFor(const k2d::GameViewport& renderViewport, float windowWidth, float windowHeight,
+                                   float drawableWidth, float drawableHeight)
+{
+    k2d::GameViewport result = renderViewport;
+    const float scaleX = drawableWidth > 0.0f ? windowWidth / drawableWidth : 1.0f;
+    const float scaleY = drawableHeight > 0.0f ? windowHeight / drawableHeight : 1.0f;
+    result.x *= scaleX;
+    result.y *= scaleY;
+    result.width *= scaleX;
+    result.height *= scaleY;
+    return result;
+}
 
 Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
 {
@@ -434,10 +463,29 @@ int main(int argc, char** argv)
                     const float deltaTime = device.DeltaTime();
                     k2d::GetScreenFade().Update(deltaTime);
                     k2d::GetAudio().Update();
-                    virtualPad.Update(device.GetInput(), static_cast<float>(device.Width()),
-                                      static_cast<float>(device.Height()), deltaTime);
-                    k2d::SetUiViewport(0.0f, 0.0f, static_cast<float>(device.Width()),
-                                       static_cast<float>(device.Height()));
+                    const float windowWidth = static_cast<float>(device.Width());
+                    const float windowHeight = static_cast<float>(device.Height());
+                    const float drawableWidth = static_cast<float>(device.DrawableWidth());
+                    const float drawableHeight = static_cast<float>(device.DrawableHeight());
+                    k2d::CameraComponent* camera = scene.activeCamera();
+                    k2d::GameViewport renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight);
+                    k2d::GameViewport inputViewport =
+                        inputViewportFor(renderViewport, windowWidth, windowHeight, drawableWidth, drawableHeight);
+                    if (camera)
+                    {
+                        camera->setRenderViewport(inputViewport.virtualWidth, inputViewport.virtualHeight);
+                        k2d::SetZenScriptGameCamera(&camera->camera());
+                    }
+                    else
+                        k2d::SetZenScriptGameCamera(&defaultCamera);
+                    k2d::SetZenScriptGameViewport(inputViewport.x, inputViewport.y, inputViewport.width,
+                                                  inputViewport.height, inputViewport.virtualWidth,
+                                                  inputViewport.virtualHeight);
+                    k2d::SetUiViewport(inputViewport.x, inputViewport.y, inputViewport.width, inputViewport.height,
+                                       inputViewport.virtualWidth, inputViewport.virtualHeight);
+                    virtualPad.Update(device.GetInput(), inputViewport.x, inputViewport.y, inputViewport.width,
+                                      inputViewport.height, inputViewport.virtualWidth, inputViewport.virtualHeight,
+                                      deltaTime);
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
                     k2d::DispatchZenScriptEvents(scene.root());
@@ -449,38 +497,48 @@ int main(int argc, char** argv)
                             std::fprintf(stderr, "Could not load requested scene\n");
                     }
 
+                    camera = scene.activeCamera();
+                    renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight);
+                    inputViewport =
+                        inputViewportFor(renderViewport, windowWidth, windowHeight, drawableWidth, drawableHeight);
+                    if (camera)
+                        camera->setRenderViewport(renderViewport.virtualWidth, renderViewport.virtualHeight);
+                    k2d::SetZenScriptGameViewport(inputViewport.x, inputViewport.y, inputViewport.width,
+                                                  inputViewport.height, inputViewport.virtualWidth,
+                                                  inputViewport.virtualHeight);
+                    k2d::SetUiViewport(inputViewport.x, inputViewport.y, inputViewport.width, inputViewport.height,
+                                       renderViewport.virtualWidth, renderViewport.virtualHeight);
+                    glViewport(0, 0, device.DrawableWidth(), device.DrawableHeight());
                     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    const float width = static_cast<float>(device.Width());
-                    const float height = static_cast<float>(device.Height());
-                    k2d::SetZenScriptGameViewport(0.0f, 0.0f, width, height);
-                    k2d::SetUiViewport(0.0f, 0.0f, width, height);
-                    if (k2d::CameraComponent* camera = scene.activeCamera())
+                    setGlViewport(renderViewport);
+                    const float virtualWidth = renderViewport.virtualWidth;
+                    const float virtualHeight = renderViewport.virtualHeight;
+                    if (camera)
                     {
-                        camera->setViewport(width, height);
                         k2d::GetAudio().SetListenerPosition(camera->camera().position);
                         canvas.SetProjection(camera->projection());
                         k2d::SetZenScriptGameCamera(&camera->camera());
-                        scene.setRenderCamera(&camera->camera(), width, height);
+                        scene.setRenderCamera(&camera->camera(), virtualWidth, virtualHeight);
                     }
                     else
                     {
-                        canvas.SetProjection(defaultCamera.Projection(width, height));
+                        canvas.SetProjection(defaultCamera.Projection(virtualWidth, virtualHeight));
                         k2d::SetZenScriptGameCamera(&defaultCamera);
-                        scene.setRenderCamera(&defaultCamera, width, height);
+                        scene.setRenderCamera(&defaultCamera, virtualWidth, virtualHeight);
                     }
                     scene.render(canvas);
                     k2d::ZenRuntime::instance().submitProfilerSamples();
                     if (profilerVisible)
-                        drawProfilerOverlay(canvas, width, height);
-                    virtualPad.Draw(canvas, width, height);
-                    k2d::GetScreenFade().Draw(canvas, width, height);
+                        drawProfilerOverlay(canvas, virtualWidth, virtualHeight);
+                    virtualPad.Draw(canvas, virtualWidth, virtualHeight);
+                    k2d::GetScreenFade().Draw(canvas, virtualWidth, virtualHeight);
                     k2d::MouseCursor& cursor = k2d::GetMouseCursor();
                     if (cursor.enabled())
                     {
-                        cursor.setPosition(
-                            Math::Vec2(device.GetInput().MouseX(), device.GetInput().MouseY()));
-                        cursor.draw(canvas, width, height);
+                        cursor.setPosition(Math::Vec2(inputViewport.toVirtualX(device.GetInput().MouseX()),
+                                                     inputViewport.toVirtualY(device.GetInput().MouseY())));
+                        cursor.draw(canvas, virtualWidth, virtualHeight);
                     }
                     device.Swap();
                     k2d::Profiler::Get().endFrame();

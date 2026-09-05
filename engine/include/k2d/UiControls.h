@@ -19,6 +19,8 @@ namespace k2d
         float y = 0.0f;
         float width = 1280.0f;
         float height = 720.0f;
+        float outputWidth = 1280.0f;
+        float outputHeight = 720.0f;
         bool valid = false;
     };
 
@@ -26,6 +28,8 @@ namespace k2d
     // rectangle once per frame. UI coordinates remain local to that rectangle.
     void SetUiInput(Input *input);
     void SetUiViewport(float x, float y, float width, float height);
+    void SetUiViewport(float x, float y, float outputWidth, float outputHeight,
+                       float virtualWidth, float virtualHeight);
     void SetUiThemeTexture(Texture *texture);
     const UiViewport &GetUiViewport();
 

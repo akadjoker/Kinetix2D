@@ -15,6 +15,7 @@ class Collider2D;
 class GameObject;
 class SpriteBatch;
 class CameraComponent;
+class NavigationAgent2D;
 class NavigationRegion2D;
 }
 
@@ -70,6 +71,7 @@ private:
     void drawSpriteBatchEntries(ImDrawList &drawList, GameObject &object, SpriteBatch &batch, const ImVec2 &origin) const;
     void drawCameraGizmo(ImDrawList &drawList, CameraComponent &camera, const ImVec2 &origin) const;
     void drawCameraGizmos(ImDrawList &drawList, GameObject &object, const ImVec2 &origin) const;
+    void drawNavigationAgents(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
     void drawNavigationRegions(ImDrawList &drawList, GameObject &object, const ImVec2 &origin);
     int hitTestBatchEntry(GameObject &object, SpriteBatch &batch, const ImVec2 &mouse, const ImVec2 &origin) const;
 

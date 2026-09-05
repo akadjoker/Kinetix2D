@@ -130,6 +130,89 @@ namespace k2d
         return true;
     }
 
+    bool Animation2D::addFramePoint(const char *clipName, size_t frameIndex, const Math::Vec2 &point)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size())
+            return false;
+        clip->frames[frameIndex].points.push_back(point);
+        return true;
+    }
+
+    bool Animation2D::setFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex,
+                                    const Math::Vec2 &point)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return false;
+        clip->frames[frameIndex].points[pointIndex] = point;
+        return true;
+    }
+
+    bool Animation2D::removeFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return false;
+        ct::Vector<Math::Vec2> &points = clip->frames[frameIndex].points;
+        points.erase(points.begin() + pointIndex);
+        return true;
+    }
+
+    size_t Animation2D::framePointCount(const char *clipName, size_t frameIndex) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip && frameIndex < clip->frames.size() ? clip->frames[frameIndex].points.size() : 0u;
+    }
+
+    const Math::Vec2 *Animation2D::framePointAt(const char *clipName, size_t frameIndex, size_t pointIndex) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return nullptr;
+        return &clip->frames[frameIndex].points[pointIndex];
+    }
+
+    size_t Animation2D::currentFramePointCount() const
+    {
+        const AnimationClip *clip = activeClip();
+        return clip && !clip->frames.empty() && clip->frame >= 0 && static_cast<size_t>(clip->frame) < clip->frames.size()
+                   ? clip->frames[static_cast<size_t>(clip->frame)].points.size()
+                   : 0u;
+    }
+
+    bool Animation2D::currentFramePoint(size_t pointIndex, Math::Vec2 &outPoint) const
+    {
+        const AnimationClip *clip = activeClip();
+        if (!clip || clip->frames.empty() || clip->frame < 0 || static_cast<size_t>(clip->frame) >= clip->frames.size() ||
+            pointIndex >= clip->frames[static_cast<size_t>(clip->frame)].points.size())
+            return false;
+        outPoint = clip->frames[static_cast<size_t>(clip->frame)].points[pointIndex];
+        return true;
+    }
+
+    bool Animation2D::currentFrameRealPoint(size_t pointIndex, Math::Vec2 &outWorld) const
+    {
+        Math::Vec2 pixel;
+        if (!currentFramePoint(pointIndex, pixel))
+            return false;
+        const GameObject *object = owner();
+        const SpriteComponent *sprite = object ? object->getComponent<SpriteComponent>() : nullptr;
+        if (!object || !sprite)
+            return false;
+
+        const Math::Vec2 size = sprite->size();
+        if (sprite->flipX())
+            pixel.x = size.x - pixel.x;
+        if (sprite->flipY())
+            pixel.y = size.y - pixel.y;
+        const Math::Vec2 local = sprite->renderOffset() +
+                                 Math::Vec2(pixel.x - sprite->pivot().x * size.x,
+                                            pixel.y - sprite->pivot().y * size.y);
+        outWorld = object->globalTransform().Transform(local);
+        return true;
+    }
+
     bool Animation2D::removeFrame(const char *clipName, size_t index)
     {
         AnimationClip *clip = findClip(clipName);

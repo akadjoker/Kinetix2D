@@ -1,4 +1,5 @@
 #include "InspectorPanel.h"
+#include <k2d/Profiler.h>
 
 #include "core/EditorApplication.h"
 #include "panels/AssetsPanel.h"
@@ -899,18 +900,32 @@ void drawPathMotionProperties(EditorApplication& app, PathMotion2D& motion)
 
 const char* actionKindLabel(ActionKind kind)
 {
-    static const char* kNames[] = {"Color", "Move", "Scale", "Turn", "Pause", "Fade", "Parallel", "Event"};
-    return kNames[static_cast<int>(kind)];
+    switch (kind)
+    {
+    case ActionKind::Color: return "Color";
+    case ActionKind::Move: return "Move To";
+    case ActionKind::Scale: return "Scale To";
+    case ActionKind::Turn: return "Rotate To";
+    case ActionKind::TurnRate: return "Turn";
+    case ActionKind::Force: return "Force";
+    case ActionKind::Pause: return "Pause";
+    case ActionKind::Fade: return "Fade";
+    case ActionKind::Parallel: return "Parallel";
+    case ActionKind::Event: return "Event";
+    }
+    return "Pause";
 }
 
 void drawActionStepProperties(EditorApplication& app, ActionData& step, bool allowParallel)
 {
-    static const ActionKind kAllKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale, ActionKind::Turn,
-                                           ActionKind::Pause, ActionKind::Fade, ActionKind::Parallel, ActionKind::Event};
-    static const ActionKind kLeafKinds[] = {ActionKind::Color, ActionKind::Move, ActionKind::Scale,
-                                            ActionKind::Turn, ActionKind::Pause, ActionKind::Fade, ActionKind::Event};
+    static const ActionKind kAllKinds[] = {
+        ActionKind::Color, ActionKind::Move, ActionKind::Scale, ActionKind::Turn, ActionKind::TurnRate,
+        ActionKind::Force, ActionKind::Pause, ActionKind::Fade, ActionKind::Parallel, ActionKind::Event};
+    static const ActionKind kLeafKinds[] = {
+        ActionKind::Color, ActionKind::Move, ActionKind::Scale, ActionKind::Turn, ActionKind::TurnRate,
+        ActionKind::Force, ActionKind::Pause, ActionKind::Fade, ActionKind::Event};
     const ActionKind* kinds = allowParallel ? kAllKinds : kLeafKinds;
-    const int kindCount = allowParallel ? 8 : 7;
+    const int kindCount = allowParallel ? 10 : 9;
     int kindIndex = 0;
     for (; kindIndex < kindCount; ++kindIndex)
         if (kinds[kindIndex] == step.kind)
@@ -933,18 +948,28 @@ void drawActionStepProperties(EditorApplication& app, ActionData& step, bool all
     {
     case ActionKind::Move:
     case ActionKind::Scale:
+    case ActionKind::Force:
     {
         float vector[2] = {step.vector.x, step.vector.y};
-        if (ImGui::DragFloat2(step.kind == ActionKind::Move ? "Target Position" : "Target Scale", vector,
-                              step.kind == ActionKind::Move ? 1.0f : 0.01f))
+        const char* label = step.kind == ActionKind::Move    ? "Target Position"
+                            : step.kind == ActionKind::Scale ? "Target Scale"
+                                                             : "Velocity (units/s)";
+        const float speed = step.kind == ActionKind::Scale ? 0.01f : 1.0f;
+        if (ImGui::DragFloat2(label, vector, speed))
             applyInstant(app, "Set Action Step Target", [&] { step.vector = Math::Vec2(vector[0], vector[1]); });
+        if (step.kind == ActionKind::Force)
+            ImGui::TextDisabled("Adds velocity * delta time for the action duration.");
         break;
     }
     case ActionKind::Turn:
+    case ActionKind::TurnRate:
     {
         float angle = step.angleDegrees;
-        if (dragFloatProperty(app, "Target Angle", angle, 1.0f, "Set Action Step Angle"))
+        const char* label = step.kind == ActionKind::Turn ? "Target Angle" : "Angular Speed (deg/s)";
+        if (dragFloatProperty(app, label, angle, 1.0f, "Set Action Step Angle"))
             step.angleDegrees = angle;
+        if (step.kind == ActionKind::TurnRate)
+            ImGui::TextDisabled("Adds angular speed * delta time for the action duration.");
         break;
     }
     case ActionKind::Color:
@@ -971,10 +996,23 @@ void drawActionStepProperties(EditorApplication& app, ActionData& step, bool all
         break;
     }
 
-    float duration = step.duration;
-    if (dragFloatProperty(app, "Duration", duration, 0.05f, "Set Action Step Duration", 0.0f, 60.0f))
-        step.duration = Max(0.0f, duration);
-    if (step.kind != ActionKind::Pause)
+    const bool rateAction = step.kind == ActionKind::Force || step.kind == ActionKind::TurnRate;
+    bool forever = rateAction && step.duration <= 0.0f;
+    if (rateAction && ImGui::Checkbox("Forever", &forever))
+        applyInstant(app, "Toggle Infinite Action", [&] { step.duration = forever ? 0.0f : 1.0f; });
+
+    if (!forever)
+    {
+        float duration = step.duration;
+        if (dragFloatProperty(app, "Duration", duration, 0.05f, "Set Action Step Duration", 0.0f, 60.0f))
+            step.duration = Max(0.0f, duration);
+    }
+    else
+    {
+        ImGui::TextDisabled("Runs until the sequence is stopped or restarted.");
+    }
+
+    if (step.kind != ActionKind::Pause && !rateAction)
     {
         MotionEase ease = step.ease;
         if (motionEaseCombo("Ease", ease))
@@ -1139,8 +1177,8 @@ void drawNavigationAgentProperties(EditorApplication& app, NavigationAgent2D& ag
             agent.setRotationOffsetDegrees(offset);
         ImGui::TextDisabled("0 lerp speed rotates instantly. Use offset when the sprite does not face right.");
     }
-    ImGui::TextDisabled("%d waypoint(s)%s", static_cast<int>(agent.path().size()),
-                        agent.isNavigationFinished() ? " — finished" : "");
+    ImGui::TextDisabled("Waypoint %d / %d%s", static_cast<int>(agent.pathIndex()),
+                        static_cast<int>(agent.path().size()), agent.isNavigationFinished() ? " — finished" : "");
 }
 
 void drawLineProperties(EditorApplication& app, Line2D& line)
@@ -1526,13 +1564,34 @@ void drawCameraProperties(EditorApplication& app, CameraComponent& cameraCompone
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Scene::activeCamera() picks the enabled camera with the highest render priority.");
 
+    ImGui::SeparatorText("Virtual Resolution");
+    ImGui::TextDisabled("Stable game coordinates; the real window is fitted around this view.");
     float viewportW = cameraComponent.viewportWidth();
     float viewportH = cameraComponent.viewportHeight();
     bool viewportChanged = false;
-    viewportChanged |= dragFloatProperty(app, "Viewport Width", viewportW, 1.0f, "Resize Camera Viewport");
-    viewportChanged |= dragFloatProperty(app, "Viewport Height", viewportH, 1.0f, "Resize Camera Viewport");
+    viewportChanged |= dragFloatProperty(app, "Width", viewportW, 1.0f, "Change Virtual Resolution", 1.0f, 16384.0f);
+    viewportChanged |= dragFloatProperty(app, "Height", viewportH, 1.0f, "Change Virtual Resolution", 1.0f, 16384.0f);
     if (viewportChanged)
         cameraComponent.setViewport(viewportW, viewportH);
+
+    static const char* resizeModes[] = {"Fit (letterbox)", "Expand (show more)"};
+    int resizeMode = cameraComponent.viewportScaleMode() == ViewportScaleMode::Expand ? 1 : 0;
+    if (ImGui::Combo("Resize Mode", &resizeMode, resizeModes, 2))
+        applyInstant(app, "Change Viewport Resize Mode", [&]
+        {
+            cameraComponent.setViewportScaleMode(resizeMode == 1 ? ViewportScaleMode::Expand
+                                                                 : ViewportScaleMode::Fit);
+        });
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Fit preserves the exact view with bars. Expand fills wide/tall windows and reveals more world.");
+
+    bool integerScale = cameraComponent.integerScale();
+    ImGui::BeginDisabled(cameraComponent.viewportScaleMode() != ViewportScaleMode::Fit);
+    if (ImGui::Checkbox("Integer Scale", &integerScale))
+        applyInstant(app, "Toggle Integer Viewport Scale", [&] { cameraComponent.setIntegerScale(integerScale); });
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Use whole-number scaling when the output is larger than the virtual resolution.");
 
     int renderPriority = cameraComponent.renderPriority();
     if (dragIntProperty(app, "Render Priority", renderPriority, 1.0f,
@@ -2245,6 +2304,7 @@ void drawGearJointProperties(EditorApplication& app, GearJoint2D& joint)
 
 void drawZenScriptOverrides(EditorApplication& app, ZenScriptComponent& script)
 {
+    ProfileScope scriptScope("editor.inspector.script");
     const size_t declaredCount = script.declaredPropertyCount();
     if (declaredCount == 0 && script.overrideCount() == 0)
         return;
@@ -3179,8 +3239,11 @@ void drawComponentProperties(EditorApplication& app, Component& component)
         drawOccluderProperties(app, static_cast<LightOccluder2D&>(component));
         break;
     case ComponentType::Camera:
+    {
+        ProfileScope cameraScope("editor.inspector.camera");
         drawCameraProperties(app, static_cast<CameraComponent&>(component));
         break;
+    }
     case ComponentType::Particle:
         drawParticleProperties(app, static_cast<ParticleComponent&>(component));
         break;
@@ -3237,6 +3300,7 @@ void drawComponentProperties(EditorApplication& app, Component& component)
 
 void InspectorPanel::drawContents()
 {
+    ProfileScope profileScope("editor.inspector");
     GameObject* object = app().selection().resolve(app().scene());
     if (!object)
     {
@@ -3382,9 +3446,13 @@ void InspectorPanel::drawContents()
                 ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
                 ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
             }
+            // Not DefaultOpen: a collapsed component draws none of its body,
+            // and an Animation2D body is one texture field plus four drag
+            // floats for every frame of every clip -- hundreds of widgets a
+            // frame on a directional sprite. ImGui remembers the per-node
+            // state, so what a user leaves open is what they pay for.
             const bool open = ImGui::TreeNodeEx("##header",
-                                                ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed |
-                                                    ImGuiTreeNodeFlags_SpanAvailWidth,
+                                                ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth,
                                                 "%s  #%u", componentName(*component), component->id());
             if (componentSelected)
                 ImGui::PopStyleColor(2);

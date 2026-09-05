@@ -22,5 +22,7 @@ private:
     void drawFrameEventMarker(Animation2D &animation, AnimationClip &clip, std::size_t frameIndex);
 
     int mSelectedFrame = -1;
+    int mSelectedPoint = -1;
+    bool mDraggingPoint = false;
 };
 }

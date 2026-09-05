@@ -187,6 +187,8 @@ static bool testRaycastAndGravityFromScript()
     makeBox(scene, "wall", Math::Vec2(200.0f, 0.0f), Math::Vec2(40.0f, 200.0f), k2d::BodyType::Static);
 
     k2d::GameObject* scanner = scene.createObject("scanner");
+    scanner->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    scanner->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(40.0f, 40.0f));
     scanner->addComponent<k2d::ZenScriptComponent>()->loadSource("class Scanner:\n"
                                                                  "    def __init__(self, node):\n"
                                                                  "        self.node = node\n"

@@ -211,6 +211,21 @@ void SettingsPanel::drawViewport()
     if (!ImGui::CollapsingHeader("Viewport", ImGuiTreeNodeFlags_DefaultOpen))
         return;
 
+    if (ImGui::Checkbox("Show Object Names", &app().settings().showObjectNames))
+        app().log(app().settings().showObjectNames ? "Object names on" : "Object names off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Label every node in the Scene view. The selected object is always labelled");
+
+    if (ImGui::Checkbox("Show Object Markers", &app().settings().showObjectMarkers))
+        app().log(app().settings().showObjectMarkers ? "Object markers on" : "Object markers off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Draw the origin dot of every node. The selected object is always drawn");
+
+    if (ImGui::Checkbox("Show Parent Links", &app().settings().showParentLinks))
+        app().log(app().settings().showParentLinks ? "Parent links on" : "Parent links off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Draw a line from each child to its parent");
+
     if (ImGui::Checkbox("Show Colliders", &app().settings().showColliders))
         app().log(app().settings().showColliders ? "Collider overlay on" : "Collider overlay off");
     if (ImGui::IsItemHovered())
@@ -220,6 +235,11 @@ void SettingsPanel::drawViewport()
         app().log(app().settings().showPhysicsDebug ? "Physics debug in Game on" : "Physics debug in Game off");
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Draw the running physics shapes, contacts, AABBs and joints over the Game view");
+
+    if (ImGui::Checkbox("Show Navigation Debug", &app().settings().showNavigationDebug))
+        app().log(app().settings().showNavigationDebug ? "Navigation debug on" : "Navigation debug off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Draw each agent's remaining path, next waypoint and target in Scene and Game views");
 
     ImGui::Checkbox("Live Preview", &app().settings().viewportLivePreview);
     if (ImGui::IsItemHovered())

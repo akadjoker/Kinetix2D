@@ -1129,6 +1129,54 @@ bool TestDynamicBodyAgentMoves()
     return ok;
 }
 
+// A character with a circular solid collider and a sensor hitbox must keep
+// its tangential velocity when the navigation desire points into a wall.
+// Otherwise agents catch on scenery corners even though their feet are round.
+bool TestDynamicAgentSlidesAlongWall()
+{
+    k2d::Scene scene;
+    k2d::GameObject* regionObject = scene.createObject("walkable_slide");
+    k2d::NavigationRegion2D* region = regionObject->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 polygon[] = {Math::Vec2(-300.0f, -300.0f), Math::Vec2(300.0f, -300.0f),
+                                  Math::Vec2(300.0f, 300.0f), Math::Vec2(-300.0f, 300.0f)};
+    region->setPolygon(polygon, 4);
+
+    k2d::GameObject* wall = scene.createObject("slide_wall");
+    wall->setPosition(Math::Vec2(0.0f, 0.0f));
+    wall->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+    wall->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(20.0f, 400.0f));
+
+    k2d::GameObject* walker = scene.createObject("sliding_agent");
+    walker->setPosition(Math::Vec2(-40.0f, -100.0f));
+    k2d::RigidBody2D* body = walker->addComponent<k2d::RigidBody2D>();
+    body->setBodyType(k2d::BodyType::Dynamic);
+    body->setGravityScale(0.0f);
+    body->setFriction(0.0f);
+    body->setLinearDamping(0.0f);
+    walker->addComponent<k2d::CircleCollider2D>()->setRadius(10.0f);
+    k2d::BoxCollider2D* hitbox = walker->addComponent<k2d::BoxCollider2D>();
+    hitbox->setSize(Math::Vec2(12.0f, 40.0f));
+    hitbox->setSensor(true);
+
+    k2d::NavigationAgent2D* agent = walker->addComponent<k2d::NavigationAgent2D>();
+    agent->setMaxSpeed(120.0f);
+    agent->setAutoMove(true);
+    agent->setTargetPosition(Math::Vec2(100.0f, 150.0f));
+
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setSimulationEnabled(true);
+    for (int i = 0; i < 90; ++i)
+        scene.update(1.0f / 60.0f);
+
+    const Math::Vec2 end = walker->globalPosition();
+    const bool stoppedByWall = end.x < -15.0f;
+    const bool slidAlongWall = end.y > -30.0f;
+    const bool ok = stoppedByWall && slidAlongWall;
+    std::printf("navigation wall slide: end=(%.1f, %.1f) blocked=%s slid=%s\n", end.x, end.y,
+                stoppedByWall ? "pass" : "fail", slidAlongWall ? "pass" : "fail");
+    return ok;
+}
+
 // A non-finite dt used to poison Wander2D's accumulated angle for good.
 bool TestWanderSurvivesBadDeltaTime()
 {
@@ -1227,13 +1275,14 @@ int main()
     const bool straightPath = TestStraightPathHasNoZigzag();
     const bool sensorSeparation = TestSeparationIgnoresSensors();
     const bool dynamicBody = TestDynamicBodyAgentMoves();
+    const bool wallSlide = TestDynamicAgentSlidesAlongWall();
     const bool wanderNaN = TestWanderSurvivesBadDeltaTime();
     const bool unreachableThrottle = TestUnreachableTargetIsStillThrottled();
     const bool missingTarget = TestMissingFollowTargetCostsNothing();
     const bool parentedAgent = TestAgentUnderRotatedParent();
     const bool agentRoundTrip = TestAgentTargetPresenceRoundTrip();
 
-    return straightPath && sensorSeparation && dynamicBody && wanderNaN &&
+    return straightPath && sensorSeparation && dynamicBody && wallSlide && wanderNaN &&
            unreachableThrottle && missingTarget && parentedAgent && agentRoundTrip &&
            concavePath && outsideRejected && agentPath && holeRouting && holeRoundTrip && followTarget &&
                    repathThrottle && touchingHole && selfIntersecting && noRegion && followDestroyed &&

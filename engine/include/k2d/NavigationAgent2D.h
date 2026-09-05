@@ -72,6 +72,10 @@ class NavigationAgent2D final : public Component
     {
         return mPath;
     }
+    std::size_t pathIndex() const
+    {
+        return mPathIndex;
+    }
     bool hasPath() const
     {
         return mPathIndex < mPath.size();

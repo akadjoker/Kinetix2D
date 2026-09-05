@@ -119,6 +119,8 @@ namespace k2d
     // The editor supplies the Game view rectangle so mouse input in scripts is
     // local to the running game instead of the whole editor window.
     void SetZenScriptGameViewport(float x, float y, float width, float height);
+    void SetZenScriptGameViewport(float x, float y, float outputWidth, float outputHeight,
+                                  float virtualWidth, float virtualHeight);
     void SetZenScriptGameCamera(const Camera2D *camera);
     void SetZenScriptFrameStats(float deltaTime, float fps);
     void SetZenScriptProfilerVisible(bool visible);

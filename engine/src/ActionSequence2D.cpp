@@ -4,6 +4,8 @@
 #include "k2d/Scene.h"
 #include "k2d/SpriteComponent.h"
 
+#include <limits>
+
 namespace k2d
 {
 ActionSequence2D::ActionSequence2D() : Component(Type, ComponentEventUpdate)
@@ -80,12 +82,14 @@ void ActionSequence2D::beginAction(const ActionData& action, ActionState& state)
     switch (action.kind)
     {
     case ActionKind::Move:
+    case ActionKind::Force:
         state.fromVector = owner()->position();
         break;
     case ActionKind::Scale:
         state.fromVector = owner()->scale();
         break;
     case ActionKind::Turn:
+    case ActionKind::TurnRate:
         state.fromAngle = owner()->rotationDegrees();
         break;
     case ActionKind::Color:
@@ -99,7 +103,8 @@ void ActionSequence2D::beginAction(const ActionData& action, ActionState& state)
         break;
     }
 }
-void ActionSequence2D::applyAction(const ActionData& action, const ActionState& state, float easedT)
+void ActionSequence2D::applyAction(const ActionData& action, const ActionState& state, float easedT,
+                                   float elapsedTime)
 {
     if (!owner())
         return;
@@ -108,11 +113,17 @@ void ActionSequence2D::applyAction(const ActionData& action, const ActionState& 
     case ActionKind::Move:
         owner()->setPosition(state.fromVector + (action.vector - state.fromVector) * easedT);
         break;
+    case ActionKind::Force:
+        owner()->setPosition(state.fromVector + action.vector * elapsedTime);
+        break;
     case ActionKind::Scale:
         owner()->setScale(state.fromVector + (action.vector - state.fromVector) * easedT);
         break;
     case ActionKind::Turn:
         owner()->setRotationDegrees(state.fromAngle + (action.angleDegrees - state.fromAngle) * easedT);
+        break;
+    case ActionKind::TurnRate:
+        owner()->setRotationDegrees(state.fromAngle + action.angleDegrees * elapsedTime);
         break;
     case ActionKind::Color:
         if (SpriteComponent* sprite = owner()->getComponent<SpriteComponent>())
@@ -140,7 +151,11 @@ void ActionSequence2D::applyAction(const ActionData& action, const ActionState& 
 }
 float ActionSequence2D::durationFor(const ActionData& action) const
 {
-    return action.kind == ActionKind::Event ? 0.0f : Max(0.0f, action.duration);
+    if (action.kind == ActionKind::Event)
+        return 0.0f;
+    if ((action.kind == ActionKind::Force || action.kind == ActionKind::TurnRate) && action.duration <= 0.0f)
+        return std::numeric_limits<float>::infinity();
+    return Max(0.0f, action.duration);
 }
 void ActionSequence2D::dispatchEvent(const ct::String& event)
 {
@@ -195,12 +210,16 @@ void ActionSequence2D::onUpdate(float dt)
             const ActionData& action = step.actions[i];
             const float actionDuration = durationFor(action);
             const float actionTime = actionDuration <= 0.0f ? 1.0f : Max(0.0f, Min(1.0f, mTime / actionDuration));
-            applyAction(action, mParallelStates[i], Ease(actionTime, action.ease));
+            const float elapsed = actionDuration == std::numeric_limits<float>::infinity()
+                                      ? mTime
+                                      : Min(mTime, actionDuration);
+            applyAction(action, mParallelStates[i], Ease(actionTime, action.ease), elapsed);
         }
     }
     else
     {
-        applyAction(step, mActionState, Ease(local, step.ease));
+        const float elapsed = dur == std::numeric_limits<float>::infinity() ? mTime : Min(mTime, dur);
+        applyAction(step, mActionState, Ease(local, step.ease), elapsed);
     }
     if (mTime >= dur)
     {

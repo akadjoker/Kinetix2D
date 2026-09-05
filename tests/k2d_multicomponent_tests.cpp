@@ -291,6 +291,60 @@ namespace
         ok &= nearEqual(obj->rotationDegrees(), 90.0f);
         ok &= !sequence->playing();
 
+        sequence->clearSteps();
+        obj->setPosition(Math::Vec2(0.0f, 0.0f));
+        obj->setRotationDegrees(0.0f);
+
+        k2d::ActionStep parallel;
+        parallel.kind = k2d::ActionKind::Parallel;
+        k2d::ActionData force;
+        force.kind = k2d::ActionKind::Force;
+        force.vector = Math::Vec2(20.0f, -10.0f);
+        force.duration = 2.0f;
+        parallel.actions.push_back(force);
+        k2d::ActionData turnRate;
+        turnRate.kind = k2d::ActionKind::TurnRate;
+        turnRate.angleDegrees = 90.0f;
+        turnRate.duration = 1.0f;
+        parallel.actions.push_back(turnRate);
+        sequence->addStep(parallel);
+        sequence->play(true);
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 10.0f) && nearEqual(obj->position().y, -5.0f);
+        ok &= nearEqual(obj->rotationDegrees(), 45.0f);
+
+        scene.update(0.5f);
+        ok &= nearEqual(obj->position().x, 20.0f) && nearEqual(obj->position().y, -10.0f);
+        ok &= nearEqual(obj->rotationDegrees(), 90.0f);
+
+        scene.update(1.0f);
+        ok &= nearEqual(obj->position().x, 40.0f) && nearEqual(obj->position().y, -20.0f);
+        ok &= nearEqual(obj->rotationDegrees(), 90.0f);
+        ok &= !sequence->playing();
+
+        sequence->clearSteps();
+        obj->setPosition(Math::Vec2(0.0f, 0.0f));
+        obj->setRotationDegrees(0.0f);
+        k2d::ActionStep forever;
+        forever.kind = k2d::ActionKind::Parallel;
+        force.vector = Math::Vec2(5.0f, -2.0f);
+        force.duration = 0.0f;
+        forever.actions.push_back(force);
+        turnRate.angleDegrees = 60.0f;
+        turnRate.duration = 0.0f;
+        forever.actions.push_back(turnRate);
+        sequence->addStep(forever);
+        sequence->play(true);
+
+        scene.update(1.0f);
+        ok &= nearEqual(obj->position().x, 5.0f) && nearEqual(obj->position().y, -2.0f);
+        ok &= nearEqual(obj->rotationDegrees(), 60.0f) && sequence->playing();
+        scene.update(1.0f);
+        ok &= nearEqual(obj->position().x, 10.0f) && nearEqual(obj->position().y, -4.0f);
+        ok &= nearEqual(obj->rotationDegrees(), 120.0f) && sequence->playing();
+        sequence->stop();
+
         return ok;
     }
 }

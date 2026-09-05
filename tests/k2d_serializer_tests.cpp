@@ -151,6 +151,7 @@ bool TestAnimationFramePathRoundTrip()
     k2d::Animation2D* animation = root->addComponent<k2d::Animation2D>();
     animation->addClip("run", nullptr, 0, 0, 0, 12.0f, k2d::AnimationMode::Loop);
     animation->addFrame("run", nullptr, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f), "sprites/player.png");
+    animation->addFramePoint("run", 0, Math::Vec2(13.0f, 7.0f));
 
     const ct::Json written = k2d::Serializer::WriteObject(*root);
     const ct::Json& frame = written["components"][0]["data"]["clips"][0]["frames"][0];
@@ -162,7 +163,43 @@ bool TestAnimationFramePathRoundTrip()
     k2d::Animation2D* copyAnimation = copy ? copy->getComponent<k2d::Animation2D>() : nullptr;
     const k2d::AnimationFrame* copyFrame = copyAnimation ? copyAnimation->frameAt("run", 0) : nullptr;
     return copyFrame && copyFrame->texturePath == "sprites/player.png" &&
-           NearVec4(copyFrame->rect, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f));
+           NearVec4(copyFrame->rect, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f)) &&
+           copyFrame->points.size() == 1 && NearVec2(copyFrame->points[0], Math::Vec2(13.0f, 7.0f));
+}
+
+bool TestActionRateRoundTrip()
+{
+    k2d::Scene srcScene;
+    k2d::GameObject* root = srcScene.createObject("RateActions");
+    k2d::ActionSequence2D* sequence = root->addComponent<k2d::ActionSequence2D>();
+
+    k2d::ActionStep force;
+    force.kind = k2d::ActionKind::Force;
+    force.vector = Math::Vec2(32.0f, -12.0f);
+    force.duration = 1.5f;
+    sequence->addStep(force);
+
+    k2d::ActionStep turnRate;
+    turnRate.kind = k2d::ActionKind::TurnRate;
+    turnRate.angleDegrees = 120.0f;
+    turnRate.duration = 0.75f;
+    sequence->addStep(turnRate);
+
+    const ct::Json written = k2d::Serializer::WriteObject(*root);
+    const ct::Json& steps = written["components"][0]["data"]["steps"];
+    if (ct::String(steps[0]["kind"].as_cstr("")) != ct::String("force") ||
+        ct::String(steps[1]["kind"].as_cstr("")) != ct::String("turnRate"))
+        return false;
+
+    k2d::Scene dstScene;
+    k2d::GameObject* copy = k2d::Serializer::ReadObject(dstScene, written);
+    k2d::ActionSequence2D* copySequence = copy ? copy->getComponent<k2d::ActionSequence2D>() : nullptr;
+    const k2d::ActionStep* copyForce = copySequence ? copySequence->stepAt(0) : nullptr;
+    const k2d::ActionStep* copyTurn = copySequence ? copySequence->stepAt(1) : nullptr;
+    return copySequence && copySequence->stepCount() == 2 && copyForce && copyTurn &&
+           copyForce->kind == k2d::ActionKind::Force && NearVec2(copyForce->vector, {32.0f, -12.0f}) &&
+           Near(copyForce->duration, 1.5f) && copyTurn->kind == k2d::ActionKind::TurnRate &&
+           Near(copyTurn->angleDegrees, 120.0f) && Near(copyTurn->duration, 0.75f);
 }
 
 class DummyScript : public k2d::ScriptComponent
@@ -682,6 +719,7 @@ int main()
     bool roundTrip = TestRoundTripThroughText();
     bool defaults = TestDefaultsRoundTrip();
     bool animationFramePath = TestAnimationFramePathRoundTrip();
+    bool actionRates = TestActionRateRoundTrip();
     bool unregistered = TestUnregisteredTypeIsSkipped();
     bool tileMap = TestTileMapRoundTrip();
     bool polygonLine = TestPolygonAndLineRoundTrip();
@@ -695,9 +733,10 @@ int main()
     bool particle = TestParticleComponentRoundTrip();
     bool doubleRoundTrip = TestDoubleRoundTripIsStable();
 
-    std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s unregistered_skipped=%s\n",
+    std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s action_rates=%s "
+                "unregistered_skipped=%s\n",
                 roundTrip ? "pass" : "fail", defaults ? "pass" : "fail", animationFramePath ? "pass" : "fail",
-                unregistered ? "pass" : "fail");
+                actionRates ? "pass" : "fail", unregistered ? "pass" : "fail");
     std::printf("Serializer components: tilemap=%s polygon_line=%s primitive_shapes=%s ninepatch=%s spritebatch=%s "
                 "animation=%s light_disambiguation=%s occluder=%s camera=%s particle=%s\n",
                 tileMap ? "pass" : "fail", polygonLine ? "pass" : "fail", primitiveShapes ? "pass" : "fail",
@@ -706,7 +745,7 @@ int main()
                 particle ? "pass" : "fail");
     std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
 
-    return (roundTrip && defaults && animationFramePath && unregistered && tileMap && polygonLine && primitiveShapes &&
+    return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
             ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
             doubleRoundTrip)
                ? 0

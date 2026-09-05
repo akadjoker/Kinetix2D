@@ -44,6 +44,7 @@
 #include <k2d/ScreenFade.h>
 #include <k2d/SpriteComponent.h>
 #include <k2d/RigidBody2D.h>
+#include <k2d/SceneManager.h>
 #include <k2d/Serializer.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/ZenScriptComponent.h>
@@ -201,7 +202,7 @@ bool EditorApplication::initialize()
         [](const char* text, bool isError, void* user)
         {
             EditorApplication& self = *static_cast<EditorApplication*>(user);
-            static ct::String lineBuffer;
+            ct::String& lineBuffer = isError ? self.mScriptErrorBuffer : self.mScriptOutputBuffer;
             for (const char* c = text; *c; ++c)
             {
                 if (*c == '\n')
@@ -209,6 +210,25 @@ bool EditorApplication::initialize()
                     ct::String message(isError ? "[script] ERROR: " : "[script] ");
                     message += lineBuffer;
                     self.log(message);
+                    if (isError)
+                    {
+                        if (self.mPlaying)
+                        {
+                            self.mPaused = true;
+                            if (!self.mScriptErrorPaused)
+                            {
+                                ct::String toast("Script error - Play paused: ");
+                                toast += lineBuffer;
+                                self.mToasts.error(toast);
+                                self.log("Play paused because a script reported an error");
+                                self.mScriptErrorPaused = true;
+                            }
+                        }
+                        else
+                        {
+                            self.mToasts.error(message);
+                        }
+                    }
                     lineBuffer.clear();
                 }
                 else
@@ -257,6 +277,7 @@ int EditorApplication::run()
     while (running)
     {
         Profiler::Get().beginFrame();
+        ++mFrameCounter;
         running = mDevice.PollEvents();
         GetAudio().Update();
 
@@ -265,12 +286,17 @@ int EditorApplication::run()
             SetZenScriptFrameStats(mDevice.DeltaTime(), mDevice.FPS());
             GetScreenFade().Update(mDevice.DeltaTime());
             mScene.update(mDevice.DeltaTime());
+            mFrameSnapshotValid = false;
             if (CameraComponent* camera = mScene.activeCamera())
                 GetAudio().SetListenerPosition(camera->camera().position);
             DispatchZenScriptEvents(mScene.root());
+            applyRuntimeSceneRequest();
         }
         if (!mPlaying && mSettings.viewportLivePreview)
+        {
             tickEditPreview(mScene.root(), mDevice.DeltaTime());
+            mFrameSnapshotValid = false;
+        }
 
         glClearColor(0.055f, 0.062f, 0.075f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -398,8 +424,20 @@ void EditorApplication::log(const ct::String& message)
 
 EditorApplication::SceneChange EditorApplication::beginChange()
 {
+    // Every caller in a frame wants the same "before" state: the scene as it
+    // stood when the frame began. Serialising it once and handing out copies
+    // turns the Inspector's 63 snapshots a frame into one.
+    if (mTransactionActive)
+        mFrameSnapshotValid = false;
+    if (!mFrameSnapshotValid || mFrameSnapshotFrame != mFrameCounter)
+    {
+        mFrameSnapshot = snapshotScene();
+        mFrameSnapshotFrame = mFrameCounter;
+        mFrameSnapshotValid = true;
+    }
+
     SceneChange change;
-    change.scene = snapshotScene();
+    change.snapshotFrame = mFrameSnapshotFrame;
     change.selection = mSelection.objectId();
     change.hadSelection = mSelection.hasSelection();
     return change;
@@ -409,7 +447,14 @@ void EditorApplication::commitChange(const char* label, const SceneChange& befor
 {
     SceneCommand command;
     command.label = label;
-    command.before = before.scene;
+    // A ticket from this frame still points at the live snapshot; one carried
+    // over by a transaction brought its own copy.
+    command.before = before.snapshotFrame == mFrameSnapshotFrame && mFrameSnapshotValid
+                         ? mFrameSnapshot
+                         : mTransactionBeforeScene;
+
+    // The scene is about to change, so the cached "before" stops describing it.
+    mFrameSnapshotValid = false;
     command.after = snapshotScene();
     command.selectionBefore = before.selection;
     command.hadSelectionBefore = before.hadSelection;
@@ -426,6 +471,13 @@ void EditorApplication::beginTransaction(const char* label, const SceneChange& b
 {
     if (mTransactionActive)
         return;
+    // This is the one place a copy is unavoidable: the commit lands frames
+    // later, long after mFrameSnapshot has been rebuilt.
+    mTransactionBeforeScene = mFrameSnapshot;
+    // An open transaction writes into the scene every frame it stays open
+    // (InputText applies each keystroke), so no later frame may reuse a
+    // snapshot taken before those writes.
+    mFrameSnapshotValid = false;
     mTransactionActive = true;
     mTransactionLabel = label;
     mTransactionBefore = before;
@@ -471,6 +523,7 @@ ct::Json EditorApplication::snapshotScene()
 
 void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selectedId, bool hadSelection)
 {
+    mFrameSnapshotValid = false;
     const ct::Json& rootJson = snapshot["root"];
     mSelection.clear();
     mScene.clear();
@@ -524,7 +577,7 @@ void EditorApplication::restoreScene(const ct::Json& snapshot, uint64_t selected
     }
 
     if (!mPlaying && mSettings.viewportLivePreview)
-        restartEditPreview();
+        restartEditPreview(mScene.root());
 }
 
 void EditorApplication::startPlay()
@@ -540,6 +593,7 @@ void EditorApplication::startPlay()
     mPlayHadSelection = mSelection.hasSelection();
     ZenBlackboard::clear();
     ZenRuntime::instance().clearPrefabCache();
+    GetSceneManager().ClearRequest();
 
     RouteZenScriptCollisions(mScene);
     RouteZenScriptAnimationEvents(mScene);
@@ -551,6 +605,15 @@ void EditorApplication::startPlay()
     SetZenScriptsEnabled(true);
     mPlaying = true;
     mPaused = false;
+    mScriptErrorPaused = false;
+    const size_t reloadedScripts = ReloadChangedZenScripts();
+    if (reloadedScripts > 0)
+    {
+        char message[80];
+        std::snprintf(message, sizeof(message), "Play: reloaded %d changed script(s)",
+                      static_cast<int>(reloadedScripts));
+        log(message);
+    }
     log("Play: simulating the real scene");
     mToasts.info("Play");
 }
@@ -584,11 +647,13 @@ void EditorApplication::stopPlay()
     mScene.setSimulationEnabled(false);
     GetAudio().StopAll();
     GetScreenFade().SetClear();
+    GetSceneManager().ClearRequest();
     restoreScene(mPlaySnapshot, mPlayHadSelection ? mPlaySelectionId : 0, mPlayHadSelection);
     mPlaySnapshot = ct::Json();
     ZenBlackboard::clear();
     mPlaying = false;
     mPaused = false;
+    mScriptErrorPaused = false;
     if (mSettings.viewportLivePreview)
         restartEditPreview();
     log("Stopped preview");
@@ -600,7 +665,25 @@ void EditorApplication::stepPlay()
     {
         mScene.update(1.0f / 60.0f);
         DispatchZenScriptEvents(mScene.root());
+        applyRuntimeSceneRequest();
     }
+}
+
+void EditorApplication::applyRuntimeSceneRequest()
+{
+    if (!GetSceneManager().HasRequest())
+        return;
+
+    if (GetSceneManager().ApplyRequest(mScene, mAssets))
+    {
+        mScene.setSimulationEnabled(true);
+        applyPhysicsSettings();
+        log("Play: loaded requested scene");
+        return;
+    }
+
+    log("Play: could not load requested scene");
+    mToasts.error("Could not load requested scene");
 }
 
 void EditorApplication::runStandalone()
@@ -793,6 +876,8 @@ void EditorApplication::tickEditPreview(GameObject& object, float deltaTime)
 void EditorApplication::restartEditPreview()
 {
     restartEditPreview(mScene.root());
+    if (mPrefabModeActive)
+        startPrefabAnimationPreview(mScene.root());
 }
 
 void EditorApplication::restartEditPreview(GameObject& object)
@@ -819,6 +904,21 @@ void EditorApplication::restartEditPreview(GameObject& object)
 
     for (size_t i = 0; i < object.childCount(); ++i)
         restartEditPreview(*object.child(i));
+}
+
+void EditorApplication::startPrefabAnimationPreview(GameObject& object)
+{
+    if (!object.isActiveInHierarchy())
+        return;
+
+    const size_t animCount = object.componentCount<Animation2D>();
+    for (size_t i = 0; i < animCount; ++i)
+        if (Animation2D* animation = object.getComponentAt<Animation2D>(i))
+            if (animation->active())
+                animation->play();
+
+    for (size_t i = 0; i < object.childCount(); ++i)
+        startPrefabAnimationPreview(*object.child(i));
 }
 
 void EditorApplication::undo()
@@ -1320,6 +1420,8 @@ bool EditorApplication::enterPrefabMode(const char* path)
     mCurrentScenePath.clear();
     mPrefabModeActive = true;
     mSelection.select(root);
+    if (mSettings.viewportLivePreview)
+        restartEditPreview();
 
     ct::String message("Editing prefab: ");
     message += path;
@@ -1822,6 +1924,8 @@ void EditorApplication::drawToolbar()
     if (toolbarIcon("pause", ICON_MDI_PAUSE, "Pause", mPaused, mPlaying))
     {
         mPaused = !mPaused;
+        if (!mPaused)
+            mScriptErrorPaused = false;
         log(mPaused ? "Runtime paused" : "Runtime resumed");
     }
     toolbarSameLine();

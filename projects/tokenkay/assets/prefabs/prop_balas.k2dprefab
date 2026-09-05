@@ -1,6 +1,6 @@
 {
   "name": "prop_balas",
-  "tag": "",
+  "tag": "destructible",
   "active": true,
   "visible": true,
   "locked": false,
@@ -71,6 +71,42 @@
         "flipY": false,
         "ySort": false,
         "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/destructible_prop.py"
+      }
+    },
+    {
+      "type": "RigidBody2D",
+      "data": {
+        "bodyType": "static",
+        "density": 1.0,
+        "friction": 0.30000001192092896,
+        "restitution": 0.0,
+        "linearDamping": 0.0,
+        "angularDamping": 0.0,
+        "gravityScale": 0.0,
+        "fixedRotation": true,
+        "bullet": false
+      }
+    },
+    {
+      "type": "BoxCollider2D",
+      "data": {
+        "offset": [
+          0.0,
+          0.0
+        ],
+        "sensor": false,
+        "category": 1,
+        "mask": 65535,
+        "size": [
+          32.0,
+          37.5
+        ]
       }
     }
   ],

@@ -38,8 +38,8 @@
           1.0
         ],
         "sourceRect": [
-          748.0,
-          124.0,
+          1122.0,
+          496.0,
           187.0,
           124.0
         ],
@@ -54,6 +54,12 @@
       "type": "ZenScript",
       "data": {
         "path": "assets/scripts/rojas.py"
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/thought_bubble.py"
       }
     },
     {
@@ -1338,6 +1344,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    129.5642852783203,
+                    36.95476150512695
+                  ]
                 ]
               },
               {
@@ -1351,6 +1363,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    124.66666412353516,
+                    40.516666412353516
+                  ]
                 ]
               },
               {
@@ -1364,6 +1382,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    117.54285430908203,
+                    33.39285659790039
+                  ]
                 ]
               }
             ]
@@ -1395,6 +1419,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    123.33094787597656,
+                    19.59047508239746
+                  ]
                 ]
               },
               {
@@ -1408,6 +1438,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    118.87857055664062,
+                    22.261903762817383
+                  ]
                 ]
               },
               {
@@ -1421,6 +1457,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    116.65238189697266,
+                    20.03571319580078
+                  ]
                 ]
               }
             ]
@@ -1452,6 +1494,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    94.39047241210938,
+                    9.350000381469727
+                  ]
                 ]
               },
               {
@@ -1465,6 +1513,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    98.84285736083984,
+                    16.02857208251953
+                  ]
                 ]
               },
               {
@@ -1478,6 +1532,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    97.06190490722656,
+                    14.247618675231934
+                  ]
                 ]
               }
             ]
@@ -1509,6 +1569,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    87.71190643310547,
+                    56.990474700927734
+                  ]
                 ]
               },
               {
@@ -1522,6 +1588,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    82.36904907226562,
+                    49.86666488647461
+                  ]
                 ]
               },
               {
@@ -1535,6 +1607,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    81.9238052368164,
+                    47.19523620605469
+                  ]
                 ]
               }
             ]
@@ -1566,6 +1644,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    119.32380676269531,
+                    49.42142868041992
+                  ]
                 ]
               },
               {
@@ -1579,6 +1663,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    102.8499984741211,
+                    48.53095245361328
+                  ]
                 ]
               },
               {
@@ -1592,6 +1682,12 @@
                 "offset": [
                   0.0,
                   0.0
+                ],
+                "points": [
+                  [
+                    107.74761962890625,
+                    43.633331298828125
+                  ]
                 ]
               }
             ]
@@ -1725,8 +1821,8 @@
             ]
           }
         ],
-        "activeClip": "idle",
-        "playing": false
+        "activeClip": "shoot_se",
+        "playing": true
       }
     },
     {
@@ -1734,7 +1830,7 @@
       "data": {
         "bodyType": "dynamic",
         "density": 1.0,
-        "friction": 0.30000001192092896,
+        "friction": 0.0,
         "restitution": 0.0,
         "linearDamping": 6.0,
         "angularDamping": 0.0,
@@ -1763,7 +1859,7 @@
           0.0,
           -16.0
         ],
-        "sensor": false,
+        "sensor": true,
         "category": 1,
         "mask": 65535,
         "size": [
@@ -1780,7 +1876,7 @@
           0.0,
           0.0
         ],
-        "pathDesiredDistance": 8.0,
+        "pathDesiredDistance": 16.0,
         "maxSpeed": 130.0,
         "autoMove": false,
         "orientToPath": false,
@@ -1797,13 +1893,126 @@
         "loop": "oneShot",
         "autoplay": false,
         "steps": [
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 0.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "fade", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "duration": 0.15, "ease": "linear"},
-          {"kind": "event", "vector": [0.0, 0.0], "angle": 0.0, "color": [1.0, 1.0, 1.0, 1.0], "alpha": 1.0, "event": "rojas_cleanup", "duration": 0.0, "ease": "linear"}
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.15000000596046448,
+            "ease": "linear"
+          },
+          {
+            "kind": "event",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.0,
+            "ease": "linear",
+            "event": "rojas_cleanup"
+          }
         ]
       }
     }

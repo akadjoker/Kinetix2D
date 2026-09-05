@@ -1,0 +1,204 @@
+{
+  "name": "smoke",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "assets/textures/items/100_Mapa_6.png",
+        "size": [
+          16.0,
+          16.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/smoke.py"
+      }
+    },
+    {
+      "type": "Animation2D",
+      "data": {
+        "clips": [
+          {
+            "name": "default",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 6,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 10.0,
+            "mode": 1,
+            "frames": [
+              {
+                "texture": "assets/textures/items/100_Mapa_6.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/101_Mapa_7.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/102_Mapa_8.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/103_Mapa_9.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/104_Mapa_10.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/105_Mapa_11.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ],
+        "activeClip": "default",
+        "playing": true
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "oneShot",
+        "autoplay": true,
+        "steps": [
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 1.0,
+            "ease": "linear"
+          },
+          {
+            "kind": "event",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "event": "smoke_finished",
+            "duration": 0.0,
+            "ease": "linear"
+          }
+        ]
+      }
+    }
+  ],
+  "children": []
+}

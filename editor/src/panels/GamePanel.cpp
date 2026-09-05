@@ -5,6 +5,7 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/NavigationAgent2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/GameViewport.h>
 #include <k2d/Scene.h>
 #include <k2d/MouseCursor.h>
 #include <k2d/ScreenFade.h>
@@ -76,7 +77,7 @@ void GamePanel::destroyFramebuffer()
     mFramebufferHeight = 0;
 }
 
-void GamePanel::renderScene(int width, int height)
+void GamePanel::renderScene(int width, int height, const GameViewport& viewport)
 {
     if (!mCanvasInitialized || !mCanvasReady)
         return;
@@ -90,22 +91,24 @@ void GamePanel::renderScene(int width, int height)
     glViewport(0, 0, width, height);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(static_cast<int>(viewport.x + 0.5f), static_cast<int>(viewport.y + 0.5f),
+               static_cast<int>(viewport.width + 0.5f), static_cast<int>(viewport.height + 0.5f));
 
     Scene& scene = app().scene();
     CameraComponent* camera = scene.activeCamera();
     Camera2D& defaultCamera = mDefaultCamera;
     if (camera)
     {
-        camera->setViewport(static_cast<float>(width), static_cast<float>(height));
+        camera->setRenderViewport(viewport.virtualWidth, viewport.virtualHeight);
         mCanvas.SetProjection(camera->projection());
         SetZenScriptGameCamera(&camera->camera());
-        scene.setRenderCamera(&camera->camera(), static_cast<float>(width), static_cast<float>(height));
+        scene.setRenderCamera(&camera->camera(), viewport.virtualWidth, viewport.virtualHeight);
     }
     else
     {
-        mCanvas.SetProjection(defaultCamera.Projection(static_cast<float>(width), static_cast<float>(height)));
+        mCanvas.SetProjection(defaultCamera.Projection(viewport.virtualWidth, viewport.virtualHeight));
         SetZenScriptGameCamera(&defaultCamera);
-        scene.setRenderCamera(&defaultCamera, static_cast<float>(width), static_cast<float>(height));
+        scene.setRenderCamera(&defaultCamera, viewport.virtualWidth, viewport.virtualHeight);
     }
     scene.render(mCanvas);
     if (app().settings().showPhysicsDebug && scene.simulationEnabled())
@@ -118,14 +121,14 @@ void GamePanel::renderScene(int width, int height)
         scene.debugDrawBodies(mCanvas, k2d::DebugDrawShapes | k2d::DebugDrawAABBs | k2d::DebugDrawContacts |
                                            k2d::DebugDrawJoints);
     }
-    GetScreenFade().Draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
-    GetMouseCursor().draw(mCanvas, static_cast<float>(width), static_cast<float>(height));
+    GetScreenFade().Draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
+    GetMouseCursor().draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(savedFbo));
     glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
 }
 
-void GamePanel::drawAgentPaths(const ImVec2& position, float width, float height)
+void GamePanel::drawAgentPaths(const ImVec2& position, const GameViewport& viewport)
 {
     Scene& scene = app().scene();
     CameraComponent* camera = scene.activeCamera();
@@ -134,45 +137,88 @@ void GamePanel::drawAgentPaths(const ImVec2& position, float width, float height
 
     // ScreenToWorld is the camera transform; the paths are world space, so the
     // overlay needs its inverse to land on the blitted game image.
-    const Matrix2D toScreen = camera->camera().CameraXform(width, height).AffineInverse();
+    const Matrix2D toScreen = camera->camera().CameraXform(viewport.virtualWidth, viewport.virtualHeight).AffineInverse();
     ImDrawList& drawList = *ImGui::GetWindowDrawList();
+    const ImVec2 viewportPosition(position.x + viewport.x, position.y + viewport.y);
 
-    drawAgentPathsIn(scene.root(), toScreen, position, drawList);
+    drawList.PushClipRect(viewportPosition,
+                          ImVec2(viewportPosition.x + viewport.width, viewportPosition.y + viewport.height), true);
+    drawAgentPathsIn(scene.root(), toScreen, viewportPosition, viewport.width / viewport.virtualWidth,
+                     viewport.height / viewport.virtualHeight, drawList);
+    drawList.PopClipRect();
 }
 
 void GamePanel::drawAgentPathsIn(GameObject& object, const Matrix2D& toScreen, const ImVec2& position,
-                                 ImDrawList& drawList)
+                                 float scaleX, float scaleY, ImDrawList& drawList)
 {
+    if (!object.isActiveInHierarchy())
+        return;
+
+    const auto screenPoint = [&](const Math::Vec2& world)
+    {
+        const Math::Vec2 point = toScreen.Transform(world);
+        return ImVec2(position.x + point.x * scaleX, position.y + point.y * scaleY);
+    };
+
     const size_t count = object.componentCount<NavigationAgent2D>();
     for (size_t i = 0; i < count; ++i)
     {
         const NavigationAgent2D* agent = object.getComponentAt<NavigationAgent2D>(i);
         if (!agent || !agent->active())
             continue;
-        const ct::Vector<Math::Vec2>& path = agent->path();
-        if (path.size() < 2)
-            continue;
 
-        for (size_t p = 0; p + 1 < path.size(); ++p)
+        const ct::Vector<Math::Vec2>& path = agent->path();
+        const size_t next = agent->pathIndex();
+        const ImVec2 owner = screenPoint(object.globalPosition());
+        Math::Vec2 targetWorld = agent->targetPosition();
+        bool hasDebugTarget = agent->hasTarget();
+        if (agent->hasFollowTarget())
         {
-            const Math::Vec2 a = toScreen.Transform(path[p]);
-            const Math::Vec2 b = toScreen.Transform(path[p + 1]);
-            drawList.AddLine(ImVec2(position.x + a.x, position.y + a.y),
-                             ImVec2(position.x + b.x, position.y + b.y), IM_COL32(255, 240, 120, 220), 2.0f);
+            if (GameObject* followed = app().scene().find(agent->followTargetName().c_str()))
+            {
+                targetWorld = followed->globalPosition();
+                hasDebugTarget = true;
+            }
         }
-        for (size_t p = 0; p < path.size(); ++p)
+        if (agent->hasPath() && next < path.size())
         {
-            const Math::Vec2 point = toScreen.Transform(path[p]);
-            drawList.AddCircleFilled(ImVec2(position.x + point.x, position.y + point.y), 3.0f,
-                                     IM_COL32(255, 240, 120, 235));
+            ImVec2 previous = owner;
+            for (size_t pointIndex = next; pointIndex < path.size(); ++pointIndex)
+            {
+                const ImVec2 point = screenPoint(path[pointIndex]);
+                drawList.AddLine(previous, point, IM_COL32(70, 225, 255, 235), 2.5f);
+                drawList.AddCircleFilled(point, 3.5f, IM_COL32(70, 225, 255, 245));
+                previous = point;
+            }
+            const ImVec2 waypoint = screenPoint(path[next]);
+            const ImVec2 pathLabel((owner.x + waypoint.x) * 0.5f + 5.0f,
+                                   (owner.y + waypoint.y) * 0.5f - 16.0f);
+            drawList.AddText(pathLabel, IM_COL32(70, 225, 255, 255), "PATH");
+            drawList.AddCircle(waypoint, 7.0f, IM_COL32(255, 225, 70, 255), 16, 2.5f);
+            drawList.AddText(ImVec2(waypoint.x + 8.0f, waypoint.y - 8.0f), IM_COL32(255, 225, 70, 255), "NEXT");
         }
-        const Math::Vec2 goal = toScreen.Transform(path[path.size() - 1]);
-        drawList.AddCircle(ImVec2(position.x + goal.x, position.y + goal.y), 7.0f, IM_COL32(255, 120, 90, 240), 12,
-                           2.0f);
+        else if (hasDebugTarget && path.empty())
+        {
+            const ImVec2 target = screenPoint(targetWorld);
+            drawList.AddLine(owner, target, IM_COL32(255, 75, 75, 190), 2.0f);
+            drawList.AddText(ImVec2(owner.x + 8.0f, owner.y - 20.0f), IM_COL32(255, 90, 90, 255), "NO PATH");
+        }
+
+        if (hasDebugTarget)
+        {
+            const ImVec2 target = screenPoint(targetWorld);
+            constexpr float arm = 7.0f;
+            drawList.AddLine(ImVec2(target.x - arm, target.y), ImVec2(target.x + arm, target.y),
+                             IM_COL32(255, 90, 220, 255), 2.5f);
+            drawList.AddLine(ImVec2(target.x, target.y - arm), ImVec2(target.x, target.y + arm),
+                             IM_COL32(255, 90, 220, 255), 2.5f);
+            drawList.AddCircle(target, 10.0f, IM_COL32(255, 90, 220, 230), 20, 2.0f);
+            drawList.AddText(ImVec2(target.x + 12.0f, target.y + 4.0f), IM_COL32(255, 120, 225, 255), "TARGET");
+        }
     }
 
     for (size_t i = 0; i < object.childCount(); ++i)
-        drawAgentPathsIn(*object.child(i), toScreen, position, drawList);
+        drawAgentPathsIn(*object.child(i), toScreen, position, scaleX, scaleY, drawList);
 }
 
 void GamePanel::drawContents()
@@ -197,6 +243,11 @@ void GamePanel::drawContents()
         app().log(app().settings().showPhysicsDebug ? "Physics debug in Game on" : "Physics debug in Game off");
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Overlay the live physics simulation in this Game view");
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Navigation Debug", &app().settings().showNavigationDebug))
+        app().log(app().settings().showNavigationDebug ? "Navigation debug on" : "Navigation debug off");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Overlay agent paths, next waypoints and targets in this Game view");
 
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 position = ImGui::GetCursorScreenPos();
@@ -205,12 +256,22 @@ void GamePanel::drawContents()
     const int fboWidth = static_cast<int>(width);
     const int fboHeight = static_cast<int>(height);
     ensureFramebuffer(fboWidth, fboHeight);
-    // The scene renders into this framebuffer, so its screen-space UI must
-    // use its dimensions before the render queue is built.
-    SetUiViewport(position.x, position.y, width, height);
+    CameraComponent* camera = app().scene().activeCamera();
+    const GameViewport viewport = camera
+                                      ? CalculateGameViewport(width, height, camera->viewportWidth(),
+                                                              camera->viewportHeight(), camera->viewportScaleMode(),
+                                                              camera->integerScale())
+                                      : CalculateGameViewport(width, height, width, height);
+    // UI and script input use the visible output rectangle but expose stable
+    // virtual coordinates to the running scene.
+    SetUiViewport(position.x + viewport.x, position.y + viewport.y, viewport.width, viewport.height,
+                  viewport.virtualWidth, viewport.virtualHeight);
+    SetZenScriptGameViewport(position.x + viewport.x, position.y + viewport.y, viewport.width, viewport.height,
+                             viewport.virtualWidth, viewport.virtualHeight);
     const ImVec2 mouse = ImGui::GetMousePos();
-    GetMouseCursor().setPosition(Math::Vec2(mouse.x - position.x, mouse.y - position.y));
-    renderScene(fboWidth, fboHeight);
+    GetMouseCursor().setPosition(Math::Vec2(viewport.toVirtualX(mouse.x - position.x),
+                                           viewport.toVirtualY(mouse.y - position.y)));
+    renderScene(fboWidth, fboHeight, viewport);
 
     ImDrawList& drawList = *ImGui::GetWindowDrawList();
     if (mCanvasReady)
@@ -222,12 +283,11 @@ void GamePanel::drawContents()
     {
         drawList.AddRectFilled(position, ImVec2(position.x + width, position.y + height), IM_COL32(12, 14, 18, 255));
     }
-    if (app().settings().showPhysicsDebug)
-        drawAgentPaths(position, width, height);
-    SetZenScriptGameViewport(position.x, position.y, width, height);
+    if (app().settings().showNavigationDebug)
+        drawAgentPaths(position, viewport);
     if (app().paused())
     {
-        ImGui::SetCursorScreenPos(ImVec2(position.x + 8.0f, position.y + 8.0f));
+        ImGui::SetCursorScreenPos(ImVec2(position.x + viewport.x + 8.0f, position.y + viewport.y + 8.0f));
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "PAUSED");
     }
 }

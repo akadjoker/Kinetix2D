@@ -18,11 +18,32 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-option(K2D_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    set(K2D_SANITIZERS_DEFAULT ON)
+else()
+    set(K2D_SANITIZERS_DEFAULT OFF)
+endif()
+
+option(K2D_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer"
+       ${K2D_SANITIZERS_DEFAULT})
 option(K2D_STATIC_MINGW_RUNTIME "Link MinGW GCC runtimes into Kinetix executables" ON)
+
+# option() only honours its default the first time a build directory is
+# configured, so a cache that once had sanitizers on keeps them through a
+# later switch to Release -- a 10x slowdown with nothing in the output to say
+# why. A release build never wants them, so the build type overrules the cache.
+if(K2D_ENABLE_SANITIZERS AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Sanitizers disabled: only a Debug build runs them (CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})")
+    set(K2D_ENABLE_SANITIZERS OFF CACHE BOOL "Enable AddressSanitizer and UndefinedBehaviorSanitizer" FORCE)
+endif()
+
 if(K2D_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        message(STATUS "Sanitizers ON (AddressSanitizer + UndefinedBehaviorSanitizer) -- expect a large slowdown")
+        # -g keeps the ASan report's frames symbolised even if the build type
+        # never added it; the trap on UB error turns a silent miscompile into
+        # a stack the debugger can stop on.
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
         add_link_options(-fsanitize=address,undefined)
     else()
         message(WARNING "K2D_ENABLE_SANITIZERS requires a Clang or GNU compiler")

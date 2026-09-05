@@ -428,9 +428,15 @@ namespace k2d
         bool canHit = false;
         if (input)
         {
-            x = input->MouseX() - viewport.x;
-            y = input->MouseY() - viewport.y;
-            canHit = x >= 0.0f && y >= 0.0f && x < viewport.width && y < viewport.height;
+            const float outputX = input->MouseX() - viewport.x;
+            const float outputY = input->MouseY() - viewport.y;
+            canHit = outputX >= 0.0f && outputY >= 0.0f && outputX < viewport.outputWidth &&
+                     outputY < viewport.outputHeight;
+            if (canHit)
+            {
+                x = outputX * viewport.width / viewport.outputWidth;
+                y = outputY * viewport.height / viewport.outputHeight;
+            }
         }
 
         UiControl *hit = nullptr;

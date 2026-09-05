@@ -4,6 +4,7 @@
 
 #include <k2d/Camera2D.h>
 #include <k2d/CanvasRenderer.h>
+#include <k2d/GameViewport.h>
 
 namespace k2d
 {
@@ -20,13 +21,13 @@ public:
     ~GamePanel() override;
 
 private:
-    void drawAgentPaths(const ImVec2 &position, float width, float height);
+    void drawAgentPaths(const ImVec2 &position, const GameViewport &viewport);
     void drawAgentPathsIn(GameObject &object, const Matrix2D &toScreen, const ImVec2 &position,
-                          ImDrawList &drawList);
+                          float scaleX, float scaleY, ImDrawList &drawList);
     void drawContents() override;
     void ensureFramebuffer(int width, int height);
     void destroyFramebuffer();
-    void renderScene(int width, int height);
+    void renderScene(int width, int height, const GameViewport &viewport);
 
     CanvasRenderer mCanvas;
     Camera2D mDefaultCamera;

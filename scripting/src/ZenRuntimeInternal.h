@@ -74,7 +74,14 @@ struct ZenRuntime::Impl
     ct::Vector<ZenScriptClass*> classes;
     ct::HashMap<void*, CachedInstance> instances;
     ct::HashMap<ct::String, CachedPrefab> prefabs;
-    ct::Vector<zen::Value*> liveInstances;
+    // A live script instance, kept as a GC root. The index back-pointer lets a
+    // destroyed component swap-and-pop its own slot instead of scanning.
+    struct LiveInstance
+    {
+        zen::Value* value = nullptr;
+        std::size_t* index = nullptr;
+    };
+    ct::Vector<LiveInstance> liveInstances;
 
     int executing = 0;
 

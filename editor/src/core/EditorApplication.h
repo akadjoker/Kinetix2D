@@ -28,9 +28,12 @@ class SceneViewportPanel;
 class EditorApplication
 {
   public:
+    // A ticket, not a copy: the scene JSON it refers to lives in
+    // mFrameSnapshot until a commit actually needs it. beginChange() runs
+    // dozens of times a frame, and all but one of those never commit.
     struct SceneChange
     {
-        ct::Json scene;
+        uint64_t snapshotFrame = 0;
         uint64_t selection = 0;
         bool hadSelection = false;
     };
@@ -213,10 +216,12 @@ class EditorApplication
     void startPlay();
     void stopPlay();
     void stepPlay();
+    void applyRuntimeSceneRequest();
     void runStandalone();
     void exportWeb(bool runAfterExport);
     void tickEditPreview(GameObject& object, float deltaTime);
     void restartEditPreview(GameObject& object);
+    void startPrefabAnimationPreview(GameObject& object);
 
     Device mDevice;
     Assets mAssets;
@@ -250,6 +255,9 @@ class EditorApplication
     ScenePhysics mScenePhysics;
     SceneCursor mSceneCursor;
     bool mPaused = false;
+    bool mScriptErrorPaused = false;
+    ct::String mScriptOutputBuffer;
+    ct::String mScriptErrorBuffer;
     int mThemeKind = 0;
     bool mDefaultLayoutPending = true;
     bool mLayoutResetRequested = false;
@@ -259,6 +267,17 @@ class EditorApplication
     bool mTransactionActive = false;
     ct::String mTransactionLabel;
     SceneChange mTransactionBefore;
+    // A transaction outlives the frame that opened it, so unlike a ticket it
+    // has to own its "before" scene.
+    ct::Json mTransactionBeforeScene;
+    // beginChange() runs once per editable widget -- 63 times a frame in the
+    // Inspector alone -- but the scene cannot change between them: nothing is
+    // edited until a widget reports activation. One snapshot per frame serves
+    // them all, and frames where nothing is edited never build one.
+    ct::Json mFrameSnapshot;
+    uint64_t mFrameSnapshotFrame = 0;
+    bool mFrameSnapshotValid = false;
+    uint64_t mFrameCounter = 0;
 
     ImGuiFileDialog mFileDialog;
     FileDialogPurpose mFileDialogPurpose = FileDialogPurpose::None;

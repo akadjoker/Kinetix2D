@@ -4,7 +4,7 @@
   "active": true,
   "visible": true,
   "locked": false,
-  "zIndex": 0,
+  "zIndex": 1000,
   "position": [
     218.4538116455078,
     -129.27511596679688
@@ -14,7 +14,14 @@
     1.0,
     1.0
   ],
-  "components": [],
+  "components": [
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/radar.py"
+      }
+    }
+  ],
   "children": [
     {
       "name": "base",
@@ -22,7 +29,7 @@
       "active": true,
       "visible": true,
       "locked": false,
-      "zIndex": 0,
+      "zIndex": 1000,
       "position": [
         0.0,
         0.0
@@ -71,7 +78,7 @@
       "active": true,
       "visible": true,
       "locked": false,
-      "zIndex": 0,
+      "zIndex": 1000,
       "position": [
         0.0,
         0.0

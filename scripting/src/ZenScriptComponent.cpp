@@ -87,6 +87,8 @@ struct ZenGameViewport
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
+    float outputWidth = 0.0f;
+    float outputHeight = 0.0f;
     bool valid = false;
 };
 ZenGameViewport gZenGameViewport;
@@ -98,6 +100,27 @@ bool gZenScriptsEnabled = false;
 void (*gZenOutput)(const char* text, bool isError, void* user) = nullptr;
 void* gZenOutputUser = nullptr;
 GameObject* gZenCallbackNode = nullptr;
+
+bool zenMouseInsideViewport()
+{
+    return !gZenGameViewport.valid ||
+           (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
+            gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.outputWidth &&
+            gZenInput->MouseY() >= gZenGameViewport.y &&
+            gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.outputHeight);
+}
+
+float zenMouseX()
+{
+    const float outputX = gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0f;
+    return gZenGameViewport.valid ? outputX * gZenGameViewport.width / gZenGameViewport.outputWidth : outputX;
+}
+
+float zenMouseY()
+{
+    const float outputY = gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0f;
+    return gZenGameViewport.valid ? outputY * gZenGameViewport.height / gZenGameViewport.outputHeight : outputY;
+}
 
 struct ZenCallbackScope
 {
@@ -154,8 +177,11 @@ long long fileTimestamp(const char* path)
 {
     if (!path || !path[0])
         return 0;
+    ct::String resolved;
+    if (!FileSystem::Instance().Resolve(path, resolved))
+        return 0;
     std::error_code error;
-    const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
+    const std::filesystem::file_time_type time = std::filesystem::last_write_time(resolved.c_str(), error);
     if (error)
         return 0;
     return (long long)time.time_since_epoch().count();
@@ -443,6 +469,7 @@ struct ZenScriptComponent::State
     ZenScriptClass* scriptClass = nullptr;
     zen::Value self = zen::val_nil();
     zen::Value instance = zen::val_nil();
+    std::size_t liveIndex = 0;
     unsigned int generation = 0;
     unsigned int classVersion = 0;
     bool loaded = false;
@@ -852,7 +879,11 @@ int natRaycast(zen::VM* vm, zen::Value* args, int nargs)
     {
         const Math::Vec2 origin((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
         const Math::Vec2 direction((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
-        hit = scene->raycast(origin, direction, (float)zen::to_number(args[4]), &point);
+        // Script raycasts are normally perception/weapon queries originating
+        // on the script owner. Ignore that owner's body so its own collider
+        // cannot block the query before it leaves the character.
+        hit = scene->raycast(origin, direction, (float)zen::to_number(args[4]), &point, nullptr,
+                             gZenCallbackNode);
     }
     args[0] = (hit && state) ? state->instanceFor(state->nodeClass, hit) : zen::val_nil();
     args[1] = zen::val_float(point.x);
@@ -2696,6 +2727,10 @@ ActionKind parseActionKind(const char* name)
         return ActionKind::Scale;
     if (std::strcmp(name, "turn") == 0)
         return ActionKind::Turn;
+    if (std::strcmp(name, "turn_rate") == 0 || std::strcmp(name, "turnRate") == 0)
+        return ActionKind::TurnRate;
+    if (std::strcmp(name, "force") == 0)
+        return ActionKind::Force;
     if (std::strcmp(name, "fade") == 0)
         return ActionKind::Fade;
     return ActionKind::Pause;
@@ -4050,6 +4085,44 @@ int natAnimationCurrent(zen::VM* vm, zen::Value* args, int)
     return 1;
 }
 
+int natAnimationGetFrame(zen::VM*, zen::Value* args, int)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    args[0] = zen::val_int(animation ? animation->frame() : 0);
+    return 1;
+}
+
+int natAnimationPointCount(zen::VM*, zen::Value* args, int)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    args[0] = zen::val_int(animation ? static_cast<int64_t>(animation->currentFramePointCount()) : 0);
+    return 1;
+}
+
+int natAnimationGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    const int64_t index = nargs >= 1 ? zen::to_integer(args[0]) : -1;
+    const bool found = animation && index >= 0 && animation->currentFramePoint(static_cast<size_t>(index), point);
+    args[0] = zen::val_bool(found);
+    args[1] = zen::val_float(point.x);
+    args[2] = zen::val_float(point.y);
+    return 3;
+}
+
+int natAnimationGetRealPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    const int64_t index = nargs >= 1 ? zen::to_integer(args[0]) : -1;
+    const bool found = animation && index >= 0 && animation->currentFrameRealPoint(static_cast<size_t>(index), point);
+    args[0] = zen::val_bool(found);
+    args[1] = zen::val_float(point.x);
+    args[2] = zen::val_float(point.y);
+    return 3;
+}
+
 int natParticleStart(zen::VM*, zen::Value* args, int)
 {
     ParticleComponent* particle = zen::zen_instance_data<ParticleComponent>(args[-1]);
@@ -4593,36 +4666,26 @@ int natAudioMusicMuted(zen::VM* vm, zen::Value* args, int)
 int natMouseDown(zen::VM*, zen::Value* args, int nargs)
 {
     const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-    const bool inside = !gZenGameViewport.valid || (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
-                                                    gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
-                                                    gZenInput->MouseY() >= gZenGameViewport.y &&
-                                                    gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
-    args[0] = zen::val_bool(gZenInput && inside && gZenInput->MouseDown(button));
+    args[0] = zen::val_bool(gZenInput && zenMouseInsideViewport() && gZenInput->MouseDown(button));
     return 1;
 }
 
 int natMousePressed(zen::VM*, zen::Value* args, int nargs)
 {
     const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-    const bool inside = !gZenGameViewport.valid || (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
-                                                    gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
-                                                    gZenInput->MouseY() >= gZenGameViewport.y &&
-                                                    gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
-    args[0] = zen::val_bool(gZenInput && inside && gZenInput->MousePressed(button));
+    args[0] = zen::val_bool(gZenInput && zenMouseInsideViewport() && gZenInput->MousePressed(button));
     return 1;
 }
 
 int natMouseX(zen::VM*, zen::Value* args, int)
 {
-    args[0] =
-        zen::val_float(gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0);
+    args[0] = zen::val_float(zenMouseX());
     return 1;
 }
 
 int natMouseY(zen::VM*, zen::Value* args, int)
 {
-    args[0] =
-        zen::val_float(gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0);
+    args[0] = zen::val_float(zenMouseY());
     return 1;
 }
 
@@ -4669,9 +4732,7 @@ int natScreenToWorld(zen::VM*, zen::Value* args, int nargs)
 
 int natMouseWorldPosition(zen::VM*, zen::Value* args, int)
 {
-    const float x = gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0f;
-    const float y = gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0f;
-    const Math::Vec2 point = screenToWorld(x, y);
+    const Math::Vec2 point = screenToWorld(zenMouseX(), zenMouseY());
     args[0] = zen::val_float(point.x);
     args[1] = zen::val_float(point.y);
     return 2;
@@ -5163,6 +5224,10 @@ void ZenRuntime::Impl::initialize()
     animation.method("stop", &natAnimationStop, 0);
     animation.method("is_playing", &natAnimationIsPlaying, 0);
     animation.method("current", &natAnimationCurrent, 0);
+    animation.method("get_frame", &natAnimationGetFrame, 0);
+    animation.method("point_count", &natAnimationPointCount, 0);
+    animation.method("get_point", &natAnimationGetPoint, 1);
+    animation.method("get_real_point", &natAnimationGetRealPoint, 1);
     animation.persistent(true).constructable(false);
     animationClass = animation.end();
 
@@ -5806,21 +5871,28 @@ void ZenRuntime::Impl::initialize()
 ZenScriptComponent::ZenScriptComponent()
     : ScriptComponent(ComponentEventUpdate | ComponentEventRender), mState(new State())
 {
-    ZenRuntime::instance().impl().liveInstances.push_back(&mState->instance);
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+    mState->liveIndex = impl.liveInstances.size();
+    ZenRuntime::Impl::LiveInstance live;
+    live.value = &mState->instance;
+    live.index = &mState->liveIndex;
+    impl.liveInstances.push_back(live);
 }
 
 ZenScriptComponent::~ZenScriptComponent()
 {
     destroyInstance();
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
-    for (size_t i = 0; i < impl.liveInstances.size(); ++i)
+    // Swap-and-pop by the stored index: the entry moved into this slot has to
+    // learn its new home, which is why the list holds the states and not just
+    // the values.
+    const std::size_t index = mState->liveIndex;
+    if (index < impl.liveInstances.size() && impl.liveInstances[index].value == &mState->instance)
     {
-        if (impl.liveInstances[i] == &mState->instance)
-        {
-            impl.liveInstances[i] = impl.liveInstances.back();
-            impl.liveInstances.pop_back();
-            break;
-        }
+        impl.liveInstances[index] = impl.liveInstances.back();
+        impl.liveInstances.pop_back();
+        if (index < impl.liveInstances.size())
+            *impl.liveInstances[index].index = index;
     }
     delete mState;
 }
@@ -6713,11 +6785,20 @@ void SetZenScriptVirtualPad(VirtualPad* pad)
 
 void SetZenScriptGameViewport(float x, float y, float width, float height)
 {
+    SetZenScriptGameViewport(x, y, width, height, width, height);
+}
+
+void SetZenScriptGameViewport(float x, float y, float outputWidth, float outputHeight,
+                              float virtualWidth, float virtualHeight)
+{
     gZenGameViewport.x = x;
     gZenGameViewport.y = y;
-    gZenGameViewport.width = width > 0.0f ? width : 0.0f;
-    gZenGameViewport.height = height > 0.0f ? height : 0.0f;
-    gZenGameViewport.valid = gZenGameViewport.width > 0.0f && gZenGameViewport.height > 0.0f;
+    gZenGameViewport.outputWidth = outputWidth > 0.0f ? outputWidth : 0.0f;
+    gZenGameViewport.outputHeight = outputHeight > 0.0f ? outputHeight : 0.0f;
+    gZenGameViewport.width = virtualWidth > 0.0f ? virtualWidth : 0.0f;
+    gZenGameViewport.height = virtualHeight > 0.0f ? virtualHeight : 0.0f;
+    gZenGameViewport.valid = gZenGameViewport.outputWidth > 0.0f && gZenGameViewport.outputHeight > 0.0f &&
+                             gZenGameViewport.width > 0.0f && gZenGameViewport.height > 0.0f;
 }
 
 void SetZenScriptGameCamera(const Camera2D* camera)

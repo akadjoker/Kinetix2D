@@ -681,6 +681,10 @@ const char* ActionKindName(ActionKind kind)
         return "scale";
     case ActionKind::Turn:
         return "turn";
+    case ActionKind::TurnRate:
+        return "turnRate";
+    case ActionKind::Force:
+        return "force";
     case ActionKind::Pause:
         return "pause";
     case ActionKind::Fade:
@@ -703,6 +707,10 @@ ActionKind ActionKindFromName(const char* name)
         return ActionKind::Scale;
     if (std::strcmp(name, "turn") == 0)
         return ActionKind::Turn;
+    if (std::strcmp(name, "turnRate") == 0)
+        return ActionKind::TurnRate;
+    if (std::strcmp(name, "force") == 0)
+        return ActionKind::Force;
     if (std::strcmp(name, "fade") == 0)
         return ActionKind::Fade;
     if (std::strcmp(name, "parallel") == 0)
@@ -1230,6 +1238,13 @@ void WriteAnimation(const Component& component, ct::Json& data, Assets* assets)
                         frameJson.set("texture", ct::Json(frameTexture));
                 frameJson.set("rect", WriteVec4(frame.rect));
                 frameJson.set("offset", WriteVec2(frame.offset));
+                if (!frame.points.empty())
+                {
+                    ct::Json points = ct::Json::array();
+                    for (size_t pointIndex = 0; pointIndex < frame.points.size(); ++pointIndex)
+                        points.push_back(WriteVec2(frame.points[pointIndex]));
+                    frameJson.set("points", points);
+                }
                 frames.push_back(frameJson);
             }
             clipJson.set("frames", frames);
@@ -1297,7 +1312,13 @@ void ReadAnimation(Component& component, const ct::Json& data, Assets* assets)
                     anim.addFrame(clipName, frameTexture, ReadVec4(frame["rect"]), frameTexturePath);
                     const size_t frameCount = anim.frameCount(clipName);
                     if (frameCount > 0)
+                    {
                         anim.setFrameOffset(clipName, frameCount - 1, ReadVec2(frame["offset"]));
+                        const ct::Json& points = frame["points"];
+                        if (points.is_array())
+                            for (size_t pointIndex = 0; pointIndex < points.size(); ++pointIndex)
+                                anim.addFramePoint(clipName, frameCount - 1, ReadVec2(points[pointIndex]));
+                    }
                 }
             }
 
@@ -1436,6 +1457,8 @@ void WriteCamera(const Component& component, ct::Json& data, Assets*)
 
     data.set("viewportWidth", ct::Json((double)cameraComponent.viewportWidth()));
     data.set("viewportHeight", ct::Json((double)cameraComponent.viewportHeight()));
+    data.set("viewportScaleMode", ct::Json(ViewportScaleModeName(cameraComponent.viewportScaleMode())));
+    data.set("integerScale", ct::Json(cameraComponent.integerScale()));
     data.set("renderPriority", ct::Json((int64_t)cameraComponent.renderPriority()));
     data.set("position", WriteVec2(camera.position));
     data.set("rotationDegrees", ct::Json((double)camera.rotationDegrees));
@@ -1460,6 +1483,8 @@ void ReadCamera(Component& component, const ct::Json& data, Assets*)
     CameraComponent& cameraComponent = static_cast<CameraComponent&>(component);
     cameraComponent.setViewport((float)data["viewportWidth"].as_double(0.0),
                                 (float)data["viewportHeight"].as_double(0.0));
+    cameraComponent.setViewportScaleMode(ParseViewportScaleMode(data["viewportScaleMode"].as_cstr("fit")));
+    cameraComponent.setIntegerScale(data["integerScale"].as_bool(false));
     cameraComponent.setRenderPriority((int)data["renderPriority"].as_int(0));
 
     Camera2D& camera = cameraComponent.camera();

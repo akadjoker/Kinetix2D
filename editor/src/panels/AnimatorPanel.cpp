@@ -91,6 +91,7 @@ void AnimatorPanel::drawContents()
             animation->addClip(newClip, nullptr, 0, 0, 0, newClipFps, AnimationMode::Loop);
             animation->play(newClip);
             mSelectedFrame = -1;
+            mSelectedPoint = -1;
         });
 
     ImGui::BeginChild("##clip_list", ImVec2(180.0f, 0.0f), true);
@@ -103,6 +104,7 @@ void AnimatorPanel::drawContents()
         {
             animation->play(clip->name.c_str());
             mSelectedFrame = -1;
+            mSelectedPoint = -1;
         }
     }
     ImGui::EndChild();
@@ -131,6 +133,7 @@ void AnimatorPanel::drawContents()
         {
             animation->removeClip(clipName.c_str());
             mSelectedFrame = -1;
+            mSelectedPoint = -1;
         });
         ImGui::PopStyleColor();
         ImGui::EndChild();
@@ -162,7 +165,12 @@ void AnimatorPanel::drawContents()
         else
             ImGui::Button("missing", ImVec2(72.0f, 72.0f));
         if (ImGui::IsItemClicked())
+        {
+            if (mSelectedFrame != static_cast<int>(i))
+                mSelectedPoint = -1;
             mSelectedFrame = static_cast<int>(i);
+            animation->setFrame(static_cast<int>(i));
+        }
         ImGui::Text("%d", static_cast<int>(i) + 1);
         ImGui::SameLine();
         ImGui::TextDisabled("%s", (frame.rect.z <= 0.0f || frame.rect.w <= 0.0f) ? "Image" : "Region");
@@ -186,6 +194,7 @@ void AnimatorPanel::drawContents()
                 app().settings().viewportLivePreview = true;
                 animation->play(clip->name.c_str());
                 mSelectedFrame = static_cast<int>(clip->frames.size()) - 1;
+                mSelectedPoint = -1;
             });
         }
         if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(kTextureDragDropPayload))
@@ -205,6 +214,7 @@ void AnimatorPanel::drawContents()
                     app().settings().viewportLivePreview = true;
                     animation->play(clip->name.c_str());
                     mSelectedFrame = static_cast<int>(clip->frames.size()) - 1;
+                    mSelectedPoint = -1;
                 });
             }
         }
@@ -224,7 +234,154 @@ void AnimatorPanel::drawContents()
             { animation->setFrameOffset(clip->name.c_str(), static_cast<size_t>(mSelectedFrame), Math::Vec2(0.0f)); });
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Reset Frame Offset");
-        ImGui::SameLine();
+
+        ImGui::Separator();
+        ImGui::Text("Attachment Points: %d", static_cast<int>(frame.points.size()));
+        const float frameWidth = frame.rect.z > 0.0f ? frame.rect.z
+                                                      : frame.texture ? static_cast<float>(frame.texture->Width()) : 0.0f;
+        const float frameHeight = frame.rect.w > 0.0f ? frame.rect.w
+                                                       : frame.texture ? static_cast<float>(frame.texture->Height()) : 0.0f;
+        if (frame.texture && frameWidth > 0.0f && frameHeight > 0.0f)
+        {
+            if (ImGui::Button(ICON_MDI_PLUS "  Add Point"))
+            {
+                const size_t newIndex = frame.points.size();
+                commit(app(), "Add Animation Frame Point", [&]
+                {
+                    animation->addFramePoint(clip->name.c_str(), static_cast<size_t>(mSelectedFrame),
+                                             Math::Vec2(frameWidth * 0.5f, frameHeight * 0.5f));
+                });
+                mSelectedPoint = static_cast<int>(newIndex);
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Add an indexed point at the centre, then drag it over the image");
+
+            const float availableWidth = ImGui::GetContentRegionAvail().x;
+            const float maxWidth = availableWidth < 420.0f ? availableWidth : 420.0f;
+            const float maxHeight = 280.0f;
+            float previewScale = maxWidth / frameWidth;
+            if (frameHeight * previewScale > maxHeight)
+                previewScale = maxHeight / frameHeight;
+            if (previewScale <= 0.0f)
+                previewScale = 1.0f;
+            const ImVec2 previewSize(frameWidth * previewScale, frameHeight * previewScale);
+            const bool fullImage = frame.rect.z <= 0.0f || frame.rect.w <= 0.0f;
+            const float textureWidth = static_cast<float>(frame.texture->Width());
+            const float textureHeight = static_cast<float>(frame.texture->Height());
+            const ImVec2 uv0 = fullImage ? ImVec2(0.0f, 0.0f)
+                                         : ImVec2(frame.rect.x / textureWidth, frame.rect.y / textureHeight);
+            const ImVec2 uv1 = fullImage ? ImVec2(1.0f, 1.0f)
+                                         : ImVec2((frame.rect.x + frame.rect.z) / textureWidth,
+                                                  (frame.rect.y + frame.rect.w) / textureHeight);
+            const ImVec2 previewMin = ImGui::GetCursorScreenPos();
+            ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(frame.texture->Id())), previewSize,
+                         uv0, uv1);
+            const ImVec2 previewMax(previewMin.x + previewSize.x, previewMin.y + previewSize.y);
+            ImDrawList *drawList = ImGui::GetWindowDrawList();
+            drawList->AddRect(previewMin, previewMax, IM_COL32(190, 200, 215, 220));
+
+            for (size_t pointIndex = 0; pointIndex < frame.points.size(); ++pointIndex)
+            {
+                const Math::Vec2 point = frame.points[pointIndex];
+                const ImVec2 marker(previewMin.x + point.x * previewScale,
+                                    previewMin.y + point.y * previewScale);
+                const ImU32 color = mSelectedPoint == static_cast<int>(pointIndex)
+                                        ? IM_COL32(255, 225, 70, 255)
+                                        : IM_COL32(60, 225, 255, 255);
+                drawList->AddCircle(marker, 7.0f, color, 16, 2.0f);
+                drawList->AddLine(ImVec2(marker.x - 10.0f, marker.y), ImVec2(marker.x + 10.0f, marker.y), color, 1.5f);
+                drawList->AddLine(ImVec2(marker.x, marker.y - 10.0f), ImVec2(marker.x, marker.y + 10.0f), color, 1.5f);
+                char indexLabel[16];
+                std::snprintf(indexLabel, sizeof(indexLabel), "%d", static_cast<int>(pointIndex));
+                drawList->AddText(ImVec2(marker.x + 9.0f, marker.y + 5.0f), color, indexLabel);
+            }
+
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !frame.points.empty())
+            {
+                const ImVec2 mouse = ImGui::GetMousePos();
+                int closest = -1;
+                float closestDistance = 14.0f * 14.0f;
+                for (size_t pointIndex = 0; pointIndex < frame.points.size(); ++pointIndex)
+                {
+                    const float markerX = previewMin.x + frame.points[pointIndex].x * previewScale;
+                    const float markerY = previewMin.y + frame.points[pointIndex].y * previewScale;
+                    const float dx = mouse.x - markerX;
+                    const float dy = mouse.y - markerY;
+                    const float distance = dx * dx + dy * dy;
+                    if (distance <= closestDistance)
+                    {
+                        closest = static_cast<int>(pointIndex);
+                        closestDistance = distance;
+                    }
+                }
+                if (closest >= 0)
+                    mSelectedPoint = closest;
+                if (mSelectedPoint >= 0 && static_cast<size_t>(mSelectedPoint) < frame.points.size())
+                {
+                    app().beginTransaction("Move Animation Frame Point", app().beginChange());
+                    mDraggingPoint = true;
+                }
+            }
+            if (mDraggingPoint && mSelectedPoint >= 0 && static_cast<size_t>(mSelectedPoint) < frame.points.size())
+            {
+                const ImVec2 mouse = ImGui::GetMousePos();
+                float pointX = (mouse.x - previewMin.x) / previewScale;
+                float pointY = (mouse.y - previewMin.y) / previewScale;
+                if (pointX < 0.0f) pointX = 0.0f;
+                if (pointY < 0.0f) pointY = 0.0f;
+                if (pointX > frameWidth) pointX = frameWidth;
+                if (pointY > frameHeight) pointY = frameHeight;
+                animation->setFramePoint(clip->name.c_str(), static_cast<size_t>(mSelectedFrame),
+                                         static_cast<size_t>(mSelectedPoint), Math::Vec2(pointX, pointY));
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                {
+                    app().commitTransaction();
+                    mDraggingPoint = false;
+                }
+            }
+
+            bool removedPoint = false;
+            for (size_t pointIndex = 0; pointIndex < frame.points.size(); ++pointIndex)
+            {
+                ImGui::PushID(static_cast<int>(pointIndex));
+                char pointLabel[32];
+                std::snprintf(pointLabel, sizeof(pointLabel), "Point %d", static_cast<int>(pointIndex));
+                if (ImGui::Selectable(pointLabel, mSelectedPoint == static_cast<int>(pointIndex), 0,
+                                      ImVec2(82.0f, 0.0f)))
+                    mSelectedPoint = static_cast<int>(pointIndex);
+                ImGui::SameLine();
+                float point[2] = {frame.points[pointIndex].x, frame.points[pointIndex].y};
+                ImGui::SetNextItemWidth(150.0f);
+                const bool changed = ImGui::DragFloat2("##point", point, 0.25f, 0.0f, 0.0f, "%.1f");
+                if (ImGui::IsItemActivated())
+                    app().beginTransaction("Move Animation Frame Point", app().beginChange());
+                if (changed)
+                    animation->setFramePoint(clip->name.c_str(), static_cast<size_t>(mSelectedFrame), pointIndex,
+                                             Math::Vec2(point[0], point[1]));
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                    app().commitTransaction();
+                ImGui::SameLine();
+                if (ImGui::SmallButton(ICON_MDI_DELETE))
+                {
+                    commit(app(), "Remove Animation Frame Point", [&]
+                    {
+                        animation->removeFramePoint(clip->name.c_str(), static_cast<size_t>(mSelectedFrame), pointIndex);
+                    });
+                    mSelectedPoint = -1;
+                    removedPoint = true;
+                }
+                ImGui::PopID();
+                if (removedPoint)
+                    break;
+            }
+            ImGui::TextDisabled("Points use frame pixels. Drag a numbered marker to place it.");
+        }
+        else
+        {
+            ImGui::TextDisabled("This frame has no image to edit points on.");
+        }
+
+        ImGui::Separator();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.36f, 0.14f, 0.16f, 1.0f));
         if (ImGui::Button(ICON_MDI_DELETE "  Delete Frame"))
         {
@@ -233,6 +390,7 @@ void AnimatorPanel::drawContents()
             {
                 animation->removeFrame(clip->name.c_str(), frameIndex);
                 mSelectedFrame = -1;
+                mSelectedPoint = -1;
             });
         }
         ImGui::PopStyleColor();

@@ -36,6 +36,8 @@ namespace k2d
         bool VirtualKeysVisible() const { return mCustomKeysVisible; }
 
         void Update(Input &input, float screenWidth, float screenHeight, float deltaTime = 1.0f / 60.0f);
+        void Update(Input &input, float viewportX, float viewportY, float viewportWidth, float viewportHeight,
+                    float virtualWidth, float virtualHeight, float deltaTime);
         void Draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const;
 
         Math::Vec2 Stick() const { return mStick; }
@@ -59,6 +61,9 @@ namespace k2d
         bool virtualKeysVisible() const { return VirtualKeysVisible(); }
         void update(Input &input, float screenWidth, float screenHeight, float deltaTime = 1.0f / 60.0f)
         { Update(input, screenWidth, screenHeight, deltaTime); }
+        void update(Input &input, float viewportX, float viewportY, float viewportWidth, float viewportHeight,
+                    float virtualWidth, float virtualHeight, float deltaTime)
+        { Update(input, viewportX, viewportY, viewportWidth, viewportHeight, virtualWidth, virtualHeight, deltaTime); }
         void draw(CanvasRenderer &canvas, float screenWidth, float screenHeight) const { Draw(canvas, screenWidth, screenHeight); }
         Math::Vec2 stick() const { return Stick(); }
         bool primaryDown() const { return PrimaryDown(); }

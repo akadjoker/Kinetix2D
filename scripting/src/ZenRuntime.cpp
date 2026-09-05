@@ -34,7 +34,7 @@ namespace k2d
             for (const auto &entry : impl.instances)
                 zen::gc_mark_value(gc, entry.value.value);
             for (size_t i = 0; i < impl.liveInstances.size(); ++i)
-                zen::gc_mark_value(gc, *impl.liveInstances[i]);
+                zen::gc_mark_value(gc, *impl.liveInstances[i].value);
         }
     }
 
@@ -143,8 +143,11 @@ namespace k2d
     {
         if (!path || !path[0])
             return 0;
+        ct::String resolved;
+        if (!FileSystem::Instance().Resolve(path, resolved))
+            return 0;
         std::error_code error;
-        const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
+        const std::filesystem::file_time_type time = std::filesystem::last_write_time(resolved.c_str(), error);
         if (error)
             return 0;
         return (long long)time.time_since_epoch().count();
@@ -593,8 +596,15 @@ namespace k2d
         if (!ptr)
             return zen::val_nil();
         if (CachedInstance *cached = instances.find(ptr))
+        {
             if (cached->klass == klass)
                 return cached->value;
+            // The address is being re-handed out under a different class. The
+            // entry below replaces this one, so neutralise it here or it stays
+            // reachable from Zen with a payload nothing will ever clear.
+            if (zen::is_instance(cached->value))
+                zen::as_instance(cached->value)->native_data = nullptr;
+        }
 
         zen::Value value = vm.make_instance(klass);
         zen::as_instance(value)->native_data = ptr;
@@ -608,7 +618,13 @@ namespace k2d
 
     void ZenRuntime::Impl::forgetInstance(void *ptr)
     {
-        instances.erase(ptr);
+        // Dropping the cache entry alone leaves any handle a script already
+        // holds pointing at freed memory: clear the payload too, so the
+        // nodeFromSelf/componentFromSelf null checks catch the stale handle
+        // instead of dereferencing it.
+        CachedInstance cached;
+        if (instances.erase(ptr, cached) && zen::is_instance(cached.value))
+            zen::as_instance(cached.value)->native_data = nullptr;
     }
 
 }

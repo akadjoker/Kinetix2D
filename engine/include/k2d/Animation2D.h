@@ -28,6 +28,9 @@ namespace k2d
         ct::String texturePath;
         Math::Vec4 rect = Math::Vec4(0.0f);
         Math::Vec2 offset = Math::Vec2(0.0f);
+        // Attachment points in unflipped frame pixels, measured from the
+        // frame's top-left corner. Their stable index is the script-facing ID.
+        ct::Vector<Math::Vec2> points;
     };
 
     struct AnimationEvent
@@ -75,6 +78,14 @@ namespace k2d
         bool setFrame(const char *clipName, size_t index, Texture *texture, const Math::Vec4 &rect,
                       const char *texturePath = nullptr);
         bool setFrameOffset(const char *clipName, size_t index, const Math::Vec2 &offset);
+        bool addFramePoint(const char *clipName, size_t frameIndex, const Math::Vec2 &point);
+        bool setFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex, const Math::Vec2 &point);
+        bool removeFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex);
+        size_t framePointCount(const char *clipName, size_t frameIndex) const;
+        const Math::Vec2 *framePointAt(const char *clipName, size_t frameIndex, size_t pointIndex) const;
+        size_t currentFramePointCount() const;
+        bool currentFramePoint(size_t pointIndex, Math::Vec2 &outPoint) const;
+        bool currentFrameRealPoint(size_t pointIndex, Math::Vec2 &outWorld) const;
         bool removeFrame(const char *clipName, size_t index);
         bool setClipAtlasLayout(const char *clipName, const Math::Vec2 &padding, const Math::Vec2 &gap);
         bool play(const char *name);

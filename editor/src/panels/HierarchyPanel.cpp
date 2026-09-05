@@ -1,4 +1,5 @@
 #include "HierarchyPanel.h"
+#include <k2d/Profiler.h>
 
 #include "core/EditorApplication.h"
 #include "panels/AssetsPanel.h"
@@ -80,6 +81,7 @@ void moveChildToIndex(GameObject *parent, GameObject *child, size_t targetIndex)
 
 void HierarchyPanel::drawContents()
 {
+    ProfileScope profileScope("editor.hierarchy");
     if (ImGui::Button(ICON_MDI_PLUS))
         createNode();
     if (ImGui::IsItemHovered())

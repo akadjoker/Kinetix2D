@@ -481,6 +481,57 @@ static bool testSkeleton()
     return ok;
 }
 
+static bool testAnimationPointApi()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("animated_points");
+    object->setPosition(Math::Vec2(100.0f, 50.0f));
+    object->setScale(Math::Vec2(2.0f, 1.0f));
+    k2d::SpriteComponent* sprite = object->addComponent<k2d::SpriteComponent>();
+    sprite->setSize(Math::Vec2(20.0f, 10.0f));
+    sprite->setPivot(Math::Vec2(0.5f, 0.5f));
+    sprite->setRenderOffset(Math::Vec2(3.0f, -2.0f));
+    k2d::Animation2D* animation = object->addComponent<k2d::Animation2D>();
+    animation->addClip("shoot", nullptr, 0, 0, 0, 10.0f, k2d::AnimationMode::Loop);
+    animation->addFrame("shoot", nullptr, Math::Vec4(0.0f, 0.0f, 20.0f, 10.0f));
+    animation->addFramePoint("shoot", 0, Math::Vec2(20.0f, 5.0f));
+    animation->play("shoot");
+
+    k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
+    const bool loaded = script->loadSource(
+        "class PointReader(ScriptComponent):\n"
+        "    def on_start(self):\n"
+        "        a = self.node.get_component<Animation>()\n"
+        "        set_number(\"animation_frame\", a.get_frame())\n"
+        "        set_number(\"point_count\", a.point_count())\n"
+        "        found, x, y = a.get_point(0)\n"
+        "        set_flag(\"point_found\", found)\n"
+        "        set_number(\"point_x\", x)\n"
+        "        set_number(\"point_y\", y)\n"
+        "        real_found, real_x, real_y = a.get_real_point(0)\n"
+        "        set_flag(\"real_found\", real_found)\n"
+        "        set_number(\"real_x\", real_x)\n"
+        "        set_number(\"real_y\", real_y)\n"
+        "        missing, missing_x, missing_y = a.get_real_point(9)\n"
+        "        set_flag(\"point_missing\", not missing)\n",
+        "animation_points");
+
+    scene.update(0.016f);
+    const bool ok = loaded && script->loaded() &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("animation_frame"), 0.0f) &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("point_count"), 1.0f) &&
+                    k2d::ZenBlackboard::getBool("point_found", false) &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("point_x"), 20.0f) &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("point_y"), 5.0f) &&
+                    k2d::ZenBlackboard::getBool("real_found", false) &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("real_x"), 126.0f) &&
+                    nearEqual((float)k2d::ZenBlackboard::getNumber("real_y"), 48.0f) &&
+                    k2d::ZenBlackboard::getBool("point_missing", false);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testAudioPlayerApi()
 {
     k2d::ZenBlackboard::clear();
@@ -1137,6 +1188,8 @@ static bool testActionSequenceApi()
         "        a.set_loop(\"loop\")\n"
         "        set_string(\"loop\", a.get_loop())\n"
         "        a.add_step(\"move\", 100.0, 0.0, 0.0, 255, 255, 255, 255, 1.0, \"linear\")\n"
+        "        a.add_step(\"force\", 20.0, -10.0, 0.0, 255, 255, 255, 255, 2.0, \"linear\")\n"
+        "        a.add_step(\"turn_rate\", 0.0, 0.0, 90.0, 255, 255, 255, 255, 1.0, \"linear\")\n"
         "        set_number(\"steps\", a.step_count())\n"
         "        a.play(True)\n"
         "        set_flag(\"playing\", a.is_playing())\n"
@@ -1153,11 +1206,13 @@ static bool testActionSequenceApi()
     ok = ok && k2d::ZenBlackboard::getBool("has_sequence", false);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("action_sequence_count"), 2.0f);
     ok = ok && k2d::ZenBlackboard::getString("loop") == ct::String("loop");
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("steps"), 1.0f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("steps"), 3.0f);
     ok = ok && k2d::ZenBlackboard::getBool("playing", false);
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("step0"), 0.0f);
     ok = ok && sequence->loop() == k2d::ActionSequenceLoop::Loop;
-    ok = ok && sequence->stepCount() == 1;
+    ok = ok && sequence->stepCount() == 3;
+    ok = ok && sequence->stepAt(1) && sequence->stepAt(1)->kind == k2d::ActionKind::Force;
+    ok = ok && sequence->stepAt(2) && sequence->stepAt(2)->kind == k2d::ActionKind::TurnRate;
     ok = ok && sequence->playing();
     ok = ok && nearEqual(object->position().x, 1.6f) && nearEqual(object->position().y, 0.0f);
 
@@ -2182,7 +2237,7 @@ static bool testGameViewportMouseInput()
     k2d::ZenBlackboard::clear();
     k2d::Input input;
     k2d::SetZenScriptInput(&input);
-    k2d::SetZenScriptGameViewport(100.0f, 50.0f, 320.0f, 180.0f);
+    k2d::SetZenScriptGameViewport(100.0f, 50.0f, 640.0f, 360.0f, 320.0f, 180.0f);
     k2d::Camera2D camera;
     camera.position = Math::Vec2(10.0f, 20.0f);
     k2d::SetZenScriptGameCamera(&camera);
@@ -2197,16 +2252,20 @@ static bool testGameViewportMouseInput()
                                  "    def on_update(self, dt):\n"
                                  "        set_number(\"game_mouse_x\", mouse_x())\n"
                                  "        set_number(\"game_mouse_y\", mouse_y())\n"
+                                 "        set_number(\"game_viewport_w\", viewport_width())\n"
+                                 "        set_number(\"game_viewport_h\", viewport_height())\n"
                                  "        wx, wy = mouse_world_position()\n"
                                  "        set_number(\"game_world_x\", wx)\n"
                                  "        set_number(\"game_world_y\", wy)\n"
                                  "        set_flag(\"game_mouse_pressed\", mouse_pressed(0))\n",
                                  "game_viewport_input");
     scene.update(0.016f);
-    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_x"), 20.0f) &&
-         nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_y"), 30.0f) &&
-         nearEqual((float)k2d::ZenBlackboard::getNumber("game_world_x"), -130.0f) &&
-         nearEqual((float)k2d::ZenBlackboard::getNumber("game_world_y"), -40.0f) &&
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_x"), 10.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("game_mouse_y"), 15.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("game_viewport_w"), 320.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("game_viewport_h"), 180.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("game_world_x"), -140.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("game_world_y"), -55.0f) &&
          k2d::ZenBlackboard::getBool("game_mouse_pressed", false);
 
     k2d::SetZenScriptGameViewport(0.0f, 0.0f, 0.0f, 0.0f);
@@ -2470,6 +2529,39 @@ static bool testHotReload()
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
     std::remove(path.c_str());
+
+    // Project scripts normally use logical paths such as
+    // assets/scripts/player.py. Timestamp checks must resolve those paths
+    // through FileSystem just like the actual source load does.
+    const std::string relativeName = "k2d_zen_hotreload_relative.py";
+    const std::string relativePath = k2d_tests::tempPath(relativeName.c_str());
+    const std::filesystem::path relativeDirectory = std::filesystem::path(relativePath).parent_path();
+    k2d::FileSystem::Instance().AddSearchPath(relativeDirectory.generic_string().c_str());
+    file = std::fopen(relativePath.c_str(), "w");
+    if (!file)
+        return false;
+    std::fputs("class Relative(ScriptComponent):\n    def on_update(self, dt):\n        self.node.set_position(3, 3)\n", file);
+    std::fclose(file);
+
+    k2d::Scene relativeScene;
+    k2d::GameObject* relativeObject = relativeScene.createObject("relative_reloader");
+    k2d::ZenScriptComponent* relativeScript = relativeObject->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && relativeScript->loadFile(relativeName.c_str());
+    relativeScene.update(0.016f);
+    ok = ok && nearEqual(relativeObject->position().x, 3.0f);
+
+    file = std::fopen(relativePath.c_str(), "w");
+    if (!file)
+        return false;
+    std::fputs("class Relative(ScriptComponent):\n    def on_update(self, dt):\n        self.node.set_position(4, 4)\n", file);
+    std::fclose(file);
+    std::filesystem::last_write_time(relativePath,
+                                     std::filesystem::last_write_time(relativePath) + std::chrono::seconds(4));
+
+    ok = ok && k2d::ReloadChangedZenScripts() == 1;
+    relativeScene.update(0.016f);
+    ok = ok && nearEqual(relativeObject->position().x, 4.0f);
+    std::remove(relativePath.c_str());
     return ok;
 }
 
@@ -2609,8 +2701,8 @@ static bool testUiSerializationAndInput()
 
     k2d::Input input;
     k2d::SetUiInput(&input);
-    k2d::SetUiViewport(0.0f, 0.0f, 320.0f, 180.0f);
-    input.OnMouseMove(160.0f, 90.0f);
+    k2d::SetUiViewport(100.0f, 50.0f, 640.0f, 360.0f, 320.0f, 180.0f);
+    input.OnMouseMove(420.0f, 230.0f);
     input.OnMouseButton(0, true);
     scene.update(0.016f);
     input.NewFrame();
@@ -2684,6 +2776,7 @@ int main()
     const bool nodeHandleCleanup = testNodeHandleCleanup();
     const bool genericAngleBrackets = testGenericAngleBracketCalls();
     const bool allComponentHandles = testAllComponentHandles();
+    const bool animationPointApi = testAnimationPointApi();
     const bool skeletonOk = testSkeleton();
     const bool audioPlayerApi = testAudioPlayerApi();
     const bool light2DApi = testLight2DApi();
@@ -2735,7 +2828,7 @@ int main()
 
     std::printf(
         "zen: basics=%s script_base=%s draw_api=%s object_count=%s bunnymark=%s hierarchy=%s components=%s node_handle_cleanup=%s "
-        "generic_angle_brackets=%s all_component_handles=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
+        "generic_angle_brackets=%s all_component_handles=%s animation_points=%s skeleton=%s audio_player=%s light_2d=%s tile_map=%s "
         "animation_events=%s animation_lag=%s animation_finished=%s animation_events_saved=%s "
         "agent_orientation=%s "
         "navigation_agent=%s steering_api=%s directional_light=%s light_occluder=%s motion_tween=%s "
@@ -2748,6 +2841,7 @@ int main()
         basics ? "pass" : "fail", scriptBase ? "pass" : "fail", drawApi ? "pass" : "fail",
         objectCount ? "pass" : "fail", bunnymark ? "pass" : "fail", hierarchy ? "pass" : "fail",
         components ? "pass" : "fail", nodeHandleCleanup ? "pass" : "fail", genericAngleBrackets ? "pass" : "fail", allComponentHandles ? "pass" : "fail",
+        animationPointApi ? "pass" : "fail",
         skeletonOk ? "pass" : "fail", audioPlayerApi ? "pass" : "fail", light2DApi ? "pass" : "fail",
         tileMapApi ? "pass" : "fail", animationEvents ? "pass" : "fail", animationLag ? "pass" : "fail",
         animationFinished ? "pass" : "fail", animationEventsSaved ? "pass" : "fail",
@@ -2768,7 +2862,7 @@ int main()
         channel ? "pass" : "fail", hotReload ? "pass" : "fail", modules ? "pass" : "fail", examples ? "pass" : "fail",
         ui ? "pass" : "fail", particlePhysics ? "pass" : "fail");
     const bool passed = basics && scriptBase && drawApi && objectCount && bunnymark && hierarchy && components && nodeHandleCleanup && genericAngleBrackets &&
-                        allComponentHandles && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
+                        allComponentHandles && animationPointApi && skeletonOk && audioPlayerApi && light2DApi && tileMapApi &&
                         animationEvents && animationLag && animationFinished && animationEventsSaved &&
                         agentOrientation &&
                         navigationAgentApi && steeringApi &&

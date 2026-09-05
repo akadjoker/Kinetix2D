@@ -1,8 +1,13 @@
+import math
+
+
 # One shared particle emitter for every bullet's impact, instead of each
 # bullet carrying its own Particle system -- repositioned and burst() from
 # wherever it's needed, never spawned/destroyed per hit.
 IMPACT_PARTICLES_NAME = "ImpactParticles"
 ENEMY_TAG = "enemy"
+DESTRUCTIBLE_TAG = "destructible"
+SMOKE_PREFAB = "assets/prefabs/smoke.k2dprefab"
 
 
 class Bullet(ScriptComponent):
@@ -36,9 +41,38 @@ class Bullet(ScriptComponent):
     def on_collision(self, other, began):
         if not began or self.dying:
             return
-        if other != None and other.get_tag() == ENEMY_TAG:
-            other.call("take_damage", self.damage)
+        if other != None:
+            tag = other.get_tag()
+            if tag != ENEMY_TAG:
+                self.spawn_smoke()
+            if tag == ENEMY_TAG or tag == DESTRUCTIBLE_TAG:
+                other.call("take_damage", self.damage)
+        self.play_impact_sound()
         self.die()
+
+    def play_impact_sound(self):
+        index = int(math.random(0.0, 6.999))
+        sound = int(get_number("sfx_impact_0", 0.0))
+        if index == 1:
+            sound = int(get_number("sfx_impact_1", 0.0))
+        elif index == 2:
+            sound = int(get_number("sfx_impact_2", 0.0))
+        elif index == 3:
+            sound = int(get_number("sfx_impact_3", 0.0))
+        elif index == 4:
+            sound = int(get_number("sfx_impact_4", 0.0))
+        elif index == 5:
+            sound = int(get_number("sfx_impact_5", 0.0))
+        elif index == 6:
+            sound = int(get_number("sfx_impact_6", 0.0))
+        if sound == 0:
+            return
+        x, y = self.node.get_global_position()
+        audio_play_at(sound, x, y, 0.38, math.random(0.94, 1.06), 70.0, 750.0)
+
+    def spawn_smoke(self):
+        x, y = self.node.get_global_position()
+        self.node.spawn(SMOKE_PREFAB, x, y)
 
     def die(self):
         self.dying = True

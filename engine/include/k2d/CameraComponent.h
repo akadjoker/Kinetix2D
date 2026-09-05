@@ -2,6 +2,7 @@
 
 #include "k2d/Camera2D.h"
 #include "k2d/Component.h"
+#include "k2d/GameViewport.h"
 
 #include <ct/string.hpp>
 
@@ -23,6 +24,13 @@ namespace k2d
         void setViewport(float width, float height);
         float viewportWidth() const { return mViewportWidth; }
         float viewportHeight() const { return mViewportHeight; }
+        void setRenderViewport(float width, float height);
+        float renderViewportWidth() const;
+        float renderViewportHeight() const;
+        void setViewportScaleMode(ViewportScaleMode value) { mViewportScaleMode = value; }
+        ViewportScaleMode viewportScaleMode() const { return mViewportScaleMode; }
+        void setIntegerScale(bool value) { mIntegerScale = value; }
+        bool integerScale() const { return mIntegerScale; }
         void setRenderPriority(int value) { mRenderPriority = value; }
         int renderPriority() const { return mRenderPriority; }
         Math::Mat4 projection() const;
@@ -56,6 +64,10 @@ namespace k2d
         Camera2D mCamera;
         float mViewportWidth;
         float mViewportHeight;
+        float mRenderViewportWidth;
+        float mRenderViewportHeight;
+        ViewportScaleMode mViewportScaleMode;
+        bool mIntegerScale;
         int mRenderPriority;
         ct::String mFollowTargetName;
         GameObject *mFollowTarget = nullptr;

@@ -93,6 +93,22 @@ namespace k2d
 
     void VirtualPad::Update(Input &input, float screenWidth, float screenHeight, float deltaTime)
     {
+        Update(input, 0.0f, 0.0f, screenWidth, screenHeight, screenWidth, screenHeight, deltaTime);
+    }
+
+    void VirtualPad::Update(Input &input, float viewportX, float viewportY, float viewportWidth, float viewportHeight,
+                            float virtualWidth, float virtualHeight, float deltaTime)
+    {
+        const float screenWidth = virtualWidth;
+        const float screenHeight = virtualHeight;
+        const auto mapX = [viewportX, viewportWidth, virtualWidth](float value)
+        {
+            return viewportWidth > 0.0f ? (value - viewportX) * virtualWidth / viewportWidth : value;
+        };
+        const auto mapY = [viewportY, viewportHeight, virtualHeight](float value)
+        {
+            return viewportHeight > 0.0f ? (value - viewportY) * virtualHeight / viewportHeight : value;
+        };
         mStick = Math::Vec2(0.0f);
         mPrimaryDown = false;
         mSecondaryDown = false;
@@ -115,10 +131,10 @@ namespace k2d
             {
                 const Input::Touch &touch = input.GetTouch(index);
                 if (touch.active)
-                    handleCustomKeys(touch.x, touch.y);
+                    handleCustomKeys(mapX(touch.x), mapY(touch.y));
             }
             if (input.MouseDown(0))
-                handleCustomKeys(input.MouseX(), input.MouseY());
+                handleCustomKeys(mapX(input.MouseX()), mapY(input.MouseY()));
 
             if (mEnabled)
             {
@@ -161,7 +177,7 @@ namespace k2d
                 {
                     if (input.MouseDown(0))
                     {
-                        setStick(input.MouseX(), input.MouseY());
+                        setStick(mapX(input.MouseX()), mapY(input.MouseY()));
                         stickPointerActive = true;
                     }
                 }
@@ -172,7 +188,7 @@ namespace k2d
                         const Input::Touch &touch = input.GetTouch(index);
                         if (touch.active && touch.id == mStickTouchId)
                         {
-                            setStick(touch.x, touch.y);
+                            setStick(mapX(touch.x), mapY(touch.y));
                             stickPointerActive = true;
                             break;
                         }
@@ -187,13 +203,15 @@ namespace k2d
                 const Input::Touch &touch = input.GetTouch(index);
                 if (!touch.active)
                     continue;
-                handleButtons(touch.x, touch.y);
-                if (!mStickCaptured && distanceSquared(touch.x, touch.y, stickX, stickY) <= radius * radius * 1.45f)
+                const float touchX = mapX(touch.x);
+                const float touchY = mapY(touch.y);
+                handleButtons(touchX, touchY);
+                if (!mStickCaptured && distanceSquared(touchX, touchY, stickX, stickY) <= radius * radius * 1.45f)
                 {
                     mStickCaptured = true;
                     mStickUsesMouse = false;
                     mStickTouchId = touch.id;
-                    setStick(touch.x, touch.y);
+                    setStick(touchX, touchY);
                     stickPointerActive = true;
                 }
             }
@@ -202,12 +220,14 @@ namespace k2d
             // single-pointer fallback on web platforms without touch input.
             if (input.MouseDown(0))
             {
-                handleButtons(input.MouseX(), input.MouseY());
-                if (!mStickCaptured && distanceSquared(input.MouseX(), input.MouseY(), stickX, stickY) <= radius * radius * 1.45f)
+                const float mouseX = mapX(input.MouseX());
+                const float mouseY = mapY(input.MouseY());
+                handleButtons(mouseX, mouseY);
+                if (!mStickCaptured && distanceSquared(mouseX, mouseY, stickX, stickY) <= radius * radius * 1.45f)
                 {
                     mStickCaptured = true;
                     mStickUsesMouse = true;
-                    setStick(input.MouseX(), input.MouseY());
+                    setStick(mouseX, mouseY);
                     stickPointerActive = true;
                 }
             }

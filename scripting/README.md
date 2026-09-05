@@ -154,7 +154,7 @@ script->declaredPropertyCount(); // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, and `MotionStreak`; plus the legacy component getters |
+| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, `PathMotion`, `ActionSequence`, and `MotionStreak`; plus the legacy component getters |
 
 Component handles return `None` when the component is missing.
 
@@ -162,6 +162,29 @@ Every component handle provides `is_active()` and `set_active(value)`. Component
 component-specific script APIs expose those methods on the handle as well; for example,
 `CharacterBody` provides velocity and slide-state accessors, `Collider` provides offset,
 sensor and filter accessors, and `Panel`/`Label` provide their UI setters and getters.
+
+`Animation` exposes the indexed attachment points authored on the current frame:
+
+```python
+count = animation.point_count()
+frame = animation.get_frame()
+found, pixel_x, pixel_y = animation.get_point(0)
+found, world_x, world_y = animation.get_real_point(0)
+```
+
+`get_point` returns the stored unflipped frame-pixel position. `get_real_point` applies the
+sprite pivot, frame offset, flip and the owning GameObject's complete global transform.
+
+`ActionSequence` supports absolute target actions and duration-based rate actions. `force`
+uses X/Y as units per second; `turn_rate` uses angle as degrees per second. Both multiply
+their rate by delta time internally. A duration of `0` makes either rate action run forever,
+until the sequence is stopped or restarted:
+
+```python
+actions = self.node.get_component<ActionSequence>()
+actions.add_step("force", 120.0, -30.0, 0.0, 255, 255, 255, 255, 2.0, "linear")
+actions.add_step("turn_rate", 0.0, 0.0, 180.0, 255, 255, 255, 255, 0.0, "linear")
+```
 
 `get_component<T>()` is the generic form of the component accessors. `T` must be one of the
 component handle classes listed above. A node owns its transform directly, so use the node's
