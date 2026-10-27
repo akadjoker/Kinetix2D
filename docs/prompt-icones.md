@@ -1,72 +1,95 @@
-# Prompt: icon sheet for the Kinetix2D editor
+# Prompt: icon sheets for the Kinetix2D editor
 
-Same format as the ZenStage and ZenHuman sheets. The names below each row are what the
-editor looks up in `atlas.txt` (`Name x y w h`), cell by cell in the same order.
-
----
-
-A sprite sheet of 96 flat minimalist UI icons for a 2D game engine editor,
-arranged in a strict 8 columns by 12 rows grid, each cell exactly square, equal
-spacing, no labels, no text, no borders. Style: simple solid glyphs in medium
-grey (#9A9A9A) with small red (#E04040) accents, plain white background, clean
-geometric shapes, consistent 2px stroke weight, centered in each cell, same
-visual size. Row by row, left to right:
-
-Row 1: plain node small circle with center dot, scene clapperboard, prefab cube with
-a chain link, sprite picture frame with mountain and sun, three overlapping sprite
-frames (sprite batch), animation film strip with two frames, 2D camera body with lens,
-tile map 3x3 grid with two filled cells.
-Row 2: polygon pentagon outline, point light bulb with three rays, directional light
-sun with parallel arrows, light occluder wall casting a dark wedge, polyline with three
-points, nine patch square with a 3x3 slice grid and filled corners, particles spraying
-from a point, audio speaker with two sound arcs.
-Row 3: rigid body filled circle with a motion arrow, character body stick figure,
-box collider dashed square, circle collider dashed circle, edge collider single dashed
-line, polygon collider dashed pentagon, chain collider dashed polyline with a link,
-tile map collider 2x2 grid with dashed border.
-Row 4: distance joint two dots joined by a bar, revolute joint hinge of two bars on a
-pin, wheel joint wheel on a spring, motor joint gear with rotation arrow, mouse joint
-pointer arrow with a short spring, gear joint two meshing gears, circle shape filled
-circle, rectangle shape filled rectangle.
-Row 5: capsule shape filled capsule, UI canvas window frame with title bar, UI panel
-rounded rectangle, UI label letter T, UI button rounded rectangle with a short line,
-UI checkbox square with a check mark, UI slider track with a knob, navigation region
-flat area outline with a path through it.
-Row 6: navigation agent pin with a dotted path behind it, motion tween two keyframe
-diamonds joined by an easing curve, motion streak comet tail, skeleton three connected
-bones, single bone, parallax three offset mountain layers, steering wheel, formation
-four dots in a V.
-Row 7: path motion curve with a dot on it, action sequence three blocks with arrows
-between them, script paper sheet with a snake curve, folder, texture image file, scene
-file with clapperboard mark, script file with snake mark, audio file with a note.
-Row 8: open eye (visible), closed eye with a slash (hidden), closed padlock (lock),
-open padlock (unlock), warning triangle with exclamation mark, error circle with an X,
-magnifying glass (search), funnel (filter).
-Row 9: new blank page with plus, open folder, save floppy, save-as floppy with a
-pencil, undo curved arrow left, redo curved arrow right, add plus, remove trash bin.
-Row 10: duplicate two overlapping squares, settings gear, export box with arrow leaving
-it, export to web globe with arrow, refresh circular arrow, reload scripts sheet with
-circular arrow, play right-pointing triangle with red accent, pause two vertical bars.
-Row 11: stop square, step triangle with a bar after it, select pointer arrow, move four
-arrows from a center, rotate circular arrow with a center dot, scale square with a
-diagonal corner arrow, grid 3x3 thin lines, snap magnet.
-Row 12: zoom in magnifier with plus, zoom out magnifier with minus, zoom fit four corner
-brackets, center crosshair, editor camera with a small eye, reset layout window with its
-panes outlined, console terminal prompt, inspector list with three bullet lines.
+Same format as the ZenStage and ZenHuman sheets, split in three sheets of 32 so the model
+keeps the grid. The names under each sheet are what the editor looks up in `atlas.txt`
+(`Name x y w h`), cell by cell in the same order. Every sheet starts and ends with the
+no-text rule, because the model tends to write captions under the icons.
 
 ---
 
-Names for `atlas.txt`, in the same order:
+## Sheet 1 (scene objects)
 
-Row 1: Object Scene Prefab Sprite SpriteBatch Animation Camera TileMap
-Row 2: Polygon2D Light2D DirectionalLight2D LightOccluder Line2D NinePatch Particle AudioPlayer
-Row 3: RigidBody2D CharacterBody2D BoxCollider2D CircleCollider2D EdgeCollider2D PolygonCollider2D ChainCollider2D TileMapCollider2D
-Row 4: DistanceJoint2D RevoluteJoint2D WheelJoint2D MotorJoint2D MouseJoint2D GearJoint2D CircleShape RectShape
-Row 5: CapsuleShape UiCanvas UiPanel UiLabel UiButton UiCheckBox UiSlider NavigationRegion
-Row 6: NavigationAgent MotionTween MotionStreak Skeleton Bone ParallaxLayer Steering Formation
-Row 7: PathMotion ActionSequence Script Folder Texture SceneFile ScriptFile AudioFile
-Row 8: VisibilityVisible VisibilityHidden Lock Unlock Warning Error Search Filter
-Row 9: New Open Save SaveAs Undo Redo Add Remove
-Row 10: Duplicate Settings Export ExportWeb Refresh ReloadScripts Play Pause
-Row 11: Stop Step Select Move Rotate Scale Grid Snap
-Row 12: ZoomIn ZoomOut ZoomFit Center EditorCamera ResetLayout Console Inspector
+A sprite sheet of 32 flat minimalist UI icons for a 2D game engine editor, glyphs only:
+absolutely no lettering, no words, no captions, no numbers anywhere in the image.
+Arranged in a strict 8 columns by 4 rows grid, each cell exactly square, equal spacing,
+no borders between cells. Style: simple solid glyphs in medium grey (#9A9A9A) with small
+red (#E04040) accents, plain white background, clean geometric shapes, consistent 2px
+stroke weight, centered in each cell, same visual size. Row by row, left to right:
+
+Row 1: plain node small circle with a center dot, scene clapperboard, prefab cube with a
+chain link, sprite picture frame with mountain and sun, three overlapping picture frames,
+film strip with two frames, 2D camera body with a lens, 3x3 tile grid with two filled cells.
+Row 2: pentagon outline, light bulb with three rays, sun with parallel arrows leaving it,
+wall segment casting a dark wedge, polyline with three points, square with a 3x3 slice grid
+and filled corners, small circles spraying from a point, speaker with two sound arcs.
+Row 3: filled circle with a motion arrow, standing stick figure, dashed square, dashed
+circle, single dashed line, dashed pentagon, dashed polyline with a small chain link, 2x2
+grid with a dashed border.
+Row 4: two dots joined by a straight bar, hinge of two bars on a pin, wheel on a spring,
+gear with a rotation arrow, pointer arrow with a short spring, two meshing gears, filled
+circle, filled rectangle.
+
+Glyphs only, no text of any kind in the image.
+
+Names: Object Scene Prefab Sprite SpriteBatch Animation Camera TileMap /
+Polygon2D Light2D DirectionalLight2D LightOccluder Line2D NinePatch Particle AudioPlayer /
+RigidBody2D CharacterBody2D BoxCollider2D CircleCollider2D EdgeCollider2D PolygonCollider2D
+ChainCollider2D TileMapCollider2D /
+DistanceJoint2D RevoluteJoint2D WheelJoint2D MotorJoint2D MouseJoint2D GearJoint2D
+CircleShape RectShape
+
+## Sheet 2 (more objects, files, tree state)
+
+A sprite sheet of 32 flat minimalist UI icons for a 2D game engine editor, glyphs only:
+absolutely no lettering, no words, no captions, no numbers anywhere in the image.
+Arranged in a strict 8 columns by 4 rows grid, each cell exactly square, equal spacing,
+no borders between cells. Style: simple solid glyphs in medium grey (#9A9A9A) with small
+red (#E04040) accents, plain white background, clean geometric shapes, consistent 2px
+stroke weight, centered in each cell, same visual size. Row by row, left to right:
+
+Row 1: filled capsule, window frame with a title bar, rounded rectangle, a short thick
+horizontal line above a longer thin one, rounded rectangle with a short bar inside, square
+with a check mark, horizontal track with a round knob, flat area outline with a path through it.
+Row 2: map pin with a dotted trail behind it, two diamonds joined by an easing curve, comet
+with a tail, three connected bones, a single bone, three offset mountain layers, steering
+wheel, four dots in a V arrangement.
+Row 3: curve with a dot on it, three blocks in a row with arrows between them, sheet of
+paper with a snake curve, folder, image file with a mountain, file with a clapperboard mark,
+file with a snake mark, file with a music note.
+Row 4: open eye, eye with a diagonal slash, closed padlock, open padlock, triangle with an
+exclamation mark in red, circle with an X in red, magnifying glass, funnel.
+
+Glyphs only, no text of any kind in the image.
+
+Names: CapsuleShape UiCanvas UiPanel UiLabel UiButton UiCheckBox UiSlider NavigationRegion /
+NavigationAgent MotionTween MotionStreak Skeleton Bone ParallaxLayer Steering Formation /
+PathMotion ActionSequence Script Folder Texture SceneFile ScriptFile AudioFile /
+VisibilityVisible VisibilityHidden Lock Unlock Warning Error Search Filter
+
+## Sheet 3 (toolbar)
+
+A sprite sheet of 32 flat minimalist UI icons for a 2D game engine editor, glyphs only:
+absolutely no lettering, no words, no captions, no numbers anywhere in the image.
+Arranged in a strict 8 columns by 4 rows grid, each cell exactly square, equal spacing,
+no borders between cells. Style: simple solid glyphs in medium grey (#9A9A9A) with small
+red (#E04040) accents, plain white background, clean geometric shapes, consistent 2px
+stroke weight, centered in each cell, same visual size. Row by row, left to right:
+
+Row 1: blank page with a plus, open folder, floppy disk, floppy disk with a pencil, curved
+arrow to the left, curved arrow to the right, plus sign, trash bin.
+Row 2: two overlapping squares, gear, box with an arrow leaving it, globe with an arrow,
+circular arrow, sheet of paper with a circular arrow, right-pointing triangle with a red
+accent, two vertical bars.
+Row 3: square, triangle with a vertical bar after it, pointer arrow, four arrows from a
+center, circular arrow around a center dot, square with a diagonal arrow at one corner,
+3x3 grid of thin lines, horseshoe magnet.
+Row 4: magnifying glass with a plus, magnifying glass with a minus, four corner brackets,
+crosshair, camera with a small eye, window with its panes outlined, rectangle with a small
+angle bracket mark inside, list of three lines with a bullet each.
+
+Glyphs only, no text of any kind in the image.
+
+Names: New Open Save SaveAs Undo Redo Add Remove /
+Duplicate Settings Export ExportWeb Refresh ReloadScripts Play Pause /
+Stop Step Select Move Rotate Scale Grid Snap /
+ZoomIn ZoomOut ZoomFit Center EditorCamera ResetLayout Console Inspector
