@@ -538,10 +538,6 @@ void RegisterCoreClasses()
             const Math::Vec2 tiling = value.asVec2();
             static_cast<SpriteComponent&>(component).setTiling(tiling.x, tiling.y);
         });
-    ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "lightMask"),
-        [](const Component& component) { return PropertyValue::from(static_cast<const SpriteComponent&>(component).lightMask()); },
-        [](Component& component, const PropertyValue& value) { static_cast<SpriteComponent&>(component).setLightMask(value.as<unsigned int>()); });
     }
     {
     ClassInfo& c = ClassDB::add("Steering2D", ComponentType::Steering, ComponentClass::None);
