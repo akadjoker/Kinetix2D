@@ -281,7 +281,7 @@ confirmar o perfil no desktop (X11, Wayland e Win32). Depois:
    ser inicializado pelo `Device` nesta fase, com um backend de input provisório; é
    descartado na fase 4.
 
-### Fase 3: backend de GUI (começada a 2026-10-27)
+### Fase 3: backend de GUI (feita a 2026-10-27: editor a abrir, cena do tokenkay com luzes no viewport a 59 fps)
 O editor novo arranca sobre o `ig::zen::App` do iGUI, com o `GlRaster` do adaptador a
 desenhar os widgets retained; o motor usa o mesmo loader GL do zen_plataform, por isso não
 há segundo backend. Já existe `k2d::RenderTarget` e o esqueleto do editor em `editor/src`:
