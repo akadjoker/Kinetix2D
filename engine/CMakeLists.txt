@@ -61,6 +61,8 @@ add_library(k2d STATIC
     src/AudioPlayer.cpp
     src/KPak.cpp
     src/FileBuffer.cpp
+    src/RenderTarget.cpp
+    src/Image.cpp
     src/FileSystem.cpp
     src/UserData.cpp
     src/Device.cpp

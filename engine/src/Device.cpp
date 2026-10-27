@@ -8,8 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "k2d/Image.h"
 
 #define MSF_GIF_IMPL
 #include <msf_gif.h>
@@ -337,7 +336,7 @@ void Device::CaptureScreenshot()
         }
     }
 
-    stbi_write_png(filename, mWidth, mHeight, 4, pixels, stride);
+    WriteImagePng(filename, mWidth, mHeight, pixels, stride);
     log_info("Screenshot saved: %s", filename);
 
     delete[] pixels;

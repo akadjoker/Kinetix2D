@@ -4,8 +4,7 @@
 #include "k2d/Assets.h"
 #include "k2d/FileBuffer.h"
 
-#include <stb_image.h>
-#include <stb_image_write.h>
+#include "k2d/Image.h"
 
 #include <cmath>
 #include <cstring>
@@ -47,15 +46,14 @@ bool Pixmap::Load(const char* path)
 
     int w = 0;
     int h = 0;
-    int channels = 0;
-    unsigned char* pixels = stbi_load_from_memory(buffer.Data(), (int)buffer.Size(), &w, &h, &channels, 4);
+    unsigned char* pixels = DecodeImageRgba(buffer.Data(), buffer.Size(), w, h);
     if (!pixels)
         return false;
 
     const bool ok = Create(w, h);
     if (ok)
         std::memcpy(mPixels, pixels, (size_t)w * (size_t)h * 4u);
-    stbi_image_free(pixels);
+    FreeImage(pixels);
     return ok;
 }
 
@@ -63,7 +61,7 @@ bool Pixmap::Save(const char* path) const
 {
     if (!mPixels || mWidth <= 0 || mHeight <= 0 || !path)
         return false;
-    return stbi_write_png(path, mWidth, mHeight, 4, mPixels, mWidth * 4) != 0;
+    return WriteImagePng(path, mWidth, mHeight, mPixels, mWidth * 4);
 }
 
 bool Pixmap::CopyRect(int x, int y, int width, int height, Pixmap& out) const

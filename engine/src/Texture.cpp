@@ -4,8 +4,7 @@
 
 #include <limits>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "k2d/Image.h"
 
 namespace k2d
 {
@@ -77,14 +76,13 @@ bool Texture::Load(const char* path, bool nearest, bool repeat)
 
     int w = 0;
     int h = 0;
-    int channels = 0;
-    unsigned char* pixels = stbi_load_from_memory(file.Data(), (int)file.Size(), &w, &h, &channels, 4);
+    unsigned char* pixels = DecodeImageRgba(file.Data(), file.Size(), w, h);
     if (!pixels)
         return false;
 
     bool ok = Create(w, h, pixels, nearest, repeat);
 
-    stbi_image_free(pixels);
+    FreeImage(pixels);
     return ok;
 }
 
@@ -95,12 +93,11 @@ bool Texture::LoadMemory(const unsigned char* data, std::size_t size, bool neare
 
     int w = 0;
     int h = 0;
-    int channels = 0;
-    unsigned char* pixels = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &channels, 4);
+    unsigned char* pixels = DecodeImageRgba(data, size, w, h);
     if (!pixels)
         return false;
     const bool ok = Create(w, h, pixels, nearest, repeat);
-    stbi_image_free(pixels);
+    FreeImage(pixels);
     return ok;
 }
 

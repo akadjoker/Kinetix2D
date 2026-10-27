@@ -281,7 +281,12 @@ confirmar o perfil no desktop (X11, Wayland e Win32). Depois:
    ser inicializado pelo `Device` nesta fase, com um backend de input provisório; é
    descartado na fase 4.
 
-### Fase 3: backend de GUI
+### Fase 3: backend de GUI (começada a 2026-10-27)
+O editor novo arranca sobre o `ig::zen::App` do iGUI, com o `GlRaster` do adaptador a
+desenhar os widgets retained; o motor usa o mesmo loader GL do zen_plataform, por isso não
+há segundo backend. Já existe `k2d::RenderTarget` e o esqueleto do editor em `editor/src`:
+menu, dock com Hierarchy, Scene, Inspector e Console, barra de estado, e o viewport a
+mostrar a cena do argumento, com pan pelo botão direito ou do meio e zoom pela roda.
 1. `engine/src/GuiBackend.cpp` (`k2d::GuiBackend : ig::Backend`): `measureText` com o
    `ig::FontAtlas` embebido, `render(DrawData)` com `k2d::Shader` ES 3.0, texturas
    `k2d::Texture` ↔ `ig::TextureId`, clipboard via `Device`. Copiar o desenho do
