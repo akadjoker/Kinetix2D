@@ -8,7 +8,7 @@ namespace k2d
 {
 namespace
 {
-bool matches(const std::string &a, const char *b)
+bool matches(const ct::String &a, const char *b)
 {
     return b && a == b;
 }

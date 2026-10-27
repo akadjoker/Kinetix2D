@@ -3,8 +3,8 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
-#include <memory>
-#include <vector>
+#include <ct/ptr.hpp>
+#include <ct/vector.hpp>
 
 namespace k2d
 {
@@ -57,7 +57,7 @@ class FileSystem
 
     ct::Vector<ct::String> mSearchPaths;
     ct::String mBasePath;
-    std::vector<std::unique_ptr<KPak>> mPacks;
+    ct::Vector<ct::Unique<KPak>> mPacks;
 };
 
 } // namespace k2d

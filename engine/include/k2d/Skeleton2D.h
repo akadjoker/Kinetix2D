@@ -7,7 +7,7 @@
 #include <mathc.h>
 
 #include <cstdint>
-#include <functional>
+#include <ct/function.hpp>
 
 namespace k2d
 {
@@ -81,8 +81,8 @@ public:
     bool solveIK(const char* effectorName, const Math::Vec2& target,
                  int chainLength = 0, int iterations = 8, float tolerance = 0.5f);
 
-    std::function<void(const char*)> onAnimationFinished;
-    std::function<void(const char*)> onAnimationLooped;
+    ct::Function<void(const char*)> onAnimationFinished;
+    ct::Function<void(const char*)> onAnimationLooped;
 
 protected:
     void onUpdate(float deltaTime) override;

@@ -1,4 +1,6 @@
 #include "k2d/FileSystem.h"
+
+#include <ct/detail/utils.hpp>
 #include "k2d/FileBuffer.h"
 #include "k2d/KPak.h"
 
@@ -67,10 +69,10 @@ bool FileSystem::MountPack(const char* path, const char* key)
 {
     if (!path || !path[0])
         return false;
-    std::unique_ptr<KPak> pack(new KPak());
+    ct::Unique<KPak> pack = ct::make_unique<KPak>();
     if (!pack->Open(path, key ? key : ""))
         return false;
-    mPacks.push_back(std::move(pack));
+    mPacks.push_back(ct::detail::move(pack));
     return true;
 }
 
@@ -84,7 +86,7 @@ bool FileSystem::Exists(const char* path) const
     if (!path || !path[0])
         return false;
 
-    for (const std::unique_ptr<KPak>& pack : mPacks)
+    for (const ct::Unique<KPak>& pack : mPacks)
         if (pack && pack->Contains(path))
             return true;
 
@@ -145,9 +147,9 @@ bool FileSystem::LoadFile(const char* rel, FileBuffer& buffer, bool nullTerminat
 {
     if (rel && rel[0])
     {
-        for (const std::unique_ptr<KPak>& pack : mPacks)
+        for (const ct::Unique<KPak>& pack : mPacks)
         {
-            std::vector<unsigned char> data;
+            ct::Vector<unsigned char> data;
             if (pack && pack->Contains(rel))
                 return pack->Read(rel, data) && buffer.AssignCopy(data.data(), data.size(), nullTerminate);
         }

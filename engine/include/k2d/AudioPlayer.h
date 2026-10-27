@@ -3,7 +3,7 @@
 #include "k2d/AudioEngine.h"
 #include "k2d/Component.h"
 
-#include <string>
+#include <ct/string.hpp>
 
 namespace k2d
 {
@@ -91,7 +91,7 @@ class AudioPlayer final : public Component
     void releaseSound();
     AudioEngine::SoundId load();
 
-    std::string mSource;
+    ct::String mSource;
     AudioEngine::SoundId mSound;
     AudioEngine::VoiceId mVoice;
     float mVolume;
