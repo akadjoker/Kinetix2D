@@ -231,7 +231,7 @@ void configureDefaultInputActions()
 
 void scriptOutput(const char* text, bool error, void*)
 {
-    static std::string line;
+    static ct::String line;
     static bool lineIsError = false;
     if (!text)
         return;
