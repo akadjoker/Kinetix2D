@@ -63,6 +63,8 @@ add_library(k2d STATIC
     src/FileBuffer.cpp
     src/RenderTarget.cpp
     src/Image.cpp
+    src/PropertyValue.cpp
+    src/ClassDB.cpp
     src/FileSystem.cpp
     src/UserData.cpp
     src/Device.cpp

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HierarchyPanel.h"
+#include "InspectorPanel.h"
 #include "ViewportPanel.h"
 
 #include "BasicWidgets.hpp"
@@ -42,7 +43,7 @@ private:
     ig::retained::Label* mFpsLabel = nullptr;
     ViewportPanel* mViewport = nullptr;
     HierarchyPanel* mHierarchy = nullptr;
-    ig::retained::Label* mInspector = nullptr;
+    InspectorPanel* mInspector = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;

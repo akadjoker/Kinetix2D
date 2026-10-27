@@ -22,6 +22,9 @@ target_link_libraries(k2d_camera_tests PRIVATE k2d)
 add_executable(k2d_kpak_tests k2d_kpak_tests.cpp)
 target_link_libraries(k2d_kpak_tests PRIVATE k2d)
 
+add_executable(k2d_classdb_tests k2d_classdb_tests.cpp)
+target_link_libraries(k2d_classdb_tests PRIVATE k2d)
+
 add_executable(k2d_material_tests k2d_material_tests.cpp)
 target_link_libraries(k2d_material_tests PRIVATE k2d)
 
@@ -102,6 +105,7 @@ set(K2D_TEST_TARGETS
     k2d_scene_tests
     k2d_camera_tests
     k2d_kpak_tests
+    k2d_classdb_tests
     k2d_material_tests
     k2d_animation_tests
     k2d_skeleton_tests

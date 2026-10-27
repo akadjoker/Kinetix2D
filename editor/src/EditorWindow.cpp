@@ -1,5 +1,6 @@
 #include "EditorWindow.h"
 
+#include <k2d/ClassDB.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
 #include <k2d/OpenGL.h>
@@ -60,7 +61,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mHierarchy = mDock->addPanel<HierarchyPanel>(kHierarchyPanel);
     mHierarchy->selectionChanged.connect([this](GameObject* object) { showSelection(object); });
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
-    mInspector = mDock->addPanel<rt::Label>(kInspectorPanel, "Nothing selected");
+    mInspector = mDock->addPanel<InspectorPanel>(kInspectorPanel);
+    mInspector->show(nullptr);
     mDock->addPanel<rt::Label>(kConsolePanel, "");
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
@@ -99,6 +101,7 @@ bool EditorWindow::openScene(const char* path)
     {
         RegisterZenScriptSerializer();
         RegisterPhysics2DSerializers();
+        RegisterCoreClasses();
         registered = true;
     }
     const ct::String sceneDirectory = directoryOf(path);
@@ -166,14 +169,7 @@ void EditorWindow::renderScene(float width, float height, float pixelScale)
 
 void EditorWindow::showSelection(GameObject* object)
 {
-    if (!object)
-    {
-        mInspector->setText("Nothing selected");
-        return;
-    }
-    char text[256];
-    std::snprintf(text, sizeof text, "%s  (%zu children)", object->name().c_str(), object->childCount());
-    mInspector->setText(text);
+    mInspector->show(object);
 }
 
 void EditorWindow::shutdown()
