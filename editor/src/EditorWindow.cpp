@@ -81,6 +81,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mStatus->setSpacing(16.0f);
     mSceneLabel = mStatus->createChild<rt::Label>("No scene");
     mFpsLabel = mStatus->createChild<rt::Label>("0 fps");
+    app.setStage("main");
 }
 
 void EditorWindow::resetLayout()
