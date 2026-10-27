@@ -257,7 +257,7 @@ que por sua vez usa o `fs_posix.c`/`fs_win32.c` do zen_plataform a partir da fas
 mantém a implementação actual). `std::function` → `ct::Function`. `size_t`, `printf`,
 `<cmath>` ficam.
 
-### Fase 2: SDL2 → zen_plataform (feita a 2026-10-27, menos o loop web)
+### Fase 2: SDL2 → zen_plataform (feita a 2026-10-27, menos o loop web; tokenkay a correr no desktop com ES 3.2 Mesa)
 Fase 1 fechada no mesmo dia: motor, scripting, runner, tools e testes sem contentores STL;
 `cmake/CheckNoStl.cmake` corre antes do `k2d` e pára o build ao primeiro contentor,
 smart pointer, stream, thread ou `std::filesystem` (os cabeçalhos `<algorithm>` e
