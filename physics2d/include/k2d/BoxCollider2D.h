@@ -23,7 +23,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const BoxCollider2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::BoxCollider2D;
         }
     };
 

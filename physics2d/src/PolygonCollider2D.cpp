@@ -6,7 +6,7 @@
 namespace k2d
 {
 
-    PolygonCollider2D::PolygonCollider2D()
+    PolygonCollider2D::PolygonCollider2D() : Collider2D(ComponentClass::PolygonCollider2D)
     {
         setRegular(4, 16.0f);
     }

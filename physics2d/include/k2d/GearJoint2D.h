@@ -78,7 +78,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const GearJoint2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::GearJoint2D;
         }
     };
 

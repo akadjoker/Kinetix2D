@@ -115,7 +115,7 @@ void readRigidBody(Component& component, const ct::Json& data, Assets*)
 
 bool isRigidBody(const Component& component)
 {
-    return dynamic_cast<const RigidBody2D*>(&component) != nullptr;
+    return component.type() == ComponentType::RigidBody;
 }
 
 Component* createCharacterBody(GameObject& owner)
@@ -150,7 +150,7 @@ void readCharacterBody(Component& component, const ct::Json& data, Assets*)
 
 bool isCharacterBody(const Component& component)
 {
-    return dynamic_cast<const CharacterBody2D*>(&component) != nullptr;
+    return component.type() == ComponentType::CharacterBody;
 }
 
 void writeShared(const Collider2D& collider, ct::Json& data)
@@ -189,7 +189,7 @@ void readBox(Component& component, const ct::Json& data, Assets*)
 
 bool isBox(const Component& component)
 {
-    return dynamic_cast<const BoxCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::BoxCollider2D;
 }
 
 Component* createCircle(GameObject& owner)
@@ -213,7 +213,7 @@ void readCircle(Component& component, const ct::Json& data, Assets*)
 
 bool isCircle(const Component& component)
 {
-    return dynamic_cast<const CircleCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::CircleCollider2D;
 }
 
 Component* createEdge(GameObject& owner)
@@ -238,7 +238,7 @@ void readEdge(Component& component, const ct::Json& data, Assets*)
 
 bool isEdge(const Component& component)
 {
-    return dynamic_cast<const EdgeCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::EdgeCollider2D;
 }
 
 Component* createPolygon(GameObject& owner)
@@ -265,7 +265,7 @@ void readPolygon(Component& component, const ct::Json& data, Assets*)
 
 bool isPolygon(const Component& component)
 {
-    return dynamic_cast<const PolygonCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::PolygonCollider2D;
 }
 
 Component* createChain(GameObject& owner)
@@ -296,7 +296,7 @@ void readChain(Component& component, const ct::Json& data, Assets*)
 
 bool isChain(const Component& component)
 {
-    return dynamic_cast<const ChainCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::ChainCollider2D;
 }
 
 Component* createTileMapCollider(GameObject& owner)
@@ -316,7 +316,7 @@ void readTileMapCollider(Component& component, const ct::Json& data, Assets*)
 
 bool isTileMapCollider(const Component& component)
 {
-    return dynamic_cast<const TileMapCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::TileMapCollider2D;
 }
 
 void writeJointShared(const Joint2D& joint, ct::Json& data)
@@ -364,7 +364,7 @@ void readDistanceJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isDistanceJoint(const Component& component)
 {
-    return dynamic_cast<const DistanceJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::DistanceJoint2D;
 }
 
 Component* createRevoluteJoint(GameObject& owner)
@@ -404,7 +404,7 @@ void readRevoluteJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isRevoluteJoint(const Component& component)
 {
-    return dynamic_cast<const RevoluteJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::RevoluteJoint2D;
 }
 
 Component* createWheelJoint(GameObject& owner)
@@ -442,7 +442,7 @@ void readWheelJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isWheelJoint(const Component& component)
 {
-    return dynamic_cast<const WheelJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::WheelJoint2D;
 }
 
 Component* createMotorJoint(GameObject& owner)
@@ -474,7 +474,7 @@ void readMotorJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isMotorJoint(const Component& component)
 {
-    return dynamic_cast<const MotorJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::MotorJoint2D;
 }
 
 Component* createMouseJoint(GameObject& owner)
@@ -503,7 +503,7 @@ void readMouseJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isMouseJoint(const Component& component)
 {
-    return dynamic_cast<const MouseJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::MouseJoint2D;
 }
 
 Component* createGearJoint(GameObject& owner)
@@ -533,7 +533,7 @@ void readGearJoint(Component& component, const ct::Json& data, Assets*)
 
 bool isGearJoint(const Component& component)
 {
-    return dynamic_cast<const GearJoint2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::GearJoint2D;
 }
 } // namespace
 

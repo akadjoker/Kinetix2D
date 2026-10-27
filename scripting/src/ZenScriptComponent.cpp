@@ -6409,7 +6409,7 @@ void ZenRuntime::Impl::initialize()
 }
 
 ZenScriptComponent::ZenScriptComponent()
-    : ScriptComponent(ComponentEventUpdate | ComponentEventRender), mState(new State())
+    : ScriptComponent(ComponentEventUpdate | ComponentEventRender, ComponentClass::ZenScript), mState(new State())
 {
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
     mState->liveIndex = impl.liveInstances.size();
@@ -7450,7 +7450,7 @@ void readZenScript(Component& component, const ct::Json& data, Assets*)
 
 bool matchZenScript(const Component& component)
 {
-    return dynamic_cast<const ZenScriptComponent*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::ZenScript;
 }
 } // namespace
 

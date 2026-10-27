@@ -7,8 +7,7 @@
 namespace k2d
 {
 
-DistanceJoint2D::DistanceJoint2D()
-    : mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mLength(100.0f), mMinLength(100.0f), mMaxLength(100.0f),
+DistanceJoint2D::DistanceJoint2D() : Joint2D(ComponentClass::DistanceJoint2D), mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mLength(100.0f), mMinLength(100.0f), mMaxLength(100.0f),
       mLengthConfigured(false), mSpringFrequency(0.0f), mSpringDamping(0.0f), mStiffness(0.0f), mDamping(0.0f),
       mGamma(0.0f), mBias(0.0f), mImpulse(0.0f), mLowerImpulse(0.0f), mUpperImpulse(0.0f), mU(0.0f, 0.0f),
       mRA(0.0f, 0.0f), mRB(0.0f, 0.0f), mCurrentLength(0.0f), mMass(0.0f), mSoftMass(0.0f)

@@ -61,6 +61,26 @@ enum ComponentEventFlags : uint8_t
     ComponentEventRender = 1 << 2
 };
 
+enum class ComponentClass : uint8_t
+{
+    None,
+    Light2D,
+    DirectionalLight2D,
+    DistanceJoint2D,
+    RevoluteJoint2D,
+    WheelJoint2D,
+    MotorJoint2D,
+    MouseJoint2D,
+    GearJoint2D,
+    BoxCollider2D,
+    CircleCollider2D,
+    EdgeCollider2D,
+    PolygonCollider2D,
+    ChainCollider2D,
+    TileMapCollider2D,
+    ZenScript
+};
+
 class Component;
 
 template <class T> struct ComponentMatch
@@ -91,6 +111,7 @@ class Component
 
     GameObject* owner() const;
     ComponentType type() const;
+    ComponentClass componentClass() const;
     uint32_t id() const;
     bool active() const;
     void setActive(bool active);
@@ -100,7 +121,8 @@ class Component
     }
 
   protected:
-    explicit Component(ComponentType type, uint8_t events = ComponentEventNone);
+    explicit Component(ComponentType type, uint8_t events = ComponentEventNone,
+                       ComponentClass componentClass = ComponentClass::None);
 
     virtual void onAwake();
     virtual void onStart();
@@ -123,6 +145,7 @@ class Component
     GameObject* mOwner;
     Component* mNextSibling;
     ComponentType mType;
+    ComponentClass mClass;
     uint32_t mLocalId;
     uint8_t mEvents;
     bool mActive;

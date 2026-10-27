@@ -102,12 +102,5 @@ class Formation2D final : public Component
     Shape mShape = Shape::Surround;
 };
 
-template <> struct ComponentMatch<Formation2D>
-{
-    static bool test(const Component* component)
-    {
-        return dynamic_cast<const Formation2D*>(component) != nullptr;
-    }
-};
 
 } // namespace k2d

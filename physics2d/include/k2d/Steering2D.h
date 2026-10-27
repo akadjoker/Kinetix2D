@@ -118,12 +118,5 @@ namespace k2d
         bool mAvoidanceEnabled;
     };
 
-    template <> struct ComponentMatch<Steering2D>
-    {
-        static bool test(const Component *component)
-        {
-            return dynamic_cast<const Steering2D *>(component) != nullptr;
-        }
-    };
 
 }

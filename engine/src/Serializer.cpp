@@ -1356,12 +1356,12 @@ Component* CreateDirectionalLight(GameObject& owner)
 
 bool IsPointLight(const Component& component)
 {
-    return dynamic_cast<const Light2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::Light2D;
 }
 
 bool IsDirectionalLight(const Component& component)
 {
-    return dynamic_cast<const DirectionalLight2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::DirectionalLight2D;
 }
 
 void WritePointLight(const Component& component, ct::Json& data, Assets*)

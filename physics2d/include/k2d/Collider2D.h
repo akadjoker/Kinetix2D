@@ -15,7 +15,7 @@ namespace k2d
     public:
         static const ComponentType Type = ComponentType::Collider;
 
-        Collider2D();
+        explicit Collider2D(ComponentClass componentClass);
 
         virtual int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const = 0;
 

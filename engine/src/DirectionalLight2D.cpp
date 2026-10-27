@@ -9,7 +9,7 @@ namespace k2d
 {
 
     DirectionalLight2D::DirectionalLight2D()
-        : Component(Type, ComponentEventRender), mColor(1.0f), mEnergy(1.0f),
+        : Component(Type, ComponentEventRender, ComponentClass::DirectionalLight2D), mColor(1.0f), mEnergy(1.0f),
           mCastShadow(false), mShadowColor(0.0f, 0.0f, 0.0f, 1.0f),
           mShadowFilter(SHADOW_FILTER_NEAREST), mCullMask(1), mHeight(0.0f)
     {

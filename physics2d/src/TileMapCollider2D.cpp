@@ -20,7 +20,7 @@ struct Rectangle
 };
 }
 
-TileMapCollider2D::TileMapCollider2D()
+TileMapCollider2D::TileMapCollider2D() : Collider2D(ComponentClass::TileMapCollider2D)
 {
 }
 

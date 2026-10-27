@@ -9,7 +9,7 @@ namespace k2d
         constexpr float kMinRadius = 0.01f;
     }
 
-    CircleCollider2D::CircleCollider2D() : mRadius(16.0f)
+    CircleCollider2D::CircleCollider2D() : Collider2D(ComponentClass::CircleCollider2D), mRadius(16.0f)
     {
     }
 

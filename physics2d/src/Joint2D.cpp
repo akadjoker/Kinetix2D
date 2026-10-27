@@ -14,8 +14,8 @@ namespace
 constexpr uint32_t kUnresolved = (std::numeric_limits<uint32_t>::max)();
 }
 
-Joint2D::Joint2D()
-    : Component(Type, ComponentEventNone), mBodyA(nullptr), mBodyB(nullptr), mCollideConnected(false),
+Joint2D::Joint2D(ComponentClass componentClass)
+    : Component(Type, ComponentEventNone, componentClass), mBodyA(nullptr), mBodyB(nullptr), mCollideConnected(false),
       mResolvedVersion(kUnresolved)
 {
 }

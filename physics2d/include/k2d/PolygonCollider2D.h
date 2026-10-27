@@ -26,7 +26,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const PolygonCollider2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::PolygonCollider2D;
         }
     };
 

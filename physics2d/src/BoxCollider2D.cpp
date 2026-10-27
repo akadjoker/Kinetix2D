@@ -9,7 +9,7 @@ namespace k2d
         constexpr float kMinExtent = 0.01f;
     }
 
-    BoxCollider2D::BoxCollider2D() : mSize(32.0f, 32.0f)
+    BoxCollider2D::BoxCollider2D() : Collider2D(ComponentClass::BoxCollider2D), mSize(32.0f, 32.0f)
     {
     }
 

@@ -11,8 +11,9 @@ namespace k2d
         static const ComponentType Type = ComponentType::Script;
 
     protected:
-        explicit ScriptComponent(uint8_t events = ComponentEventUpdate | ComponentEventLateUpdate)
-            : Component(Type, events)
+        explicit ScriptComponent(uint8_t events = ComponentEventUpdate | ComponentEventLateUpdate,
+                                 ComponentClass componentClass = ComponentClass::None)
+            : Component(Type, events, componentClass)
         {
         }
     };

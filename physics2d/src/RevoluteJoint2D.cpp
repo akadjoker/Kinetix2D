@@ -7,8 +7,7 @@
 namespace k2d
 {
 
-RevoluteJoint2D::RevoluteJoint2D()
-    : mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mAnchorsConfigured(false), mReferenceAngle(0.0f),
+RevoluteJoint2D::RevoluteJoint2D() : Joint2D(ComponentClass::RevoluteJoint2D), mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mAnchorsConfigured(false), mReferenceAngle(0.0f),
       mImpulse(0.0f, 0.0f), mMotorImpulse(0.0f), mLowerImpulse(0.0f), mUpperImpulse(0.0f), mEnableMotor(false),
       mMaxMotorTorque(0.0f), mMotorSpeed(0.0f), mEnableLimit(false), mLowerAngle(0.0f), mUpperAngle(0.0f),
       mRA(0.0f, 0.0f), mRB(0.0f, 0.0f), mK11(0.0f), mK12(0.0f), mK22(0.0f), mAngle(0.0f), mAxialMass(0.0f)

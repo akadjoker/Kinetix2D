@@ -7,8 +7,7 @@
 namespace k2d
 {
 
-MotorJoint2D::MotorJoint2D()
-    : mLinearOffset(0.0f, 0.0f), mAngularOffset(0.0f), mLinearImpulse(0.0f, 0.0f), mAngularImpulse(0.0f),
+MotorJoint2D::MotorJoint2D() : Joint2D(ComponentClass::MotorJoint2D), mLinearOffset(0.0f, 0.0f), mAngularOffset(0.0f), mLinearImpulse(0.0f, 0.0f), mAngularImpulse(0.0f),
       mMaxForce(1.0f), mMaxTorque(1.0f), mCorrectionFactor(0.3f), mRA(0.0f, 0.0f), mRB(0.0f, 0.0f),
       mLinearError(0.0f, 0.0f), mAngularError(0.0f), mLinearMass11(0.0f), mLinearMass12(0.0f), mLinearMass22(0.0f),
       mAngularMass(0.0f)

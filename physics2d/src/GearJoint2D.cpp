@@ -10,8 +10,7 @@
 namespace k2d
 {
 
-GearJoint2D::GearJoint2D()
-    : mJoint1Index(0), mJoint2Index(0), mJoint1(nullptr), mJoint2(nullptr), mBodyC(nullptr), mBodyD(nullptr),
+GearJoint2D::GearJoint2D() : Joint2D(ComponentClass::GearJoint2D), mJoint1Index(0), mJoint2Index(0), mJoint1(nullptr), mJoint2(nullptr), mBodyC(nullptr), mBodyD(nullptr),
       mLocalAnchorA(0.0f, 0.0f), mLocalAnchorB(0.0f, 0.0f), mReferenceAngleA(0.0f), mReferenceAngleB(0.0f),
       mConstant(0.0f), mRatio(1.0f), mImpulse(0.0f), mMass(0.0f)
 {

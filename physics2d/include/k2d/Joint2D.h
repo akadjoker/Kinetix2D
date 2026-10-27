@@ -15,7 +15,7 @@ namespace k2d
     public:
         static const ComponentType Type = ComponentType::Joint;
 
-        Joint2D();
+        explicit Joint2D(ComponentClass componentClass);
         ~Joint2D() override;
 
         void setTargetName(const char *name);

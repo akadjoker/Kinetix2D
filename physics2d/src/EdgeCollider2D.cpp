@@ -4,7 +4,7 @@
 namespace k2d
 {
 
-    EdgeCollider2D::EdgeCollider2D() : mStart(-32.0f, 0.0f), mEnd(32.0f, 0.0f)
+    EdgeCollider2D::EdgeCollider2D() : Collider2D(ComponentClass::EdgeCollider2D), mStart(-32.0f, 0.0f), mEnd(32.0f, 0.0f)
     {
     }
 

@@ -51,7 +51,10 @@ namespace k2d
 
     template <> struct ComponentMatch<Light2D>
     {
-        static bool test(const Component *component) { return dynamic_cast<const Light2D *>(component) != nullptr; }
+        static bool test(const Component *component)
+        {
+            return component->componentClass() == ComponentClass::Light2D;
+        }
     };
 
 }

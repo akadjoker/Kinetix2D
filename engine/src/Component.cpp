@@ -21,8 +21,8 @@ namespace k2d
             gRemovedCallback(component, gRemovedCallbackUser);
     }
 
-    Component::Component(ComponentType type, uint8_t events)
-        : mOwner(nullptr), mNextSibling(nullptr), mType(type), mLocalId(0), mEvents(events),
+    Component::Component(ComponentType type, uint8_t events, ComponentClass componentClass)
+        : mOwner(nullptr), mNextSibling(nullptr), mType(type), mClass(componentClass), mLocalId(0), mEvents(events),
           mActive(true), mStarted(false), mSceneAllIndex(InvalidSceneListIndex),
           mSceneLateIndex(InvalidSceneListIndex), mSceneRenderIndex(InvalidSceneListIndex)
     {
@@ -36,6 +36,15 @@ namespace k2d
     ComponentType Component::type() const
     {
         return mType;
+    }
+
+
+    ComponentClass Component::componentClass() const
+
+    {
+
+        return mClass;
+
     }
 
     uint32_t Component::id() const

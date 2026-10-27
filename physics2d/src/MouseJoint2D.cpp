@@ -9,8 +9,7 @@
 namespace k2d
 {
 
-MouseJoint2D::MouseJoint2D()
-    : mTarget(0.0f, 0.0f), mLocalAnchor(0.0f, 0.0f), mMaxForce(1000.0f), mSpringFrequency(5.0f),
+MouseJoint2D::MouseJoint2D() : Joint2D(ComponentClass::MouseJoint2D), mTarget(0.0f, 0.0f), mLocalAnchor(0.0f, 0.0f), mMaxForce(1000.0f), mSpringFrequency(5.0f),
       mSpringDamping(0.7f), mStiffness(0.0f), mDamping(0.0f), mRB(0.0f, 0.0f), mC(0.0f, 0.0f),
       mImpulse(0.0f, 0.0f), mGamma(0.0f), mMass00(0.0f), mMass01(0.0f), mMass10(0.0f), mMass11(0.0f)
 {

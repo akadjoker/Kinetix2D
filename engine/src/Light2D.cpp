@@ -7,7 +7,7 @@ namespace k2d
 {
 
     Light2D::Light2D()
-        : Component(Type, ComponentEventRender), mColor(1.0f, 1.0f, 1.0f, 1.0f),
+        : Component(Type, ComponentEventRender, ComponentClass::Light2D), mColor(1.0f, 1.0f, 1.0f, 1.0f),
           mEnergy(1.0f), mRadius(300.0f), mCastShadow(false),
           mShadowColor(0.0f, 0.0f, 0.0f, 1.0f), mShadowFilter(SHADOW_FILTER_NEAREST),
           mCullMask(1), mHeight(0.0f)

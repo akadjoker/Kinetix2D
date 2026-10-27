@@ -4,7 +4,7 @@
 namespace k2d
 {
 
-    ChainCollider2D::ChainCollider2D() : mLoop(false), mOneWay(false)
+    ChainCollider2D::ChainCollider2D() : Collider2D(ComponentClass::ChainCollider2D), mLoop(false), mOneWay(false)
     {
     }
 
