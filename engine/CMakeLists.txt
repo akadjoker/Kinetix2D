@@ -1,13 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-# WebGL 2 and Android already provide the GLES3 entry points. Desktop still
-# needs glad to resolve them from the window's GL context at runtime.
 set(K2D_NATIVE_GLES3 OFF)
 if(ANDROID OR EMSCRIPTEN)
     set(K2D_NATIVE_GLES3 ON)
-else()
-    add_library(glad STATIC ${CMAKE_SOURCE_DIR}/external/glad/src/glad.cpp)
-    target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
 endif()
 
 # The default UI skin is owned by the engine, not by a game project. Embed it
@@ -164,9 +159,6 @@ target_include_directories(k2d PUBLIC
 )
 target_link_libraries(k2d PUBLIC ct)
 
-if(NOT K2D_NATIVE_GLES3)
-    target_include_directories(k2d PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
-endif()
 
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_custom_target(k2d_check_no_stl
@@ -183,8 +175,6 @@ if(K2D_NATIVE_GLES3)
     if(EMSCRIPTEN)
         target_link_options(k2d PUBLIC "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2")
     endif()
-else()
-    target_link_libraries(k2d PUBLIC glad)
 endif()
 target_link_libraries(k2d PUBLIC platform)
 

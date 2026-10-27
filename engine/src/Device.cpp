@@ -160,9 +160,9 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
     window_make_current(mWindow);
 
 #if !K2D_OPENGL_NATIVE_GLES3
-    if (!gladLoadGLES2Loader((GLADloadproc)gl_proc_address))
+    if (!gladLoadGL((GLADloadfunc)gl_proc_address))
     {
-        log_error("gladLoadGLES2Loader failed");
+        log_error("gladLoadGL failed");
         return false;
     }
 #endif
