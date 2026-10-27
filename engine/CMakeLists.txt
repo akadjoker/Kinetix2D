@@ -65,6 +65,7 @@ add_library(k2d STATIC
     src/Image.cpp
     src/PropertyValue.cpp
     src/ClassDB.cpp
+    src/ClassDBCore.cpp
     src/FileSystem.cpp
     src/UserData.cpp
     src/Device.cpp

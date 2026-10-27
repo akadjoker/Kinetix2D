@@ -65,10 +65,12 @@ class PropertyValue
 template <> inline bool PropertyValue::as<bool>() const { return asBool(); }
 template <> inline int PropertyValue::as<int>() const { return asInt(); }
 template <> inline unsigned int PropertyValue::as<unsigned int>() const { return static_cast<unsigned int>(asInt()); }
+template <> inline unsigned short PropertyValue::as<unsigned short>() const { return static_cast<unsigned short>(asInt()); }
 template <> inline float PropertyValue::as<float>() const { return asFloat(); }
 template <> inline Math::Vec2 PropertyValue::as<Math::Vec2>() const { return asVec2(); }
 template <> inline k2d::Color PropertyValue::as<k2d::Color>() const { return asColor(); }
 template <> inline ct::String PropertyValue::as<ct::String>() const { return mText; }
+template <> inline const char* PropertyValue::as<const char*>() const { return mText.c_str(); }
 
 template <class T> inline T PropertyValue::as() const
 {

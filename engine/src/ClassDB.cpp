@@ -1,7 +1,5 @@
 #include "k2d/ClassDB.h"
 
-#include "k2d/Light2D.h"
-
 #include <cstring>
 
 namespace k2d
@@ -159,42 +157,6 @@ void ClassDB::clear()
     for (std::size_t i = 0; i < classes().size(); ++i)
         delete classes()[i];
     classes().clear();
-}
-
-void RegisterCoreClasses()
-{
-    if (ClassDB::find("Light2D"))
-        return;
-
-    ClassInfo& light = ClassDB::add("Light2D", ComponentType::Light, ComponentClass::Light2D);
-    ClassDB::addProperty(
-        light, PropertyInfo::color("color"),
-        [](const Component& component) { return PropertyValue::from(static_cast<const Light2D&>(component).color()); },
-        [](Component& component, const PropertyValue& value)
-        {
-            const Color color = value.asColor();
-            static_cast<Light2D&>(component).setColor(color.r, color.g, color.b, color.a);
-        });
-    ClassDB::addProperty<Light2D>(light, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f),
-                                  &Light2D::energy, &Light2D::setEnergy);
-    ClassDB::addProperty<Light2D>(light, PropertyInfo::range(PropertyType::Float, "radius", 0.0f, 4096.0f, 1.0f),
-                                  &Light2D::radius, &Light2D::setRadius);
-    ClassDB::addProperty<Light2D>(light, PropertyInfo(PropertyType::Float, "height"), &Light2D::height,
-                                  &Light2D::setHeight);
-    ClassDB::addProperty<Light2D>(light, PropertyInfo(PropertyType::Bool, "castShadow"), &Light2D::castShadow,
-                                  &Light2D::setCastShadow);
-    ClassDB::addProperty(
-        light, PropertyInfo::color("shadowColor"),
-        [](const Component& component) { return PropertyValue::from(static_cast<const Light2D&>(component).shadowColor()); },
-        [](Component& component, const PropertyValue& value)
-        {
-            const Color color = value.asColor();
-            static_cast<Light2D&>(component).setShadowColor(color.r, color.g, color.b, color.a);
-        });
-    ClassDB::addProperty<Light2D>(light, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"),
-                                  &Light2D::shadowFilter, &Light2D::setShadowFilter);
-    ClassDB::addProperty<Light2D>(light, PropertyInfo(PropertyType::Int, "cullMask"), &Light2D::cullMask,
-                                  &Light2D::setCullMask);
 }
 
 } // namespace k2d
