@@ -236,6 +236,11 @@ arrancar. Ordem escolhida para que o trabalho mecânico vá primeiro e o risco (
 docking) seja medido cedo com spikes pequenos.
 
 ### Fase 0: submódulos e build (feita a 2026-10-27)
+Feito também nesta data: `external/zen/upstream` subiu de `c61c198` (Agosto) para o `main`
+do zenpy (`16ebc22`). O VM novo trata `x.m<T>()` como chamada genérica, por isso os cinco
+natives que recebem uma classe (`get_component`, `get_components`, `add_component`,
+`has_component`, `remove_component`) passaram a `generic_method`; o limite de 256
+selectors no bytecode e a inferência do receptor sem anotação foram corrigidos no zenpy.
 1. Bump de `external/containers` para o commit do prisma3d.
 2. Submódulos `external/zen_plataform` e `external/iGUI` (os mesmos repos do prisma3d).
 3. Target `ct` INTERFACE único em `external/containers`; iGUI a usar esse e não o seu
@@ -252,7 +257,14 @@ que por sua vez usa o `fs_posix.c`/`fs_win32.c` do zen_plataform a partir da fas
 mantém a implementação actual). `std::function` → `ct::Function`. `size_t`, `printf`,
 `<cmath>` ficam.
 
-### Fase 2: SDL2 → zen_plataform
+### Fase 2: SDL2 → zen_plataform (feita a 2026-10-27, menos o loop web)
+Feito: `Device` sobre o zen_plataform (contexto ES 3.0 pedido primeiro, core 3.3 como
+recurso; eventos por `poll_event`, teclas convertidas para os scancodes que o `Input` já
+usava), `FileBuffer`, `FileSystem`, `UserData`, `Profiler` e `CanvasRenderer` pelo
+`platform.h`, ImGui e SDL2 fora do CMake, `vcpkg.json` apagado, `external/imgui` apagado.
+O editor antigo saiu do build e da árvore: vive no ramo `legacy`; ficam só os ficheiros
+sem UI de `editor/src/core` para a fase 4. Por fazer: o runner web com `app_run` (sem
+ASYNCIFY) e o `k2d_webserver`, que ainda usa `std::filesystem`.
 Spike primeiro: `hello_x11` do zen_plataform + um shader `#version 300 es` do motor, para
 confirmar o perfil no desktop (X11, Wayland e Win32). Depois:
 1. `Device.cpp`: janela, contexto GL, bomba de eventos → `k2d::Input`, tempo, clipboard,

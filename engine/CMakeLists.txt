@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # WebGL 2 and Android already provide the GLES3 entry points. Desktop still
-# needs glad to resolve them from SDL's GL context at runtime.
+# needs glad to resolve them from the window's GL context at runtime.
 set(K2D_NATIVE_GLES3 OFF)
 if(ANDROID OR EMSCRIPTEN)
     set(K2D_NATIVE_GLES3 ON)
@@ -9,36 +9,6 @@ else()
     add_library(glad STATIC ${CMAKE_SOURCE_DIR}/external/glad/src/glad.cpp)
     target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)
 endif()
-
-add_library(imgui STATIC
-    ${CMAKE_SOURCE_DIR}/external/imgui/imgui.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/imgui_draw.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/imgui_tables.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/imgui_widgets.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/imgui_stdlib.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_sdl2.cpp
-    ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_opengl3.cpp
-)
-
-target_include_directories(imgui PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/imgui
-    ${CMAKE_SOURCE_DIR}/external/imgui/backends
-)
-
-if(K2D_NATIVE_GLES3)
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
-    set(K2D_IMGUI_GL_INCLUDE "GLES3/gl3.h")
-else()
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
-    target_link_libraries(imgui PUBLIC glad)
-    set(K2D_IMGUI_GL_INCLUDE "${CMAKE_SOURCE_DIR}/external/glad/include/glad/glad.h")
-endif()
-
-set_source_files_properties(
-    ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_opengl3.cpp
-    PROPERTIES
-    COMPILE_OPTIONS "-include${K2D_IMGUI_GL_INCLUDE}"
-)
 
 # The default UI skin is owned by the engine, not by a game project. Embed it
 # so a missing external theme never leaves the game with invisible controls.
@@ -87,17 +57,6 @@ if(APPLE)
 endif()
 if(ANDROID)
     target_link_libraries(k2d_miniaudio PUBLIC aaudio OpenSLES log)
-endif()
-
-if(TARGET SDL2::SDL2)
-    target_link_libraries(imgui PUBLIC SDL2::SDL2)
-else()
-    target_include_directories(imgui PUBLIC ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(imgui PUBLIC ${SDL2_LIBRARIES})
-endif()
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(imgui PRIVATE -w)
 endif()
 
 add_library(k2d STATIC
@@ -167,7 +126,6 @@ add_library(k2d STATIC
     src/ParallaxLayer2D.cpp
     src/ParallaxLayerComponent.cpp
     src/Profiler.cpp
-    src/ProfilerUI.cpp
     src/Geometry2D.cpp
     src/MaskContour2D.cpp
     src/Manifold2D.cpp
@@ -225,13 +183,7 @@ if(K2D_NATIVE_GLES3)
 else()
     target_link_libraries(k2d PUBLIC glad)
 endif()
-target_link_libraries(k2d PRIVATE imgui)
+target_link_libraries(k2d PUBLIC platform)
 
-if(TARGET SDL2::SDL2)
-    target_link_libraries(k2d PUBLIC SDL2::SDL2)
-else()
-    target_include_directories(k2d PUBLIC ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(k2d PUBLIC ${SDL2_LIBRARIES})
-endif()
 
 target_precompile_headers(k2d PRIVATE src/pch.h)

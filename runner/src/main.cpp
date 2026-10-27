@@ -25,7 +25,7 @@
 #include <k2d/UserData.h>
 #include <k2d/VirtualPad.h>
 
-#include <SDL.h>
+#include <platform.h>
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
@@ -36,8 +36,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
-#include <filesystem>
-#include <string>
+#include <ct/string.hpp>
 
 namespace
 {
@@ -84,7 +83,25 @@ Math::Vec2 readVec2(const ct::Json& value, const Math::Vec2& fallback)
                       static_cast<float>(value[1].as_double(fallback.y)));
 }
 
-void preloadTextures(const ct::Json& node, k2d::Assets& assets, const std::filesystem::path& projectRoot)
+ct::String joinPath(const ct::String& base, const char* relative)
+{
+    char buffer[4096];
+    return path_join(buffer, sizeof buffer, base.c_str(), relative) ? ct::String(buffer) : ct::String(relative);
+}
+
+ct::String directoryOf(const char* path)
+{
+    char buffer[4096];
+    path_directory(path, buffer, sizeof buffer);
+    return ct::String(buffer);
+}
+
+ct::String projectFile(const ct::String& projectRoot, const char* name)
+{
+    return path_is_absolute(name) ? ct::String(name) : joinPath(projectRoot, name);
+}
+
+void preloadTextures(const ct::Json& node, k2d::Assets& assets, const ct::String& projectRoot)
 {
     if (node.is_object())
     {
@@ -98,12 +115,7 @@ void preloadTextures(const ct::Json& node, k2d::Assets& assets, const std::files
                 const char* name = value.as_cstr("");
                 if (name[0] && !assets.GetTexture(name))
                 {
-                    // Scenes store project-relative names; older ones stored an
-                    // absolute path, which is_absolute() lets through untouched.
-                    const std::filesystem::path candidate(name);
-                    const std::filesystem::path file =
-                        candidate.is_absolute() ? candidate : projectRoot / candidate;
-                    assets.LoadTexture(name, file.string().c_str(), true, false);
+                    assets.LoadTexture(name, projectFile(projectRoot, name).c_str(), true, false);
                 }
             }
             else
@@ -127,24 +139,24 @@ bool loadJson(const char* path, ct::Json& out)
     return !error;
 }
 
-bool loadBytecodeManifest(const std::filesystem::path& projectRoot)
+bool loadBytecodeManifest(const ct::String& projectRoot)
 {
-    const std::filesystem::path manifestPath = projectRoot / ".k2d" / "web" / "scripts.json";
-    if (!std::filesystem::exists(manifestPath))
+    const ct::String manifestPath = joinPath(projectRoot, ".k2d/web/scripts.json");
+    if (!file_exists(manifestPath.c_str()))
         return true;
 
     ct::Json manifest;
-    if (!loadJson(manifestPath.string().c_str(), manifest) ||
+    if (!loadJson(manifestPath.c_str(), manifest) ||
         std::strcmp(manifest["format"].as_cstr(""), "k2d-zen-bytecode-bundle") != 0 ||
         manifest["version"].as_int(0) != 1)
     {
-        std::fprintf(stderr, "Invalid Zen bytecode manifest: %s\n", manifestPath.string().c_str());
+        std::fprintf(stderr, "Invalid Zen bytecode manifest: %s\n", manifestPath.c_str());
         return false;
     }
 
     ct::String error;
-    const std::filesystem::path bundlePath = projectRoot / ".k2d" / "web" / "scripts.zbc";
-    if (!k2d::ZenRuntime::instance().loadBytecodeBundle(bundlePath.string().c_str(), &error))
+    const ct::String bundlePath = joinPath(projectRoot, ".k2d/web/scripts.zbc");
+    if (!k2d::ZenRuntime::instance().loadBytecodeBundle(bundlePath.c_str(), &error))
     {
         std::fprintf(stderr, "Could not load Zen bytecode bundle: %s\n", error.c_str());
         return false;
@@ -217,16 +229,16 @@ void configureDefaultInputActions()
 {
     k2d::InputActionMap& actions = k2d::GetInputActions();
     actions.Clear();
-    actions.Bind("move_forward", SDL_SCANCODE_W);
-    actions.Bind("move_forward", SDL_SCANCODE_UP);
-    actions.Bind("move_backward", SDL_SCANCODE_S);
-    actions.Bind("move_backward", SDL_SCANCODE_DOWN);
-    actions.Bind("turn_left", SDL_SCANCODE_A);
-    actions.Bind("turn_left", SDL_SCANCODE_LEFT);
-    actions.Bind("turn_right", SDL_SCANCODE_D);
-    actions.Bind("turn_right", SDL_SCANCODE_RIGHT);
-    actions.Bind("primary", SDL_SCANCODE_SPACE);
-    actions.Bind("secondary", SDL_SCANCODE_LCTRL);
+    actions.Bind("move_forward", (int)k2d::Key::W);
+    actions.Bind("move_forward", (int)k2d::Key::Up);
+    actions.Bind("move_backward", (int)k2d::Key::S);
+    actions.Bind("move_backward", (int)k2d::Key::Down);
+    actions.Bind("turn_left", (int)k2d::Key::A);
+    actions.Bind("turn_left", (int)k2d::Key::Left);
+    actions.Bind("turn_right", (int)k2d::Key::D);
+    actions.Bind("turn_right", (int)k2d::Key::Right);
+    actions.Bind("primary", (int)k2d::Key::Space);
+    actions.Bind("secondary", (int)k2d::Key::LeftCtrl);
 }
 
 void scriptOutput(const char* text, bool error, void*)
@@ -326,15 +338,13 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    const std::filesystem::path scenePath(argv[1]);
-    const std::filesystem::path projectRoot =
-        argc >= 3 ? std::filesystem::path(argv[2]).parent_path() : scenePath.parent_path().parent_path();
+    const ct::String projectRoot = argc >= 3 ? directoryOf(argv[2]) : directoryOf(directoryOf(argv[1]).c_str());
 
     k2d::Device device;
-    if (!device.Init("Kinetix2D Game", 1280, 720, true, false))
+    if (!device.Init("Kinetix2D Game", 1280, 720, true))
         return 1;
     k2d::UserData userData;
-    const std::string projectName = projectRoot.filename().string();
+    const ct::String projectName(path_filename(projectRoot.c_str()));
     if (userData.open("Kinetix2D", projectName.empty() ? "Runner" : projectName.c_str()))
     {
         userData.load();
@@ -343,9 +353,9 @@ int main(int argc, char** argv)
 
     int result = 0;
     {
-        k2d::FileSystem::Instance().AddSearchPath(projectRoot.string().c_str());
-        k2d::FileSystem::Instance().AddSearchPath((projectRoot / "assets").string().c_str());
-        k2d::FileSystem::Instance().AddSearchPath(scenePath.parent_path().string().c_str());
+        k2d::FileSystem::Instance().AddSearchPath(projectRoot.c_str());
+        k2d::FileSystem::Instance().AddSearchPath(joinPath(projectRoot, "assets").c_str());
+        k2d::FileSystem::Instance().AddSearchPath(directoryOf(argv[1]).c_str());
 
         ct::Json sceneJson;
         if (!loadJson(argv[1], sceneJson))
@@ -404,11 +414,8 @@ int main(int argc, char** argv)
         if (sceneCursor.is_object() && sceneCursor["enabled"].as_bool(false))
         {
             const char* cursorImage = sceneCursor["image"].as_cstr("");
-            const std::filesystem::path cursorCandidate(cursorImage);
-            const std::filesystem::path cursorFile =
-                cursorCandidate.is_absolute() ? cursorCandidate : projectRoot / cursorCandidate;
             k2d::Texture* cursorTexture =
-                cursorImage[0] ? assets.LoadTexture(cursorImage, cursorFile.string().c_str()) : nullptr;
+                cursorImage[0] ? assets.LoadTexture(cursorImage, projectFile(projectRoot, cursorImage).c_str()) : nullptr;
             if (!cursorTexture)
                 std::fprintf(stderr, "Could not load cursor image: %s\n", cursorImage);
 
@@ -419,7 +426,7 @@ int main(int argc, char** argv)
             // The scene asked for its own cursor, so the OS pointer goes away
             // even when the image failed to load -- showing both is worse than
             // showing neither, and the error above says why it is missing.
-            SDL_ShowCursor(SDL_DISABLE);
+            device.ShowCursor(false);
         }
 
         if (result == 0)
@@ -438,21 +445,21 @@ int main(int argc, char** argv)
                     k2d::GetAudio().LoadSettings(userData);
                 k2d::VirtualPad virtualPad;
                 virtualPad.SetTexture(k2d::VirtualPad::DefaultTexture(assets));
-                virtualPad.SetKeyBindings(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
-                                          SDL_SCANCODE_SPACE, SDL_SCANCODE_LCTRL);
+                virtualPad.SetKeyBindings((int)k2d::Key::Left, (int)k2d::Key::Right, (int)k2d::Key::Up, (int)k2d::Key::Down,
+                                          (int)k2d::Key::Space, (int)k2d::Key::LeftCtrl);
                 configureVirtualPad(sceneJson, virtualPad);
                 k2d::SetZenScriptVirtualPad(&virtualPad);
                 bool profilerVisible = false;
                 while (device.PollEvents())
                 {
                     k2d::Profiler::Get().beginFrame();
-                    if (device.GetInput().KeyPressed(SDL_SCANCODE_F5))
+                    if (device.GetInput().KeyPressed((int)k2d::Key::F5))
                     {
                         profilerVisible = !profilerVisible;
                         k2d::SetZenScriptProfilerVisible(profilerVisible);
                         k2d::ZenRuntime::instance().setVmProfiling(profilerVisible);
                     }
-                    if (device.GetInput().KeyPressed(SDL_SCANCODE_F6))
+                    if (device.GetInput().KeyPressed((int)k2d::Key::F6))
                     {
                         const std::size_t reloaded = k2d::ReloadChangedZenScripts();
                         std::fprintf(

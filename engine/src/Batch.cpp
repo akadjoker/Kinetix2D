@@ -1421,7 +1421,7 @@ void BatchRenderer::FlushBatch()
         return;
 
     ProfileScope profileScope("batch.flush");
-    // BatchRenderer shares a GL context with Canvas/ImGui, so only cache
+    // BatchRenderer shares a GL context with Canvas, so only cache
     // state within this flush unless it controls every pass itself.
     mState.Invalidate();
 

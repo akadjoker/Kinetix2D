@@ -1,6 +1,6 @@
 #include "k2d/Profiler.h"
 
-#include <SDL.h>
+#include <platform.h>
 #include <cstring>
 
 namespace k2d
@@ -29,14 +29,14 @@ namespace k2d
             return;
 
         if (mFrequency == 1)
-            mFrequency = SDL_GetPerformanceFrequency();
+            mFrequency = 1000000000ull;
         for (uint32_t i = 0; i < mSampleCount; ++i)
         {
             mSamples[i].milliseconds = 0.0f;
             mSamples[i].calls = 0;
         }
         mDepth = 0;
-        mFrameStart = SDL_GetPerformanceCounter();
+        mFrameStart = time_nanos();
     }
 
     void Profiler::endFrame()
@@ -44,7 +44,7 @@ namespace k2d
         if (!mEnabled)
             return;
 
-        const uint64_t now = SDL_GetPerformanceCounter();
+        const uint64_t now = time_nanos();
         mFrameMilliseconds = (float)((now - mFrameStart) * 1000.0 / mFrequency);
         const uint32_t frameSample = findOrCreate("Frame");
         if (frameSample < MaxSamples)
@@ -109,12 +109,12 @@ namespace k2d
         if (mDepth >= MaxDepth)
             return false;
         if (mFrequency == 1)
-            mFrequency = SDL_GetPerformanceFrequency();
+            mFrequency = 1000000000ull;
         const uint32_t sample = findOrCreate(name);
         if (sample >= MaxSamples)
             return false;
         mStack[mDepth].sample = sample;
-        mStack[mDepth].counter = SDL_GetPerformanceCounter();
+        mStack[mDepth].counter = time_nanos();
         ++mDepth;
         return true;
     }
@@ -123,7 +123,7 @@ namespace k2d
     {
         if (mDepth == 0)
             return;
-        const uint64_t now = SDL_GetPerformanceCounter();
+        const uint64_t now = time_nanos();
         const ActiveScope scope = mStack[--mDepth];
         mSamples[scope.sample].milliseconds += (float)((now - scope.counter) * 1000.0 / mFrequency);
         ++mSamples[scope.sample].calls;

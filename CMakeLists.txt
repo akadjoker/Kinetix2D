@@ -53,14 +53,12 @@ endif()
 # MinGW's GCC runtime is otherwise a DLL dependency (libgcc_s_seh-1.dll,
 # libstdc++-6.dll, and libwinpthread-1.dll on posix-threaded toolchains),
 # which makes a copied runner fail on a clean Windows machine. -static pulls
-# all three into the binary; SDL and other third-party DLLs, if any remain
+# all three into the binary; Third-party DLLs, if any remain
 # for a given toolchain, stay app-local and are copied by the release workflow.
 if(MINGW AND K2D_STATIC_MINGW_RUNTIME)
     add_link_options(-static-libgcc -static-libstdc++ -static)
 endif()
 
-
-find_package(SDL2 CONFIG REQUIRED)
 
 add_library(ct INTERFACE)
 target_include_directories(ct INTERFACE ${CMAKE_SOURCE_DIR}/external/containers/include)
@@ -90,11 +88,9 @@ add_subdirectory(tools)
 add_subdirectory(scripting)
 add_subdirectory(physics2d)
 add_subdirectory(runner)
-#add_subdirectory(demo)
-add_subdirectory(editor)
 
 include(GNUInstallDirs)
-install(TARGETS k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS k2d_runner k2d_pack k2d_scriptc k2d_webserver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(PROGRAMS tools/export_web.sh tools/export_web.py DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES tools/export_web.bat DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY assets DESTINATION .)

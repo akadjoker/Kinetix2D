@@ -3,7 +3,7 @@
 #include "k2d/Profiler.h"
 #include "font_data.h"
 
-#include <SDL.h>
+#include <platform.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -937,7 +937,7 @@ void CanvasRenderer::ApplyDrawCalls()
         mState.BindTexture2D(2, mDefaultLightTexture);
 
     size_t indexOffset = 0;
-    const double waterSeconds = static_cast<double>(SDL_GetTicks64()) * 0.001;
+    const double waterSeconds = time_seconds();
 
     for (size_t i = 0; i < mDrawCalls.size(); ++i)
     {

@@ -70,12 +70,11 @@
 #include <zen/object.h>
 #include <zen/zen_host_output.h>
 
-#include <SDL.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
+#include <platform.h>
 #include <limits>
 #include <system_error>
 
@@ -197,11 +196,8 @@ long long fileTimestamp(const char* path)
     ct::String resolved;
     if (!FileSystem::Instance().Resolve(path, resolved))
         return 0;
-    std::error_code error;
-    const std::filesystem::file_time_type time = std::filesystem::last_write_time(resolved.c_str(), error);
-    if (error)
-        return 0;
-    return (long long)time.time_since_epoch().count();
+    const long long time = file_mod_time(resolved.c_str());
+    return time < 0 ? 0 : time;
 }
 
 void preloadPrefabTextures(const ct::Json& node)
@@ -501,14 +497,14 @@ struct RunningScript
     {
         ++mImpl.executing;
         if (mProfiling)
-            mCounter = SDL_GetPerformanceCounter();
+            mCounter = time_nanos();
     }
 
     ~RunningScript()
     {
         if (mProfiling)
         {
-            const uint64_t elapsed = SDL_GetPerformanceCounter() - mCounter;
+            const uint64_t elapsed = time_nanos() - mCounter;
             switch (mPhase)
             {
             case ScriptProfilePhase::Update:

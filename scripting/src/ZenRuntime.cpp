@@ -11,14 +11,13 @@
 
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
+#include <platform.h>
 #include <system_error>
 
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/Profiler.h"
 
-#include <SDL.h>
 
 namespace k2d
 {
@@ -110,7 +109,7 @@ namespace k2d
         if (!impl.vmProfiling)
             return;
         if (impl.vmProfileFrequency == 0)
-            impl.vmProfileFrequency = SDL_GetPerformanceFrequency();
+            impl.vmProfileFrequency = 1000000000ull;
 
         const float toMilliseconds = 1000.0f / static_cast<float>(impl.vmProfileFrequency);
         Profiler &profiler = Profiler::Get();
@@ -149,11 +148,8 @@ namespace k2d
         ct::String resolved;
         if (!FileSystem::Instance().Resolve(path, resolved))
             return 0;
-        std::error_code error;
-        const std::filesystem::file_time_type time = std::filesystem::last_write_time(resolved.c_str(), error);
-        if (error)
-            return 0;
-        return (long long)time.time_since_epoch().count();
+        const long long time = file_mod_time(resolved.c_str());
+        return time < 0 ? 0 : time;
     }
 
     bool ZenRuntime::Impl::recompileClass(ZenScriptClass &entry, const char *source)

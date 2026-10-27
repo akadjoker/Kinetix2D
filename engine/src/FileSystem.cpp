@@ -4,7 +4,7 @@
 #include "k2d/FileBuffer.h"
 #include "k2d/KPak.h"
 
-#include <SDL.h>
+#include <platform.h>
 #include <cstdlib>
 #include <cstring>
 
@@ -29,12 +29,9 @@ FileSystem::~FileSystem() = default;
 
 void FileSystem::Init()
 {
-    char* base = SDL_GetBasePath();
-    if (base)
-    {
+    char base[4096];
+    if (fs_get_base_path(base, sizeof base))
         mBasePath = base;
-        SDL_free(base);
-    }
     ResetSearchPaths();
 }
 
@@ -90,11 +87,7 @@ bool FileSystem::Exists(const char* path) const
         if (pack && pack->Contains(path))
             return true;
 
-    SDL_RWops* rw = SDL_RWFromFile(path, "rb");
-    if (!rw)
-        return false;
-    SDL_RWclose(rw);
-    return true;
+    return file_exists(path);
 }
 
 bool FileSystem::Resolve(const char* rel, ct::String& out) const
@@ -123,7 +116,6 @@ bool FileSystem::Resolve(const char* rel, ct::String& out) const
     }
 
     // 3) Each search root, resolved against the executable directory.
-    //    SDL_GetBasePath() already ends with a separator.
     if (!mBasePath.empty())
     {
         for (size_t i = 0; i < mSearchPaths.size(); ++i)
@@ -188,13 +180,7 @@ bool FileSystem::SaveFile(const char* path, const void* data, size_t size) const
     if (!path || !path[0])
         return false;
 
-    SDL_RWops* rw = SDL_RWFromFile(path, "wb");
-    if (!rw)
-        return false;
-
-    size_t written = size > 0 ? SDL_RWwrite(rw, data, 1, size) : 0;
-    SDL_RWclose(rw);
-    return written == size;
+    return file_write(path, data, size);
 }
 
 bool FileSystem::SaveTextFile(const char* path, const ct::String& text) const
