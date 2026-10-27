@@ -1,6 +1,7 @@
 #include "EditorWindow.h"
 
 #include <k2d/FileSystem.h>
+#include <k2d/GameObject.h>
 #include <k2d/OpenGL.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/SceneManager.h>
@@ -56,9 +57,10 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 
     mDock = outer->createChild<rt::DockPanel>();
     mDock->setStretch(1.0f);
-    mDock->addPanel<rt::Label>(kHierarchyPanel, "No scene");
+    mHierarchy = mDock->addPanel<HierarchyPanel>(kHierarchyPanel);
+    mHierarchy->selectionChanged.connect([this](GameObject* object) { showSelection(object); });
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
-    mDock->addPanel<rt::Label>(kInspectorPanel, "Nothing selected");
+    mInspector = mDock->addPanel<rt::Label>(kInspectorPanel, "Nothing selected");
     mDock->addPanel<rt::Label>(kConsolePanel, "");
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
@@ -111,6 +113,8 @@ bool EditorWindow::openScene(const char* path)
     if (!GetSceneManager().Load(mScene, mAssets, path))
         return false;
     mSceneLabel->setText(path_filename(path));
+    mHierarchy->rebuild(mScene);
+    showSelection(nullptr);
     return true;
 }
 
@@ -158,6 +162,18 @@ void EditorWindow::renderScene(float width, float height, float pixelScale)
     rt::TextureHandle texture;
     texture.value = mTarget.texture();
     mViewport->setTexture(texture);
+}
+
+void EditorWindow::showSelection(GameObject* object)
+{
+    if (!object)
+    {
+        mInspector->setText("Nothing selected");
+        return;
+    }
+    char text[256];
+    std::snprintf(text, sizeof text, "%s  (%zu children)", object->name().c_str(), object->childCount());
+    mInspector->setText(text);
 }
 
 void EditorWindow::shutdown()

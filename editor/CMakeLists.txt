@@ -1,6 +1,7 @@
 add_executable(k2d_editor
     src/main.cpp
     src/EditorWindow.cpp
+    src/HierarchyPanel.cpp
     src/ViewportPanel.cpp
 )
 target_include_directories(k2d_editor PRIVATE src)

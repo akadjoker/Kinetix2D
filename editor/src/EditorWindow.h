@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HierarchyPanel.h"
 #include "ViewportPanel.h"
 
 #include "BasicWidgets.hpp"
@@ -32,6 +33,7 @@ public:
 private:
     void resetLayout();
     void renderScene(float width, float height, float pixelScale);
+    void showSelection(GameObject* object);
 
     PlatformWindow* mWindow = nullptr;
     ig::retained::DockPanel* mDock = nullptr;
@@ -39,6 +41,8 @@ private:
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;
     ViewportPanel* mViewport = nullptr;
+    HierarchyPanel* mHierarchy = nullptr;
+    ig::retained::Label* mInspector = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;
