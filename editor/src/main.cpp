@@ -1,4 +1,5 @@
 #include "EditorWindow.h"
+#include "Icons.h"
 
 #include <k2d/FileSystem.h>
 
@@ -23,6 +24,7 @@ int main(int argc, char** argv)
         return 1;
     }
     k2d::FileSystem::Instance().Init();
+    k2d::editor::Icons::load();
 
     k2d::editor::EditorWindow window;
     window.build(app.widgets(), app.window());
@@ -38,6 +40,7 @@ int main(int argc, char** argv)
     });
     app.run();
     window.shutdown();
+    k2d::editor::Icons::unload();
     k2d::FileSystem::Instance().Shutdown();
     return 0;
 }

@@ -1,5 +1,7 @@
 #include "EditorWindow.h"
 
+#include "Icons.h"
+
 #include <k2d/ClassDB.h>
 #include <k2d/FileSystem.h>
 #include <k2d/GameObject.h>
@@ -55,6 +57,27 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::Menu* view = menuBar->addMenu("View");
     rt::MenuAction* resetLayout = view->addAction("Reset Layout");
     resetLayout->triggered.connect([this]() { this->resetLayout(); });
+
+    mTools = outer->createChild<rt::ToolBar>();
+    mTools->setDraggable(false);
+    mTools->addButton(Icons::get("New"), "New scene");
+    mTools->addButton(Icons::get("Open"), "Open scene");
+    mTools->addButton(Icons::get("Save"), "Save scene");
+    mTools->addSeparator();
+    mTools->addButton(Icons::get("Undo"), "Undo");
+    mTools->addButton(Icons::get("Redo"), "Redo");
+    mTools->addSeparator();
+    mTools->addButton(Icons::get("Play"), "Play");
+    mTools->addButton(Icons::get("Pause"), "Pause");
+    mTools->addButton(Icons::get("Stop"), "Stop");
+    mTools->addSeparator();
+    mTools->addToggle(Icons::get("Select"), "Select", true);
+    mTools->addToggle(Icons::get("Move"), "Move");
+    mTools->addToggle(Icons::get("Rotate"), "Rotate");
+    mTools->addToggle(Icons::get("Scale"), "Scale");
+    mTools->addSeparator();
+    mTools->addToggle(Icons::get("Grid"), "Grid", true);
+    mTools->addToggle(Icons::get("Snap"), "Snap");
 
     mDock = outer->createChild<rt::DockPanel>();
     mDock->setStretch(1.0f);

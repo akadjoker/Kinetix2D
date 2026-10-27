@@ -8,6 +8,7 @@
 #include "DockPanel.hpp"
 #include "LayoutWidgets.hpp"
 #include "MenuWidgets.hpp"
+#include "ToolBar.hpp"
 #include "WidgetApp.hpp"
 
 #include <k2d/Assets.h>
@@ -38,6 +39,7 @@ private:
 
     PlatformWindow* mWindow = nullptr;
     ig::retained::DockPanel* mDock = nullptr;
+    ig::retained::ToolBar* mTools = nullptr;
     ig::retained::StatusBar* mStatus = nullptr;
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;
