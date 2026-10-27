@@ -81,6 +81,7 @@ namespace k2d
         bool loadFromSource(const char *source, const char *path);
         bool loadFromBytecode(const unsigned char *data, std::size_t size, const char *path);
         bool ensureInstance();
+        void startIfNeeded();
 
         ZenScriptProperty &overrideSlot(const char *name);
         bool writeProperty(const ZenScriptProperty &prop);

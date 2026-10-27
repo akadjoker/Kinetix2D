@@ -7038,21 +7038,26 @@ void ZenScriptComponent::onUpdate(float deltaTime)
 
     ZenScriptClass* scriptClass = mState->scriptClass;
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
-    if (!mState->started)
-    {
-        mState->started = true;
-        if (scriptClass->slotStart >= 0)
-        {
-            RunningScript running(ScriptProfilePhase::Update);
-            impl.vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
-        }
-    }
+    startIfNeeded();
 
     if (scriptClass->slotUpdate >= 0)
     {
         zen::Value dt = zen::val_float(deltaTime);
         RunningScript running(ScriptProfilePhase::Update);
         impl.vm.invoke(mState->instance, scriptClass->slotUpdate, &dt, 1);
+    }
+}
+
+void ZenScriptComponent::startIfNeeded()
+{
+    if (mState->started)
+        return;
+    mState->started = true;
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (scriptClass->slotStart >= 0)
+    {
+        RunningScript running(ScriptProfilePhase::Update);
+        ZenRuntime::instance().impl().vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
     }
 }
 
@@ -7063,6 +7068,7 @@ void ZenScriptComponent::onRender(RenderQueue& queue)
         return;
     if (!ensureInstance())
         return;
+    startIfNeeded();
 
     ZenScriptClass* scriptClass = mState->scriptClass;
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
