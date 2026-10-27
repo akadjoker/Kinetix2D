@@ -416,7 +416,14 @@ Apagar `external/imgui`, `editor/external/imgui_widgets`, `TextEditor`, `ImGuiMi
 `imgui.ini`; `demo/` ou se porta ou se apaga (está fora do build). `CheckNoStd` a falhar o
 build em motor, scripting e editor.
 
-### Fase 6: ComponentClassDB (antes do inspector novo)
+### Fase 6: ClassDB (começada a 2026-10-27)
+Feito: `k2d/PropertyValue.h` e `k2d/ClassDB.h` (nomes como no prisma3d: `ClassDB`,
+`ClassInfo`, `PropertyInfo`), getters e setters em `ct::Function`, registo de uma linha
+para pares getter/setter simples e lambdas para o resto; `RegisterCoreClasses()` em
+`ClassDBCore.cpp` regista 42 classes com 201 propriedades, geradas a partir dos cabeçalhos
+e completadas à mão (cores, flips, tiling, viewport, tilemap, colliders, edges). O inspector
+do editor lista-as em texto. Por fazer: `UiControls` e propriedades `Texture*`
+(precisam de caminho de recurso), inspector editável, serializer a ler daqui.
 Reflexão de propriedades por componente, nos moldes do `NodeClassDB` do prisma3d, a
 alimentar o inspector retained genérico, o serializer e `ZenScriptProperties`. Com o editor
 a recomeçar, é isto que evita escrever o inspector à mão outra vez; faz-se no motor, com
