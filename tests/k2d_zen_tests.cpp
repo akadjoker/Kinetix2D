@@ -54,7 +54,6 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
 
 static bool nearEqual(float a, float b)
 {
@@ -2297,7 +2296,7 @@ static bool testSerialization()
 {
     k2d::RegisterZenScriptSerializer();
 
-    const std::string scriptPath = k2d_tests::tempPath("k2d_zen_test_script.py");
+    const ct::String scriptPath = k2d_tests::tempPath("k2d_zen_test_script.py");
     FILE* file = std::fopen(scriptPath.c_str(), "w");
     if (!file)
         return false;
@@ -2338,7 +2337,7 @@ static bool gCapturedError = false;
 
 static bool testSpawnAndMath()
 {
-    const std::string prefabPath = k2d_tests::tempPath("k2d_zen_test_prefab.k2dprefab");
+    const ct::String prefabPath = k2d_tests::tempPath("k2d_zen_test_prefab.k2dprefab");
     FILE* file = std::fopen(prefabPath.c_str(), "w");
     if (!file)
         return false;
@@ -2349,8 +2348,8 @@ static bool testSpawnAndMath()
     k2d::GameObject* object = scene.createObject("shooter");
     object->setPosition(Math::Vec2(0.0f, 0.0f));
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
-    const std::string source =
-        std::string("class Shooter:\n") +
+    const ct::String source =
+        ct::String("class Shooter:\n") +
         "    def __init__(self, node):\n"
         "        self.node = node\n"
         "    def on_start(self):\n"
@@ -2494,7 +2493,7 @@ static bool testBlackboardAndEvents()
 
 static bool testHotReload()
 {
-    const std::string path = k2d_tests::tempPath("k2d_zen_hotreload.py");
+    const ct::String path = k2d_tests::tempPath("k2d_zen_hotreload.py");
     FILE* file = std::fopen(path.c_str(), "w");
     if (!file)
         return false;
@@ -2513,7 +2512,7 @@ static bool testHotReload()
     ok = ok && !script->reloadIfChanged();
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
-    std::filesystem::last_write_time(path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
+    k2d_tests::advanceModificationTime(path.c_str(), 2);
     file = std::fopen(path.c_str(), "w");
     if (!file)
         return false;
@@ -2521,7 +2520,7 @@ static bool testHotReload()
                "  self.node.set_position(2, 2)\n",
                file);
     std::fclose(file);
-    std::filesystem::last_write_time(path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
+    k2d_tests::advanceModificationTime(path.c_str(), 4);
 
     ok = ok && k2d::ReloadChangedZenScripts() == 1;
     scene.update(0.016f);
@@ -2533,10 +2532,9 @@ static bool testHotReload()
     // Project scripts normally use logical paths such as
     // assets/scripts/player.py. Timestamp checks must resolve those paths
     // through FileSystem just like the actual source load does.
-    const std::string relativeName = "k2d_zen_hotreload_relative.py";
-    const std::string relativePath = k2d_tests::tempPath(relativeName.c_str());
-    const std::filesystem::path relativeDirectory = std::filesystem::path(relativePath).parent_path();
-    k2d::FileSystem::Instance().AddSearchPath(relativeDirectory.generic_string().c_str());
+    const ct::String relativeName = "k2d_zen_hotreload_relative.py";
+    const ct::String relativePath = k2d_tests::tempPath(relativeName.c_str());
+    k2d::FileSystem::Instance().AddSearchPath(k2d_tests::directoryOf(relativePath.c_str()).c_str());
     file = std::fopen(relativePath.c_str(), "w");
     if (!file)
         return false;
@@ -2555,8 +2553,7 @@ static bool testHotReload()
         return false;
     std::fputs("class Relative(ScriptComponent):\n    def on_update(self, dt):\n        self.node.set_position(4, 4)\n", file);
     std::fclose(file);
-    std::filesystem::last_write_time(relativePath,
-                                     std::filesystem::last_write_time(relativePath) + std::chrono::seconds(4));
+    k2d_tests::advanceModificationTime(relativePath.c_str(), 4);
 
     ok = ok && k2d::ReloadChangedZenScripts() == 1;
     relativeScene.update(0.016f);

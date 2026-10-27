@@ -8,7 +8,6 @@
 
 #include <cmath>
 #include <cstdio>
-#include <vector>
 
 namespace
 {

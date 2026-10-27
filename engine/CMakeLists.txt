@@ -169,7 +169,10 @@ if(NOT K2D_NATIVE_GLES3)
 endif()
 
 target_include_directories(k2d PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
-add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset)
+add_custom_target(k2d_check_no_stl
+    COMMAND ${CMAKE_COMMAND} -DK2D_SOURCE_DIR=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/cmake/CheckNoStl.cmake
+    COMMENT "Checking the sources for STL containers")
+add_dependencies(k2d k2d_default_ui_theme_asset k2d_default_virtual_pad_asset k2d_check_no_stl)
 
 target_link_libraries(k2d PUBLIC mathc k2d_miniaudio)
 target_link_libraries(k2d PRIVATE miniz)

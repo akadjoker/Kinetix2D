@@ -5,7 +5,7 @@
 #include "k2d/Bone2D.h"
 #include "k2d/GameObject.h"
 
-#include <algorithm>
+#include <ct/detail/utils.hpp>
 #include <cmath>
 #include <cstring>
 
@@ -82,8 +82,17 @@ bool Skeleton2D::removeClip(const char* name)
     if (!name)
         return false;
     const size_t oldSize = mClips.size();
-    mClips.erase(std::remove_if(mClips.begin(), mClips.end(),
-        [name](const BoneAnimationClip& clip) { return clip.name == name; }), mClips.end());
+    size_t kept = 0;
+    for (size_t i = 0; i < mClips.size(); ++i)
+    {
+        if (mClips[i].name == name)
+            continue;
+        if (kept != i)
+            mClips[kept] = ct::detail::move(mClips[i]);
+        ++kept;
+    }
+    while (mClips.size() > kept)
+        mClips.pop_back();
     return oldSize != mClips.size();
 }
 

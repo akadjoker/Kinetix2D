@@ -7,7 +7,6 @@
 
 #include <cmath>
 #include <cstdio>
-#include <string>
 
 namespace
 {
@@ -16,7 +15,7 @@ bool nearEqual(float a, float b, float tolerance = 0.001f)
     return std::fabs(a - b) < tolerance;
 }
 
-bool writeScript(const std::string &path)
+bool writeScript(const ct::String &path)
 {
     FILE *file = std::fopen(path.c_str(), "w");
     if (!file)
@@ -34,8 +33,8 @@ bool writeScript(const std::string &path)
 
 bool testBytecodeRunsWithoutSource()
 {
-    const std::string source = k2d_tests::tempPath("k2d_zen_bytecode_spinner.py");
-    const std::string bytecode = k2d_tests::tempPath("k2d_zen_bytecode_spinner.zbc");
+    const ct::String source = k2d_tests::tempPath("k2d_zen_bytecode_spinner.py");
+    const ct::String bytecode = k2d_tests::tempPath("k2d_zen_bytecode_spinner.zbc");
     std::remove(bytecode.c_str());
 
     bool ok = writeScript(source);
@@ -66,7 +65,7 @@ bool testBytecodeRunsWithoutSource()
 
 bool testBundleRegistersScriptsWithoutSourceFiles()
 {
-    const std::string bytecode = k2d_tests::tempPath("k2d_zen_bytecode_bundle.zbc");
+    const ct::String bytecode = k2d_tests::tempPath("k2d_zen_bytecode_bundle.zbc");
     std::remove(bytecode.c_str());
 
     const char* source =

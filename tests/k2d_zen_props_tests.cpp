@@ -15,7 +15,7 @@ static bool nearEqual(double a, double b, double tolerance = 0.001)
     return std::fabs(a - b) < tolerance;
 }
 
-static const std::string kShipPath = k2d_tests::tempPath("k2d_zen_ship.py");
+static const ct::String kShipPath = k2d_tests::tempPath("k2d_zen_ship.py");
 
 static const char *kShipSource =
     "SPEED = 200\n"

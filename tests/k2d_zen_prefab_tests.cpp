@@ -15,9 +15,9 @@ static bool nearEqual(double a, double b, double tolerance = 0.001)
     return std::fabs(a - b) < tolerance;
 }
 
-static const std::string kBallScript = k2d_tests::tempPath("k2d_zen_ball.py");
-static const std::string kThrowerScript = k2d_tests::tempPath("k2d_zen_thrower.py");
-static const std::string kBallPrefab = k2d_tests::tempPath("k2d_zen_ball.k2dprefab");
+static const ct::String kBallScript = k2d_tests::tempPath("k2d_zen_ball.py");
+static const ct::String kThrowerScript = k2d_tests::tempPath("k2d_zen_thrower.py");
+static const ct::String kBallPrefab = k2d_tests::tempPath("k2d_zen_ball.k2dprefab");
 
 static bool writeScripts()
 {

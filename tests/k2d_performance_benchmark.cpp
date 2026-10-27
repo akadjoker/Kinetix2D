@@ -4,10 +4,10 @@
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cstdio>
-#include <vector>
+#include <ct/sort.hpp>
+#include <ct/vector.hpp>
 
 namespace
 {
@@ -46,9 +46,9 @@ double elapsedMs(Clock::time_point start, Clock::time_point end)
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-void printStats(const char* name, std::vector<double>& samples)
+void printStats(const char* name, ct::Vector<double>& samples)
 {
-    std::sort(samples.begin(), samples.end());
+    ct::sort(samples.begin(), samples.end());
     double total = 0.0;
     for (double sample : samples)
         total += sample;
@@ -64,7 +64,7 @@ void benchmarkScene()
     constexpr int sampleFrames = 120;
 
     k2d::Scene scene;
-    std::vector<BenchmarkComponent*> components;
+    ct::Vector<BenchmarkComponent*> components;
     components.reserve(objectCount);
     for (int i = 0; i < objectCount; ++i)
     {
@@ -79,8 +79,8 @@ void benchmarkScene()
         scene.buildRenderQueue();
     }
 
-    std::vector<double> updateSamples;
-    std::vector<double> renderSamples;
+    ct::Vector<double> updateSamples;
+    ct::Vector<double> renderSamples;
     updateSamples.reserve(sampleFrames);
     renderSamples.reserve(sampleFrames);
     for (int i = 0; i < sampleFrames; ++i)
@@ -121,7 +121,7 @@ void benchmarkPhysics2D()
     for (int i = 0; i < warmupFrames; ++i)
         scene.update(1.0f / 60.0f);
 
-    std::vector<double> samples;
+    ct::Vector<double> samples;
     samples.reserve(sampleFrames);
     for (int i = 0; i < sampleFrames; ++i)
     {

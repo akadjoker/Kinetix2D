@@ -258,6 +258,10 @@ mantém a implementação actual). `std::function` → `ct::Function`. `size_t`,
 `<cmath>` ficam.
 
 ### Fase 2: SDL2 → zen_plataform (feita a 2026-10-27, menos o loop web)
+Fase 1 fechada no mesmo dia: motor, scripting, runner, tools e testes sem contentores STL;
+`cmake/CheckNoStl.cmake` corre antes do `k2d` e pára o build ao primeiro contentor,
+smart pointer, stream, thread ou `std::filesystem` (os cabeçalhos `<algorithm>` e
+`<cmath>` continuam permitidos: são algoritmos e libc, não contentores).
 Feito: `Device` sobre o zen_plataform (contexto ES 3.0 pedido primeiro, core 3.3 como
 recurso; eventos por `poll_event`, teclas convertidas para os scancodes que o `Input` já
 usava), `FileBuffer`, `FileSystem`, `UserData`, `Profiler` e `CanvasRenderer` pelo
