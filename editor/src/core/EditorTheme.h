@@ -294,6 +294,26 @@ inline void applyEmberTheme()
     style.DisplaySafeAreaPadding = ImVec2(3.000000f, 3.000000f);
 }
 
+// SeparatorText draws its rule in ImGuiCol_Separator, the same near-invisible
+// grey the themes give a window splitter. The Inspector stacks ten of them per
+// object, so the section headings have to read as headings: a rule tinted from
+// the theme's own accent, thick enough to see, and a label that is not the same
+// grey as the property text under it.
+inline void applySectionHeadingStyle(EditorThemeKind kind)
+{
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* c = style.Colors;
+
+    ImVec4 accent = c[ImGuiCol_NavHighlight];
+    if (kind == EditorThemeKind::Light)
+        accent = ImVec4(0.20f, 0.40f, 0.68f, 1.00f);
+
+    c[ImGuiCol_Separator] = ImVec4(accent.x, accent.y, accent.z, 0.25f);
+    style.SeparatorTextBorderSize = 2.0f;
+    style.SeparatorTextAlign = ImVec2(0.0f, 0.5f);
+    style.SeparatorTextPadding = ImVec2(16.0f, 6.0f);
+}
+
 inline void applyEditorTheme(EditorThemeKind kind)
 {
     switch (kind)
@@ -304,6 +324,7 @@ inline void applyEditorTheme(EditorThemeKind kind)
         case EditorThemeKind::Nord: applyNordTheme(); break;
         case EditorThemeKind::Ember: applyEmberTheme(); break;
     }
+    applySectionHeadingStyle(kind);
 }
 
 inline void applyEditorTheme()

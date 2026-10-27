@@ -271,6 +271,11 @@ void GamePanel::drawContents()
     const ImVec2 mouse = ImGui::GetMousePos();
     GetMouseCursor().setPosition(Math::Vec2(viewport.toVirtualX(mouse.x - position.x),
                                            viewport.toVirtualY(mouse.y - position.y)));
+    // A scene with its own cursor draws it inside this panel; the OS pointer
+    // has to go, or both show at once. Only over this panel, though -- the
+    // editor still needs a pointer everywhere else.
+    if (GetMouseCursor().enabled() && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     renderScene(fboWidth, fboHeight, viewport);
 
     ImDrawList& drawList = *ImGui::GetWindowDrawList();

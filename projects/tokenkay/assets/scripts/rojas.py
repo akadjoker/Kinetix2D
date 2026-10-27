@@ -548,7 +548,9 @@ class Rojas(ScriptComponent):
         self.hp = self.hp - amount
         if self.hp <= 0.0:
             self.die()
-        elif self.combat_state < STATE_CHASE:
+        # Damage arrives from outside on_update (a bullet's node.call, an
+        # explosion's blast), so it never passed the agent check up there.
+        elif self.combat_state < STATE_CHASE and self.agent != None:
             # Being hit alerts an unaware enemy, as in the original.
             self.begin_chase()
 
@@ -600,9 +602,14 @@ class Rojas(ScriptComponent):
     def on_event(self, name, value):
         if name == "rojas_cleanup":
             self.node.queue_destroy()
-        elif name == "rojas_alert" and not self.dead and self.combat_state < STATE_CHASE:
+        elif name == "rojas_alert" and not self.dead and self.combat_state < STATE_CHASE and self.agent != None:
             alert_x = get_number("rojas_alert_x", 0.0)
             alert_y = get_number("rojas_alert_y", 0.0)
+            # An explosion carries further than a gunshot, so the emitter says
+            # how far it reaches; value is that radius, 0 for the default.
+            radius = value
+            if radius <= 0.0:
+                radius = self.alert_range
             x, y = self.node.get_global_position()
-            if self.distance_between(x, y, alert_x, alert_y) <= self.alert_range:
+            if self.distance_between(x, y, alert_x, alert_y) <= radius:
                 self.begin_chase()

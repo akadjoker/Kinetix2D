@@ -409,18 +409,17 @@ int main(int argc, char** argv)
                 cursorCandidate.is_absolute() ? cursorCandidate : projectRoot / cursorCandidate;
             k2d::Texture* cursorTexture =
                 cursorImage[0] ? assets.LoadTexture(cursorImage, cursorFile.string().c_str()) : nullptr;
-            if (cursorTexture)
-            {
-                k2d::MouseCursor& cursor = k2d::GetMouseCursor();
-                cursor.setTexture(cursorTexture);
-                cursor.setOffset(readVec2(sceneCursor["offset"], Math::Vec2(0.0f, 0.0f)));
-                cursor.setEnabled(true);
-                SDL_ShowCursor(SDL_DISABLE);
-            }
-            else
-            {
+            if (!cursorTexture)
                 std::fprintf(stderr, "Could not load cursor image: %s\n", cursorImage);
-            }
+
+            k2d::MouseCursor& cursor = k2d::GetMouseCursor();
+            cursor.setTexture(cursorTexture);
+            cursor.setOffset(readVec2(sceneCursor["offset"], Math::Vec2(0.0f, 0.0f)));
+            cursor.setEnabled(true);
+            // The scene asked for its own cursor, so the OS pointer goes away
+            // even when the image failed to load -- showing both is worse than
+            // showing neither, and the error above says why it is missing.
+            SDL_ShowCursor(SDL_DISABLE);
         }
 
         if (result == 0)

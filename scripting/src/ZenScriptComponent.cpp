@@ -162,6 +162,16 @@ struct ZenDrawContext
         }
         return item;
     }
+
+    // Commands already written keep the z they were drawn at; the next one
+    // opens a fresh item, so a script can raise the z partway through on_draw.
+    void setZIndex(int value)
+    {
+        if (value == zIndex)
+            return;
+        zIndex = value;
+        item = nullptr;
+    }
 };
 
 ZenDrawContext* gZenDrawContext = nullptr;
@@ -312,6 +322,16 @@ void addLineTriangles(ct::Vector<Math::Vec2>& triangles, float x0, float y0, flo
     triangles.push_back(a - normal);
     triangles.push_back(b + normal);
     triangles.push_back(b - normal);
+}
+
+// on_draw items inherit the owner's zIndex, which puts an overlay (a speech
+// bubble, a health bar) in the same sorting bucket as the scenery the entity
+// walks behind. Raising it here keeps the entity's own ySort intact.
+int natSetDrawZ(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenDrawContext && nargs >= 1)
+        gZenDrawContext->setZIndex((int)zen::to_integer(args[0]));
+    return 0;
 }
 
 int natSetDrawColor(zen::VM*, zen::Value* args, int nargs)
@@ -6412,6 +6432,7 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("world_view_rect", &natWorldViewRect, 0);
 
     vm.def_native("set_draw_color", &natSetDrawColor, -1);
+    vm.def_native("set_draw_z", &natSetDrawZ, 1);
     vm.def_native("draw_line", &natDrawLine, -1);
     vm.def_native("draw_rect", &natDrawRect, -1);
     vm.def_native("draw_circle", &natDrawCircle, -1);

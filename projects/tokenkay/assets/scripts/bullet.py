@@ -12,6 +12,9 @@ SMOKE_PREFAB = "assets/prefabs/smoke.k2dprefab"
 
 class Bullet(ScriptComponent):
     lifetime = 2.0
+    # A round cracking off the scenery is worth investigating, but it carries
+    # nowhere near as far as an explosion.
+    alert_radius = 190.0
     burst_count = 12
     death_delay = 0.05
     damage = 10.0
@@ -45,6 +48,7 @@ class Bullet(ScriptComponent):
             tag = other.get_tag()
             if tag != ENEMY_TAG:
                 self.spawn_smoke()
+                self.alert_nearby()
             if tag == ENEMY_TAG or tag == DESTRUCTIBLE_TAG:
                 other.call("take_damage", self.damage)
         self.play_impact_sound()
@@ -73,6 +77,12 @@ class Bullet(ScriptComponent):
     def spawn_smoke(self):
         x, y = self.node.get_global_position()
         self.node.spawn(SMOKE_PREFAB, x, y)
+
+    def alert_nearby(self):
+        x, y = self.node.get_global_position()
+        set_number("rojas_alert_x", x)
+        set_number("rojas_alert_y", y)
+        emit("rojas_alert", self.alert_radius)
 
     def die(self):
         self.dying = True

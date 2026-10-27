@@ -3,6 +3,7 @@
 
 #include <zen/object.h>
 #include <zen/value.h>
+#include <zen/zen_script_info.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -137,24 +138,22 @@ namespace k2d
         {
             return p < end && *p == '=' && (p + 1 >= end || p[1] != '=');
         }
+
+        const int kMaxClassProperties = 64;
     }
 
     std::size_t CollectZenClassProperties(zen::ObjClass *klass, ct::Vector<ZenScriptProperty> &out)
     {
-        if (!klass || !klass->field_names || !klass->field_defaults)
+        if (!klass)
             return out.size();
 
-        const int count = klass->num_field_defaults < klass->num_fields ? klass->num_field_defaults
-                                                                        : klass->num_fields;
+        zen::ScriptPropertyInfo declared[kMaxClassProperties];
+        const int count = zen::script_class_properties(klass, declared, kMaxClassProperties);
         for (int i = 0; i < count; ++i)
         {
-            zen::ObjString *name = klass->field_names[i];
-            if (!name || name->chars[0] == '\0' || name->chars[0] == '_')
-                continue;
-
-            const zen::Value value = klass->field_defaults[i];
+            const zen::Value value = declared[i].value;
             ZenScriptProperty property;
-            property.name = name->chars;
+            property.name = declared[i].name;
             if (zen::is_int(value))
             {
                 property.kind = ZenScriptProperty::Kind::Number;

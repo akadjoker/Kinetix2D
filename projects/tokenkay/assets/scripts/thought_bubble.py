@@ -59,6 +59,7 @@ class ThoughtBubble(ScriptComponent):
     idle_max_gap = 11.0
     idle_chance = 0.55
     max_line_width = 190.0
+    draw_z = 500
 
     def on_start(self):
         self.text = ""
@@ -185,6 +186,8 @@ class ThoughtBubble(ScriptComponent):
             return
         if alpha > 1.0:
             alpha = 1.0
+
+        set_draw_z(self.draw_z)
 
         line_height = self.font_size + 4.0
         count = len(self.lines)

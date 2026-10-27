@@ -41,3 +41,4 @@ class DestructibleProp(ScriptComponent):
         x, y = self.node.get_global_position()
         self.node.spawn(self.explosion_prefab, x, y)
         self.node.spawn(self.smoke_prefab, x, y)
+

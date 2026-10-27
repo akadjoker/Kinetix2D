@@ -6,7 +6,10 @@
 #include <zen/memory.h>
 #include <zen/object.h>
 #include <zen/vm.h>
+#include <zen/zen_host_output.h>
+#include <zen/zen_script_info.h>
 
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <system_error>
@@ -401,6 +404,46 @@ namespace k2d
         return false;
     }
 
+    namespace
+    {
+        // The hooks a k2d script may define. called=false marks one the VM
+        // knows but this host never invokes, so defining it draws a warning
+        // instead of silently running nothing.
+        const zen::ScriptHook kScriptHooks[] = {
+            {"__init__", 1, true},
+            {"on_start", 0, true},
+            {"on_update", 1, true},
+            {"on_draw", 0, true},
+            {"on_draw_ui", 0, true},
+            {"on_destroy", 0, true},
+            {"on_event", 2, true},
+            {"on_collision", 2, true},
+            {"on_animation_event", 1, true},
+            {"on_animation_finished", 1, true},
+            {"on_particle_hit", 5, true},
+        };
+
+        void reportScriptContract(zen::ObjClass *klass, const char *path)
+        {
+            zen::ScriptDiagnostic diags[16];
+            const int count = zen::check_script_contract(klass, kScriptHooks,
+                                                         (int)(sizeof(kScriptHooks) / sizeof(kScriptHooks[0])),
+                                                         diags, 16, 0);
+            for (int i = 0; i < count; ++i)
+            {
+                char line[320];
+                const int n = std::snprintf(line, sizeof(line), "%s: %s\n", path ? path : "script",
+                                            diags[i].message);
+                if (n <= 0)
+                    continue;
+                if (diags[i].severity == zen::SCRIPT_DIAG_ERROR)
+                    zen_host_writeerr(line, (size_t)n);
+                else
+                    zen_host_write(line, (size_t)n);
+            }
+        }
+    }
+
     bool ZenRuntime::Impl::compileClass(const char *source, const char *path, ZenScriptClass &out)
     {
         if (!source)
@@ -485,6 +528,7 @@ namespace k2d
         out.slotAnimationFinished = slotIfPresent(selectorAnimationFinished);
         out.slotParticleHit = slotIfPresent(selectorParticleHit);
         BuildZenClassProperties(out, source);
+        reportScriptContract(klass, path);
         return true;
     }
 

@@ -63,6 +63,16 @@ namespace k2d::editor
 
 namespace
 {
+// SeparatorText labels default to ImGuiCol_Text, the same colour as every
+// property name below them, which is why a long component reads as one flat
+// list. Tint the label with the theme accent so the eye finds the sections.
+void sectionHeading(const char* label)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_NavHighlight));
+    ImGui::SeparatorText(label);
+    ImGui::PopStyleColor();
+}
+
 GameObject* findById(GameObject& object, uint64_t id)
 {
     if (object.id() == id)
@@ -730,7 +740,7 @@ void drawPolygonProperties(EditorApplication& app, Polygon2D& polygon)
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set Polygon Blend Mode", [&] { polygon.setBlendMode(blendMode); });
 
-    ImGui::SeparatorText("Points");
+    sectionHeading("Points");
     pointListEditor(app, polygon.polygon(), 3, "Edit Polygon Points",
                     [&](const ct::Vector<Math::Vec2>& pts) { polygon.setPolygon(pts.data(), (int)pts.size()); });
 }
@@ -1063,7 +1073,7 @@ void drawActionSequenceProperties(EditorApplication& app, ActionSequence2D& sequ
             drawActionStepProperties(app, *step, true);
             if (step->kind == ActionKind::Parallel)
             {
-                ImGui::SeparatorText("Actions running together");
+                sectionHeading("Actions running together");
                 std::size_t actionToDelete = static_cast<std::size_t>(-1);
                 for (std::size_t actionIndex = 0; actionIndex < step->actions.size(); ++actionIndex)
                 {
@@ -1208,7 +1218,7 @@ void drawLineProperties(EditorApplication& app, Line2D& line)
     if (blendModeCombo(blendMode))
         applyInstant(app, "Set Line Blend Mode", [&] { line.setBlendMode(blendMode); });
 
-    ImGui::SeparatorText("Points");
+    sectionHeading("Points");
     pointListEditor(app, line.points(), 2, "Edit Line Points",
                     [&](const ct::Vector<Math::Vec2>& pts) { line.setPoints(pts.data(), (int)pts.size()); });
 }
@@ -1397,7 +1407,7 @@ void drawNinePatchProperties(EditorApplication& app, NinePatchComponent& ninePat
 
 void drawUiLayoutProperties(EditorApplication& app, UiControl& control)
 {
-    ImGui::SeparatorText("Layout (screen space)");
+    sectionHeading("Layout (screen space)");
     Math::Vec4 anchors = control.anchors();
     if (dragVec4(app, "Anchors (L,T,R,B)", anchors, 0.01f, "Adjust UI Anchors"))
         control.setAnchors(anchors);
@@ -1467,7 +1477,7 @@ void drawUiSliderProperties(EditorApplication& app, UiSlider& slider)
 
 void drawOccluderProperties(EditorApplication& app, LightOccluder2D& occluder)
 {
-    ImGui::SeparatorText("Points");
+    sectionHeading("Points");
     pointListEditor(app, occluder.points(), 2, "Edit Occluder Points",
                     [&](const ct::Vector<Math::Vec2>& pts) { occluder.setPolygon(pts.data(), (int)pts.size()); });
 }
@@ -1564,7 +1574,7 @@ void drawCameraProperties(EditorApplication& app, CameraComponent& cameraCompone
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Scene::activeCamera() picks the enabled camera with the highest render priority.");
 
-    ImGui::SeparatorText("Virtual Resolution");
+    sectionHeading("Virtual Resolution");
     ImGui::TextDisabled("Stable game coordinates; the real window is fitted around this view.");
     float viewportW = cameraComponent.viewportWidth();
     float viewportH = cameraComponent.viewportHeight();
@@ -2649,7 +2659,7 @@ void drawAnimationProperties(EditorApplication& app, Animation2D& anim)
                                          editable->mode = static_cast<AnimationMode>(modeIdx);
                                  });
 
-                ImGui::SeparatorText("Frames");
+                sectionHeading("Frames");
                 ImGui::Button("Drop a Sprite Editor region here", ImVec2(-1.0f, 28.0f));
                 if (ImGui::BeginDragDropTarget())
                 {
@@ -2699,7 +2709,7 @@ void drawAnimationProperties(EditorApplication& app, Animation2D& anim)
 
                 static Texture* newFrameTexture = nullptr;
                 static Math::Vec4 newFrameRect(0.0f);
-                ImGui::SeparatorText("Add Frame");
+                sectionHeading("Add Frame");
                 Texture* droppedNewFrameTexture = nullptr;
                 if (textureField(app, "Frame Texture", newFrameTexture, droppedNewFrameTexture))
                     newFrameTexture = droppedNewFrameTexture;
@@ -3097,7 +3107,7 @@ void drawParticleProperties(EditorApplication& app, ParticleComponent& particleC
     if (ImGui::Checkbox("Follow Owner", &followOwner))
         applyInstant(app, "Toggle Particle Follow Owner", [&] { particleComponent.setFollowOwner(followOwner); });
 
-    ImGui::SeparatorText("Emission Prefab");
+    sectionHeading("Emission Prefab");
     ParticlePrefab prefab = system.GetPrefab();
 
     if (dragVec2(app, "Direction", prefab.direction, 0.05f, "Adjust Particle Direction"))
@@ -3416,7 +3426,7 @@ void InspectorPanel::drawContents()
     if (ImGui::IsItemDeactivatedAfterEdit())
         app().commitTransaction();
 
-    ImGui::SeparatorText("Components");
+    sectionHeading("Components");
     bool any = false;
     Component* componentToRemove = nullptr;
     EditorApplication::SceneChange removeBefore;

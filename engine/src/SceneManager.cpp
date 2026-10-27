@@ -55,11 +55,16 @@ GameObject *SceneManager::Load(Scene &scene, Assets &assets, const char *path)
 
     preloadTextures(document, assets);
     scene.clear();
-    GameObject *loadedRoot = Serializer::ReadObject(scene, root, nullptr, &assets);
-    if (!loadedRoot)
-        return nullptr;
+
+    // The file's "root" describes the scene root itself, not a child of it.
+    // Reading it as an object would nest a second "Scene" under the real one,
+    // and anything a script spawns afterwards (parent nullptr) would land
+    // outside that nested branch instead of inside the loaded scene.
+    GameObject &sceneRoot = scene.root();
+    Serializer::ReadInto(scene, sceneRoot, root, &assets);
+
     mCurrentPath = path;
-    return loadedRoot;
+    return &sceneRoot;
 }
 
 void SceneManager::Request(const char *path)

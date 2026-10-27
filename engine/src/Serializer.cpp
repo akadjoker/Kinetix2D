@@ -1824,6 +1824,29 @@ ct::Json Serializer::WriteObject(const GameObject& object, Assets* assets)
     return j;
 }
 
+void Serializer::ReadInto(Scene& scene, GameObject& object, const ct::Json& json, Assets* assets)
+{
+    object.setName(json["name"].as_cstr(""));
+    object.setTag(json["tag"].as_cstr(""));
+    object.setActive(json["active"].as_bool(true));
+    object.setVisible(json["visible"].as_bool(true));
+    object.setLocked(json["locked"].as_bool(false));
+    object.setZIndex((int)json["zIndex"].as_int(0));
+    object.setPosition(ReadVec2(json["position"]));
+    object.setRotationDegrees((float)json["rotation"].as_double(0.0));
+    object.setScale(ReadVec2(json["scale"], Math::Vec2(1.0f, 1.0f)));
+
+    const ct::Json& components = json["components"];
+    if (components.is_array())
+        for (std::size_t i = 0; i < components.size(); ++i)
+            ReadComponent(object, components[i], assets);
+
+    const ct::Json& children = json["children"];
+    if (children.is_array())
+        for (std::size_t i = 0; i < children.size(); ++i)
+            ReadObject(scene, children[i], &object, assets);
+}
+
 GameObject* Serializer::ReadObject(Scene& scene, const ct::Json& json, GameObject* parent, Assets* assets)
 {
     GameObject* object = scene.createObject(json["name"].as_cstr(""), parent);
