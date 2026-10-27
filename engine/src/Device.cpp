@@ -101,7 +101,7 @@ PlatformWindow* createWindow(WindowConfig& config)
     config.gl.minor = 0;
     if (PlatformWindow* window = window_create(&config))
         return window;
-    std::printf("OpenGL ES 3.0 context unavailable (%s), falling back to OpenGL 3.3 core\n", platform_get_error());
+    log_warn("OpenGL ES 3.0 context unavailable (%s), falling back to OpenGL 3.3 core", platform_get_error());
     platform_clear_error();
     config.gl.profile = GL_PROFILE_CORE;
     config.gl.major = 3;
@@ -126,7 +126,7 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
 {
     if (!platform_init())
     {
-        std::printf("platform_init failed: %s\n", platform_get_error());
+        log_error("platform_init failed: %s", platform_get_error());
         return false;
     }
 
@@ -154,7 +154,7 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
     mWindow = createWindow(config);
     if (!mWindow)
     {
-        std::printf("window_create failed: %s\n", platform_get_error());
+        log_error("window_create failed: %s", platform_get_error());
         return false;
     }
     window_make_current(mWindow);
@@ -162,13 +162,13 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
 #if !K2D_OPENGL_NATIVE_GLES3
     if (!gladLoadGLES2Loader((GLADloadproc)gl_proc_address))
     {
-        std::printf("gladLoadGLES2Loader failed\n");
+        log_error("gladLoadGLES2Loader failed");
         return false;
     }
 #endif
 
-    std::printf("GL_VERSION: %s\n", (const char*)glGetString(GL_VERSION));
-    std::printf("GL_RENDERER: %s\n", (const char*)glGetString(GL_RENDERER));
+    log_info("GL_VERSION: %s", (const char*)glGetString(GL_VERSION));
+    log_info("GL_RENDERER: %s", (const char*)glGetString(GL_RENDERER));
 
     UpdateSizes();
     mResized = false;
@@ -338,7 +338,7 @@ void Device::CaptureScreenshot()
     }
 
     stbi_write_png(filename, mWidth, mHeight, 4, pixels, stride);
-    std::printf("Screenshot saved: %s\n", filename);
+    log_info("Screenshot saved: %s", filename);
 
     delete[] pixels;
 }
@@ -357,7 +357,7 @@ void Device::StartGifCapture(int frameRate)
     mGifHandle = (void*)gifState;
 
     UpdateWindowTitle();
-    std::printf("Started GIF capture (%d fps)\n", frameRate);
+    log_info("Started GIF capture (%d fps)", frameRate);
 }
 
 void Device::StopGifCapture()
@@ -381,7 +381,7 @@ void Device::StopGifCapture()
         {
             std::fwrite(result.data, 1, result.dataSize, fp);
             std::fclose(fp);
-            std::printf("GIF saved: %s (%d frames)\n", filename, mGifFrameCounter);
+            log_info("GIF saved: %s (%d frames)", filename, mGifFrameCounter);
         }
         msf_gif_free(result);
     }

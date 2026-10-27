@@ -2,6 +2,8 @@
 #include "k2d/FileBuffer.h"
 #include "k2d/OpenGL.h"
 
+#include <platform.h>
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -24,7 +26,7 @@ static unsigned int CompileStage(unsigned int type, const char* src)
         {
             char* log = static_cast<char*>(std::malloc(logLen));
             glGetShaderInfoLog(shader, logLen, nullptr, log);
-            std::printf("Shader compile error: %s\n", log);
+            log_error("Shader compile error: %s", log);
             std::free(log);
         }
         glDeleteShader(shader);
@@ -83,7 +85,7 @@ bool Shader::CompileSource(const char* vsSrc, const char* fsSrc)
         {
             char* log = static_cast<char*>(std::malloc(logLen));
             glGetProgramInfoLog(program, logLen, nullptr, log);
-            std::printf("Shader link error: %s\n", log);
+            log_error("Shader link error: %s", log);
             std::free(log);
         }
         glDeleteProgram(program);

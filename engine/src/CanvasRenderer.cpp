@@ -338,7 +338,7 @@ static GLuint CompileShader(GLenum type, const char* src)
     {
         char log[1024];
         glGetShaderInfoLog(s, sizeof(log), nullptr, log);
-        std::printf("canvas shader compile error: %s\n", log);
+        log_error("canvas shader compile error: %s", log);
         glDeleteShader(s);
         return 0;
     }
@@ -369,7 +369,7 @@ static GLuint CreateProgram(const char* vertexSource, const char* fragmentSource
     {
         char log[1024];
         glGetProgramInfoLog(program, sizeof(log), nullptr, log);
-        std::printf("shadow shader link error: %s\n", log);
+        log_error("shadow shader link error: %s", log);
         glDeleteProgram(program);
         return 0;
     }
@@ -456,7 +456,7 @@ bool CanvasRenderer::Init(const Config& config)
     glDepthMask(GL_FALSE);
     glDisable(GL_CULL_FACE);
 
-    std::printf("CanvasRenderer initialized: maxVertices=%zu maxDrawCalls=%zu\n", mConfig.maxVertices,
+    log_info("CanvasRenderer initialized: maxVertices=%zu maxDrawCalls=%zu", mConfig.maxVertices,
                 mConfig.maxDrawCalls);
     return true;
 }
@@ -1013,7 +1013,7 @@ bool CanvasRenderer::SetupShaders()
     {
         char log[1024];
         glGetProgramInfoLog(mProgram, sizeof(log), nullptr, log);
-        std::printf("canvas shader link error: %s\n", log);
+        log_error("canvas shader link error: %s", log);
         glDeleteProgram(mProgram);
         mProgram = 0;
         return false;
@@ -1177,7 +1177,7 @@ void CanvasRenderer::SetupShadowAtlas()
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, mShadowDepth);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        std::printf("shadow atlas framebuffer is incomplete\n");
+        log_error("shadow atlas framebuffer is incomplete");
         ShutdownShadowAtlas();
         return;
     }
@@ -1368,13 +1368,13 @@ void CanvasRenderer::ResetStats()
 void CanvasRenderer::PrintStats() const
 {
     const Stats& s = mStats;
-    std::printf("=== CanvasRenderer Stats ===\n");
-    std::printf("  Draw Calls:        %zu\n", s.drawCalls);
-    std::printf("  Vertices Drawn:    %zu\n", s.verticesDrawn);
-    std::printf("  Indices Drawn:     %zu\n", s.indicesDrawn);
-    std::printf("  Texture Switches:  %zu\n", s.textureSwitches);
-    std::printf("  Batches Flushed:   %zu\n", s.batchesFlushed);
-    std::printf("============================\n");
+    log_info("=== CanvasRenderer Stats ===");
+    log_info("  Draw Calls:        %zu", s.drawCalls);
+    log_info("  Vertices Drawn:    %zu", s.verticesDrawn);
+    log_info("  Indices Drawn:     %zu", s.indicesDrawn);
+    log_info("  Texture Switches:  %zu", s.textureSwitches);
+    log_info("  Batches Flushed:   %zu", s.batchesFlushed);
+    log_info("============================");
 }
 
 } // namespace k2d

@@ -150,7 +150,7 @@ bool loadBytecodeManifest(const ct::String& projectRoot)
         std::strcmp(manifest["format"].as_cstr(""), "k2d-zen-bytecode-bundle") != 0 ||
         manifest["version"].as_int(0) != 1)
     {
-        std::fprintf(stderr, "Invalid Zen bytecode manifest: %s\n", manifestPath.c_str());
+        log_error("Invalid Zen bytecode manifest: %s\n", manifestPath.c_str());
         return false;
     }
 
@@ -158,7 +158,7 @@ bool loadBytecodeManifest(const ct::String& projectRoot)
     const ct::String bundlePath = joinPath(projectRoot, ".k2d/web/scripts.zbc");
     if (!k2d::ZenRuntime::instance().loadBytecodeBundle(bundlePath.c_str(), &error))
     {
-        std::fprintf(stderr, "Could not load Zen bytecode bundle: %s\n", error.c_str());
+        log_error("Could not load Zen bytecode bundle: %s\n", error.c_str());
         return false;
     }
 
@@ -172,7 +172,7 @@ bool loadBytecodeManifest(const ct::String& projectRoot)
         const char* className = script["class"].as_cstr("");
         if (!k2d::ZenRuntime::instance().registerBytecodeScript(path, className, &error))
         {
-            std::fprintf(stderr, "Could not register Zen bytecode script '%s': %s\n", path, error.c_str());
+            log_error("Could not register Zen bytecode script '%s': %s\n", path, error.c_str());
             return false;
         }
     }
@@ -252,9 +252,7 @@ void scriptOutput(const char* text, bool error, void*)
     {
         if (*c == '\n')
         {
-            std::fputs(lineIsError ? "[script] ERROR: " : "[script] ", stderr);
-            std::fputs(line.c_str(), stderr);
-            std::fputc('\n', stderr);
+            log_message(lineIsError ? LOGLEVEL_ERROR : LOGLEVEL_INFO, "[script] %s", line.c_str());
             line.clear();
             lineIsError = false;
         }
@@ -360,7 +358,7 @@ int main(int argc, char** argv)
         ct::Json sceneJson;
         if (!loadJson(argv[1], sceneJson))
         {
-            std::fprintf(stderr, "Could not load scene: %s\n", argv[1]);
+            log_error("Could not load scene: %s\n", argv[1]);
             device.Shutdown();
             return 1;
         }
@@ -387,12 +385,12 @@ int main(int argc, char** argv)
         const ct::Json& rootJson = sceneJson["root"];
         if (!rootJson.is_object())
         {
-            std::fprintf(stderr, "Invalid scene (missing root object): %s\n", argv[1]);
+            log_error("Invalid scene (missing root object): %s\n", argv[1]);
             result = 1;
         }
         else if (result == 0 && !k2d::GetSceneManager().Load(scene, assets, argv[1]))
         {
-            std::fprintf(stderr, "Could not load scene: %s\n", argv[1]);
+            log_error("Could not load scene: %s\n", argv[1]);
             result = 1;
         }
 
@@ -417,7 +415,7 @@ int main(int argc, char** argv)
             k2d::Texture* cursorTexture =
                 cursorImage[0] ? assets.LoadTexture(cursorImage, projectFile(projectRoot, cursorImage).c_str()) : nullptr;
             if (!cursorTexture)
-                std::fprintf(stderr, "Could not load cursor image: %s\n", cursorImage);
+                log_error("Could not load cursor image: %s\n", cursorImage);
 
             k2d::MouseCursor& cursor = k2d::GetMouseCursor();
             cursor.setTexture(cursorTexture);
@@ -433,14 +431,14 @@ int main(int argc, char** argv)
         {
             if (!canvas.Init())
             {
-                std::fprintf(stderr, "Could not initialize the game renderer\n");
+                log_error("Could not initialize the game renderer\n");
                 result = 1;
             }
             else
             {
                 k2d::SetUiThemeTexture(k2d::UiTheme::DefaultTexture(assets));
                 if (!k2d::GetAudio().Init())
-                    std::fprintf(stderr, "Audio unavailable; continuing without sound\n");
+                    log_warn("Audio unavailable; continuing without sound\n");
                 else
                     k2d::GetAudio().LoadSettings(userData);
                 k2d::VirtualPad virtualPad;
@@ -462,9 +460,10 @@ int main(int argc, char** argv)
                     if (device.GetInput().KeyPressed((int)k2d::Key::F6))
                     {
                         const std::size_t reloaded = k2d::ReloadChangedZenScripts();
-                        std::fprintf(
-                            stderr, reloaded ? "Reloaded %zu saved script(s)\n" : "No saved script changes to reload\n",
-                            reloaded);
+                        if (reloaded)
+                            log_info("Reloaded %zu saved script(s)", reloaded);
+                        else
+                            log_info("No saved script changes to reload");
                     }
                     const float deltaTime = device.DeltaTime();
                     k2d::GetScreenFade().Update(deltaTime);
@@ -500,7 +499,7 @@ int main(int argc, char** argv)
                         if (k2d::GetSceneManager().ApplyRequest(scene, assets))
                             scene.setSimulationEnabled(true);
                         else
-                            std::fprintf(stderr, "Could not load requested scene\n");
+                            log_error("Could not load requested scene\n");
                     }
 
                     camera = scene.activeCamera();
