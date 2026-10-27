@@ -61,11 +61,27 @@ endif()
 
 
 find_package(SDL2 CONFIG REQUIRED)
+
+add_library(ct INTERFACE)
+target_include_directories(ct INTERFACE ${CMAKE_SOURCE_DIR}/external/containers/include)
+
 set(MATHC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MATHC_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 set(MATHC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/math)
 add_subdirectory(external/vendor/miniz)
+
+set(PLATFORM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PLATFORM_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/zen_plataform EXCLUDE_FROM_ALL)
+
+set(IGUI_CONTAINERS_DIR ${CMAKE_SOURCE_DIR}/external/containers CACHE PATH "" FORCE)
+set(IGUI_FONT_INPUT ${CMAKE_SOURCE_DIR}/editor/fonts/Roboto-Regular.ttf CACHE FILEPATH "" FORCE)
+set(IGUI_BUILD_FONT ON CACHE BOOL "" FORCE)
+set(IGUI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(IGUI_BUILD_LEGACY OFF CACHE BOOL "" FORCE)
+set(IGUI_BUILD_RAYLIB_BACKEND OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/iGUI EXCLUDE_FROM_ALL)
 
 add_subdirectory(external/zen)
 

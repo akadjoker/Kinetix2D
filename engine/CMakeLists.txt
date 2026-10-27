@@ -203,8 +203,8 @@ target_include_directories(k2d PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/external/stb
     ${CMAKE_SOURCE_DIR}/physics2d/include
-    ${CMAKE_SOURCE_DIR}/external/containers/include
 )
+target_link_libraries(k2d PUBLIC ct)
 
 if(NOT K2D_NATIVE_GLES3)
     target_include_directories(k2d PUBLIC ${CMAKE_SOURCE_DIR}/external/glad/include)

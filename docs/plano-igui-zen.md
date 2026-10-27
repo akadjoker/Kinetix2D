@@ -235,7 +235,7 @@ Cada fase termina com a suite verde (`kx_*`, `k2d_*`, de dentro de `bin/`) e o e
 arrancar. Ordem escolhida para que o trabalho mecânico vá primeiro e o risco (contexto GL,
 docking) seja medido cedo com spikes pequenos.
 
-### Fase 0: submódulos e build
+### Fase 0: submódulos e build (feita a 2026-10-27)
 1. Bump de `external/containers` para o commit do prisma3d.
 2. Submódulos `external/zen_plataform` e `external/iGUI` (os mesmos repos do prisma3d).
 3. Target `ct` INTERFACE único em `external/containers`; iGUI a usar esse e não o seu
