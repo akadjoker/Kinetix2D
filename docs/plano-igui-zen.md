@@ -424,6 +424,16 @@ para pares getter/setter simples e lambdas para o resto; `RegisterCoreClasses()`
 e completadas à mão (cores, flips, tiling, viewport, tilemap, colliders, edges). O inspector
 do editor lista-as em texto. Por fazer: `UiControls` e propriedades `Texture*`
 (precisam de caminho de recurso), inspector editável, serializer a ler daqui.
+
+Próximo passo (apontado a 2026-10-27, fim do dia): o inspector com widgets a sério, no
+molde do `PropertyRow`/`SectionedInspector` do prisma3d: um `Collapsible` por componente,
+linhas `Label` + widget com `setStretch`, `CheckBox` para Bool, `SpinSlider` (herda de
+`Range`: `setRange`, `setStep`, `setValueNoSignal`, `valueChanged`) para Int, Float e os
+dois eixos de Vec2, `ComboBox` para Enum, `TextInput` (`submitted`) para String, cor por
+quatro sliders até haver swatch com `ColorPicker`; as linhas apagam-se com `removeChild`.
+Toolbar: Play, Pause e Stop ao centro, como o `EditorShell` do prisma3d, numa linha
+horizontal com a toolbar, uma barra de enchimento com `setStretch(1)`, a barra de run e
+outra barra de enchimento.
 Reflexão de propriedades por componente, nos moldes do `NodeClassDB` do prisma3d, a
 alimentar o inspector retained genérico, o serializer e `ZenScriptProperties`. Com o editor
 a recomeçar, é isto que evita escrever o inspector à mão outra vez; faz-se no motor, com
