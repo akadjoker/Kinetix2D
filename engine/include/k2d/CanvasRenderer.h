@@ -142,6 +142,7 @@ class CanvasRenderer
     void SetupShadowAtlas();
     void ShutdownShadowAtlas();
     void RenderShadowAtlas();
+    void UploadShadowEdges();
     void EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId, unsigned int customProgram,
                   const WaterEffect& water, const Matrix2D& matrix, float width, float height, int texWidth,
                   int texHeight, float pivotX, float pivotY, float srcX, float srcY, float srcW, float srcH, bool flipX,
@@ -227,11 +228,13 @@ class CanvasRenderer
     float mOrthoWidth;
     float mOrthoHeight;
 
-    struct ShadowVertex
-    {
-        float x, y, z, w;
-    };
-    ct::Vector<ShadowVertex> mShadowVertices;
+    int mShadowLightLoc;
+    int mShadowOffsetLoc;
+    int mShadowDirectionalLoc;
+    int mShadowFrameLoc;
+    int mShadowCenterLoc;
+    ct::Vector<Math::Vec4> mShadowVertices;
+    size_t mShadowVertexCapacity;
 };
 
 } // namespace k2d

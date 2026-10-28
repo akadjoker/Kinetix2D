@@ -146,22 +146,20 @@ uniform int u_directionalShadowFilter[8];
 
 out vec4 FragColor;
 
-float shadowDepth(sampler2D atlas, vec2 uv, int filterMode)
+float shadowLit(vec2 uv, float depth, int filterMode, bool wrap)
 {
     if (filterMode == 0)
-        return texture(atlas, uv).r;
-    float pixel = 1.0 / 2048.0;
-    float total = 0.0;
-    float count = 0.0;
+        return depth <= texture(u_shadowAtlas, uv).r ? 1.0 : 0.0;
     int radius = filterMode == 1 ? 2 : 6;
-    for (int x = -6; x <= 6; ++x)
+    float lit = 0.0;
+    for (int x = -radius; x <= radius; ++x)
     {
-        if (abs(x) > radius)
-            continue;
-        total += texture(atlas, uv + vec2(float(x) * pixel, 0.0)).r;
-        count += 1.0;
+        float u = uv.x + float(x) / 2048.0;
+        if (wrap)
+            u = fract(u);
+        lit += depth <= texture(u_shadowAtlas, vec2(u, uv.y)).r ? 1.0 : 0.0;
     }
-    return total / count;
+    return lit / float(2 * radius + 1);
 }
 
 void main()
@@ -223,25 +221,10 @@ void main()
             if ((u_lightShadowFlags[i] & 1) != 0)
             {
                 vec2 lightRay = v_world - u_lightPos[i];
-                float angle = atan(lightRay.y, lightRay.x);
-                float sector = floor((angle + 0.78539816339) / 1.57079632679);
-                sector = mod(sector + 4.0, 4.0);
-                vec2 direction = vec2(1.0, 0.0);
-                if (sector == 1.0) direction = vec2(0.0, 1.0);
-                if (sector == 2.0) direction = vec2(-1.0, 0.0);
-                if (sector == 3.0) direction = vec2(0.0, -1.0);
-                vec2 perpendicular = vec2(-direction.y, direction.x);
-                float along = dot(lightRay, direction);
-                float lateral = dot(lightRay, perpendicular);
-                // tan(angle) within this 90 deg sector, matching the occluder
-                // encode pass (RenderShadowAtlas), which projects edges with
-                // true GPU perspective. Within a correctly picked sector
-                // |lateral| <= along (45 deg half-angle), so this stays in [-1,1].
-                float tangent = along > 0.0001 ? (lateral / along) : (lateral < 0.0 ? -1.0 : 1.0);
-                float atlasU = (sector + (tangent + 1.0) * 0.5) / 4.0;
+                float atlasU = atan(lightRay.y, lightRay.x) / 6.28318530718 + 0.5;
                 float atlasV = (float(i * 2) + 0.5) / 16.0;
-                float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_lightShadowFilter[i]);
-                float shadow = (along > 0.0 && along / u_lightRadius[i] > storedDepth + 0.002) ? 1.0 : 0.0;
+                float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), dist / u_lightRadius[i] - 0.002,
+                                               u_lightShadowFilter[i], true);
                 vec4 shadow_color = u_lightShadowColor[i];
                 shadow_color.a *= light_color.a;
                 light_color = mix(light_color, shadow_color, shadow);
@@ -280,9 +263,9 @@ void main()
             float along = dot(relative, rayDir);
             float atlasU = (lateral / halfSize + 1.0) * 0.5;
             float atlasV = (8.0 + float(i * 2) + 0.5) / 16.0;
-            float storedDepth = shadowDepth(u_shadowAtlas, vec2(atlasU, atlasV), u_directionalShadowFilter[i]);
             float fragmentDepth = (along + shadowDistance * 0.5) / shadowDistance;
-            float shadow = (fragmentDepth > storedDepth + 0.002) ? 1.0 : 0.0;
+            float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), fragmentDepth - 0.002,
+                                           u_directionalShadowFilter[i], false);
             vec4 shadow_color = u_directionalLightShadowColor[i];
             shadow_color.a *= light_color.a;
             light_color = mix(light_color, shadow_color, shadow);
@@ -305,25 +288,71 @@ void main()
 )";
 
 static const char* SHADOW_VERTEX_SHADER_SOURCE = R"(#version 300 es
-layout(location = 0) in vec4 a_v;
-out float v_dist;
+precision highp float;
+layout(location = 0) in vec4 a_segment;
+uniform vec3 u_light;
+uniform float u_offset;
+uniform int u_directional;
+uniform vec4 u_frame;
+uniform vec2 u_center;
+flat out vec4 v_segment;
+out float v_angle;
+out float v_depth;
+const float PI = 3.14159265359;
 void main()
 {
-    // Godot's shadow frustum in radius-normalized units:
-    // near n = 0.001, far f = 1.1 -> z_clip = ((f+n)*d - 2*f*n) / (f - n).
-    float d = a_v.z;
-    gl_Position = vec4(a_v.x, a_v.y, (1.101 * d - 0.0022) / 1.099, a_v.w);
-    v_dist = d;
+    if (u_directional != 0)
+    {
+        vec2 rel = a_segment.xy - u_center;
+        vec2 across = vec2(-u_frame.y, u_frame.x);
+        v_depth = (dot(rel, u_frame.xy) + u_frame.w * 0.5) / u_frame.w;
+        v_segment = vec4(0.0);
+        v_angle = 0.0;
+        gl_Position = vec4(dot(rel, across) / u_frame.z, 0.0, v_depth * 2.0 - 1.0, 1.0);
+        return;
+    }
+    vec2 a = a_segment.xy - u_light.xy;
+    vec2 b = a_segment.zw - u_light.xy;
+    vec2 mid = (a + b) * 0.5;
+    float angle = atan(a.y, a.x);
+    float delta = angle - atan(mid.y, mid.x);
+    if (delta > PI)
+        angle -= 2.0 * PI;
+    else if (delta < -PI)
+        angle += 2.0 * PI;
+    v_segment = vec4(a, b);
+    v_angle = angle;
+    v_depth = clamp(length(a) / u_light.z, 0.0, 1.0);
+    gl_Position = vec4(angle / PI + u_offset, 0.0, v_depth * 2.0 - 1.0, 1.0);
 }
 )";
 
+// A straight edge does not sweep linearly in angle, so the interpolated depth
+// would bow between its ends: each texel intersects its own ray with the edge.
 static const char* SHADOW_FRAGMENT_SHADER_SOURCE = R"(#version 300 es
 precision highp float;
-in float v_dist;
+precision highp int;
+uniform vec3 u_light;
+uniform int u_directional;
+flat in vec4 v_segment;
+in float v_angle;
+in float v_depth;
 layout(location = 0) out float out_depth;
 void main()
 {
-    out_depth = v_dist;
+    float depth = v_depth;
+    if (u_directional == 0)
+    {
+        vec2 ray = vec2(cos(v_angle), sin(v_angle));
+        vec2 a = v_segment.xy;
+        vec2 edge = v_segment.zw - a;
+        float denom = ray.x * edge.y - ray.y * edge.x;
+        float s = a.x * edge.y - a.y * edge.x;
+        float dist = (abs(denom) > 1e-6 && s * denom > 0.0) ? s / denom : min(length(a), length(v_segment.zw));
+        depth = clamp(dist / u_light.z, 0.0, 0.999);
+    }
+    gl_FragDepth = depth;
+    out_depth = depth;
 }
 )";
 
@@ -426,7 +455,8 @@ CanvasRenderer::CanvasRenderer()
       mDirectionalLightShadowColorLoc(-1), mDirectionalShadowFilterLoc(-1), mLights(nullptr), mLightCount(0),
       mDirectionalLights(nullptr), mDirectionalLightCount(0), mShadowFlagsLoc(-1), mShadowColorLoc(-1),
       mShadowFilterLoc(-1), mShadowAtlasLoc(-1), mCanvasSizeLoc(-1), mOccluders(nullptr), mOccluderCount(0),
-      mOrthoWidth(1280.0f), mOrthoHeight(720.0f)
+      mOrthoWidth(1280.0f), mOrthoHeight(720.0f), mShadowLightLoc(-1), mShadowOffsetLoc(-1),
+      mShadowDirectionalLoc(-1), mShadowFrameLoc(-1), mShadowCenterLoc(-1), mShadowVertexCapacity(0)
 {
     std::memset(&mStats, 0, sizeof(mStats));
 }
@@ -1191,8 +1221,14 @@ void CanvasRenderer::SetupShadowAtlas()
     glBindVertexArray(mShadowVAO);
     glBindBuffer(GL_ARRAY_BUFFER, mShadowVBO);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(ShadowVertex), nullptr);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Math::Vec4), nullptr);
     glBindVertexArray(0);
+
+    mShadowLightLoc = glGetUniformLocation(mShadowProgram, "u_light");
+    mShadowOffsetLoc = glGetUniformLocation(mShadowProgram, "u_offset");
+    mShadowDirectionalLoc = glGetUniformLocation(mShadowProgram, "u_directional");
+    mShadowFrameLoc = glGetUniformLocation(mShadowProgram, "u_frame");
+    mShadowCenterLoc = glGetUniformLocation(mShadowProgram, "u_center");
 }
 
 void CanvasRenderer::ShutdownShadowAtlas()
@@ -1223,6 +1259,36 @@ void CanvasRenderer::ShutdownShadowAtlas()
         mShadowAtlas = 0;
     }
     mShadowVertices.clear();
+    mShadowVertexCapacity = 0;
+}
+
+void CanvasRenderer::UploadShadowEdges()
+{
+    const size_t count = mOccluderEdges.size() * 2;
+    bool changed = mShadowVertices.size() != count;
+    for (size_t e = 0; !changed && e < mOccluderEdges.size(); ++e)
+    {
+        const Math::Vec4& edge = mOccluderEdges[e];
+        const Math::Vec4& stored = mShadowVertices[e * 2];
+        changed = edge.x != stored.x || edge.y != stored.y || edge.z != stored.z || edge.w != stored.w;
+    }
+    if (!changed)
+        return;
+    mShadowVertices.resize(count);
+    for (size_t e = 0; e < mOccluderEdges.size(); ++e)
+    {
+        const Math::Vec4& edge = mOccluderEdges[e];
+        mShadowVertices[e * 2] = edge;
+        mShadowVertices[e * 2 + 1] = Math::Vec4(edge.z, edge.w, edge.x, edge.y);
+    }
+    const GLsizeiptr bytes = (GLsizeiptr)(count * sizeof(Math::Vec4));
+    if (count > mShadowVertexCapacity)
+    {
+        mShadowVertexCapacity = count * 2;
+        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(mShadowVertexCapacity * sizeof(Math::Vec4)), nullptr,
+                     GL_DYNAMIC_DRAW);
+    }
+    glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, mShadowVertices.data());
 }
 
 void CanvasRenderer::RenderShadowAtlas()
@@ -1234,104 +1300,56 @@ void CanvasRenderer::RenderShadowAtlas()
     glGetIntegerv(GL_VIEWPORT, previousViewport);
 
     static const int textureSize = 2048;
-    static const Math::Vec2 directions[4] = {Math::Vec2(1.0f, 0.0f), Math::Vec2(0.0f, 1.0f), Math::Vec2(-1.0f, 0.0f),
-                                             Math::Vec2(0.0f, -1.0f)};
 
     glBindFramebuffer(GL_FRAMEBUFFER, mShadowFramebuffer);
     glUseProgram(mShadowProgram);
     glBindVertexArray(mShadowVAO);
     glBindBuffer(GL_ARRAY_BUFFER, mShadowVBO);
+    UploadShadowEdges();
+    const GLsizei vertexCount = (GLsizei)mShadowVertices.size();
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glEnable(GL_SCISSOR_TEST);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
+    glUniform1i(mShadowDirectionalLoc, 0);
     for (int lightIndex = 0; lightIndex < mLightCount; ++lightIndex)
     {
-        if (!mLights[lightIndex].useShadow || mLights[lightIndex].radius <= 0.0f)
+        const PointLight& light = mLights[lightIndex];
+        if (!light.useShadow || light.radius <= 0.0f)
             continue;
 
-        glViewport(0, lightIndex * 2, textureSize, 2);
-        glScissor(0, lightIndex * 2, textureSize, 2);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glViewport(0, lightIndex * 2, textureSize, 1);
+        glScissor(0, lightIndex * 2, textureSize, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        for (int sector = 0; sector < 4; ++sector)
+        glUniform3f(mShadowLightLoc, light.position.x, light.position.y, light.radius);
+        // An edge across the angle seam at +-pi runs off one end of the row;
+        // drawn again a row-width to each side, it lands on the other end too.
+        for (int k = -1; k <= 1; ++k)
         {
-            const Math::Vec2 direction = directions[sector];
-            const Math::Vec2 perpendicular(-direction.y, direction.x);
-            int viewportX = (textureSize / 4) * sector;
-            glViewport(viewportX, lightIndex * 2, textureSize / 4, 2);
-            glScissor(viewportX, lightIndex * 2, textureSize / 4, 2);
-
-            mShadowVertices.clear();
-            const float radius = mLights[lightIndex].radius;
-            for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
-            {
-                Math::Vec2 a =
-                    Math::Vec2(mOccluderEdges[edgeIndex].x, mOccluderEdges[edgeIndex].y) - mLights[lightIndex].position;
-                Math::Vec2 b =
-                    Math::Vec2(mOccluderEdges[edgeIndex].z, mOccluderEdges[edgeIndex].w) - mLights[lightIndex].position;
-
-                float aAlong = a.Dot(direction);
-                float bAlong = b.Dot(direction);
-                float aLateral = a.Dot(perpendicular);
-                float bLateral = b.Dot(perpendicular);
-
-                const float kPolyHeight = 100.0f;
-                float aDist = aAlong / radius;
-                float bDist = bAlong / radius;
-                mShadowVertices.push_back(ShadowVertex{aLateral / radius, -kPolyHeight, aDist, aDist});
-                mShadowVertices.push_back(ShadowVertex{bLateral / radius, -kPolyHeight, bDist, bDist});
-                mShadowVertices.push_back(ShadowVertex{bLateral / radius, kPolyHeight, bDist, bDist});
-                mShadowVertices.push_back(ShadowVertex{aLateral / radius, kPolyHeight, aDist, aDist});
-            }
-
-            glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(mShadowVertices.size() * sizeof(ShadowVertex)),
-                         mShadowVertices.data(), GL_STREAM_DRAW);
-            for (size_t i = 0; i + 3 < mShadowVertices.size(); i += 4)
-            {
-                glDrawArrays(GL_TRIANGLE_FAN, (GLint)i, 4);
-            }
+            glUniform1f(mShadowOffsetLoc, 2.0f * (float)k);
+            glDrawArrays(GL_LINES, 0, vertexCount);
         }
     }
 
     float directionalHalfSize = std::sqrt(mOrthoWidth * mOrthoWidth + mOrthoHeight * mOrthoHeight) * 0.5f;
     float directionalDistance = directionalHalfSize * 4.0f;
-    Math::Vec2 canvasCenter(mOrthoWidth * 0.5f, mOrthoHeight * 0.5f);
+    glUniform1i(mShadowDirectionalLoc, 1);
+    glUniform2f(mShadowCenterLoc, mOrthoWidth * 0.5f, mOrthoHeight * 0.5f);
     for (int lightIndex = 0; lightIndex < mDirectionalLightCount; ++lightIndex)
     {
-        if (!mDirectionalLights[lightIndex].useShadow)
+        const DirectionalLight& light = mDirectionalLights[lightIndex];
+        if (!light.useShadow)
             continue;
 
         int row = 8 + lightIndex * 2;
-        glViewport(0, row, textureSize, 2);
-        glScissor(0, row, textureSize, 2);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glViewport(0, row, textureSize, 1);
+        glScissor(0, row, textureSize, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        Math::Vec2 direction = mDirectionalLights[lightIndex].direction;
-        Math::Vec2 perpendicular(-direction.y, direction.x);
-        mShadowVertices.clear();
-        for (size_t edgeIndex = 0; edgeIndex < mOccluderEdges.size(); ++edgeIndex)
-        {
-            Math::Vec2 a = Math::Vec2(mOccluderEdges[edgeIndex].x, mOccluderEdges[edgeIndex].y) - canvasCenter;
-            Math::Vec2 b = Math::Vec2(mOccluderEdges[edgeIndex].z, mOccluderEdges[edgeIndex].w) - canvasCenter;
-            float aLateral = a.Dot(perpendicular) / directionalHalfSize;
-            float bLateral = b.Dot(perpendicular) / directionalHalfSize;
-            float aDepth = (a.Dot(direction) + directionalDistance * 0.5f) / directionalDistance;
-            float bDepth = (b.Dot(direction) + directionalDistance * 0.5f) / directionalDistance;
-
-            mShadowVertices.push_back(ShadowVertex{aLateral, -1.0f, aDepth, 1.0f});
-            mShadowVertices.push_back(ShadowVertex{bLateral, -1.0f, bDepth, 1.0f});
-            mShadowVertices.push_back(ShadowVertex{bLateral, 1.0f, bDepth, 1.0f});
-            mShadowVertices.push_back(ShadowVertex{aLateral, 1.0f, aDepth, 1.0f});
-        }
-        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(mShadowVertices.size() * sizeof(ShadowVertex)),
-                     mShadowVertices.data(), GL_STREAM_DRAW);
-        for (size_t i = 0; i + 3 < mShadowVertices.size(); i += 4)
-            glDrawArrays(GL_TRIANGLE_FAN, (GLint)i, 4);
+        glUniform4f(mShadowFrameLoc, light.direction.x, light.direction.y, directionalHalfSize, directionalDistance);
+        glDrawArrays(GL_LINES, 0, vertexCount);
     }
 
     glBindVertexArray(0);

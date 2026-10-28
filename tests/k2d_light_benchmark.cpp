@@ -1,9 +1,11 @@
 // Frame time of the 2D lights and shadows on the GPU: fixed scenes, vsync off,
-// glFinish every frame. Needs a display; run from bin/.
+// glFinish every frame. Needs a display; run from bin/. --dump writes each
+// case's last frame to light_case_N.png.
 #include <k2d/Camera2D.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/Device.h>
 #include <k2d/GameObject.h>
+#include <k2d/Image.h>
 #include <k2d/Light2D.h>
 #include <k2d/LightOccluder2D.h>
 #include <k2d/OpenGL.h>
@@ -15,6 +17,7 @@
 #include <ct/vector.hpp>
 
 #include <cstdio>
+#include <cstring>
 
 namespace
 {
@@ -62,7 +65,7 @@ void build(k2d::Scene& scene, const Case& c)
     }
 }
 
-void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& target, const Case& c)
+void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& target, const Case& c, int dump)
 {
     k2d::Scene scene;
     build(scene, c);
@@ -86,6 +89,15 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
         glFinish();
         const double ms = (k2d::Device::TimeSeconds() - start) * 1000.0;
         drawCalls = canvas.GetStats().drawCalls;
+        if (dump >= 0 && frame == 359)
+        {
+            ct::Vector<unsigned char> pixels(static_cast<std::size_t>(target.width() * target.height() * 4));
+            glReadPixels(0, 0, target.width(), target.height(), GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            char path[64];
+            std::snprintf(path, sizeof(path), "light_case_%d.png", dump);
+            k2d::WriteImagePng(path, target.width(), target.height(),
+                               pixels.data() + (target.height() - 1) * target.width() * 4, -target.width() * 4);
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         if (frame >= 60)
             times.push_back(ms);
@@ -96,15 +108,16 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
     for (double t : times)
         total += t;
     ct::sort(times.begin(), times.end());
-    const int shadowDraws = c.shadows ? c.lights * 4 * c.occluders * 4 : 0;
+    const int shadowDraws = c.shadows ? c.lights * 3 : 0;
     std::printf("%-34s avg %7.3f ms  p95 %7.3f ms  batch draws %4zu  shadow draws %6d\n", c.name,
                 total / static_cast<double>(times.size()), times[times.size() * 95 / 100], drawCalls, shadowDraws);
 }
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
+    const bool dump = argc > 1 && std::strcmp(argv[1], "--dump") == 0;
     k2d::Device device;
     if (!device.Init("k2d light benchmark", static_cast<int>(kWidth), static_cast<int>(kHeight), false))
         return 1;
@@ -115,14 +128,16 @@ int main()
     const Case cases[] = {
         {"2000 rects, no lights", 2000, 0, false, 0, k2d::SHADOW_FILTER_PCF5},
         {"2000 rects, 8 lights", 2000, 8, false, 0, k2d::SHADOW_FILTER_PCF5},
+        {"1 shadow light, 50 occluders", 2000, 1, true, 50, k2d::SHADOW_FILTER_PCF5},
         {"8 shadow lights, 50 occluders", 2000, 8, true, 50, k2d::SHADOW_FILTER_PCF5},
         {"8 shadow lights, 200 occluders", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF5},
         {"8 shadow lights, 200 occl., PCF13", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF13},
     };
     std::printf("GL: %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                 reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+    int index = 0;
     for (const Case& c : cases)
-        run(device, canvas, target, c);
+        run(device, canvas, target, c, dump ? index++ : -1);
     target.destroy();
     canvas.Shutdown();
     device.Shutdown();
