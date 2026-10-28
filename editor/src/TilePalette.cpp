@@ -1,0 +1,198 @@
+#include "TilePalette.h"
+
+#include "Theme.hpp"
+
+#include <k2d/Texture.h>
+#include <k2d/TileMapComponent.h>
+
+#include <cmath>
+
+namespace rt = ig::retained;
+
+namespace k2d::editor
+{
+
+TilePalette::TilePalette()
+{
+    setTabStop(false);
+}
+
+void TilePalette::setMap(const TileMapComponent* map)
+{
+    if (map != mMap)
+    {
+        mFitPending = true;
+        mX0 = mY0 = mX1 = mY1 = 0;
+    }
+    mMap = map;
+    markDirty();
+}
+
+int TilePalette::tilesX() const
+{
+    if (!mMap || !mMap->texture() || mMap->cellWidth() <= 0.0f)
+        return 0;
+    if (mMap->atlasTilesX() > 0)
+        return mMap->atlasTilesX();
+    const float step = mMap->cellWidth() + mMap->atlasGap().x;
+    return static_cast<int>((mMap->texture()->Width() - mMap->atlasPadding().x + mMap->atlasGap().x) / step);
+}
+
+int TilePalette::tilesY() const
+{
+    if (!mMap || !mMap->texture() || mMap->cellHeight() <= 0.0f)
+        return 0;
+    const float step = mMap->cellHeight() + mMap->atlasGap().y;
+    return static_cast<int>((mMap->texture()->Height() - mMap->atlasPadding().y + mMap->atlasGap().y) / step);
+}
+
+void TilePalette::pick(int tileX, int tileY)
+{
+    mX0 = mX1 = tileX;
+    mY0 = mY1 = tileY;
+    markDirty();
+}
+
+void TilePalette::fit()
+{
+    const Texture* texture = mMap ? mMap->texture() : nullptr;
+    if (!texture || rect_.w <= 1.0f || rect_.h <= 1.0f)
+        return;
+    mFitPending = false;
+    const float zoom = std::fmin((rect_.w - 16.0f) / texture->Width(), (rect_.h - 16.0f) / texture->Height());
+    mZoom = zoom >= 1.0f ? std::floor(zoom) : std::fmax(0.1f, zoom);
+    mPanX = 8.0f;
+    mPanY = 8.0f;
+}
+
+bool TilePalette::tileAt(float localX, float localY, int& tx, int& ty) const
+{
+    if (tilesX() <= 0 || tilesY() <= 0)
+        return false;
+    const float px = (localX - mPanX) / mZoom - mMap->atlasPadding().x;
+    const float py = (localY - mPanY) / mZoom - mMap->atlasPadding().y;
+    tx = static_cast<int>(std::floor(px / (mMap->cellWidth() + mMap->atlasGap().x)));
+    ty = static_cast<int>(std::floor(py / (mMap->cellHeight() + mMap->atlasGap().y)));
+    tx = tx < 0 ? 0 : (tx >= tilesX() ? tilesX() - 1 : tx);
+    ty = ty < 0 ? 0 : (ty >= tilesY() ? tilesY() - 1 : ty);
+    return true;
+}
+
+void TilePalette::paint(rt::PaintContext& ctx)
+{
+    if (!visible_)
+        return;
+    const rt::Rect abs = absoluteRect();
+    if (ctx.isClipped(abs))
+        return;
+    if (mFitPending)
+        fit();
+    ctx.pushClip(abs);
+    ctx.fill.SetColor(rt::Color(28, 30, 34, 255));
+    ctx.fillRect(abs.x, abs.y, abs.w, abs.h);
+    const Texture* texture = mMap ? mMap->texture() : nullptr;
+    const auto& theme = rt::Theme::instance();
+    if (!texture)
+    {
+        ctx.font.SetFontSize(theme.fontSize);
+        ctx.font.SetBatch(&ctx.text);
+        ctx.font.SetColor(theme.textDisabled);
+        ctx.font.Print("Give the TileMap a texture: drop an image on its texture field", abs.x + 12.0f,
+                       abs.y + 24.0f);
+        ctx.popClip();
+        return;
+    }
+    const float x = abs.x + mPanX, y = abs.y + mPanY;
+    const float w = texture->Width() * mZoom, h = texture->Height() * mZoom;
+    ctx.fill.SetColor(rt::Color(60, 62, 68, 255));
+    ctx.fillRect(x, y, w, h);
+    rt::TextureHandle handle;
+    handle.value = texture->Id();
+    ctx.drawImage(handle, rt::Rect{x, y, w, h}, rt::Rect{0.0f, 0.0f, 1.0f, 1.0f});
+
+    // The tile grid.
+    const float cw = mMap->cellWidth() * mZoom, ch = mMap->cellHeight() * mZoom;
+    const float gx = mMap->atlasGap().x * mZoom, gy = mMap->atlasGap().y * mZoom;
+    const float ox = x + mMap->atlasPadding().x * mZoom, oy = y + mMap->atlasPadding().y * mZoom;
+    const int columns = tilesX(), rows = tilesY();
+    if (cw >= 4.0f && ch >= 4.0f)
+    {
+        ctx.fill.SetColor(rt::Color(0, 0, 0, 90));
+        for (int c = 0; c <= columns; ++c)
+            ctx.fillRect(ox + c * (cw + gx) - (c == columns ? gx : 0.0f), oy, 1.0f, rows * (ch + gy) - gy);
+        for (int r = 0; r <= rows; ++r)
+            ctx.fillRect(ox, oy + r * (ch + gy) - (r == rows ? gy : 0.0f), columns * (cw + gx) - gx, 1.0f);
+    }
+
+    // The picked block.
+    if (columns > 0 && rows > 0)
+    {
+        const float bx = ox + blockX() * (cw + gx), by = oy + blockY() * (ch + gy);
+        const float bw = blockWidth() * (cw + gx) - gx, bh = blockHeight() * (ch + gy) - gy;
+        ctx.fill.SetColor(rt::Color(255, 205, 65, 50));
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fill.SetColor(rt::Color(255, 205, 65, 255));
+        ctx.fillRect(bx, by, bw, 2.0f);
+        ctx.fillRect(bx, by + bh - 2.0f, bw, 2.0f);
+        ctx.fillRect(bx, by, 2.0f, bh);
+        ctx.fillRect(bx + bw - 2.0f, by, 2.0f, bh);
+    }
+    ctx.popClip();
+}
+
+void TilePalette::onMousePress(rt::MouseEvent& e)
+{
+    rt::Widget::onMousePress(e);
+    e.consumed = true;
+    if (e.button != 0)
+    {
+        mPanning = true;
+        return;
+    }
+    int tx = 0, ty = 0;
+    if (!tileAt(e.localX, e.localY, tx, ty))
+        return;
+    mPicking = true;
+    pick(tx, ty);
+}
+
+void TilePalette::onMouseMove(rt::MouseEvent& e)
+{
+    rt::Widget::onMouseMove(e);
+    if (mPanning)
+    {
+        mPanX += e.relX;
+        mPanY += e.relY;
+        markDirty();
+        return;
+    }
+    int tx = 0, ty = 0;
+    if (mPicking && tileAt(e.localX, e.localY, tx, ty) && (tx != mX1 || ty != mY1))
+    {
+        mX1 = tx;
+        mY1 = ty;
+        markDirty();
+    }
+}
+
+void TilePalette::onMouseRelease(rt::MouseEvent& e)
+{
+    rt::Widget::onMouseRelease(e);
+    if (mPicking)
+        picked.emit();
+    mPicking = false;
+    mPanning = false;
+    e.consumed = true;
+}
+
+void TilePalette::onMouseScroll(rt::MouseEvent& e)
+{
+    e.consumed = true;
+    const float px = (e.localX - mPanX) / mZoom, py = (e.localY - mPanY) / mZoom;
+    mZoom = std::fmax(0.1f, std::fmin(32.0f, mZoom * std::pow(1.2f, e.scrollY)));
+    mPanX = e.localX - px * mZoom;
+    mPanY = e.localY - py * mZoom;
+    markDirty();
+}
+
+} // namespace k2d::editor

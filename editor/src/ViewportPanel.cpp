@@ -76,6 +76,8 @@ void ViewportPanel::onMouseMove(rt::MouseEvent& e)
         panned.emit(e.relX, e.relY);
     else if (mDragging)
         dragged.emit(e.localX, e.localY);
+    else
+        hovered.emit(e.localX, e.localY);
 }
 
 void ViewportPanel::onMouseScroll(rt::MouseEvent& e)

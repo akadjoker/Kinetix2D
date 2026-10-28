@@ -6,6 +6,7 @@
 #include "InspectorPanel.h"
 #include "SceneGizmo.h"
 #include "SpriteEditorPanel.h"
+#include "TilePainterPanel.h"
 #include "ViewportPanel.h"
 #include "core/CommandStack.h"
 
@@ -88,6 +89,7 @@ private:
     AssetsPanel* mAssetsPanel = nullptr;
     SpriteEditorPanel* mSpriteEditor = nullptr;
     AnimatorPanel* mAnimator = nullptr;
+    TilePainterPanel* mTilePainter = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;

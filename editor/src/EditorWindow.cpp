@@ -37,6 +37,7 @@ const char* const kConsolePanel = "Console";
 const char* const kAssetsPanel = "Assets";
 const char* const kSpritePanel = "Sprite Editor";
 const char* const kAnimatorPanel = "Animator";
+const char* const kTilePanel = "Tile Painter";
 
 ct::String directoryOf(const char* path)
 {
@@ -208,6 +209,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
     mAnimator->edited.connect([this](const char* label) { commit(label); });
     mAnimator->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
+    mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mTilePainter->edited.connect([this](const char* label)
+    {
+        commit(label);
+        mInspectorStale = true;
+    });
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
         const ct::String ext = EditorFileSystem::extension(path);
@@ -222,6 +230,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
     mDock->moveTabToLeaf(kAssetsPanel, kConsolePanel);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
     mDock->showPanel(kAssetsPanel);
     mDock->showPanel(kScenePanel);
     mDefaultLayout = mDock->saveLayout();
@@ -235,12 +244,31 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         mGizmo.setView(mCamera, area.w, area.h);
         mGizmo.paint(ctx, area, mScene, mSelected);
+        mTilePainter->setView(mCamera, area.w, area.h);
+        mTilePainter->paintOverlay(ctx, area);
     };
+    mViewport->hovered.connect([this](float x, float y)
+    {
+        if (mTilePainter->painting())
+        {
+            const rt::Rect area = mViewport->absoluteRect();
+            mTilePainter->setView(mCamera, area.w, area.h);
+            mTilePainter->hover(x, y);
+        }
+    });
     mViewport->pressed.connect([this](float x, float y)
     {
         const rt::Rect area = mViewport->absoluteRect();
         mGizmo.setView(mCamera, area.w, area.h);
-        if (mPlaying || mGizmo.press(mSelected, x, y))
+        if (mPlaying)
+            return;
+        if (mTilePainter->painting())
+        {
+            mTilePainter->setView(mCamera, area.w, area.h);
+            mTilePainter->press(x, y);
+            return;
+        }
+        if (mGizmo.press(mSelected, x, y))
             return;
         select(mGizmo.pick(mScene, x, y));
     });
@@ -255,9 +283,21 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         else if (const SpriteRegionDrag* region = std::any_cast<SpriteRegionDrag>(&payload.data))
             addSprite(region->texture, region->id, region->rect, x, y);
     };
-    mViewport->dragged.connect([this](float x, float y) { mGizmo.drag(x, y); });
+    mViewport->dragged.connect([this](float x, float y)
+    {
+        if (mTilePainter->painting())
+            mTilePainter->drag(x, y);
+        else
+            mGizmo.drag(x, y);
+    });
     mViewport->released.connect([this](float, float)
     {
+        if (mTilePainter->painting())
+        {
+            if (mTilePainter->release())
+                commit("Paint tiles");
+            return;
+        }
         if (mGizmo.release())
         {
             commit(mGizmo.editName());
@@ -478,6 +518,7 @@ void EditorWindow::showObject(GameObject* object)
 {
     mInspector->show(object);
     mAnimator->show(object);
+    mTilePainter->show(object);
 }
 
 // Shown again on the next frame: the request can come from a widget the

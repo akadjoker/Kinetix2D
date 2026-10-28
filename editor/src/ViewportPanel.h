@@ -24,6 +24,8 @@ public:
     ig::retained::Signal<float, float> pressed;
     ig::retained::Signal<float, float> dragged;
     ig::retained::Signal<float, float> released;
+    // The pointer moved over the view with no button down.
+    ig::retained::Signal<float, float> hovered;
 
     // Drag and drop from other panels: whether a payload is taken, and the drop,
     // at points in the view.
