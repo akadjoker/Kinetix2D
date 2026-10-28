@@ -136,6 +136,12 @@ void Skeleton2D::stop()
     resetToRest();
 }
 
+void Skeleton2D::clearAnimation()
+{
+    stop();
+    mCurrent.clear();
+}
+
 void Skeleton2D::pause() { mPlaying = false; }
 void Skeleton2D::resume() { mPlaying = !mCurrent.empty(); }
 
@@ -294,6 +300,19 @@ void Skeleton2D::applyClip(const BoneAnimationClip& clip)
             break;
         }
     }
+}
+
+void Skeleton2D::setAutoplay(const char* name)
+{
+    mAutoplay = name ? name : "";
+}
+
+void Skeleton2D::onStart()
+{
+    if (!mCurrent.empty() || mAutoplay.empty())
+        return;
+    if (const BoneAnimationClip* clip = getClip(mAutoplay.c_str()))
+        play(mAutoplay.c_str(), clip->loop, mSpeed);
 }
 
 void Skeleton2D::onUpdate(float deltaTime)

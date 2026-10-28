@@ -18,6 +18,8 @@
 #include "k2d/NinePatchComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/Animation2D.h"
+#include "k2d/Bone2D.h"
+#include "k2d/Skeleton2D.h"
 #include "k2d/Light2D.h"
 #include "k2d/DirectionalLight2D.h"
 #include "k2d/LightOccluder2D.h"
@@ -1360,6 +1362,102 @@ void ReadAnimation(Component& component, const ct::Json& data, Assets* assets)
         anim.stop();
 }
 
+const char* const kBoneProperties[] = {"x", "y", "rotation", "scaleX", "scaleY"};
+
+Component* CreateSkeleton(GameObject& owner)
+{
+    return owner.addComponent<Skeleton2D>();
+}
+
+void WriteSkeleton(const Component& component, ct::Json& data, Assets*)
+{
+    const Skeleton2D& skeleton = static_cast<const Skeleton2D&>(component);
+    data.set("speed", ct::Json((double)skeleton.speed()));
+    data.set("autoplay", ct::Json(skeleton.autoplay().c_str()));
+    ct::Json clips = ct::Json::array();
+    for (size_t i = 0; i < skeleton.clipCount(); ++i)
+    {
+        const BoneAnimationClip* clip = skeleton.clipAt(i);
+        ct::Json clipJson = ct::Json::object();
+        clipJson.set("name", ct::Json(clip->name.c_str()));
+        clipJson.set("duration", ct::Json((double)clip->duration));
+        clipJson.set("loop", ct::Json(clip->loop));
+        ct::Json tracks = ct::Json::array();
+        for (const BoneTrack& track : clip->tracks)
+        {
+            ct::Json trackJson = ct::Json::object();
+            trackJson.set("bone", ct::Json(track.boneName.c_str()));
+            trackJson.set("property", ct::Json(kBoneProperties[track.property]));
+            ct::Json keys = ct::Json::array();
+            for (const BoneKeyframe& key : track.keyframes)
+            {
+                ct::Json keyJson = ct::Json::array();
+                keyJson.push_back(ct::Json((double)key.time));
+                keyJson.push_back(ct::Json((double)key.value));
+                keyJson.push_back(ct::Json((int)key.easing));
+                keys.push_back(keyJson);
+            }
+            trackJson.set("keys", keys);
+            tracks.push_back(trackJson);
+        }
+        clipJson.set("tracks", tracks);
+        clips.push_back(clipJson);
+    }
+    data.set("clips", clips);
+}
+
+void ReadSkeleton(Component& component, const ct::Json& data, Assets*)
+{
+    Skeleton2D& skeleton = static_cast<Skeleton2D&>(component);
+    skeleton.setSpeed((float)data["speed"].as_double(1.0));
+    skeleton.setAutoplay(data["autoplay"].as_cstr(""));
+    const ct::Json& clips = data["clips"];
+    for (size_t i = 0; clips.is_array() && i < clips.size(); ++i)
+    {
+        const ct::Json& clipJson = clips[i];
+        BoneAnimationClip clip;
+        clip.name = clipJson["name"].as_cstr("");
+        clip.duration = (float)clipJson["duration"].as_double(1.0);
+        clip.loop = clipJson["loop"].as_bool(true);
+        const ct::Json& tracks = clipJson["tracks"];
+        for (size_t t = 0; tracks.is_array() && t < tracks.size(); ++t)
+        {
+            const ct::Json& trackJson = tracks[t];
+            BoneTrack track;
+            track.boneName = trackJson["bone"].as_cstr("");
+            const char* property = trackJson["property"].as_cstr("rotation");
+            for (int p = 0; p < 5; ++p)
+                if (std::strcmp(property, kBoneProperties[p]) == 0)
+                    track.property = (BoneTrack::Property)p;
+            const ct::Json& keys = trackJson["keys"];
+            for (size_t k = 0; keys.is_array() && k < keys.size(); ++k)
+            {
+                const ct::Json& key = keys[k];
+                const int easing = (int)key[2].as_int(0);
+                track.addKeyframe((float)key[0].as_double(0.0), (float)key[1].as_double(0.0),
+                                  (BoneKeyframe::Easing)(easing >= 0 && easing <= 4 ? easing : 0));
+            }
+            clip.tracks.push_back(track);
+        }
+        skeleton.addClip(clip);
+    }
+}
+
+Component* CreateBone(GameObject& owner)
+{
+    return owner.addComponent<Bone2D>();
+}
+
+void WriteBone(const Component& component, ct::Json& data, Assets*)
+{
+    data.set("length", ct::Json((double)static_cast<const Bone2D&>(component).length()));
+}
+
+void ReadBone(Component& component, const ct::Json& data, Assets*)
+{
+    static_cast<Bone2D&>(component).setLength((float)data["length"].as_double(50.0));
+}
+
 Component* CreatePointLight(GameObject& owner)
 {
     return owner.addComponent<Light2D>();
@@ -1672,6 +1770,8 @@ const TypeEntry* AllEntries(std::size_t& count)
         {ComponentType::AudioPlayer, "AudioPlayer", &CreateAudioPlayer, &WriteAudioPlayer, &ReadAudioPlayer, nullptr},
         {ComponentType::SpriteBatch, "SpriteBatch", &CreateSpriteBatch, &WriteSpriteBatch, &ReadSpriteBatch, nullptr},
         {ComponentType::Animation, "Animation2D", &CreateAnimation, &WriteAnimation, &ReadAnimation, nullptr},
+        {ComponentType::Skeleton, "Skeleton2D", &CreateSkeleton, &WriteSkeleton, &ReadSkeleton, nullptr},
+        {ComponentType::Bone, "Bone2D", &CreateBone, &WriteBone, &ReadBone, nullptr},
         {ComponentType::Light, "Light2D", &CreatePointLight, &WritePointLight, &ReadPointLight, &IsPointLight},
         {ComponentType::Light, "DirectionalLight2D", &CreateDirectionalLight, &WriteDirectionalLight,
          &ReadDirectionalLight, &IsDirectionalLight},

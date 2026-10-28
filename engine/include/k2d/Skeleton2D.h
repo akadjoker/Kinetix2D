@@ -64,6 +64,8 @@ public:
 
     bool play(const char* name, bool loop = true, float speed = 1.0f);
     void stop();
+    // Stops, back at rest, with no clip current.
+    void clearAnimation();
     void pause();
     void resume();
     void seek(float time);
@@ -73,6 +75,11 @@ public:
     const char* currentAnimation() const { return mCurrent.c_str(); }
     float speed() const { return mSpeed; }
     void setSpeed(float speed) { mSpeed = speed; }
+    bool looping() const { return mLoop; }
+
+    // The clip that starts when the game does; empty for none.
+    const ct::String& autoplay() const { return mAutoplay; }
+    void setAutoplay(const char* name);
 
     Bone2D* findBone(const char* name) const;
     void resetToRest();
@@ -85,11 +92,13 @@ public:
     ct::Function<void(const char*)> onAnimationLooped;
 
 protected:
+    void onStart() override;
     void onUpdate(float deltaTime) override;
 
 private:
     ct::Vector<BoneAnimationClip> mClips;
     ct::String mCurrent;
+    ct::String mAutoplay;
     // Track lookups hit this instead of walking the subtree per track per
     // frame; the scene's topology version keeps it safe across deletions.
     ct::HashMap<ct::String, Bone2D *> mBoneCache;

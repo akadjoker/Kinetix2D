@@ -661,6 +661,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("Skeleton2D", ComponentType::Skeleton, ComponentClass::None);
     ClassDB::addProperty<Skeleton2D>(c, PropertyInfo(PropertyType::Float, "speed"), &Skeleton2D::speed, &Skeleton2D::setSpeed);
+    ClassDB::addProperty<Skeleton2D>(c, PropertyInfo(PropertyType::String, "autoplay"), &Skeleton2D::autoplay, &Skeleton2D::setAutoplay);
     }
     {
     ClassInfo& c = ClassDB::add("SpriteBatch", ComponentType::SpriteBatch, ComponentClass::None);
