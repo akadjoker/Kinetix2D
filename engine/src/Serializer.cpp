@@ -96,12 +96,28 @@ ct::Json WritePackedColor(unsigned int packed)
     return a;
 }
 
+// Bytes, as WritePackedColor writes them; an array with any real number in it
+// is read as 0..1 floats instead, the form hand-written scenes use. Read as
+// bytes those came out nearly black and nearly transparent.
 void ReadPackedColorBytes(const ct::Json& j, unsigned char& r, unsigned char& g, unsigned char& b, unsigned char& a)
 {
-    r = (j.is_array() && j.size() > 0) ? (unsigned char)j[0].as_int(255) : 255;
-    g = (j.is_array() && j.size() > 1) ? (unsigned char)j[1].as_int(255) : 255;
-    b = (j.is_array() && j.size() > 2) ? (unsigned char)j[2].as_int(255) : 255;
-    a = (j.is_array() && j.size() > 3) ? (unsigned char)j[3].as_int(255) : 255;
+    unsigned char* channels[4] = {&r, &g, &b, &a};
+    const std::size_t count = j.is_array() ? j.size() : 0;
+    bool unit = false;
+    for (std::size_t i = 0; i < count && i < 4; ++i)
+        unit = unit || j[i].is_real();
+    for (std::size_t i = 0; i < 4; ++i)
+    {
+        if (i >= count)
+            *channels[i] = 255;
+        else if (unit)
+        {
+            const double v = j[i].as_double(1.0);
+            *channels[i] = (unsigned char)(v <= 0.0 ? 0 : v >= 1.0 ? 255 : (int)(v * 255.0 + 0.5));
+        }
+        else
+            *channels[i] = (unsigned char)j[i].as_int(255);
+    }
 }
 
 using CreateFn = Component* (*)(GameObject& owner);

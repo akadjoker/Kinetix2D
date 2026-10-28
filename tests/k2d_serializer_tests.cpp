@@ -240,6 +240,24 @@ bool TestCreateByName()
            k2d::Serializer::TypeName(k2d::Serializer::TypeCount()) == nullptr;
 }
 
+bool TestUnitFloatColour()
+{
+    // Hand-written scenes give colours as 0..1 floats; bytes stay bytes.
+    const char* text = "{\"name\":\"Dot\",\"components\":["
+                       "{\"type\":\"CircleShape\",\"data\":{\"radius\":10.0,\"color\":[1.0,0.9,0.2,1.0]}},"
+                       "{\"type\":\"RectShape\",\"data\":{\"color\":[255,128,0,255]}}]}";
+    k2d::Scene scene;
+    k2d::GameObject* dot = k2d::Serializer::ReadObject(scene, ct::Json::parse(text));
+    k2d::CircleShape* circle = dot ? dot->getComponent<k2d::CircleShape>() : nullptr;
+    k2d::RectShape* rect = dot ? dot->getComponent<k2d::RectShape>() : nullptr;
+    if (!circle || !rect)
+        return false;
+    const unsigned int c = circle->color().Packed();
+    const unsigned int r = rect->color().Packed();
+    return (c & 0xFFu) == 255 && ((c >> 8) & 0xFFu) == 230 && ((c >> 16) & 0xFFu) == 51 && (c >> 24) == 255 &&
+           (r & 0xFFu) == 255 && ((r >> 8) & 0xFFu) == 128 && ((r >> 16) & 0xFFu) == 0 && (r >> 24) == 255;
+}
+
 bool TestTileMapRoundTrip()
 {
     k2d::Scene srcScene;
@@ -748,6 +766,7 @@ int main()
     bool particle = TestParticleComponentRoundTrip();
     bool doubleRoundTrip = TestDoubleRoundTripIsStable();
     bool createByName = TestCreateByName();
+    bool unitColour = TestUnitFloatColour();
 
     std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s action_rates=%s "
                 "unregistered_skipped=%s\n",
@@ -760,11 +779,12 @@ int main()
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
     std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
-    std::printf("Serializer types: create_by_name=%s\n", createByName ? "pass" : "fail");
+    std::printf("Serializer types: create_by_name=%s unit_float_colour=%s\n", createByName ? "pass" : "fail",
+                unitColour ? "pass" : "fail");
 
     return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
             ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
-            doubleRoundTrip && createByName)
+            doubleRoundTrip && createByName && unitColour)
                ? 0
                : 1;
 }
