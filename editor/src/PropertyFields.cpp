@@ -134,8 +134,8 @@ rt::SpinSlider* addNumberField(rt::Widget* parent, const char* label, double val
     const bool bounded = spec.minimum > -1.0e8 && spec.maximum < 1.0e8;
     field->setMin(bounded ? spec.minimum : -1.0e9);
     field->setMax(bounded ? spec.maximum : 1.0e9);
-    field->setAllowGreater(!bounded);
-    field->setAllowLesser(!bounded);
+    field->setAllowGreater(!bounded || spec.openAbove);
+    field->setAllowLesser(!bounded || spec.openBelow);
     field->setControlState(bounded ? rt::SpinSlider::ControlState::PreferSlider : rt::SpinSlider::ControlState::Hide);
     field->setValueNoSignal(value);
     field->width = spec.width;
@@ -197,6 +197,8 @@ rt::BoxLayout* addPropertyRow(rt::Widget* parent, const PropertyInfo& info, cons
         {
             spec.minimum = info.rangeMin;
             spec.maximum = info.rangeMax;
+            spec.openAbove = info.hintString.find("or_greater") != ct::String::npos;
+            spec.openBelow = info.hintString.find("or_less") != ct::String::npos;
         }
         addNumberField(line, "", integer ? value.asInt() : value.asFloat(), spec, [set, edited, integer](double v, bool final) {
             set(integer ? PropertyValue::from(static_cast<int>(std::lround(v))) : PropertyValue::from(static_cast<float>(v)));
@@ -208,6 +210,14 @@ rt::BoxLayout* addPropertyRow(rt::Widget* parent, const PropertyInfo& info, cons
     {
         const Math::Vec2 v = value.asVec2();
         NumberSpec spec;
+        if (info.hint == PropertyHint::Range)
+        {
+            spec.minimum = info.rangeMin;
+            spec.maximum = info.rangeMax;
+            spec.step = info.rangeStep > 0.0f ? info.rangeStep : 0.01;
+            spec.openAbove = info.hintString.find("or_greater") != ct::String::npos;
+            spec.openBelow = info.hintString.find("or_less") != ct::String::npos;
+        }
         addNumberField(line, "x", v.x, spec, [get, set, edited](double x, bool final) {
             Math::Vec2 w = get().asVec2();
             w.x = static_cast<float>(x);

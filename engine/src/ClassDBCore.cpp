@@ -150,11 +150,11 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("Bone2D", ComponentType::Bone, ComponentClass::None);
-    ClassDB::addProperty<Bone2D>(c, PropertyInfo(PropertyType::Float, "length"), &Bone2D::length, &Bone2D::setLength);
+    ClassDB::addProperty<Bone2D>(c, PropertyInfo::extent(PropertyType::Float, "length", 512.0f), &Bone2D::length, &Bone2D::setLength);
     }
     {
     ClassInfo& c = ClassDB::add("BoxCollider2D", ComponentType::Collider, ComponentClass::BoxCollider2D);
-    ClassDB::addProperty<BoxCollider2D>(c, PropertyInfo(PropertyType::Vec2, "size"), &BoxCollider2D::size, &BoxCollider2D::setSize);
+    ClassDB::addProperty<BoxCollider2D>(c, PropertyInfo::extent(PropertyType::Vec2, "size", 1024.0f), &BoxCollider2D::size, &BoxCollider2D::setSize);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
@@ -199,10 +199,10 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("CapsuleShape", ComponentType::CapsuleShape, ComponentClass::None);
-    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo(PropertyType::Vec2, "size"), &CapsuleShape::size, &CapsuleShape::setSize);
+    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::extent(PropertyType::Vec2, "size", 1024.0f), &CapsuleShape::size, &CapsuleShape::setSize);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::range(PropertyType::Int, "segments", 3.0f, 512.0f, 1.0f), &CapsuleShape::segments, &CapsuleShape::setSegments);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::enumeration("mode", "Fill,Line"), &CapsuleShape::mode, &CapsuleShape::setMode);
-    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo(PropertyType::Float, "lineWidth"), &CapsuleShape::lineWidth, &CapsuleShape::setLineWidth);
+    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::extent(PropertyType::Float, "lineWidth", 32.0f, 0.5f), &CapsuleShape::lineWidth, &CapsuleShape::setLineWidth);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &CapsuleShape::blendMode, &CapsuleShape::setBlendMode);
     ClassDB::addProperty(
         c, PropertyInfo::color("color"),
@@ -249,7 +249,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("CircleCollider2D", ComponentType::Collider, ComponentClass::CircleCollider2D);
-    ClassDB::addProperty<CircleCollider2D>(c, PropertyInfo(PropertyType::Float, "radius"), &CircleCollider2D::radius, &CircleCollider2D::setRadius);
+    ClassDB::addProperty<CircleCollider2D>(c, PropertyInfo::extent(PropertyType::Float, "radius", 512.0f), &CircleCollider2D::radius, &CircleCollider2D::setRadius);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
@@ -271,10 +271,10 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("CircleShape", ComponentType::CircleShape, ComponentClass::None);
-    ClassDB::addProperty<CircleShape>(c, PropertyInfo(PropertyType::Float, "radius"), &CircleShape::radius, &CircleShape::setRadius);
+    ClassDB::addProperty<CircleShape>(c, PropertyInfo::extent(PropertyType::Float, "radius", 512.0f), &CircleShape::radius, &CircleShape::setRadius);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo::range(PropertyType::Int, "segments", 3.0f, 512.0f, 1.0f), &CircleShape::segments, &CircleShape::setSegments);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo::enumeration("mode", "Fill,Line"), &CircleShape::mode, &CircleShape::setMode);
-    ClassDB::addProperty<CircleShape>(c, PropertyInfo(PropertyType::Float, "lineWidth"), &CircleShape::lineWidth, &CircleShape::setLineWidth);
+    ClassDB::addProperty<CircleShape>(c, PropertyInfo::extent(PropertyType::Float, "lineWidth", 32.0f, 0.5f), &CircleShape::lineWidth, &CircleShape::setLineWidth);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &CircleShape::blendMode, &CircleShape::setBlendMode);
     ClassDB::addProperty(
         c, PropertyInfo::color("color"),
@@ -372,7 +372,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("Light2D", ComponentType::Light, ComponentClass::Light2D);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f), &Light2D::energy, &Light2D::setEnergy);
-    ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Float, "radius"), &Light2D::radius, &Light2D::setRadius);
+    ClassDB::addProperty<Light2D>(c, PropertyInfo::extent(PropertyType::Float, "radius", 2048.0f), &Light2D::radius, &Light2D::setRadius);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Bool, "castShadow"), &Light2D::castShadow, &Light2D::setCastShadow);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"), &Light2D::shadowFilter, &Light2D::setShadowFilter);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Int, "cullMask"), &Light2D::cullMask, &Light2D::setCullMask);
@@ -400,7 +400,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("Line2D", ComponentType::LinePath, ComponentClass::None);
     addTexture<Line2D>(c, "texture", &Line2D::texture, &Line2D::setTexture);
-    ClassDB::addProperty<Line2D>(c, PropertyInfo(PropertyType::Float, "width"), &Line2D::width, &Line2D::setWidth);
+    ClassDB::addProperty<Line2D>(c, PropertyInfo::extent(PropertyType::Float, "width", 64.0f, 0.5f), &Line2D::width, &Line2D::setWidth);
     ClassDB::addProperty<Line2D>(c, PropertyInfo(PropertyType::Bool, "closed"), &Line2D::closed, &Line2D::setClosed);
     ClassDB::addProperty<Line2D>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &Line2D::blendMode, &Line2D::setBlendMode);
     ClassDB::addProperty(
@@ -417,7 +417,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("MotionStreak2D", ComponentType::MotionStreak, ComponentClass::None);
     ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo(PropertyType::Float, "lifetime"), &MotionStreak2D::lifetime, &MotionStreak2D::setLifetime);
-    ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo(PropertyType::Float, "width"), &MotionStreak2D::width, &MotionStreak2D::setWidth);
+    ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo::extent(PropertyType::Float, "width", 64.0f, 0.5f), &MotionStreak2D::width, &MotionStreak2D::setWidth);
     ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo(PropertyType::Float, "minDistance"), &MotionStreak2D::minDistance, &MotionStreak2D::setMinDistance);
     ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo::color("color"), &MotionStreak2D::color, &MotionStreak2D::setColor);
     ClassDB::addProperty<MotionStreak2D>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &MotionStreak2D::blendMode, &MotionStreak2D::setBlendMode);
@@ -453,7 +453,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<NavigationAgent2D>(c, PropertyInfo(PropertyType::Bool, "autoMove"), &NavigationAgent2D::autoMove, &NavigationAgent2D::setAutoMove);
     ClassDB::addProperty<NavigationAgent2D>(c, PropertyInfo(PropertyType::Bool, "orientToPath"), &NavigationAgent2D::orientToPath, &NavigationAgent2D::setOrientToPath);
     ClassDB::addProperty<NavigationAgent2D>(c, PropertyInfo(PropertyType::Float, "rotationLerpSpeed"), &NavigationAgent2D::rotationLerpSpeed, &NavigationAgent2D::setRotationLerpSpeed);
-    ClassDB::addProperty<NavigationAgent2D>(c, PropertyInfo(PropertyType::Float, "rotationOffsetDegrees"), &NavigationAgent2D::rotationOffsetDegrees, &NavigationAgent2D::setRotationOffsetDegrees);
+    ClassDB::addProperty<NavigationAgent2D>(c, PropertyInfo::angle("rotationOffsetDegrees"), &NavigationAgent2D::rotationOffsetDegrees, &NavigationAgent2D::setRotationOffsetDegrees);
     }
     {
     ClassInfo& c = ClassDB::add("NavigationRegion2D", ComponentType::NavigationRegion, ComponentClass::None);
@@ -461,7 +461,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("NinePatchComponent", ComponentType::NinePatch, ComponentClass::None);
     addTexture<NinePatchComponent>(c, "texture", &NinePatchComponent::texture, &NinePatchComponent::setTexture);
-    ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo(PropertyType::Vec2, "size"), &NinePatchComponent::size, &NinePatchComponent::setSize);
+    ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo::extent(PropertyType::Vec2, "size", 1024.0f), &NinePatchComponent::size, &NinePatchComponent::setSize);
     ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo(PropertyType::Vec2, "pivot"), &NinePatchComponent::pivot, &NinePatchComponent::setPivot);
     ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &NinePatchComponent::blendMode, &NinePatchComponent::setBlendMode);
     ClassDB::addProperty(
@@ -543,7 +543,7 @@ void RegisterCoreClasses()
         [](Component& component, const PropertyValue& value)
         { particleSystem(component).SetEmitterShape(value.as<ParticleEmitterShape>()); });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Vec2, "emitterSize"),
+        c, PropertyInfo::extent(PropertyType::Vec2, "emitterSize", 1024.0f),
         [](const Component& component) { return PropertyValue::from(particleSystem(component).EmitterSize()); },
         [](Component& component, const PropertyValue& value)
         { particleSystem(component).SetEmitterSize(value.asVec2()); });
@@ -554,7 +554,7 @@ void RegisterCoreClasses()
 
     // The particles it makes.
     addPrefabField(c, PropertyInfo(PropertyType::Vec2, "direction"), &ParticlePrefab::direction);
-    addPrefabField(c, PropertyInfo(PropertyType::Float, "spreadDegrees"), &ParticlePrefab::spreadDegrees);
+    addPrefabField(c, PropertyInfo::range(PropertyType::Float, "spreadDegrees", 0.0f, 360.0f, 1.0f), &ParticlePrefab::spreadDegrees);
     addPrefabField(c, PropertyInfo(PropertyType::Float, "speedMin"), &ParticlePrefab::speedMin);
     addPrefabField(c, PropertyInfo(PropertyType::Float, "speedMax"), &ParticlePrefab::speedMax);
     addPrefabField(c, PropertyInfo(PropertyType::Float, "drag"), &ParticlePrefab::drag);
@@ -570,7 +570,7 @@ void RegisterCoreClasses()
     addPrefabField(c, PropertyInfo(PropertyType::Float, "fadeIn"), &ParticlePrefab::fadeIn);
     addPrefabField(c, PropertyInfo(PropertyType::Float, "fadeOut"), &ParticlePrefab::fadeOut);
     addPrefabField(c, PropertyInfo(PropertyType::Bool, "faceDirection"), &ParticlePrefab::faceDirection);
-    addPrefabField(c, PropertyInfo(PropertyType::Float, "faceDirectionOffsetDegrees"), &ParticlePrefab::faceDirectionOffsetDegrees);
+    addPrefabField(c, PropertyInfo::angle("faceDirectionOffsetDegrees"), &ParticlePrefab::faceDirectionOffsetDegrees);
     addPrefabField(c, PropertyInfo::color("colorStart"), &ParticlePrefab::colorStart);
     addPrefabField(c, PropertyInfo::color("colorEnd"), &ParticlePrefab::colorEnd);
     }
@@ -618,9 +618,9 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("RectShape", ComponentType::RectShape, ComponentClass::None);
-    ClassDB::addProperty<RectShape>(c, PropertyInfo(PropertyType::Vec2, "size"), &RectShape::size, &RectShape::setSize);
+    ClassDB::addProperty<RectShape>(c, PropertyInfo::extent(PropertyType::Vec2, "size", 1024.0f), &RectShape::size, &RectShape::setSize);
     ClassDB::addProperty<RectShape>(c, PropertyInfo::enumeration("mode", "Fill,Line"), &RectShape::mode, &RectShape::setMode);
-    ClassDB::addProperty<RectShape>(c, PropertyInfo(PropertyType::Float, "lineWidth"), &RectShape::lineWidth, &RectShape::setLineWidth);
+    ClassDB::addProperty<RectShape>(c, PropertyInfo::extent(PropertyType::Float, "lineWidth", 32.0f, 0.5f), &RectShape::lineWidth, &RectShape::setLineWidth);
     ClassDB::addProperty<RectShape>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &RectShape::blendMode, &RectShape::setBlendMode);
     ClassDB::addProperty(
         c, PropertyInfo::color("color"),
@@ -671,7 +671,7 @@ void RegisterCoreClasses()
     ClassInfo& c = ClassDB::add("SpriteComponent", ComponentType::Sprite, ComponentClass::None);
     addTexture<SpriteComponent>(c, "texture", &SpriteComponent::texture, &SpriteComponent::setTexture);
     addTexture<SpriteComponent>(c, "normalMap", &SpriteComponent::normalMap, &SpriteComponent::setNormalMap);
-    ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "size"), &SpriteComponent::size, &SpriteComponent::setSize);
+    ClassDB::addProperty<SpriteComponent>(c, PropertyInfo::extent(PropertyType::Vec2, "size", 1024.0f), &SpriteComponent::size, &SpriteComponent::setSize);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "pivot"), &SpriteComponent::pivot, &SpriteComponent::setPivot);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "renderOffset"), &SpriteComponent::renderOffset, &SpriteComponent::setRenderOffset);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Int, "lightMask"), &SpriteComponent::lightMask, &SpriteComponent::setLightMask);

@@ -2,13 +2,17 @@
 
 #include "Icons.h"
 #include "PropertyFields.h"
+#include "core/EditorFileSystem.h"
 
 #include "ComboBox.hpp"
 #include "WidgetApp.hpp"
 
 #include <k2d/ClassDB.h>
 #include <k2d/GameObject.h>
+#include <k2d/FileBuffer.h>
+#include <k2d/FileSystem.h>
 #include <k2d/Serializer.h>
+#include <k2d/ZenScriptComponent.h>
 
 namespace rt = ig::retained;
 
@@ -84,16 +88,112 @@ void InspectorPanel::addTransform()
     FieldBinding rotation;
     rotation.get = [this]() { return PropertyValue::from(mObject->rotationDegrees()); };
     rotation.set = [this](const PropertyValue& v) { mObject->setRotationDegrees(v.asFloat()); };
-    addPropertyRow(section, PropertyInfo(PropertyType::Float, "Rotation"), rotation, edit("Rotate"));
+    addPropertyRow(section, PropertyInfo::angle("Rotation"), rotation, edit("Rotate"));
     FieldBinding scale;
     scale.get = [this]() { return PropertyValue::from(mObject->scale()); };
     scale.set = [this](const PropertyValue& v) { mObject->setScale(v.asVec2()); };
-    addPropertyRow(section, PropertyInfo(PropertyType::Vec2, "Scale"), scale, edit("Scale"));
+    // A negative scale flips, so the slider is open at both ends.
+    PropertyInfo scaleInfo = PropertyInfo::range(PropertyType::Vec2, "Scale", 0.0f, 4.0f, 0.01f);
+    scaleInfo.hintString = "or_greater,or_less";
+    addPropertyRow(section, scaleInfo, scale, edit("Scale"));
+}
+
+ZenScriptComponent* InspectorPanel::script(ComponentType type, std::size_t index) const
+{
+    Component* target = component(type, index);
+    return target && target->componentClass() == ComponentClass::ZenScript ? static_cast<ZenScriptComponent*>(target)
+                                                                             : nullptr;
+}
+
+// The script's variables, read from its source so they show while nothing
+// runs; a value set here is this object's own, written with the scene.
+void InspectorPanel::addScript(ComponentType type, std::size_t index)
+{
+    ZenScriptComponent* target = script(type, index);
+    const ct::String path = target->scriptPath();
+    auto* section = mColumn->createChild<rt::Collapsible>(
+        path.empty() ? ct::String("Script") : "Script  " + EditorFileSystem::fileName(path));
+    // The class as compiled holds its variables and those __init__ sets; a
+    // script that did not compile is read as text for the latter.
+    target->reloadIfChanged();
+    ct::Vector<ZenScriptProperty> declared;
+    for (std::size_t i = 0; i < target->declaredPropertyCount(); ++i)
+        declared.push_back(*target->declaredPropertyAt(i));
+    FileBuffer source;
+    if (declared.empty() && !path.empty() && FileSystem::Instance().LoadFile(path.c_str(), source, true))
+        ScanZenScriptProperties(source.Text(), declared);
+    for (const ZenScriptProperty& property : declared)
+        addScriptProperty(section, type, index, property);
+    if (declared.empty())
+        section->createChild<rt::Label>(path.empty() ? "No script file" : "No variables (speed = 200 in the class)");
+    auto* tools = section->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    tools->setPadding(0.0f);
+    tools->setSpacing(4.0f);
+    if (!path.empty())
+        iconButton(tools, "ScriptFile", "Open in the Script Editor", [this, path]() { scriptOpenRequested.emit(path); });
+    iconButton(tools, "Remove", "Remove this component", [this, target]() { removeComponentRequested.emit(target); });
+}
+
+void InspectorPanel::addScriptProperty(rt::Widget* parent, ComponentType type, std::size_t index,
+                                       const ZenScriptProperty& declared)
+{
+    const ZenScriptProperty fallback = declared;
+    const PropertyType kind = fallback.kind == ZenScriptProperty::Kind::Bool     ? PropertyType::Bool
+                              : fallback.kind == ZenScriptProperty::Kind::String ? PropertyType::String
+                              : fallback.integer                                 ? PropertyType::Int
+                                                                                 : PropertyType::Float;
+    FieldBinding binding;
+    binding.get = [this, type, index, fallback, kind]()
+    {
+        const ZenScriptComponent* s = script(type, index);
+        const ZenScriptProperty* own = s ? s->findOverride(fallback.name.c_str()) : nullptr;
+        const ZenScriptProperty& value = own ? *own : fallback;
+        switch (kind)
+        {
+        case PropertyType::Bool:
+            return PropertyValue::from(value.flag);
+        case PropertyType::String:
+            return PropertyValue::from(value.text);
+        case PropertyType::Int:
+            return PropertyValue::from(static_cast<int>(value.number));
+        default:
+            return PropertyValue::from(static_cast<float>(value.number));
+        }
+    };
+    // The script's own value again means no value of the object's.
+    binding.set = [this, type, index, fallback, kind](const PropertyValue& value)
+    {
+        ZenScriptComponent* s = script(type, index);
+        if (!s)
+            return;
+        const char* name = fallback.name.c_str();
+        if (kind == PropertyType::Bool)
+            value.asBool() == fallback.flag ? s->clearOverride(name) : s->setBoolOverride(name, value.asBool());
+        else if (kind == PropertyType::String)
+            value.asString() == fallback.text ? s->clearOverride(name)
+                                              : s->setStringOverride(name, value.asString().c_str());
+        else
+        {
+            const double number = kind == PropertyType::Int ? value.asInt() : value.asFloat();
+            if (static_cast<float>(number) == static_cast<float>(fallback.number))
+                s->clearOverride(name);
+            else
+                s->setNumberOverride(name, number, kind == PropertyType::Int);
+        }
+    };
+    const ct::String label = editName(fallback.name.c_str());
+    addPropertyRow(parent, PropertyInfo(kind, fallback.name.c_str()), binding,
+                   [this, label](bool final) { edited.emit(label.c_str(), final); });
 }
 
 void InspectorPanel::addComponent(ComponentType type, std::size_t index)
 {
     Component* target = component(type, index);
+    if (script(type, index))
+    {
+        addScript(type, index);
+        return;
+    }
     const ClassInfo* info = target ? ClassDB::find(*target) : nullptr;
     if (!info)
         return;

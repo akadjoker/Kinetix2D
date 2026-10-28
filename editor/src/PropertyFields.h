@@ -48,9 +48,12 @@ struct NumberSpec
 {
     double step = 0.01;
     bool integer = false;
-    // A slider is shown when the range is bounded on both sides.
+    // A slider is shown when the range is bounded on both sides; open ends
+    // let a typed or dragged value go past them (Godot's or_greater, or_less).
     double minimum = -1.0e9;
     double maximum = 1.0e9;
+    bool openAbove = false;
+    bool openBelow = false;
     // 0: the field stretches in its row; otherwise its width, for tool bars.
     float width = 0.0f;
 };

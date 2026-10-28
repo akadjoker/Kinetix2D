@@ -28,6 +28,20 @@ PropertyInfo PropertyInfo::range(PropertyType type, const char* name, float mini
     return info;
 }
 
+PropertyInfo PropertyInfo::angle(const char* name)
+{
+    PropertyInfo info = range(PropertyType::Float, name, -360.0f, 360.0f, 0.1f);
+    info.hintString = "or_greater,or_less";
+    return info;
+}
+
+PropertyInfo PropertyInfo::extent(PropertyType type, const char* name, float maximum, float step)
+{
+    PropertyInfo info = range(type, name, 0.0f, maximum, step);
+    info.hintString = "or_greater";
+    return info;
+}
+
 PropertyInfo PropertyInfo::enumeration(const char* name, const char* names)
 {
     return PropertyInfo(PropertyType::Int, name, PropertyHint::Enum, names);

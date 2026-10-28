@@ -8,11 +8,14 @@
 #include <k2d/Component.h>
 
 #include <ct/function.hpp>
+#include <ct/string.hpp>
 
 namespace k2d
 {
 class GameObject;
+class ZenScriptComponent;
 struct ClassProperty;
+struct ZenScriptProperty;
 }
 
 namespace ig::retained
@@ -41,6 +44,8 @@ public:
     // object again on the next frame, after the widget's signal has returned.
     ig::retained::Signal<const char*> addComponentRequested;
     ig::retained::Signal<Component*> removeComponentRequested;
+    // A script's file, a project path, to edit.
+    ig::retained::Signal<const ct::String&> scriptOpenRequested;
 
 private:
     void clear();
@@ -50,6 +55,10 @@ private:
     void addProperty(ig::retained::Widget* parent, ComponentType type, std::size_t index,
                      const ClassProperty& property);
     Component* component(ComponentType type, std::size_t index) const;
+    ZenScriptComponent* script(ComponentType type, std::size_t index) const;
+    void addScript(ComponentType type, std::size_t index);
+    void addScriptProperty(ig::retained::Widget* parent, ComponentType type, std::size_t index,
+                           const ZenScriptProperty& declared);
 
     ig::retained::BoxLayout* mColumn = nullptr;
     GameObject* mObject = nullptr;

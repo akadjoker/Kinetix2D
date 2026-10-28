@@ -37,6 +37,10 @@ struct PropertyInfo
                  const char* hintString = "");
 
     static PropertyInfo range(PropertyType type, const char* name, float minimum, float maximum, float step);
+    // Degrees on a slider from -360 to 360 that a typed value may pass (Godot's or_greater, or_less).
+    static PropertyInfo angle(const char* name);
+    // From 0 to maximum on a slider that a typed value may pass (sizes, widths, radii).
+    static PropertyInfo extent(PropertyType type, const char* name, float maximum, float step = 1.0f);
     static PropertyInfo enumeration(const char* name, const char* names);
     static PropertyInfo file(const char* name, const char* extensions);
     static PropertyInfo color(const char* name, bool noAlpha = false);

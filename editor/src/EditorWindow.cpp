@@ -345,6 +345,11 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             commit(mPendingEdit.c_str());
     });
     mInspector->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mInspector->scriptOpenRequested.connect([this](const ct::String& path)
+    {
+        if (mScriptEditor->open(path))
+            mDock->showPanel(kScriptPanel);
+    });
     mInspector->removeComponentRequested.connect([this](Component* component)
     {
         if (mSelected && mSelected->removeComponent(component))
