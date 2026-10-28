@@ -202,7 +202,6 @@ class CanvasRenderer
     int mLightHeightLoc;
     int mDirectionalHeightLoc;
     unsigned int mShadowAtlas;
-    unsigned int mShadowDepth;
     unsigned int mShadowFramebuffer;
     unsigned int mShadowVAO;
     unsigned int mShadowVBO;

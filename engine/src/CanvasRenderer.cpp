@@ -118,7 +118,7 @@ in vec2 v_world;
 flat in uint v_lightMask;
 
 uniform sampler2D u_texture;
-uniform sampler2D u_shadowAtlas;
+uniform highp sampler2DShadow u_shadowAtlas;
 uniform sampler2D u_lightTexture;
 uniform int u_hasLightTexture;
 uniform sampler2D u_normalMap;
@@ -146,20 +146,20 @@ uniform int u_directionalShadowFilter[8];
 
 out vec4 FragColor;
 
+// Every lookup compares two texels, so taps two texels apart cover the
+// PCF5 and PCF13 kernels with 3 and 7 of them.
 float shadowLit(vec2 uv, float depth, int filterMode, bool wrap)
 {
-    if (filterMode == 0)
-        return depth <= texture(u_shadowAtlas, uv).r ? 1.0 : 0.0;
-    int radius = filterMode == 1 ? 2 : 6;
+    int taps = filterMode == 0 ? 0 : (filterMode == 1 ? 1 : 3);
     float lit = 0.0;
-    for (int x = -radius; x <= radius; ++x)
+    for (int x = -taps; x <= taps; ++x)
     {
-        float u = uv.x + float(x) / 2048.0;
-        if (wrap)
-            u = fract(u);
-        lit += depth <= texture(u_shadowAtlas, vec2(u, uv.y)).r ? 1.0 : 0.0;
+        float u = uv.x + float(x) * (2.0 / 2048.0);
+        if (!wrap)
+            u = clamp(u, 0.5 / 2048.0, 1.0 - 0.5 / 2048.0);
+        lit += texture(u_shadowAtlas, vec3(u, uv.y, depth));
     }
-    return lit / float(2 * radius + 1);
+    return lit / float(2 * taps + 1);
 }
 
 void main()
@@ -342,7 +342,6 @@ uniform int u_directional;
 flat in vec4 v_segment;
 in float v_angle;
 in float v_depth;
-layout(location = 0) out float out_depth;
 void main()
 {
     float depth = v_depth;
@@ -357,7 +356,6 @@ void main()
         depth = clamp(dist / u_light.z, 0.0, 0.999);
     }
     gl_FragDepth = depth;
-    out_depth = depth;
 }
 )";
 
@@ -453,7 +451,7 @@ CanvasRenderer::CanvasRenderer()
       mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1), mNormalMapLoc(-1), mHasNormalMapLoc(-1),
       mWaterMvpLoc(-1), mWaterNormalMapLoc(-1), mWaterPhaseALoc(-1), mWaterPhaseBLoc(-1), mWaterStrengthLoc(-1), mWaterNormalScaleLoc(-1),
       mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1),
-      mDirectionalHeightLoc(-1), mShadowAtlas(0), mShadowDepth(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
+      mDirectionalHeightLoc(-1), mShadowAtlas(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
       mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1), mLightColorLoc(-1), mLightRadiusLoc(-1),
       mLightCullMaskLoc(-1), mDirectionalLightCountLoc(-1), mDirectionalLightDirectionLoc(-1),
       mDirectionalLightColorLoc(-1), mDirectionalCullMaskLoc(-1), mDirectionalLightShadowFlagsLoc(-1),
@@ -1262,20 +1260,23 @@ void CanvasRenderer::SetupShadowAtlas()
 
     glGenTextures(1, &mShadowAtlas);
     glBindTexture(GL_TEXTURE_2D, mShadowAtlas);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, textureSize, rows, 0, GL_RED, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, textureSize, rows, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+                 nullptr);
+    // Linear with comparison: each lookup tests two neighbouring angles in
+    // hardware, so a PCF kernel needs half the taps.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glGenRenderbuffers(1, &mShadowDepth);
-    glBindRenderbuffer(GL_RENDERBUFFER, mShadowDepth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, textureSize, rows);
 
     glGenFramebuffers(1, &mShadowFramebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, mShadowFramebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mShadowAtlas, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, mShadowDepth);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mShadowAtlas, 0);
+    const GLenum none = GL_NONE;
+    glDrawBuffers(1, &none);
+    glReadBuffer(GL_NONE);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
         log_error("shadow atlas framebuffer is incomplete");
@@ -1283,8 +1284,8 @@ void CanvasRenderer::SetupShadowAtlas()
         return;
     }
     glViewport(0, 0, textureSize, rows);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearDepthf(1.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glGenVertexArrays(1, &mShadowVAO);
@@ -1318,11 +1319,6 @@ void CanvasRenderer::ShutdownShadowAtlas()
     {
         glDeleteFramebuffers(1, &mShadowFramebuffer);
         mShadowFramebuffer = 0;
-    }
-    if (mShadowDepth)
-    {
-        glDeleteRenderbuffers(1, &mShadowDepth);
-        mShadowDepth = 0;
     }
     if (mShadowAtlas)
     {
@@ -1385,7 +1381,7 @@ void CanvasRenderer::RenderShadowAtlas()
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glEnable(GL_SCISSOR_TEST);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearDepthf(1.0f);
 
     glUniform1i(mShadowDirectionalLoc, 0);
     for (int lightIndex = 0; lightIndex < mLightCount; ++lightIndex)
@@ -1396,7 +1392,7 @@ void CanvasRenderer::RenderShadowAtlas()
 
         glViewport(0, lightIndex * 2, textureSize, 1);
         glScissor(0, lightIndex * 2, textureSize, 1);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
         glUniform3f(mShadowLightLoc, light.position.x, light.position.y, light.radius);
         // An edge across the angle seam at +-pi runs off one end of the row;
         // drawn again a row-width to each side, it lands on the other end too.
@@ -1420,7 +1416,7 @@ void CanvasRenderer::RenderShadowAtlas()
         int row = 8 + lightIndex * 2;
         glViewport(0, row, textureSize, 1);
         glScissor(0, row, textureSize, 1);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
         glUniform4f(mShadowFrameLoc, light.direction.x, light.direction.y, directionalHalfSize, directionalDistance);
         glDrawArrays(GL_LINES, 0, vertexCount);
     }
