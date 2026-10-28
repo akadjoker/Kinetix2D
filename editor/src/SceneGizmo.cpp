@@ -805,9 +805,14 @@ void SceneGizmo::paintFrame(rt::PaintContext& ctx, const rt::Rect& area, const M
     const auto& theme = rt::Theme::instance();
     ctx.font.SetFontSize(theme.fontSize);
     ctx.font.SetBatch(&ctx.text);
-    ctx.font.SetColor(color);
     const Math::Vec2& at = labelBelow ? corners[3] : corners[0];
-    ctx.font.Print(label, area.x + at.x + 4.0f, area.y + at.y + 4.0f);
+    const float x = area.x + at.x + 4.0f;
+    const float y = area.y + at.y + 4.0f;
+    const float ascender = ctx.font.GetAscender();
+    ctx.fill.SetColor(rt::Color(16, 18, 22, 190));
+    ctx.fillRect(x - 3.0f, y - 2.0f, ctx.font.GetTextWidth(label) + 6.0f, ascender + 7.0f);
+    ctx.font.SetColor(color.r, color.g, color.b, 255);
+    ctx.font.Print(label, x, y + ascender);
 }
 
 void SceneGizmo::paintOutline(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const
