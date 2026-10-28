@@ -59,6 +59,7 @@ namespace k2d
         // the oldest object, so the choice is deterministic.
         CameraComponent *activeCamera();
         const CameraComponent *activeCamera() const;
+        const ct::Vector<CameraComponent *> &cameras() const { return mCameras; }
         void makeCameraActive(CameraComponent &camera);
 
         void setRenderCamera(const Camera2D *camera, float viewportWidth, float viewportHeight);

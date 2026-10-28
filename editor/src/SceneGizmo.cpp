@@ -629,8 +629,18 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
     if (mGrid)
         paintGrid(ctx, area);
 
-    if (CameraComponent* camera = scene.activeCamera())
-        paintCameraFrames(ctx, area, *camera);
+    const CameraComponent* active = scene.activeCamera();
+    for (const CameraComponent* camera : scene.cameras())
+        if (camera && camera->owner() && camera != active)
+            paintCameraFrames(ctx, area, *camera, false);
+    if (active)
+        paintCameraFrames(ctx, area, *active, true);
+    else
+    {
+        char label[96];
+        std::snprintf(label, sizeof(label), "Screen %.0f x %.0f (no camera)", mDisplayWidth, mDisplayHeight);
+        paintScreenFrame(ctx, area, Camera2D(), mDisplayWidth * 0.5f, mDisplayHeight * 0.5f, label);
+    }
 
     const bool editable = selected && selected->parent();
     if (mColliders)
@@ -724,41 +734,42 @@ void SceneGizmo::paintMarkers(rt::PaintContext& ctx, const rt::Rect& area, GameO
 
 // What the game will see: the camera's resolution, the window around it (wider
 // than the camera where Fit leaves bars, the same where Expand fills it) and
-// the limits the camera keeps inside.
-void SceneGizmo::paintCameraFrames(rt::PaintContext& ctx, const rt::Rect& area, const CameraComponent& camera) const
+// the limits the camera keeps inside. A resolution of 0 is the window's own.
+// In edit mode the camera has not followed its object yet, so the object's
+// position stands for it.
+void SceneGizmo::paintCameraFrames(rt::PaintContext& ctx, const rt::Rect& area, const CameraComponent& camera,
+                                   bool active) const
 {
-    const float width = camera.viewportWidth();
-    const float height = camera.viewportHeight();
+    const float width = camera.viewportWidth() > 0.0f ? camera.viewportWidth() : mDisplayWidth;
+    const float height = camera.viewportHeight() > 0.0f ? camera.viewportHeight() : mDisplayHeight;
     if (width <= 0.0f || height <= 0.0f)
         return;
-    const Matrix2D toWorld = camera.camera().CameraXform(width, height);
-    auto corners = [&](float halfW, float halfH, Math::Vec2 out[4]) {
-        const float cx = width * 0.5f;
-        const float cy = height * 0.5f;
-        out[0] = toScreen(toWorld.Transform(cx - halfW, cy - halfH));
-        out[1] = toScreen(toWorld.Transform(cx + halfW, cy - halfH));
-        out[2] = toScreen(toWorld.Transform(cx + halfW, cy + halfH));
-        out[3] = toScreen(toWorld.Transform(cx - halfW, cy + halfH));
-    };
+    Camera2D view = camera.camera();
+    view.position = camera.owner()->globalPosition();
     char label[96];
-    Math::Vec2 frame[4];
-    const GameViewport screen = CalculateGameViewport(mDisplayWidth, mDisplayHeight, width, height,
-                                                      camera.viewportScaleMode(), camera.integerScale());
-    if (screen.valid())
+    if (active)
     {
-        const float unitsX = screen.virtualWidth / screen.width;
-        const float unitsY = screen.virtualHeight / screen.height;
-        corners(mDisplayWidth * 0.5f * unitsX, mDisplayHeight * 0.5f * unitsY, frame);
-        std::snprintf(label, sizeof(label), "Screen %.0f x %.0f", mDisplayWidth, mDisplayHeight);
-        paintFrame(ctx, area, frame, rt::Color(90, 200, 255, 170), label, true);
+        const GameViewport screen = CalculateGameViewport(mDisplayWidth, mDisplayHeight, width, height,
+                                                          camera.viewportScaleMode(), camera.integerScale());
+        if (screen.valid())
+        {
+            std::snprintf(label, sizeof(label), "Screen %.0f x %.0f", mDisplayWidth, mDisplayHeight);
+            paintScreenFrame(ctx, area, view, mDisplayWidth * 0.5f * screen.virtualWidth / screen.width,
+                             mDisplayHeight * 0.5f * screen.virtualHeight / screen.height, label);
+        }
     }
-    corners(width * 0.5f, height * 0.5f, frame);
-    std::snprintf(label, sizeof(label), "Camera %.0f x %.0f | %s", width, height,
+    const Matrix2D toWorld = view.CameraXform(width, height);
+    Math::Vec2 frame[4];
+    frame[0] = toScreen(toWorld.Transform(0.0f, 0.0f));
+    frame[1] = toScreen(toWorld.Transform(width, 0.0f));
+    frame[2] = toScreen(toWorld.Transform(width, height));
+    frame[3] = toScreen(toWorld.Transform(0.0f, height));
+    std::snprintf(label, sizeof(label), "%s %.0f x %.0f | %s", camera.owner()->name().c_str(), width, height,
                   ViewportScaleModeName(camera.viewportScaleMode()));
-    paintFrame(ctx, area, frame, rt::Color(150, 120, 230, 220), label, false);
+    paintFrame(ctx, area, frame, active ? rt::Color(150, 120, 230, 230) : rt::Color(150, 120, 230, 110), label,
+               false);
 
-    const Camera2D& view = camera.camera();
-    if (view.limitEnabled)
+    if (active && view.limitEnabled)
     {
         const Math::Vec4& l = view.limits;
         frame[0] = toScreen(Math::Vec2(l.x, l.y));
@@ -767,6 +778,18 @@ void SceneGizmo::paintCameraFrames(rt::PaintContext& ctx, const rt::Rect& area, 
         frame[3] = toScreen(Math::Vec2(l.x, l.w));
         paintFrame(ctx, area, frame, rt::Color(255, 170, 60, 200), "Limits", false);
     }
+}
+
+void SceneGizmo::paintScreenFrame(rt::PaintContext& ctx, const rt::Rect& area, const Camera2D& camera,
+                                  float halfWidth, float halfHeight, const char* label) const
+{
+    const Matrix2D toWorld = camera.CameraXform(halfWidth * 2.0f, halfHeight * 2.0f);
+    Math::Vec2 frame[4];
+    frame[0] = toScreen(toWorld.Transform(0.0f, 0.0f));
+    frame[1] = toScreen(toWorld.Transform(halfWidth * 2.0f, 0.0f));
+    frame[2] = toScreen(toWorld.Transform(halfWidth * 2.0f, halfHeight * 2.0f));
+    frame[3] = toScreen(toWorld.Transform(0.0f, halfHeight * 2.0f));
+    paintFrame(ctx, area, frame, rt::Color(90, 200, 255, 170), label, true);
 }
 
 void SceneGizmo::paintFrame(rt::PaintContext& ctx, const rt::Rect& area, const Math::Vec2 corners[4],

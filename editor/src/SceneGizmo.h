@@ -161,7 +161,9 @@ private:
                     Math::Vec2& point) const;
     void paintGrid(ig::retained::PaintContext& ctx, const ig::retained::Rect& area) const;
     void paintCameraFrames(ig::retained::PaintContext& ctx, const ig::retained::Rect& area,
-                           const CameraComponent& camera) const;
+                           const CameraComponent& camera, bool active) const;
+    void paintScreenFrame(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, const Camera2D& camera,
+                          float halfWidth, float halfHeight, const char* label) const;
     void paintFrame(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, const Math::Vec2 corners[4],
                     const ig::retained::Color& color, const char* label, bool labelBelow) const;
     void paintMarkers(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
