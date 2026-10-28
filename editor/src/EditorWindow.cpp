@@ -12,6 +12,7 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/Device.h>
 #include <k2d/ParticleComponent.h>
+#include <k2d/TileMapComponent.h>
 #include <k2d/Prefab.h>
 #include <k2d/Profiler.h>
 #include <k2d/ZenRuntime.h>
@@ -249,9 +250,20 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     updateRunBar();
     updateUndoButtons();
 
-    mDock = outer->createChild<rt::DockPanel>();
+    // The scene and the project on the left, the selected object's tools on the
+    // right, each a rail whose page folds away; the views and the big editors
+    // in the dock between them.
+    auto* workspace = outer->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    workspace->setStretch(1.0f);
+    workspace->setPadding(0.0f);
+    workspace->setSpacing(0.0f);
+    mLeftBar = workspace->createChild<rt::SideTabBar>(rt::SideTabBar::Side::Left);
+    mLeftBar->setPageWidth(260.0f);
+    mDock = workspace->createChild<rt::DockPanel>();
     mDock->setStretch(1.0f);
-    mHierarchy = mDock->addPanel<HierarchyPanel>(kHierarchyPanel);
+    mRightBar = workspace->createChild<rt::SideTabBar>(rt::SideTabBar::Side::Right);
+    mRightBar->setPageWidth(340.0f);
+    mHierarchy = mLeftBar->addPage<HierarchyPanel>(Icons::get("Scene"), kHierarchyPanel);
     mHierarchy->selectionChanged.connect([this](GameObject* object)
     {
         setSelected(object);
@@ -286,12 +298,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         const rt::Rect area = mViewport->absoluteRect();
         addSprite(region.texture, region.id, region.rect, area.w * 0.5f, area.h * 0.5f);
     });
-    mInspector = mDock->addPanel<InspectorPanel>(kInspectorPanel);
-    mSettings = mDock->addPanel<SettingsPanel>(kSettingsPanel);
-    mSettings->changed.connect([this](const PhysicsSettings& settings, bool project)
-    {
-        physicsChanged(settings, project);
-    });
+    mInspector = mRightBar->addPage<InspectorPanel>(Icons::get("Inspector"), kInspectorPanel);
     mInspector->show(nullptr);
     mInspector->edited.connect([this](const char* label, bool final)
     {
@@ -318,12 +325,12 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mConsole->clear();
     });
     log_set_callback(editorLog, nullptr);
-    mAssetsPanel = mDock->addPanel<AssetsPanel>(kAssetsPanel, mAssets);
+    mAssetsPanel = mLeftBar->addPage<AssetsPanel>(Icons::get("Folder"), kAssetsPanel, mAssets);
     mAnimator = mDock->addPanel<AnimatorPanel>(kAnimatorPanel, mAssets);
     mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
     mAnimator->edited.connect([this](const char* label) { commit(label); });
     mAnimator->addComponentRequested.connect([this](const char* type) { addComponent(type); });
-    mParticles = mDock->addPanel<ParticlesPanel>(kParticlesPanel);
+    mParticles = mRightBar->addPage<ParticlesPanel>(Icons::get("Particle"), kParticlesPanel);
     mParticles->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mParticles->edited.connect([this](const char* label, bool final)
     {
@@ -333,12 +340,17 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             commit(mPendingEdit.c_str());
     });
     mProfiler = mDock->addPanel<ProfilerPanel>(kProfilerPanel);
-    mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
+    mTilePainter = mRightBar->addPage<TilePainterPanel>(Icons::get("TileMap"), kTilePanel);
     mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mTilePainter->edited.connect([this](const char* label)
     {
         commit(label);
         mInspectorStale = true;
+    });
+    mSettings = mRightBar->addPage<SettingsPanel>(Icons::get("Settings"), kSettingsPanel);
+    mSettings->changed.connect([this](const PhysicsSettings& settings, bool project)
+    {
+        physicsChanged(settings, project);
     });
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
@@ -356,18 +368,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             instantiatePrefab(path, nullptr, true, area.w * 0.5f, area.h * 0.5f);
         }
     });
-    mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
-    mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
-    mDock->moveTabToLeaf(kAssetsPanel, kConsolePanel);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
-    mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
-    mDock->moveTabToLeaf(kParticlesPanel, kConsolePanel);
     mDock->moveTabToLeaf(kProfilerPanel, kConsolePanel);
-    mDock->moveTabToLeaf(kSettingsPanel, kInspectorPanel);
-    mDock->showPanel(kInspectorPanel);
-    mDock->showPanel(kAssetsPanel);
+    mDock->showPanel(kConsolePanel);
     mDock->showPanel(kScenePanel);
+    mLeftBar->setCurrentIndex(mLeftBar->indexOf(mHierarchy));
+    mRightBar->setCurrentIndex(mRightBar->indexOf(mInspector));
     mDefaultLayout = mDock->saveLayout();
 
     mViewport->panned.connect([this](float dx, float dy)
@@ -961,6 +968,9 @@ void EditorWindow::showObject(GameObject* object)
     mInspector->show(object);
     mAnimator->show(object);
     mParticles->show(object);
+    // A dot on the tools that have something to work on in this object.
+    mRightBar->setPageBadge(mRightBar->indexOf(mParticles), object && object->getComponent<ParticleComponent>());
+    mRightBar->setPageBadge(mRightBar->indexOf(mTilePainter), object && object->getComponent<TileMapComponent>());
     mTilePainter->show(object);
 }
 

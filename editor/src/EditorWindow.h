@@ -19,6 +19,7 @@
 #include "BasicWidgets.hpp"
 #include "ConsoleWidget.hpp"
 #include "DockPanel.hpp"
+#include "SideTabBar.hpp"
 #include "FileDialog.hpp"
 #include "LayoutWidgets.hpp"
 #include "MenuWidgets.hpp"
@@ -115,6 +116,8 @@ private:
 
     PlatformWindow* mWindow = nullptr;
     ig::retained::DockPanel* mDock = nullptr;
+    ig::retained::SideTabBar* mLeftBar = nullptr;
+    ig::retained::SideTabBar* mRightBar = nullptr;
     ig::retained::ToolBar* mTools = nullptr;
     ig::retained::ToolBar* mRunBar = nullptr;
     int mToolItems[4] = {-1, -1, -1, -1};
