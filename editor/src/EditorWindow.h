@@ -79,6 +79,9 @@ private:
     void renderScene(float width, float height, float pixelScale);
     void renderGame(const ig::retained::Rect& area, float pixelScale);
     void select(GameObject* object);
+    bool selectedStillInScene() const;
+    // mSelected and its id together.
+    void setSelected(GameObject* object);
     // The panels that show the selected object, shown it again.
     void showObject(GameObject* object);
     void addComponent(const char* type);
@@ -187,6 +190,7 @@ private:
     // The selection survives undo by its path of child indices: a restored scene
     // gets new objects, and new ids.
     GameObject* mSelected = nullptr;
+    uint64_t mSelectedId = 0;
     bool mInspectorStale = false;
     CommandStack mCommands;
     ct::Json mCommitted;

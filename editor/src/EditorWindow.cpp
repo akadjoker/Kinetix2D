@@ -254,7 +254,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mHierarchy = mDock->addPanel<HierarchyPanel>(kHierarchyPanel);
     mHierarchy->selectionChanged.connect([this](GameObject* object)
     {
-        mSelected = object;
+        setSelected(object);
         showObject(object);
     });
     mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
@@ -789,11 +789,18 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     }
     // Scripts spawn and destroy objects while playing: the tree follows, and the
     // inspector lets go of an object that may be gone.
+    // Objects come and go behind the editor's back (scripts while playing, or a
+    // component added): the tree follows. The selection stays when its object
+    // is still in the scene, and is let go only when it is not.
     if (mScene.topologyVersion() != mTopology)
     {
         mTopology = mScene.topologyVersion();
+        GameObject* keep = selectedStillInScene() ? mSelected : nullptr;
         mHierarchy->rebuild(mScene);
-        select(nullptr);
+        if (keep)
+            mHierarchy->select(keep);
+        else
+            select(nullptr);
     }
     if (mInspectorStale)
     {
@@ -916,9 +923,35 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
     mGame->setTexture(texture);
 }
 
-void EditorWindow::select(GameObject* object)
+// The pointer alone could be a new object at a freed one's address: the id
+// must match too.
+bool EditorWindow::selectedStillInScene() const
+{
+    if (!mSelected)
+        return false;
+    ct::Vector<const GameObject*> stack;
+    stack.push_back(&mScene.root());
+    while (!stack.empty())
+    {
+        const GameObject* object = stack.back();
+        stack.pop_back();
+        if (object == mSelected)
+            return object->id() == mSelectedId;
+        for (std::size_t i = 0; i < object->childCount(); ++i)
+            stack.push_back(object->child(i));
+    }
+    return false;
+}
+
+void EditorWindow::setSelected(GameObject* object)
 {
     mSelected = object;
+    mSelectedId = object ? object->id() : 0;
+}
+
+void EditorWindow::select(GameObject* object)
+{
+    setSelected(object);
     mHierarchy->select(object);
     showObject(object);
 }
@@ -960,7 +993,7 @@ void EditorWindow::restore(const ct::Json& state)
     select(nullptr);
     mScene.clear();
     Serializer::ReadInto(mScene, mScene.root(), state, &mAssets);
-    mSelected = objectAt(mScene.root(), path);
+    setSelected(objectAt(mScene.root(), path));
     refreshTree();
     showObject(mSelected);
 }
@@ -1043,7 +1076,7 @@ GameObject* EditorWindow::instantiatePrefab(const ct::String& path, GameObject* 
         const Math::Vec2 world = mCamera.ScreenToWorld(x, y, area.w, area.h);
         object->setPosition(object->parent()->globalTransform().AffineInverse().Transform(world));
     }
-    mSelected = object;
+    setSelected(object);
     refreshTree();
     showObject(object);
     restartEditPreview(*object);
@@ -1102,7 +1135,7 @@ void EditorWindow::attachScript(const ct::String& path, GameObject* object, floa
         log_error("Could not load %s", path.c_str());
     else
         log_info("Added %s to %s", path.c_str(), object->name().c_str());
-    mSelected = object;
+    setSelected(object);
     refreshTree();
     showObject(object);
     commit("Add script");
@@ -1148,7 +1181,7 @@ void EditorWindow::addSprite(const ct::String& path, const ct::String& name, con
     }
     else
         sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
-    mSelected = object;
+    setSelected(object);
     refreshTree();
     showObject(object);
     commit("Add sprite");
@@ -1190,7 +1223,7 @@ void EditorWindow::dropObject(GameObject* object, GameObject* target, rt::TreeVi
     while (current < index && parent->moveChildDown(object))
         ++current;
 
-    mSelected = object;
+    setSelected(object);
     refreshTree();
     showObject(object);
     commit("Reparent");
@@ -1206,7 +1239,7 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
     case HierarchyAction::Create:
     {
         GameObject* object = mScene.createObject("GameObject", selected ? selected->parent() : nullptr);
-        mSelected = object;
+        setSelected(object);
         refreshTree();
         showObject(object);
         commit("New object");
@@ -1220,7 +1253,7 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
         GameObject* object = Serializer::ReadObject(mScene, copy, selected->parent(), &mAssets);
         if (!object)
             return;
-        mSelected = object;
+        setSelected(object);
         refreshTree();
         showObject(object);
         commit("Duplicate");
@@ -1255,7 +1288,7 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
         for (std::size_t i = 0; i + 1 < path.size(); ++i)
             children = &(*children)["children"][path[i]];
         (*children)["children"].erase(path.back());
-        mSelected = nullptr;
+        setSelected(nullptr);
         restore(state);
         commit("Delete");
         break;
@@ -1304,7 +1337,7 @@ void EditorWindow::stopPlay()
     mPaused = false;
     mTopology = mScene.topologyVersion();
     mHierarchy->rebuild(mScene);
-    mSelected = nullptr;
+    setSelected(nullptr);
     updateRunBar();
     updateUndoButtons();
 }
