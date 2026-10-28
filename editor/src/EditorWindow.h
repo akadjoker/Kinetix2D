@@ -54,6 +54,7 @@ public:
     bool openProject(const ct::String& projectFile);
     bool createProject(const ct::String& folder);
     bool openLastProject();
+    static void giveDefaults(Component& component);
     bool openScene(const char* path);
     void newScene();
     bool saveScene(const char* path);

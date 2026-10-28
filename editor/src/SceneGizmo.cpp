@@ -7,7 +7,11 @@
 #include <k2d/Collider2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Bone2D.h>
+#include <k2d/ClassDB.h>
+#include <k2d/Joint2D.h>
 #include <k2d/Light2D.h>
+#include <k2d/NavigationRegion2D.h>
+#include <k2d/SpriteBatch.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 #include <k2d/Skeleton2D.h>
@@ -103,6 +107,8 @@ void SceneGizmo::refresh(Scene& scene)
     mEntries.clear();
     mColliderEntries.clear();
     mBoneEntries.clear();
+    mJointEntries.clear();
+    mRegionEntries.clear();
     GameObject& root = scene.root();
     for (std::size_t i = 0; i < root.childCount(); ++i)
         mEntries.push_back(Entry{root.child(i), -1});
@@ -120,7 +126,51 @@ void SceneGizmo::refresh(Scene& scene)
         }
         if (Bone2D* bone = object->getComponent<Bone2D>())
             mBoneEntries.push_back(BoneEntry{bone, static_cast<int>(i)});
+        const std::size_t joints = object->componentCount<Joint2D>();
+        for (std::size_t c = 0; c < joints; ++c)
+            if (Joint2D* joint = object->getComponentAt<Joint2D>(c))
+            {
+                const ClassInfo* info = ClassDB::find(*joint);
+                mJointEntries.push_back(JointEntry{joint, static_cast<int>(i),
+                                                   info ? info->find("localAnchorA") : nullptr,
+                                                   info ? info->find("localAnchorB") : nullptr,
+                                                   info ? info->find("anchorsConfigured") : nullptr, ct::String(),
+                                                   nullptr});
+            }
+        if (NavigationRegion2D* region = object->getComponent<NavigationRegion2D>())
+            mRegionEntries.push_back(RegionEntry{region, static_cast<int>(i)});
     }
+}
+
+GameObject* SceneGizmo::findTarget(JointEntry& entry)
+{
+    if (entry.targetName != entry.joint->targetName())
+    {
+        entry.targetName = entry.joint->targetName();
+        entry.target = nullptr;
+        for (const Entry& candidate : mEntries)
+            if (candidate.object->name() == entry.targetName)
+            {
+                entry.target = candidate.object;
+                break;
+            }
+    }
+    return entry.target;
+}
+
+// Both ends in the view's points: anchors in their bodies when the joint has
+// them, the objects' origins otherwise.
+bool SceneGizmo::jointEnds(JointEntry& entry, Math::Vec2& a, Math::Vec2& b)
+{
+    GameObject* owner = entry.joint->owner();
+    GameObject* target = findTarget(entry);
+    if (!owner || !target)
+        return false;
+    const Math::Vec2 anchorA = entry.anchorA ? entry.anchorA->get(*entry.joint).asVec2() : Math::Vec2(0.0f, 0.0f);
+    const Math::Vec2 anchorB = entry.anchorB ? entry.anchorB->get(*entry.joint).asVec2() : Math::Vec2(0.0f, 0.0f);
+    a = toScreen(bodyFrame(*owner).Transform(anchorA));
+    b = toScreen(bodyFrame(*target).Transform(anchorB));
+    return true;
 }
 
 // The bone from its joint to its tip, in the view's points.
@@ -337,6 +387,60 @@ SceneGizmo::Press SceneGizmo::press(GameObject* selected, float x, float y, int 
             mEditName = "Add collider point";
             return Press::Drag;
         }
+        int jointIndex = -1;
+        bool atB = false;
+        if (hitJoint(*selected, x, y, jointIndex, atB))
+        {
+            mHandle = Handle::JointAnchor;
+            mJointIndex = jointIndex;
+            mJointAtB = atB;
+            mEditName = "Move joint anchor";
+            return Press::Drag;
+        }
+        int loop = -1;
+        bool onEdge = false;
+        Math::Vec2 local;
+        if (NavigationRegion2D* region = selected->getComponent<NavigationRegion2D>();
+            region && hitRegion(*selected, x, y, loop, index, onEdge, local))
+        {
+            const int count = static_cast<int>((loop == 0 ? region->polygon() : region->holes()[loop - 1]).size());
+            copyLoops(*region);
+            ct::Vector<Math::Vec2>& points = mLoopScratch[static_cast<std::size_t>(loop)];
+            if (!onEdge && ctrl)
+            {
+                if (count <= 3)
+                    return Press::Shape;
+                points.erase(points.begin() + index);
+                storeLoops(*region);
+                mEditName = "Remove navigation point";
+                return Press::Edited;
+            }
+            if (onEdge && clicks < 2)
+                return Press::Shape;
+            if (onEdge)
+            {
+                points.insert(points.begin() + index + 1, local);
+                storeLoops(*region);
+                ++index;
+                mChanged = true;
+            }
+            mHandle = Handle::RegionPoint;
+            mRegion = region;
+            mRegionLoop = loop;
+            mPointIndex = index;
+            mEditName = onEdge ? "Add navigation point" : "Move navigation point";
+            return Press::Drag;
+        }
+        if (hitBatch(*selected, x, y, index))
+        {
+            mHandle = Handle::BatchEntry;
+            mBatch = selected->getComponent<SpriteBatch>();
+            mPointIndex = index;
+            mGrabLocal = selected->globalTransform().AffineInverse().Transform(toWorld(x, y));
+            mGrabPosition = mBatch->entryAt(index)->position;
+            mEditName = "Move batch sprite";
+            return Press::Drag;
+        }
         // A bone turns when its body is dragged and pulls its chain by the tip.
         Math::Vec2 joint, tip;
         const Bone2D* bone = selected->getComponent<Bone2D>();
@@ -379,6 +483,39 @@ bool SceneGizmo::drag(float x, float y)
             world = Math::Vec2(snapped(world.x, kSnapStep), snapped(world.y, kSnapStep));
         setColliderPoint(*mPointCollider, bodyScale(object), mPointIndex, bodyFrame(object).AffineInverse().Transform(world),
                          mScratch);
+    }
+    else if (mHandle == Handle::JointAnchor)
+    {
+        JointEntry& entry = mJointEntries[static_cast<std::size_t>(mJointIndex)];
+        GameObject* body = mJointAtB ? findTarget(entry) : entry.joint->owner();
+        const ClassProperty* anchor = mJointAtB ? entry.anchorB : entry.anchorA;
+        if (!body || !anchor)
+            return false;
+        Math::Vec2 world = toWorld(x, y);
+        if (mSnap)
+            world = Math::Vec2(snapped(world.x, kSnapStep), snapped(world.y, kSnapStep));
+        anchor->set(*entry.joint, PropertyValue::from(bodyFrame(*body).AffineInverse().Transform(world)));
+        if (entry.configured)
+            entry.configured->set(*entry.joint, PropertyValue::from(true));
+    }
+    else if (mHandle == Handle::RegionPoint)
+    {
+        Math::Vec2 world = toWorld(x, y);
+        if (mSnap)
+            world = Math::Vec2(snapped(world.x, kSnapStep), snapped(world.y, kSnapStep));
+        copyLoops(*mRegion);
+        mLoopScratch[static_cast<std::size_t>(mRegionLoop)][static_cast<std::size_t>(mPointIndex)] =
+            object.globalTransform().AffineInverse().Transform(world);
+        storeLoops(*mRegion);
+    }
+    else if (mHandle == Handle::BatchEntry)
+    {
+        const Math::Vec2 local = object.globalTransform().AffineInverse().Transform(toWorld(x, y));
+        Math::Vec2 position(mGrabPosition.x + local.x - mGrabLocal.x, mGrabPosition.y + local.y - mGrabLocal.y);
+        if (mSnap)
+            position = Math::Vec2(snapped(position.x, kSnapStep), snapped(position.y, kSnapStep));
+        if (SpriteBatch::Entry* entry = mBatch->entryAt(mPointIndex))
+            entry->position = position;
     }
     else if (mHandle == Handle::BoneTip)
     {
@@ -443,6 +580,9 @@ bool SceneGizmo::release()
     mTarget = nullptr;
     mPointCollider = nullptr;
     mPointIndex = -1;
+    mJointIndex = -1;
+    mRegion = nullptr;
+    mBatch = nullptr;
     mChanged = false;
     return changed;
 }
@@ -482,6 +622,11 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
                     paintCollider(ctx, area, *selected, *collider);
     }
 
+    if (mColliders || editable)
+    {
+        paintJoints(ctx, area, selected);
+        paintRegions(ctx, area, selected);
+    }
     paintBones(ctx, area, selected);
     paintMarkers(ctx, area, selected);
     if (!editable)
@@ -489,7 +634,10 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
     paintOutline(ctx, area, *selected);
     paintLight(ctx, area, *selected);
     if (mTool == SceneTool::Select)
+    {
         paintPoints(ctx, area, *selected);
+        paintBatch(ctx, area, *selected);
+    }
     else
         paintHandles(ctx, area, *selected);
 }
@@ -694,6 +842,222 @@ void SceneGizmo::paintHandles(rt::PaintContext& ctx, const rt::Rect& area, GameO
         ctx.line.Circle(cx, cy, kRingRadius, false);
         ctx.line.Circle(cx, cy, kRingRadius - 1.0f, false);
     }
+}
+
+} // namespace k2d::editor
+
+namespace k2d::editor
+{
+
+namespace
+{
+
+const rt::Color kJointColor(240, 170, 80, 220);
+const rt::Color kRegionColor(80, 210, 200, 200);
+const rt::Color kBatchColor(140, 180, 255, 180);
+
+const ct::Vector<Math::Vec2>& regionLoop(const NavigationRegion2D& region, int loop)
+{
+    return loop == 0 ? region.polygon() : region.holes()[static_cast<std::size_t>(loop - 1)];
+}
+
+int regionLoops(const NavigationRegion2D& region)
+{
+    return region.polygon().empty() ? 0 : 1 + static_cast<int>(region.holes().size());
+}
+
+} // namespace
+
+void SceneGizmo::paintJoints(rt::PaintContext& ctx, const rt::Rect& area, GameObject* selected)
+{
+    for (JointEntry& entry : mJointEntries)
+    {
+        GameObject* owner = entry.joint->owner();
+        Math::Vec2 a, b;
+        if (!mShown[static_cast<std::size_t>(entry.entry)] || !entry.joint->active() || !jointEnds(entry, a, b))
+            continue;
+        const bool mine = owner == selected || entry.target == selected;
+        if (!mColliders && !mine)
+            continue;
+        ctx.line.SetColor(kJointColor);
+        ctx.line.Line2D(area.x + a.x, area.y + a.y, area.x + b.x, area.y + b.y);
+        ctx.line.Circle(area.x + a.x, area.y + a.y, 4.0f, false);
+        ctx.line.Circle(area.x + b.x, area.y + b.y, 4.0f, false);
+        if (mine && mTool == SceneTool::Select && entry.anchorA)
+        {
+            ctx.fill.SetColor(kJointColor);
+            if (owner == selected)
+                ctx.fill.Circle(area.x + a.x, area.y + a.y, 4.0f, true);
+            if (entry.target == selected && entry.anchorB)
+                ctx.fill.Circle(area.x + b.x, area.y + b.y, 4.0f, true);
+        }
+    }
+}
+
+bool SceneGizmo::hitJoint(GameObject& selected, float x, float y, int& joint, bool& atB)
+{
+    for (std::size_t i = 0; i < mJointEntries.size(); ++i)
+    {
+        JointEntry& entry = mJointEntries[i];
+        Math::Vec2 a, b;
+        if (!entry.anchorA || !jointEnds(entry, a, b))
+            continue;
+        if (entry.joint->owner() == &selected && std::hypot(a.x - x, a.y - y) <= kPointHitRadius)
+        {
+            joint = static_cast<int>(i);
+            atB = false;
+            return true;
+        }
+        if (entry.target == &selected && entry.anchorB && std::hypot(b.x - x, b.y - y) <= kPointHitRadius)
+        {
+            joint = static_cast<int>(i);
+            atB = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+void SceneGizmo::paintRegions(rt::PaintContext& ctx, const rt::Rect& area, GameObject* selected) const
+{
+    for (const RegionEntry& entry : mRegionEntries)
+    {
+        const GameObject& object = *mEntries[static_cast<std::size_t>(entry.entry)].object;
+        const bool mine = &object == selected;
+        if (!mShown[static_cast<std::size_t>(entry.entry)] || (!mColliders && !mine))
+            continue;
+        const Matrix2D& xform = object.globalTransform();
+        for (int loop = 0, loops = regionLoops(*entry.region); loop < loops; ++loop)
+        {
+            const ct::Vector<Math::Vec2>& points = regionLoop(*entry.region, loop);
+            ctx.line.SetColor(kRegionColor);
+            for (std::size_t i = 0; i < points.size(); ++i)
+            {
+                const Math::Vec2 p = toScreen(xform.Transform(points[i]));
+                const Math::Vec2 q = toScreen(xform.Transform(points[(i + 1) % points.size()]));
+                ctx.line.Line2D(area.x + p.x, area.y + p.y, area.x + q.x, area.y + q.y);
+                if (mine && mTool == SceneTool::Select)
+                {
+                    const bool active = entry.region == mRegion && loop == mRegionLoop &&
+                                        static_cast<int>(i) == mPointIndex;
+                    ctx.fill.SetColor(active ? kActiveColor : kRegionColor);
+                    ctx.fillRect(area.x + p.x - kPointHalfSize, area.y + p.y - kPointHalfSize, kPointHalfSize * 2.0f,
+                                 kPointHalfSize * 2.0f);
+                }
+            }
+        }
+    }
+}
+
+bool SceneGizmo::hitRegion(GameObject& selected, float x, float y, int& loop, int& index, bool& onEdge,
+                           Math::Vec2& local) const
+{
+    const NavigationRegion2D* region = selected.getComponent<NavigationRegion2D>();
+    if (!region)
+        return false;
+    const Matrix2D& xform = selected.globalTransform();
+    for (int l = 0, loops = regionLoops(*region); l < loops; ++l)
+    {
+        const ct::Vector<Math::Vec2>& points = regionLoop(*region, l);
+        for (std::size_t i = 0; i < points.size(); ++i)
+        {
+            const Math::Vec2 p = toScreen(xform.Transform(points[i]));
+            if (std::hypot(p.x - x, p.y - y) <= kPointHitRadius)
+            {
+                loop = l;
+                index = static_cast<int>(i);
+                onEdge = false;
+                return true;
+            }
+        }
+    }
+    for (int l = 0, loops = regionLoops(*region); l < loops; ++l)
+    {
+        const ct::Vector<Math::Vec2>& points = regionLoop(*region, l);
+        for (std::size_t i = 0; i < points.size(); ++i)
+        {
+            const Math::Vec2 p = toScreen(xform.Transform(points[i]));
+            const Math::Vec2 q = toScreen(xform.Transform(points[(i + 1) % points.size()]));
+            float t = 0.0f;
+            if (distanceToSegment(x, y, p.x, p.y, q.x, q.y, &t) <= kPointHitRadius)
+            {
+                loop = l;
+                index = static_cast<int>(i);
+                onEdge = true;
+                local = xform.AffineInverse().Transform(toWorld(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t));
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void SceneGizmo::copyLoops(const NavigationRegion2D& region)
+{
+    const int loops = regionLoops(region);
+    mLoopScratch.resize(static_cast<std::size_t>(loops));
+    for (int l = 0; l < loops; ++l)
+    {
+        ct::Vector<Math::Vec2>& out = mLoopScratch[static_cast<std::size_t>(l)];
+        out.clear();
+        for (const Math::Vec2& p : regionLoop(region, l))
+            out.push_back(p);
+    }
+}
+
+void SceneGizmo::storeLoops(NavigationRegion2D& region)
+{
+    if (mLoopScratch.empty())
+        return;
+    mHolePointers.clear();
+    mHoleCounts.clear();
+    for (std::size_t l = 1; l < mLoopScratch.size(); ++l)
+    {
+        mHolePointers.push_back(mLoopScratch[l].data());
+        mHoleCounts.push_back(static_cast<int>(mLoopScratch[l].size()));
+    }
+    region.setPolygonWithHoles(mLoopScratch[0].data(), static_cast<int>(mLoopScratch[0].size()), mHolePointers.data(),
+                               mHoleCounts.data(), static_cast<int>(mHolePointers.size()));
+}
+
+void SceneGizmo::paintBatch(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const
+{
+    const SpriteBatch* batch = selected.getComponent<SpriteBatch>();
+    if (!batch)
+        return;
+    const Matrix2D& xform = selected.globalTransform();
+    for (int i = 0; i < batch->count(); ++i)
+    {
+        const SpriteBatch::Entry* entry = batch->entry(i);
+        if (!entry)
+            continue;
+        const Math::Vec2 p = entry->position, s = entry->size;
+        const Math::Vec2 q[4] = {toScreen(xform.Transform(p)), toScreen(xform.Transform(p.x + s.x, p.y)),
+                                 toScreen(xform.Transform(p.x + s.x, p.y + s.y)), toScreen(xform.Transform(p.x, p.y + s.y))};
+        ctx.line.SetColor(batch == mBatch && i == mPointIndex ? kActiveColor : kBatchColor);
+        for (int k = 0; k < 4; ++k)
+            ctx.line.Line2D(area.x + q[k].x, area.y + q[k].y, area.x + q[(k + 1) % 4].x, area.y + q[(k + 1) % 4].y);
+    }
+}
+
+// The top sprite under the point: entries draw in order, so the last one wins.
+bool SceneGizmo::hitBatch(GameObject& selected, float x, float y, int& index) const
+{
+    const SpriteBatch* batch = selected.getComponent<SpriteBatch>();
+    if (!batch)
+        return false;
+    const Math::Vec2 local = selected.globalTransform().AffineInverse().Transform(toWorld(x, y));
+    for (int i = batch->count() - 1; i >= 0; --i)
+    {
+        const SpriteBatch::Entry* entry = batch->entry(i);
+        if (entry && local.x >= entry->position.x && local.y >= entry->position.y &&
+            local.x <= entry->position.x + entry->size.x && local.y <= entry->position.y + entry->size.y)
+        {
+            index = i;
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace k2d::editor

@@ -313,6 +313,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("DistanceJoint2D", ComponentType::Joint, ComponentClass::DistanceJoint2D);
+    ClassDB::addProperty<Joint2D>(c, PropertyInfo(PropertyType::String, "targetName"), &Joint2D::targetName, &Joint2D::setTargetName);
     ClassDB::addProperty<DistanceJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorA"), &DistanceJoint2D::localAnchorA, &DistanceJoint2D::setLocalAnchorA);
     ClassDB::addProperty<DistanceJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorB"), &DistanceJoint2D::localAnchorB, &DistanceJoint2D::setLocalAnchorB);
     ClassDB::addProperty<DistanceJoint2D>(c, PropertyInfo(PropertyType::Float, "length"), &DistanceJoint2D::length, &DistanceJoint2D::setLength);
@@ -430,6 +431,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("MotorJoint2D", ComponentType::Joint, ComponentClass::MotorJoint2D);
+    ClassDB::addProperty<Joint2D>(c, PropertyInfo(PropertyType::String, "targetName"), &Joint2D::targetName, &Joint2D::setTargetName);
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Vec2, "linearOffset"), &MotorJoint2D::linearOffset, &MotorJoint2D::setLinearOffset);
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "angularOffset"), &MotorJoint2D::angularOffset, &MotorJoint2D::setAngularOffset);
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "maxForce"), &MotorJoint2D::maxForce, &MotorJoint2D::setMaxForce);
@@ -635,6 +637,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("RevoluteJoint2D", ComponentType::Joint, ComponentClass::RevoluteJoint2D);
+    ClassDB::addProperty<Joint2D>(c, PropertyInfo(PropertyType::String, "targetName"), &Joint2D::targetName, &Joint2D::setTargetName);
     ClassDB::addProperty<RevoluteJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorA"), &RevoluteJoint2D::localAnchorA, &RevoluteJoint2D::setLocalAnchorA);
     ClassDB::addProperty<RevoluteJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorB"), &RevoluteJoint2D::localAnchorB, &RevoluteJoint2D::setLocalAnchorB);
     ClassDB::addProperty<RevoluteJoint2D>(c, PropertyInfo(PropertyType::Bool, "anchorsConfigured"), &RevoluteJoint2D::anchorsConfigured, &RevoluteJoint2D::setAnchorsConfigured);
@@ -777,6 +780,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("WheelJoint2D", ComponentType::Joint, ComponentClass::WheelJoint2D);
+    ClassDB::addProperty<Joint2D>(c, PropertyInfo(PropertyType::String, "targetName"), &Joint2D::targetName, &Joint2D::setTargetName);
     ClassDB::addProperty<WheelJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorA"), &WheelJoint2D::localAnchorA, &WheelJoint2D::setLocalAnchorA);
     ClassDB::addProperty<WheelJoint2D>(c, PropertyInfo(PropertyType::Vec2, "localAnchorB"), &WheelJoint2D::localAnchorB, &WheelJoint2D::setLocalAnchorB);
     ClassDB::addProperty<WheelJoint2D>(c, PropertyInfo(PropertyType::Bool, "anchorsConfigured"), &WheelJoint2D::anchorsConfigured, &WheelJoint2D::setAnchorsConfigured);

@@ -12,6 +12,10 @@ namespace k2d
 {
 class Bone2D;
 class Collider2D;
+class Joint2D;
+class NavigationRegion2D;
+class SpriteBatch;
+struct ClassProperty;
 class GameObject;
 class Scene;
 }
@@ -82,7 +86,10 @@ private:
         Ring,
         Point,
         BoneTurn,
-        BoneTip
+        BoneTip,
+        JointAnchor,
+        RegionPoint,
+        BatchEntry
     };
 
     struct Entry
@@ -103,6 +110,25 @@ private:
         int entry;
     };
 
+    // A joint drawn from its body to the object it names; that object is looked
+    // up again only when the name changes.
+    struct JointEntry
+    {
+        Joint2D* joint;
+        int entry;
+        const ClassProperty* anchorA;
+        const ClassProperty* anchorB;
+        const ClassProperty* configured;
+        ct::String targetName;
+        GameObject* target;
+    };
+
+    struct RegionEntry
+    {
+        NavigationRegion2D* region;
+        int entry;
+    };
+
     Math::Vec2 toScreen(const Math::Vec2& world) const;
     Math::Vec2 toWorld(float x, float y) const;
     void refresh(Scene& scene);
@@ -120,6 +146,16 @@ private:
     void paintLight(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
     void paintBones(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
     bool boneEnds(const Bone2D& bone, Math::Vec2& from, Math::Vec2& to) const;
+    GameObject* findTarget(JointEntry& entry);
+    bool jointEnds(JointEntry& entry, Math::Vec2& a, Math::Vec2& b);
+    void paintJoints(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected);
+    void paintRegions(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
+    void paintBatch(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
+    bool hitJoint(GameObject& selected, float x, float y, int& joint, bool& atB);
+    bool hitRegion(GameObject& selected, float x, float y, int& loop, int& index, bool& onEdge, Math::Vec2& local) const;
+    bool hitBatch(GameObject& selected, float x, float y, int& index) const;
+    void copyLoops(const NavigationRegion2D& region);
+    void storeLoops(NavigationRegion2D& region);
     void paintHandles(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
 
     SceneTool mTool = SceneTool::Select;
@@ -138,6 +174,11 @@ private:
     ct::Vector<Entry> mEntries;
     ct::Vector<ColliderEntry> mColliderEntries;
     ct::Vector<BoneEntry> mBoneEntries;
+    ct::Vector<JointEntry> mJointEntries;
+    ct::Vector<RegionEntry> mRegionEntries;
+    ct::Vector<ct::Vector<Math::Vec2>> mLoopScratch;
+    ct::Vector<const Math::Vec2*> mHolePointers;
+    ct::Vector<int> mHoleCounts;
     int mIkChain = 2;
     ct::Vector<unsigned char> mShown;
     ct::Vector<Math::Vec2> mScratch;
@@ -146,6 +187,13 @@ private:
     GameObject* mTarget = nullptr;
     Collider2D* mPointCollider = nullptr;
     int mPointIndex = -1;
+    int mJointIndex = -1;
+    bool mJointAtB = false;
+    NavigationRegion2D* mRegion = nullptr;
+    int mRegionLoop = -1;
+    SpriteBatch* mBatch = nullptr;
+    Math::Vec2 mGrabLocal;
+    Math::Vec2 mGrabPosition;
     const char* mEditName = "Edit";
     bool mChanged = false;
     float mStartX = 0.0f;

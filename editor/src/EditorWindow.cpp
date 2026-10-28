@@ -19,6 +19,7 @@
 #include <k2d/ZenRuntime.h>
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
+#include <k2d/NavigationRegion2D.h>
 #include <k2d/OpenGL.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/SceneManager.h>
@@ -1065,10 +1066,26 @@ void EditorWindow::showObject(GameObject* object)
 
 // Shown again on the next frame: the request can come from a widget the
 // inspector is about to replace.
+// What a component added from the editor starts with when its own defaults
+// leave nothing to work on: a region a square to shape in the scene view.
+void EditorWindow::giveDefaults(Component& component)
+{
+    if (component.type() == ComponentType::NavigationRegion)
+    {
+        const Math::Vec2 square[4] = {Math::Vec2(-128.0f, -128.0f), Math::Vec2(128.0f, -128.0f),
+                                      Math::Vec2(128.0f, 128.0f), Math::Vec2(-128.0f, 128.0f)};
+        static_cast<NavigationRegion2D&>(component).setPolygon(square, 4);
+    }
+}
+
 void EditorWindow::addComponent(const char* type)
 {
-    if (mSelected && !mPlaying && Serializer::Create(*mSelected, type))
+    if (mSelected && !mPlaying)
     {
+        Component* made = Serializer::Create(*mSelected, type);
+        if (!made)
+            return;
+        giveDefaults(*made);
         commit("Add component");
         mInspectorStale = true;
     }

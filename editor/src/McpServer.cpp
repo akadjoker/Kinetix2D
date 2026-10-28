@@ -685,8 +685,10 @@ ct::Json McpServer::addComponent(const ct::Json& arguments, bool& isError)
             return fail(ct::String("Added, but ") + path + " did not load: see console", isError);
         return text(ct::String("Added script ") + path + " to " + pathOf(object));
     }
-    if (!Serializer::Create(*object, type.c_str()))
+    Component* made = Serializer::Create(*object, type.c_str());
+    if (!made)
         return fail(ct::String("No component type ") + type + " (see component_types)", isError);
+    EditorWindow::giveDefaults(*made);
     mEditor.commit("MCP: add component");
     mEditor.refreshTree();
     mEditor.showObject(mEditor.mSelected);
