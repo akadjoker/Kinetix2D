@@ -7,9 +7,9 @@ The build produces three executables in ``bin/`` next to the source tree:
 The editor (``k2d_editor``)
 ---------------------------
 
-The editor is an ImGui application over the real ``k2d::Scene`` — there is one
-scene model and the editor edits it directly. Its source lives in
-``editor/src`` (``core/``, ``panels/``, ``widgets/``).
+The editor is an iGUI (retained mode) application over the real
+``k2d::Scene`` — there is one scene model and the editor edits it directly. Its
+source lives in ``editor/src``.
 
 * Dockable panels: Hierarchy, Inspector, Assets, Console, Game, the 2D Scene
   viewport, Scripts, Settings, Prefabs, Animator, Particle, Sprite/Image,

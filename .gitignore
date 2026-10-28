@@ -15,7 +15,6 @@ PLAN.md
 
 # Editor layout is per-machine state
 k2d_editor.ini
-imgui.ini
 editor/icons/*.jpeg
 
 # Web games exported from the editor
