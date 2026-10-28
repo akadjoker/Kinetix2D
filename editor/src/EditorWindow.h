@@ -7,6 +7,7 @@
 #include "McpServer.h"
 #include "ParticlesPanel.h"
 #include "SceneGizmo.h"
+#include "SettingsPanel.h"
 #include "ScriptEditorPanel.h"
 #include "SpriteEditorPanel.h"
 #include "TilePainterPanel.h"
@@ -57,6 +58,9 @@ private:
     void resetLayout();
     void registerTypes();
     void drainLog();
+    void loadPhysics();
+    void applyPhysics();
+    void physicsChanged(const PhysicsSettings& settings, bool project);
     // Particles, animations and action sequences moving in edit mode.
     void tickEditPreview(GameObject& object, float deltaTime);
     void restartEditPreview(GameObject& object);
@@ -127,6 +131,9 @@ private:
     TilePainterPanel* mTilePainter = nullptr;
     ScriptEditorPanel* mScriptEditor = nullptr;
     ParticlesPanel* mParticles = nullptr;
+    SettingsPanel* mSettings = nullptr;
+    PhysicsSettings mPhysics;
+    ct::Json mProjectDocument;   // project.k2dproj as read, written back with only physics changed
     int mPreviewItem = -1;
     bool mLivePreview = true;
     McpServer mMcp{*this};
@@ -166,7 +173,6 @@ private:
     bool mPlaying = false;
     bool mPaused = false;
     ct::Json mPlaySnapshot;
-    Math::Vec2 mEditGravity;
     uint32_t mTopology = 0;
 
     // The selection survives undo by its path of child indices: a restored scene
