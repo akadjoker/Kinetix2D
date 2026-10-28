@@ -51,6 +51,8 @@ struct NumberSpec
     // A slider is shown when the range is bounded on both sides.
     double minimum = -1.0e9;
     double maximum = 1.0e9;
+    // 0: the field stretches in its row; otherwise its width, for tool bars.
+    float width = 0.0f;
 };
 
 // A number field that stretches in its row; changed gets the value and the

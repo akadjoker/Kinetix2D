@@ -1,6 +1,7 @@
 #include "SpriteEditorPanel.h"
 
 #include "Icons.h"
+#include "PropertyFields.h"
 #include "SpriteCanvas.h"
 #include "core/EditorFileSystem.h"
 
@@ -115,30 +116,20 @@ public:
     Vec2f sizeHint() const override { return {220.0f, rt::BoxLayout::sizeHint().y}; }
 };
 
-// A number field wide enough for its label and a few digits.
-class NumberField : public rt::SpinSlider
-{
-public:
-    IG_WIDGET_CLASS(NumberField, rt::SpinSlider);
-
-    Vec2f sizeHint() const override
-    {
-        const Vec2f hint = rt::SpinSlider::sizeHint();
-        return {hint.x > 96.0f ? hint.x : 96.0f, hint.y};
-    }
-};
-
+// Whole-number fields from the kit: a slider for a short range, the number
+// alone otherwise.
 rt::SpinSlider* integerField(rt::Widget* parent, const char* label, double value, double minimum, double maximum)
 {
-    auto* field = parent->createChild<NumberField>();
-    field->setLabel(label);
-    field->setEditingInteger(true);
-    field->setStep(1.0);
-    field->setMin(minimum);
-    field->setMax(maximum);
-    field->setControlState(rt::SpinSlider::ControlState::Hide);
-    field->setValueNoSignal(value);
-    return field;
+    NumberSpec spec;
+    spec.integer = true;
+    spec.step = 1.0;
+    if (maximum - minimum <= 1000.0)
+    {
+        spec.minimum = minimum;
+        spec.maximum = maximum;
+    }
+    spec.width = 96.0f;
+    return addNumberField(parent, label, value, spec, nullptr);
 }
 
 } // namespace

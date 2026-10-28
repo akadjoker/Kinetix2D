@@ -3,6 +3,7 @@
 #include "AssetsPanel.h"
 #include "FrameStrip.h"
 #include "Icons.h"
+#include "PropertyFields.h"
 #include "core/EditorFileSystem.h"
 
 #include "BasicWidgets.hpp"
@@ -84,7 +85,7 @@ public:
     Vec2f sizeHint() const override { return {200.0f, rt::BoxLayout::sizeHint().y}; }
 };
 
-// Fields of a set width in the bar above the frames.
+// The clip's name, at a set width in the bar above the frames.
 class ClipName : public rt::TextInput
 {
 public:
@@ -93,14 +94,6 @@ public:
     using rt::TextInput::TextInput;
 
     Vec2f sizeHint() const override { return {140.0f, rt::TextInput::sizeHint().y}; }
-};
-
-class FpsField : public rt::SpinSlider
-{
-public:
-    IG_WIDGET_CLASS(FpsField, rt::SpinSlider);
-
-    Vec2f sizeHint() const override { return {110.0f, rt::SpinSlider::sizeHint().y}; }
 };
 
 bool isImage(const ct::String& path)
@@ -255,22 +248,21 @@ AnimatorPanel::AnimatorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutDir::Vert
         current->name = name;
         changed("Rename clip");
     });
-    mFps = frameBar->createChild<FpsField>();
-    mFps->setLabel("fps");
-    mFps->setStep(1.0);
-    mFps->setMin(1.0);
-    mFps->setMax(120.0);
-    mFps->setControlState(rt::SpinSlider::ControlState::PreferSlider);
-    mFps->valueChanged.connect([this](double value)
+    NumberSpec fpsSpec;
+    fpsSpec.integer = true;
+    fpsSpec.step = 1.0;
+    fpsSpec.minimum = 1.0;
+    fpsSpec.maximum = 120.0;
+    fpsSpec.width = 110.0f;
+    mFps = addNumberField(frameBar, "fps", 8.0, fpsSpec, [this](double value, bool final)
     {
         if (AnimationClip* current = clip(); current && !mSyncing)
         {
             current->framesPerSecond = static_cast<float>(value);
-            if (!mFps->isGrabbing())
+            if (final)
                 changed("Clip speed");
         }
     });
-    mFps->ungrabbed.connect([this]() { changed("Clip speed"); });
     mMode = frameBar->createChild<rt::ComboBox>();
     mMode->addItem("One shot");
     mMode->addItem("Loop");

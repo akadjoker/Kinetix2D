@@ -2,12 +2,14 @@
 
 #include "AssetsPanel.h"
 #include "Icons.h"
+#include "PropertyFields.h"
 #include "core/EditorFileSystem.h"
 
 #include "BasicWidgets.hpp"
 #include "SpinSlider.hpp"
 #include "Theme.hpp"
 #include "ToolBar.hpp"
+#include "TreePropertyColorWidgets.hpp"
 #include "WidgetApp.hpp"
 
 #include <k2d/Assets.h>
@@ -385,7 +387,7 @@ private:
     int mStartX = 0, mStartY = 0, mHoverX = 0, mHoverY = 0;
 };
 
-// The colours used last, a click picks one.
+// The colours used last, beside the colour button; a click picks one.
 class ColourSwatches : public rt::Widget
 {
 public:
@@ -409,23 +411,16 @@ public:
         markDirty();
     }
 
-    Vec2f sizeHint() const override { return {18.0f * (kRecentColours + 1) + 4.0f, 22.0f}; }
+    Vec2f sizeHint() const override { return {16.0f * kRecentColours + 4.0f, 22.0f}; }
 
     void paint(rt::PaintContext& ctx) override
     {
         if (!visible_)
             return;
         const rt::Rect abs = absoluteRect();
-        unsigned char current[4];
-        mPanel.colour(current);
-        // The current colour first, bigger, then the recent ones.
-        ctx.fill.SetColor(rt::Color(20, 22, 26, 255));
-        ctx.fillRect(abs.x, abs.y + 1.0f, 20.0f, 20.0f);
-        ctx.fill.SetColor(rt::Color(current[0], current[1], current[2], current[3]));
-        ctx.fillRect(abs.x + 2.0f, abs.y + 3.0f, 16.0f, 16.0f);
         for (std::size_t i = 0; i < mColours.size(); ++i)
         {
-            const float x = abs.x + 26.0f + i * 16.0f;
+            const float x = abs.x + 2.0f + i * 16.0f;
             ctx.fill.SetColor(rt::Color(mColours[i].rgba[0], mColours[i].rgba[1], mColours[i].rgba[2], 255));
             ctx.fillRect(x, abs.y + 5.0f, 13.0f, 13.0f);
         }
@@ -434,8 +429,8 @@ public:
     void onMousePress(rt::MouseEvent& e) override
     {
         e.consumed = true;
-        const int index = static_cast<int>((e.localX - 26.0f) / 16.0f);
-        if (e.localX >= 26.0f && index >= 0 && index < static_cast<int>(mColours.size()))
+        const int index = static_cast<int>((e.localX - 2.0f) / 16.0f);
+        if (e.localX >= 2.0f && index >= 0 && index < static_cast<int>(mColours.size()))
             mPanel.setColour(mColours[static_cast<std::size_t>(index)].rgba);
     }
 
@@ -491,35 +486,25 @@ ImageEditorPanel::ImageEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutDir
             normalMap();
     });
 
-    mSize = bar->createChild<rt::SpinSlider>();
-    mSize->setLabel("size");
-    mSize->setEditingInteger(true);
-    mSize->setStep(1.0);
-    mSize->setMin(1.0);
-    mSize->setMax(64.0);
-    mSize->setControlState(rt::SpinSlider::ControlState::Hide);
-    mSize->setValueNoSignal(1.0);
+    NumberSpec sizeSpec;
+    sizeSpec.integer = true;
+    sizeSpec.step = 1.0;
+    sizeSpec.minimum = 1.0;
+    sizeSpec.maximum = 64.0;
+    sizeSpec.width = 96.0f;
+    mSize = addNumberField(bar, "size", 1.0, sizeSpec, nullptr);
 
-    mSwatches = bar->createChild<ColourSwatches>(*this);
-    const char* names[4] = {"r", "g", "b", "a"};
-    for (int i = 0; i < 4; ++i)
+    mColourButton = bar->createChild<rt::ColorButton>(rt::Color(255, 255, 255, 255));
+    mColourButton->setShowAlpha(true);
+    mColourButton->colorChanged.connect([this](rt::Color c)
     {
-        mChannels[i] = bar->createChild<rt::SpinSlider>();
-        mChannels[i]->setLabel(names[i]);
-        mChannels[i]->setEditingInteger(true);
-        mChannels[i]->setStep(1.0);
-        mChannels[i]->setMin(0.0);
-        mChannels[i]->setMax(255.0);
-        mChannels[i]->setControlState(rt::SpinSlider::ControlState::PreferSlider);
-        mChannels[i]->setValueNoSignal(255.0);
-        mChannels[i]->valueChanged.connect([this, i](double v)
-        {
-            if (mSyncing)
-                return;
-            mColour[i] = static_cast<unsigned char>(v);
-            mSwatches->markDirty();
-        });
-    }
+        mColour[0] = c.r;
+        mColour[1] = c.g;
+        mColour[2] = c.b;
+        mColour[3] = c.a;
+        mSwatches->markDirty();
+    });
+    mSwatches = bar->createChild<ColourSwatches>(*this);
     mTitle = bar->createChild<rt::Label>("");
     mTitle->setStretch(1.0f);
     mTitle->setLayoutAlign(rt::Align::Center);
@@ -555,10 +540,7 @@ void ImageEditorPanel::setColour(const unsigned char rgba[4])
 
 void ImageEditorPanel::syncColourFields()
 {
-    mSyncing = true;
-    for (int i = 0; i < 4; ++i)
-        mChannels[i]->setValueNoSignal(mColour[i]);
-    mSyncing = false;
+    mColourButton->setColor(rt::Color(mColour[0], mColour[1], mColour[2], mColour[3]));
     mSwatches->markDirty();
 }
 

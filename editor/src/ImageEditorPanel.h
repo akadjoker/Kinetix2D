@@ -16,6 +16,7 @@ class Texture;
 
 namespace ig::retained
 {
+class ColorButton;
 class Label;
 class SpinSlider;
 class ToolBar;
@@ -89,11 +90,10 @@ private:
     ig::retained::ToolBar* mTools = nullptr;
     int mToolItems[6] = {-1, -1, -1, -1, -1, -1};
     ig::retained::SpinSlider* mSize = nullptr;
-    ig::retained::SpinSlider* mChannels[4] = {nullptr, nullptr, nullptr, nullptr};
+    ig::retained::ColorButton* mColourButton = nullptr;
     ColourSwatches* mSwatches = nullptr;
     ig::retained::Label* mTitle = nullptr;
     ImageCanvas* mCanvas = nullptr;
-    bool mSyncing = false;
 };
 
 } // namespace k2d::editor

@@ -35,9 +35,13 @@ class NumberField : public rt::SpinSlider
 public:
     IG_WIDGET_CLASS(NumberField, rt::SpinSlider);
 
+    float width = 0.0f;
+
     Vec2f sizeHint() const override
     {
         const Vec2f hint = rt::SpinSlider::sizeHint();
+        if (width > 0.0f)
+            return {width, hint.y};
         return {hint.x > kNumberMinWidth ? hint.x : kNumberMinWidth, hint.y};
     }
 };
@@ -134,7 +138,8 @@ rt::SpinSlider* addNumberField(rt::Widget* parent, const char* label, double val
     field->setAllowLesser(!bounded);
     field->setControlState(bounded ? rt::SpinSlider::ControlState::PreferSlider : rt::SpinSlider::ControlState::Hide);
     field->setValueNoSignal(value);
-    field->setStretch(1.0f);
+    field->width = spec.width;
+    field->setStretch(spec.width > 0.0f ? 0.0f : 1.0f);
     // While dragging the value moves live; the release is the edit's end.
     field->valueChanged.connect([field, changed](double v) {
         if (changed)
