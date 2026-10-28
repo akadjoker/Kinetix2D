@@ -6,6 +6,7 @@
 #include <platform.h>
 
 #include <cstdio>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -576,17 +577,15 @@ void CanvasRenderer::ClearCullRect()
 
 bool CanvasRenderer::InView(const Matrix2D& m, float x0, float y0, float x1, float y1) const
 {
-    const Math::Vec2 corners[4] = {m.Transform(x0, y0), m.Transform(x1, y0), m.Transform(x1, y1),
-                                   m.Transform(x0, y1)};
-    float minX = corners[0].x, maxX = corners[0].x, minY = corners[0].y, maxY = corners[0].y;
-    for (int i = 1; i < 4; ++i)
-    {
-        minX = corners[i].x < minX ? corners[i].x : minX;
-        maxX = corners[i].x > maxX ? corners[i].x : maxX;
-        minY = corners[i].y < minY ? corners[i].y : minY;
-        maxY = corners[i].y > maxY ? corners[i].y : maxY;
-    }
-    return maxX >= mCullMinX && minX <= mCullMaxX && maxY >= mCullMinY && minY <= mCullMaxY;
+    const float hx = (x1 - x0) * 0.5f;
+    const float hy = (y1 - y0) * 0.5f;
+    const float lx = x0 + hx;
+    const float ly = y0 + hy;
+    const float cx = m.a * lx + m.c * ly + m.tx;
+    const float cy = m.b * lx + m.d * ly + m.ty;
+    const float ex = std::fabs(m.a) * hx + std::fabs(m.c) * hy;
+    const float ey = std::fabs(m.b) * hx + std::fabs(m.d) * hy;
+    return cx + ex >= mCullMinX && cx - ex <= mCullMaxX && cy + ey >= mCullMinY && cy - ey <= mCullMaxY;
 }
 
 unsigned int CanvasRenderer::CreateShader(const char* fragmentSource)
