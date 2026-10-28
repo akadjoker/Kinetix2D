@@ -1,13 +1,14 @@
 #include "ParticlesPanel.h"
 
 #include "Icons.h"
+#include "PropertyFields.h"
 
 #include "BasicWidgets.hpp"
 #include "ComboBox.hpp"
-#include "SpinSlider.hpp"
 #include "ToolBar.hpp"
 #include "WidgetApp.hpp"
 
+#include <k2d/ClassDB.h>
 #include <k2d/GameObject.h>
 #include <k2d/ParticleComponent.h>
 
@@ -20,18 +21,6 @@ namespace k2d::editor
 
 namespace
 {
-
-constexpr float kLabelWidth = 96.0f;
-
-class FieldLabel : public rt::Label
-{
-public:
-    IG_WIDGET_CLASS(FieldLabel, rt::Label);
-
-    explicit FieldLabel(const rt::String& text) : rt::Label(text) {}
-
-    Vec2f sizeHint() const override { return {kLabelWidth, rt::Label::sizeHint().y}; }
-};
 
 const char* const kPresets[] = {"Preset...", "Fire", "Smoke", "Sparks", "Magic", "Rain", "Explosion"};
 
@@ -258,150 +247,48 @@ void ParticlesPanel::applyPreset(int preset)
     edited.emit("Particle preset", true);
 }
 
-rt::BoxLayout* ParticlesPanel::row(rt::Widget* parent, const char* name)
-{
-    auto* line = parent->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
-    line->setPadding(0.0f);
-    line->setSpacing(4.0f);
-    line->createChild<FieldLabel>(name);
-    return line;
-}
-
-void ParticlesPanel::number(rt::Widget* parent, const char* label, float value, double step, double minimum,
-                            ct::Function<void(float)> set)
-{
-    auto* field = parent->createChild<rt::SpinSlider>();
-    field->setLabel(label);
-    field->setStep(step);
-    field->setMin(minimum);
-    field->setMax(minimum >= 0.0 ? 100000.0 : 100000.0);
-    field->setAllowGreater(true);
-    field->setAllowLesser(minimum < 0.0);
-    field->setControlState(rt::SpinSlider::ControlState::Hide);
-    field->setValueNoSignal(value);
-    field->setStretch(1.0f);
-    field->valueChanged.connect([this, field, set](double v) {
-        set(static_cast<float>(v));
-        edited.emit("Edit particles", !field->isGrabbing());
-    });
-    field->ungrabbed.connect([this]() { edited.emit("Edit particles", true); });
-}
-
+// The emitter's properties as the ClassDB describes them, in three groups;
+// the same rows and fields as the Inspector's.
 void ParticlesPanel::rebuild()
 {
     while (!mFields->children().empty())
         mFields->removeChild(mFields->children().back());
     ParticleComponent* particles = emitter();
-    if (!particles)
+    const ClassInfo* info = particles ? ClassDB::find(*particles) : nullptr;
+    if (!info)
         return;
-    ParticleSystem* system = &particles->system();
-    // Every prefab field goes through a copy: SetPrefab is the only way in.
-    auto edit = [system](ct::Function<void(ParticlePrefab&)> change) {
-        ParticlePrefab prefab = system->GetPrefab();
-        change(prefab);
-        system->SetPrefab(prefab);
+    static const char* const kEmission[] = {"texture", "mode", "emissionRate", "oneShotCount", "capacity",
+                                            "emitterShape", "emitterSize", "gravity", "followOwner", nullptr};
+    static const char* const kMotion[] = {"direction", "spreadDegrees", "speedMin", "speedMax", "drag",
+                                          "lifeMin", "lifeMax", nullptr};
+    static const char* const kLook[] = {"sizeMin", "sizeMax", "endSize", "rotationMin", "rotationMax",
+                                        "angularVelocityMin", "angularVelocityMax", "fadeIn", "fadeOut",
+                                        "faceDirection", "faceDirectionOffsetDegrees", "colorStart", "colorEnd",
+                                        "blendMode", "ySort", nullptr};
+    struct Group
+    {
+        const char* title;
+        const char* const* names;
     };
-    const ParticlePrefab& p = system->GetPrefab();
-
-    auto* emission = mFields->createChild<rt::Collapsible>("Emission");
+    const Group groups[] = {{"Emission", kEmission}, {"Motion", kMotion}, {"Look", kLook}};
+    for (const Group& group : groups)
     {
-        auto* modes = row(emission, "mode")->createChild<rt::ComboBox>();
-        modes->addItem("One shot");
-        modes->addItem("Persistent");
-        modes->addItem("Loop");
-        modes->setSelectedIndex(static_cast<int>(system->GetMode()));
-        modes->setStretch(1.0f);
-        modes->selectionChanged.connect([this, system](int i) {
-            system->SetMode(static_cast<ParticleMode>(i));
-            system->Reset();
-            edited.emit("Particle mode", true);
-        });
-        number(row(emission, "rate"), "per s", system->EmissionRate(), 1.0, 0.0,
-               [system](float v) { system->SetEmissionRate(v); });
-        number(row(emission, "one shot"), "count", static_cast<float>(system->OneShotCount()), 1.0, 0.0,
-               [system](float v) { system->SetOneShotCount(static_cast<std::size_t>(v)); });
-        auto* shapes = row(emission, "shape")->createChild<rt::ComboBox>();
-        shapes->addItem("Point");
-        shapes->addItem("Circle");
-        shapes->addItem("Rectangle");
-        shapes->setSelectedIndex(static_cast<int>(system->GetEmitterShape()));
-        shapes->setStretch(1.0f);
-        shapes->selectionChanged.connect([this, system](int i) {
-            system->SetEmitterShape(static_cast<ParticleEmitterShape>(i));
-            edited.emit("Emitter shape", true);
-        });
-        rt::BoxLayout* size = row(emission, "area");
-        number(size, "w", system->EmitterSize().x, 1.0, 0.0, [system](float v) {
-            system->SetEmitterSize(Math::Vec2(v, system->EmitterSize().y));
-        });
-        number(size, "h", system->EmitterSize().y, 1.0, 0.0, [system](float v) {
-            system->SetEmitterSize(Math::Vec2(system->EmitterSize().x, v));
-        });
-        rt::BoxLayout* gravity = row(emission, "gravity");
-        number(gravity, "x", system->Gravity().x, 1.0, -1.0, [system](float v) {
-            system->SetGravity(Math::Vec2(v, system->Gravity().y));
-        });
-        number(gravity, "y", system->Gravity().y, 1.0, -1.0, [system](float v) {
-            system->SetGravity(Math::Vec2(system->Gravity().x, v));
-        });
-    }
-
-    auto* motion = mFields->createChild<rt::Collapsible>("Motion");
-    {
-        rt::BoxLayout* direction = row(motion, "direction");
-        number(direction, "x", p.direction.x, 0.05, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.direction.x = v; }); });
-        number(direction, "y", p.direction.y, 0.05, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.direction.y = v; }); });
-        number(row(motion, "spread"), "deg", p.spreadDegrees, 1.0, 0.0,
-               [edit](float v) { edit([v](ParticlePrefab& q) { q.spreadDegrees = v; }); });
-        rt::BoxLayout* speed = row(motion, "speed");
-        number(speed, "min", p.speedMin, 1.0, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.speedMin = v; }); });
-        number(speed, "max", p.speedMax, 1.0, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.speedMax = v; }); });
-        number(row(motion, "drag"), "", p.drag, 0.05, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.drag = v; }); });
-        rt::BoxLayout* life = row(motion, "life");
-        number(life, "min", p.lifeMin, 0.05, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.lifeMin = v; }); });
-        number(life, "max", p.lifeMax, 0.05, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.lifeMax = v; }); });
-    }
-
-    auto* look = mFields->createChild<rt::Collapsible>("Look");
-    {
-        rt::BoxLayout* size = row(look, "size");
-        number(size, "min", p.sizeMin, 0.5, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.sizeMin = v; }); });
-        number(size, "max", p.sizeMax, 0.5, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.sizeMax = v; }); });
-        number(row(look, "end size"), "", p.endSize, 0.5, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.endSize = v; }); });
-        rt::BoxLayout* rotation = row(look, "rotation");
-        number(rotation, "min", p.rotationMin, 1.0, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.rotationMin = v; }); });
-        number(rotation, "max", p.rotationMax, 1.0, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.rotationMax = v; }); });
-        rt::BoxLayout* spin = row(look, "spin");
-        number(spin, "min", p.angularVelocityMin, 1.0, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.angularVelocityMin = v; }); });
-        number(spin, "max", p.angularVelocityMax, 1.0, -1.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.angularVelocityMax = v; }); });
-        rt::BoxLayout* fade = row(look, "fade");
-        number(fade, "in", p.fadeIn, 0.05, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.fadeIn = v; }); });
-        number(fade, "out", p.fadeOut, 0.05, 0.0, [edit](float v) { edit([v](ParticlePrefab& q) { q.fadeOut = v; }); });
-        rt::BoxLayout* face = row(look, "face motion");
-        auto* faceCheck = face->createChild<rt::CheckBox>();
-        faceCheck->setChecked(p.faceDirection);
-        faceCheck->toggled.connect([this, edit](bool on) {
-            edit([on](ParticlePrefab& q) { q.faceDirection = on; });
-            edited.emit("Edit particles", true);
-        });
-        number(face, "offset", p.faceDirectionOffsetDegrees, 1.0, -1.0,
-               [edit](float v) { edit([v](ParticlePrefab& q) { q.faceDirectionOffsetDegrees = v; }); });
-
-        // Colours as four sliders each, until there is a swatch with a picker.
-        const char* channels[4] = {"r", "g", "b", "a"};
-        for (int which = 0; which < 2; ++which)
+        auto* section = mFields->createChild<rt::Collapsible>(group.title);
+        for (const char* const* name = group.names; *name; ++name)
         {
-            rt::BoxLayout* line = row(look, which == 0 ? "colour start" : "colour end");
-            const Color c = which == 0 ? p.colorStart : p.colorEnd;
-            const float values[4] = {c.r, c.g, c.b, c.a};
-            for (int i = 0; i < 4; ++i)
-                number(line, channels[i], values[i], 0.01, 0.0, [edit, which, i](float v) {
-                    edit([v, which, i](ParticlePrefab& q) {
-                        Color& target = which == 0 ? q.colorStart : q.colorEnd;
-                        float* parts[4] = {&target.r, &target.g, &target.b, &target.a};
-                        *parts[i] = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
-                    });
-                });
+            const ClassProperty* property = info->find(*name);
+            if (!property)
+                continue;
+            FieldBinding binding;
+            binding.get = [this, property]() {
+                ParticleComponent* p = emitter();
+                return p ? property->get(*p) : PropertyValue();
+            };
+            binding.set = [this, property](const PropertyValue& v) {
+                if (ParticleComponent* p = emitter())
+                    property->set(*p, v);
+            };
+            addPropertyRow(section, property->info, binding, [this](bool final) { edited.emit("Edit particles", final); });
         }
     }
     rt::WidgetApp::instance().requestLayout();

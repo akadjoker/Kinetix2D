@@ -45,9 +45,7 @@ private:
     ParticleComponent* emitter() const;
     void rebuild();
     void applyPreset(int preset);
-    ig::retained::BoxLayout* row(ig::retained::Widget* parent, const char* name);
-    void number(ig::retained::Widget* parent, const char* label, float value, double step, double minimum,
-                ct::Function<void(float)> set);
+
 
     GameObject* mObject = nullptr;
     ig::retained::Label* mEmpty = nullptr;

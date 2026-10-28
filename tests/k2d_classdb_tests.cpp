@@ -1,5 +1,6 @@
 #include <k2d/Assets.h>
 #include <k2d/ClassDB.h>
+#include <k2d/ParticleComponent.h>
 #include <k2d/SpriteComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/Light2D.h>
@@ -74,10 +75,45 @@ bool testTextureProperty()
     return ok;
 }
 
+// The emitter's settings and the prefab's fields are properties, under the
+// names the scene file gives them: a write reaches the system, enums go by
+// index, and a prefab field changes that field alone.
+bool testParticleProperties()
+{
+    k2d::RegisterCoreClasses();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("sparks");
+    k2d::ParticleComponent* particles = object->addComponent<k2d::ParticleComponent>();
+    k2d::ParticleSystem& system = particles->system();
+    const k2d::ClassInfo* info = k2d::ClassDB::find(*particles);
+    bool ok = info && info->find("speedMin") && info->find("colorEnd") && info->find("emissionRate") &&
+              info->find("mode") && info->find("mode")->info.enumCount() == 3;
+
+    const float lifeMax = system.GetPrefab().lifeMax;
+    ok = ok && k2d::ClassDB::set(*particles, "speedMin", k2d::PropertyValue::from(42.0f)) &&
+         near(system.GetPrefab().speedMin, 42.0f) && near(system.GetPrefab().lifeMax, lifeMax);
+    ok = ok && k2d::ClassDB::set(*particles, "colorStart", k2d::PropertyValue::from(k2d::Color(1.0f, 0.5f, 0.0f, 1.0f))) &&
+         near(system.GetPrefab().colorStart.g, 0.5f);
+    ok = ok && k2d::ClassDB::set(*particles, "faceDirection", k2d::PropertyValue::from(true)) &&
+         system.GetPrefab().faceDirection;
+    ok = ok && k2d::ClassDB::set(*particles, "mode", k2d::PropertyValue::from(2)) &&
+         system.GetMode() == k2d::ParticleMode::Loop;
+    ok = ok && k2d::ClassDB::set(*particles, "emissionRate", k2d::PropertyValue::from(30.0f)) &&
+         near(system.EmissionRate(), 30.0f);
+    ok = ok && k2d::ClassDB::set(*particles, "emitterSize", k2d::PropertyValue::from(Math::Vec2(8.0f, 4.0f))) &&
+         near(system.EmitterSize().y, 4.0f);
+    k2d::PropertyValue value;
+    ok = ok && k2d::ClassDB::get(*particles, "gravity", value) && value.type() == k2d::PropertyType::Vec2;
+    ok = ok && k2d::ClassDB::get(*particles, "speedMin", value) && near(value.asFloat(), 42.0f);
+    return ok;
+}
+
 int main()
 {
     const bool light = testLightClass();
     const bool texture = testTextureProperty();
-    std::printf("classdb: light=%s texture=%s\n", light ? "pass" : "fail", texture ? "pass" : "fail");
-    return light && texture ? 0 : 1;
+    const bool particles = testParticleProperties();
+    std::printf("classdb: light=%s texture=%s particles=%s\n", light ? "pass" : "fail", texture ? "pass" : "fail",
+                particles ? "pass" : "fail");
+    return light && texture && particles ? 0 : 1;
 }

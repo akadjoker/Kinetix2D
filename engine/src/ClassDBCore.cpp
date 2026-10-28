@@ -31,6 +31,7 @@
 #include "k2d/NinePatchComponent.h"
 #include "k2d/ParallaxLayerComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/ParticleSystem.h"
 #include "k2d/PathMotion2D.h"
 #include "k2d/Polygon2D.h"
 #include "k2d/PolygonCollider2D.h"
@@ -84,6 +85,36 @@ void addTexture(ClassInfo& c, const char* name, Texture* (T::*get)() const, void
             if (texture)
                 (static_cast<T&>(component).*set)(texture);
         });
+}
+
+// A field of a particle emitter's prefab: the prefab is read, the copy
+// changed and given back, SetPrefab being the only way in.
+template <class T>
+void addPrefabField(ClassInfo& c, const PropertyInfo& info, T ParticlePrefab::*field)
+{
+    ClassDB::addProperty(
+        c, info,
+        [field](const Component& component)
+        {
+            return PropertyValue::from(static_cast<const ParticleComponent&>(component).system().GetPrefab().*field);
+        },
+        [field](Component& component, const PropertyValue& value)
+        {
+            ParticleSystem& system = static_cast<ParticleComponent&>(component).system();
+            ParticlePrefab prefab = system.GetPrefab();
+            prefab.*field = value.as<T>();
+            system.SetPrefab(prefab);
+        });
+}
+
+ParticleSystem& particleSystem(Component& component)
+{
+    return static_cast<ParticleComponent&>(component).system();
+}
+
+const ParticleSystem& particleSystem(const Component& component)
+{
+    return static_cast<const ParticleComponent&>(component).system();
 }
 
 } // namespace
@@ -457,6 +488,91 @@ void RegisterCoreClasses()
     ClassDB::addProperty<ParticleComponent>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &ParticleComponent::blendMode, &ParticleComponent::setBlendMode);
     ClassDB::addProperty<ParticleComponent>(c, PropertyInfo(PropertyType::Bool, "ySort"), &ParticleComponent::ySort, &ParticleComponent::setYSort);
     ClassDB::addProperty<ParticleComponent>(c, PropertyInfo(PropertyType::Bool, "followOwner"), &ParticleComponent::followOwner, &ParticleComponent::setFollowOwner);
+
+    // The emitter, named as the scene file names it.
+    ClassDB::addProperty(
+        c, PropertyInfo::file("texture", kImageFiles),
+        [](const Component& component)
+        {
+            Assets* assets = ClassDB::assets();
+            const char* path = assets ? assets->FindTextureName(particleSystem(component).GetTexture()) : nullptr;
+            return PropertyValue::resourcePath(path ? path : "");
+        },
+        [](Component& component, const PropertyValue& value)
+        {
+            const ct::String& path = value.asString();
+            Assets* assets = ClassDB::assets();
+            if (path.empty())
+            {
+                particleSystem(component).SetTexture(nullptr);
+                return;
+            }
+            if (!assets)
+                return;
+            Texture* texture = assets->GetTexture(path.c_str());
+            if (!texture)
+                texture = assets->LoadTexture(path.c_str(), path.c_str());
+            if (texture)
+                particleSystem(component).SetTexture(texture);
+        });
+    ClassDB::addProperty(
+        c, PropertyInfo::enumeration("mode", "OneShot,Persistent,Loop"),
+        [](const Component& component) { return PropertyValue::from(particleSystem(component).GetMode()); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetMode(value.as<ParticleMode>()); });
+    ClassDB::addProperty(
+        c, PropertyInfo(PropertyType::Float, "emissionRate"),
+        [](const Component& component) { return PropertyValue::from(particleSystem(component).EmissionRate()); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetEmissionRate(value.asFloat()); });
+    ClassDB::addProperty(
+        c, PropertyInfo(PropertyType::Int, "oneShotCount"),
+        [](const Component& component)
+        { return PropertyValue::from(static_cast<int>(particleSystem(component).OneShotCount())); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetOneShotCount(static_cast<std::size_t>(value.asInt() > 0 ? value.asInt() : 0)); });
+    ClassDB::addProperty(
+        c, PropertyInfo(PropertyType::Int, "capacity"),
+        [](const Component& component)
+        { return PropertyValue::from(static_cast<int>(particleSystem(component).Capacity())); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetCapacity(static_cast<std::size_t>(value.asInt() > 1 ? value.asInt() : 1)); });
+    ClassDB::addProperty(
+        c, PropertyInfo::enumeration("emitterShape", "Point,Circle,Rectangle"),
+        [](const Component& component) { return PropertyValue::from(particleSystem(component).GetEmitterShape()); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetEmitterShape(value.as<ParticleEmitterShape>()); });
+    ClassDB::addProperty(
+        c, PropertyInfo(PropertyType::Vec2, "emitterSize"),
+        [](const Component& component) { return PropertyValue::from(particleSystem(component).EmitterSize()); },
+        [](Component& component, const PropertyValue& value)
+        { particleSystem(component).SetEmitterSize(value.asVec2()); });
+    ClassDB::addProperty(
+        c, PropertyInfo(PropertyType::Vec2, "gravity"),
+        [](const Component& component) { return PropertyValue::from(particleSystem(component).Gravity()); },
+        [](Component& component, const PropertyValue& value) { particleSystem(component).SetGravity(value.asVec2()); });
+
+    // The particles it makes.
+    addPrefabField(c, PropertyInfo(PropertyType::Vec2, "direction"), &ParticlePrefab::direction);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "spreadDegrees"), &ParticlePrefab::spreadDegrees);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "speedMin"), &ParticlePrefab::speedMin);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "speedMax"), &ParticlePrefab::speedMax);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "drag"), &ParticlePrefab::drag);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "lifeMin"), &ParticlePrefab::lifeMin);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "lifeMax"), &ParticlePrefab::lifeMax);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "sizeMin"), &ParticlePrefab::sizeMin);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "sizeMax"), &ParticlePrefab::sizeMax);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "endSize"), &ParticlePrefab::endSize);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "rotationMin"), &ParticlePrefab::rotationMin);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "rotationMax"), &ParticlePrefab::rotationMax);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "angularVelocityMin"), &ParticlePrefab::angularVelocityMin);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "angularVelocityMax"), &ParticlePrefab::angularVelocityMax);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "fadeIn"), &ParticlePrefab::fadeIn);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "fadeOut"), &ParticlePrefab::fadeOut);
+    addPrefabField(c, PropertyInfo(PropertyType::Bool, "faceDirection"), &ParticlePrefab::faceDirection);
+    addPrefabField(c, PropertyInfo(PropertyType::Float, "faceDirectionOffsetDegrees"), &ParticlePrefab::faceDirectionOffsetDegrees);
+    addPrefabField(c, PropertyInfo::color("colorStart"), &ParticlePrefab::colorStart);
+    addPrefabField(c, PropertyInfo::color("colorEnd"), &ParticlePrefab::colorEnd);
     }
     {
     ClassInfo& c = ClassDB::add("PathMotion2D", ComponentType::PathMotion, ComponentClass::None);
