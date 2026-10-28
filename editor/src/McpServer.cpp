@@ -480,6 +480,7 @@ ct::Json McpServer::sceneInfo()
     info.set("objects", ct::Json(static_cast<std::int64_t>(mEditor.mScene.objectCount())));
     info.set("projectRoot", ct::Json(mEditor.mProjectRoot.c_str()));
     info.set("selected", ct::Json(mEditor.mSelected ? pathOf(mEditor.mSelected).c_str() : ""));
+    info.set("undoBytes", ct::Json(static_cast<std::int64_t>(mEditor.mCommands.bytes())));
     return text(info.dump(2));
 }
 

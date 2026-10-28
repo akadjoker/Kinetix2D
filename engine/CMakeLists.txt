@@ -70,6 +70,7 @@ add_library(k2d STATIC
     src/UserData.cpp
     src/Device.cpp
     src/OpenGL.cpp
+    src/Compress.cpp
     src/Shader.cpp
     src/Texture.cpp
     src/UiTheme.cpp

@@ -201,7 +201,6 @@ private:
         ct::Json sceneDocument;
         bool sceneDirty = false;
         CommandStack commands;
-        ct::Json committed;
         ct::Vector<std::size_t> selection;
         bool hadSelection = false;
         Camera2D camera;
@@ -261,7 +260,6 @@ private:
     bool mInspectorStale = false;
     bool mPoseStale = false;
     CommandStack mCommands;
-    ct::Json mCommitted;
     ct::String mPendingEdit;
     float mFpsTime = 0.0f;
     int mFpsFrames = 0;

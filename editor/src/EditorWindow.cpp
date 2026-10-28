@@ -799,8 +799,7 @@ void EditorWindow::sceneLoaded()
     mHierarchy->rebuild(mScene);
     mTopology = mScene.topologyVersion();
     select(nullptr);
-    mCommands.clear();
-    mCommitted = snapshot();
+    mCommands.reset(snapshot());
     mPendingEdit.clear();
     updateUndoButtons();
     markDirty(false);
@@ -1258,12 +1257,7 @@ void EditorWindow::commit(const char* label)
     mPendingEdit.clear();
     if (mPlaying)
         return;
-    SceneCommand command;
-    command.label = label;
-    command.before = mCommitted;
-    command.after = snapshot();
-    mCommitted = command.after;
-    mCommands.push(ct::detail::move(command));
+    mCommands.push(label, snapshot());
     updateUndoButtons();
     markDirty(true);
 }
@@ -1274,10 +1268,10 @@ void EditorWindow::undo()
         return;
     if (!mPendingEdit.empty())
         commit(mPendingEdit.c_str());
-    if (const SceneCommand* command = mCommands.undo())
+    ct::Json state;
+    if (mCommands.undo(state))
     {
-        mCommitted = command->before;
-        restore(mCommitted);
+        restore(state);
         markDirty(true);
     }
     updateUndoButtons();
@@ -1287,10 +1281,10 @@ void EditorWindow::redo()
 {
     if (mPlaying)
         return;
-    if (const SceneCommand* command = mCommands.redo())
+    ct::Json state;
+    if (mCommands.redo(state))
     {
-        mCommitted = command->after;
-        restore(mCommitted);
+        restore(state);
         markDirty(true);
     }
     updateUndoButtons();
@@ -1403,7 +1397,6 @@ bool EditorWindow::openPrefab(const ct::String& path)
     mode.sceneDocument = mSceneDocument;
     mode.sceneDirty = mDirty;
     mode.commands = ct::detail::move(mCommands);
-    mode.committed = mCommitted;
     mode.hadSelection = mSelected != nullptr;
     mode.selection = pathOf(mSelected);
     mode.camera = mCamera;
@@ -1420,7 +1413,7 @@ bool EditorWindow::openPrefab(const ct::String& path)
     mode.active = true;
     mode.path = path;
     mode.rootId = root->id();
-    mCommands = CommandStack();
+    mCommands.reset(snapshot());
     mCamera = Camera2D();
     mCamera.position = root->globalPosition();
     sceneLoaded();
@@ -1530,7 +1523,6 @@ void EditorWindow::restoreFromPrefab()
     refreshTree();
     restartEditPreview(mScene.root());
     mCommands = ct::detail::move(mode.commands);
-    mCommitted = mode.committed;
     mPendingEdit.clear();
     mCamera = mode.camera;
     if (mode.hadSelection)
