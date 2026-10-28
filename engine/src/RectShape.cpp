@@ -103,4 +103,13 @@ void RectShape::onRender(RenderQueue &queue)
     item.commands.push_back(command);
 }
 
+
+bool RectShape::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const
+{
+    const Math::Vec2 half = mSize * 0.5f + Math::Vec2(mLineWidth, mLineWidth);
+    min = -half;
+    max = half;
+    return true;
+}
+
 }

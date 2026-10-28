@@ -73,6 +73,7 @@ namespace k2d
         RenderQueue &buildRenderQueue();
         std::size_t renderItemCount() const { return mRenderQueue.ItemCount(); }
         std::size_t renderCommandCount() const { return mRenderQueue.CommandCount(); }
+        std::size_t renderCulledCount() const { return mRenderCulled; }
         std::size_t renderLightCount() const { return mRenderQueue.LightCount(); }
 
         void clear();
@@ -149,6 +150,7 @@ namespace k2d
         void registerComponent(Component *component);
         void unregisterComponent(Component *component);
         void compactComponentLists();
+        bool culled(const GameObject &object, const Component &component) const;
         void updateUi();
         void flushDisposed();
         GameObject *findRecursive(const GameObject *from, const char *name) const;
@@ -221,6 +223,10 @@ namespace k2d
         float mRenderViewportWidth;
         float mRenderViewportHeight;
         Color mAmbient;
+        bool mCulling;
+        std::size_t mRenderCulled;
+        Math::Vec2 mCullMin;
+        Math::Vec2 mCullMax;
 
         Math::Vec2 mGravity;
         ct::Vector<RigidBody2D *> mBodies;

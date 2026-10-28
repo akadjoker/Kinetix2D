@@ -32,10 +32,13 @@ namespace k2d
 
     protected:
         void onRender(RenderQueue &queue) override;
+        bool renderBounds(Math::Vec2 &min, Math::Vec2 &max) const override;
 
     private:
         ct::Vector<Math::Vec2> mPolygon;
         ct::Vector<Math::Vec2> mTriangles;
+        Math::Vec2 mBoundsMin;
+        Math::Vec2 mBoundsMax;
         Texture *mTexture;
         Color mColor;
         BlendMode mBlendMode;

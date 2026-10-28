@@ -108,6 +108,11 @@ namespace k2d
     {
     }
 
+    bool Component::renderBounds(Math::Vec2 &, Math::Vec2 &) const
+    {
+        return false;
+    }
+
     void Component::onDestroy()
     {
     }

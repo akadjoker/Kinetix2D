@@ -78,4 +78,12 @@ namespace k2d
         }
     }
 
+
+    bool NinePatchComponent::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const
+    {
+        min = -mPivot * mSize;
+        max = min + mSize;
+        return true;
+    }
+
 } 

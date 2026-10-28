@@ -112,4 +112,13 @@ void CircleShape::onRender(RenderQueue &queue)
     item.commands.push_back(command);
 }
 
+
+bool CircleShape::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const
+{
+    const float extent = mRadius + mLineWidth;
+    min = Math::Vec2(-extent, -extent);
+    max = Math::Vec2(extent, extent);
+    return true;
+}
+
 }

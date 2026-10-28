@@ -71,6 +71,13 @@ void SpriteComponent::setFlip(bool flipX, bool flipY)
     mMaterial.setFlip(flipX, flipY);
 }
 
+bool SpriteComponent::renderBounds(Math::Vec2& min, Math::Vec2& max) const
+{
+    min = mRenderOffset - mMaterial.pivot() * mSize;
+    max = min + mSize;
+    return true;
+}
+
 void SpriteComponent::onRender(RenderQueue& queue)
 {
     if (!mMaterial.texture())

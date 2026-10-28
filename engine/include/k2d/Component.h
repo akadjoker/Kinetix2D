@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <limits>
 
+#include <mathc.h>
+
 namespace k2d
 {
 
@@ -131,6 +133,9 @@ class Component
     virtual void onUpdate(float deltaTime);
     virtual void onLateUpdate(float deltaTime);
     virtual void onRender(RenderQueue& queue);
+    // The box the component draws in, in its object's space; false when it
+    // cannot tell, and it is then never culled.
+    virtual bool renderBounds(Math::Vec2& min, Math::Vec2& max) const;
     virtual void onDestroy();
 
   private:

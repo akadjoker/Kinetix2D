@@ -16,6 +16,7 @@ namespace k2d
     Scene::Scene()
         : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
           mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
+          mCulling(false), mRenderCulled(0),
           mGravity(0.0f, 980.0f), mUseTree(true), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
           // Not 0: equal stamps mean "already synced this frame", so matching
           // the initial frame stamp would skip the very first sync and leave
@@ -209,27 +210,52 @@ namespace k2d
     void Scene::render(CanvasRenderer &canvas)
     {
         canvas.SetCanvasModulate(mAmbient.r, mAmbient.g, mAmbient.b);
-        if (mRenderCamera && mRenderViewportWidth > 0.0f && mRenderViewportHeight > 0.0f)
+        mCulling = mRenderCamera && mRenderViewportWidth > 0.0f && mRenderViewportHeight > 0.0f;
+        if (mCulling)
         {
-            float minX, minY, maxX, maxY;
-            mRenderCamera->VisibleRect(minX, minY, maxX, maxY, mRenderViewportWidth, mRenderViewportHeight);
-            canvas.SetCullRect(minX, minY, maxX, maxY);
+            mRenderCamera->VisibleRect(mCullMin.x, mCullMin.y, mCullMax.x, mCullMax.y, mRenderViewportWidth,
+                                       mRenderViewportHeight);
+            canvas.SetCullRect(mCullMin.x, mCullMin.y, mCullMax.x, mCullMax.y);
         }
         buildRenderQueue().Flush(canvas);
+        mCulling = false;
         canvas.ClearCullRect();
         canvas.SetCanvasModulate(1.0f, 1.0f, 1.0f);
+    }
+
+    bool Scene::culled(const GameObject &object, const Component &component) const
+    {
+        Math::Vec2 min, max;
+        if (!mCulling || !component.renderBounds(min, max))
+            return false;
+        const Matrix2D &m = object.globalTransform();
+        const Math::Vec2 corners[4] = {m.Transform(min.x, min.y), m.Transform(max.x, min.y),
+                                       m.Transform(max.x, max.y), m.Transform(min.x, max.y)};
+        Math::Vec2 low = corners[0], high = corners[0];
+        for (int i = 1; i < 4; ++i)
+        {
+            low = Math::Vec2(corners[i].x < low.x ? corners[i].x : low.x, corners[i].y < low.y ? corners[i].y : low.y);
+            high = Math::Vec2(corners[i].x > high.x ? corners[i].x : high.x,
+                              corners[i].y > high.y ? corners[i].y : high.y);
+        }
+        return high.x < mCullMin.x || low.x > mCullMax.x || high.y < mCullMin.y || low.y > mCullMax.y;
     }
 
     RenderQueue &Scene::buildRenderQueue()
     {
         ProfileScope profileScope("scene.render_queue");
         mRenderQueue.Clear();
+        mRenderCulled = 0;
         const std::size_t count = mRenderComponents.size();
         for (std::size_t i = 0; i < count; ++i)
         {
             Component *component = mRenderComponents[i];
             GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveAndVisibleInHierarchy())
+            if (!object || object->disposed() || !object->isActiveAndVisibleInHierarchy())
+                continue;
+            if (culled(*object, *component))
+                ++mRenderCulled;
+            else
                 object->renderComponent(component, mRenderQueue);
         }
         mParticles.submit(mRenderQueue);

@@ -22,8 +22,15 @@ namespace k2d
         if (!points || count < 3)
             return;
 
+        mBoundsMin = mBoundsMax = points[0];
         for (int i = 0; i < count; ++i)
+        {
             mPolygon.push_back(points[i]);
+            mBoundsMin = Math::Vec2(points[i].x < mBoundsMin.x ? points[i].x : mBoundsMin.x,
+                                    points[i].y < mBoundsMin.y ? points[i].y : mBoundsMin.y);
+            mBoundsMax = Math::Vec2(points[i].x > mBoundsMax.x ? points[i].x : mBoundsMax.x,
+                                    points[i].y > mBoundsMax.y ? points[i].y : mBoundsMax.y);
+        }
 
         const int maxTriangles = count - 2;
         ct::Vector<Math::Vec2> triangles;
@@ -64,6 +71,16 @@ namespace k2d
         command.polygonPoints = &mTriangles;
         command.polygonPointCount = (unsigned int)mTriangles.size();
         item.commands.push_back(command);
+    }
+
+
+    bool Polygon2D::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const
+    {
+        if (mTriangles.empty())
+            return false;
+        min = mBoundsMin;
+        max = mBoundsMax;
+        return true;
     }
 
 } 

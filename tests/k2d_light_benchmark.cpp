@@ -96,7 +96,7 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
         k2d::Profiler::Get().endFrame();
         const double ms = (k2d::Device::TimeSeconds() - start) * 1000.0;
         drawCalls = canvas.GetStats().drawCalls;
-        culled = canvas.GetStats().commandsCulled + canvas.GetStats().lightsCulled;
+        culled = scene.renderCulledCount() + canvas.GetStats().commandsCulled + canvas.GetStats().lightsCulled;
         if (dump >= 0 && frame == 359)
         {
             ct::Vector<unsigned char> pixels(static_cast<std::size_t>(target.width() * target.height() * 4));
