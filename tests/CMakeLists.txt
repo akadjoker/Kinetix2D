@@ -80,6 +80,9 @@ add_executable(k2d_collider_points_tests k2d_collider_points_tests.cpp)
 target_link_libraries(k2d_collider_points_tests PRIVATE k2d_physics2d)
 target_compile_features(k2d_collider_points_tests PRIVATE cxx_std_17)
 
+add_executable(k2d_light_benchmark k2d_light_benchmark.cpp)
+target_link_libraries(k2d_light_benchmark PRIVATE k2d)
+
 add_executable(k2d_performance_benchmark k2d_performance_benchmark.cpp)
 target_link_libraries(k2d_performance_benchmark PRIVATE k2d k2d_physics2d)
 target_compile_features(k2d_performance_benchmark PRIVATE cxx_std_17)
