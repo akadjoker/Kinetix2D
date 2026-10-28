@@ -18,7 +18,11 @@ web runner is the Emscripten build of `k2d_runner` in `bin/web/`, made once:
     emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DK2D_RUNTIME_OUTPUT_DIRECTORY=$PWD/bin/web
     cmake --build build-web --target k2d_runner
 
-`k2d_export <project>` does the same export from the command line.
+**Export Desktop** writes a game for this system into `<project>/export/desktop`:
+the runner named after the project and `data.kpak` beside it, nothing else to
+install; **Run Desktop** (F8) also starts it. `k2d_export <project>` does the
+web export from the command line, `k2d_export <project> --desktop` the desktop
+one.
 
 ## Scripts
 

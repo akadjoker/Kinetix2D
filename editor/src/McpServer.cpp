@@ -56,6 +56,7 @@ const char* const kTools = R"JSON([
  {"name":"set_startup_scene","description":"Make the open scene the one the exported game starts with.","inputSchema":{"type":"object","properties":{}}},
  {"name":"skeleton","description":"The Skeleton2D on object or above it: without clips, its speed, autoplay and clips (each with name, duration, loop and tracks: bone name, property x|y|rotation|scaleX|scaleY, keys as [time, value, easing 0 linear|1 step|2 in|3 out|4 in-out]; values are offsets from the bone's rest pose, scales are factors). Given clips (and autoplay), they replace the skeleton's. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"clips":{"type":"array"},"autoplay":{"type":"string"}},"required":["object"]}},
  {"name":"build_atlas","description":"Pack images of the project into one texture: images are project paths of images or of folders of them; output is the project path of the .png to write. Each image becomes a region named after it, kept in output's .sprite.json as the Sprite Editor keeps them, and the list in output's .atlas.json. maxSize (512..4096) caps the page; more pages are numbered _1, _2...","inputSchema":{"type":"object","properties":{"images":{"type":"array","items":{"type":"string"}},"output":{"type":"string"},"maxSize":{"type":"integer"},"padding":{"type":"integer"},"trim":{"type":"boolean"}},"required":["images","output"]}},
+ {"name":"export_desktop","description":"Export the saved project as a game for this system in <project>/export/desktop: the runner named after the project and data.kpak beside it; run also starts it. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}},
  {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
 
@@ -401,6 +402,7 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "open_project") return openProject(arguments, isError);
     if (name == "set_startup_scene") return setStartupScene(isError);
     if (name == "export_web") return exportWeb(arguments, isError);
+    if (name == "export_desktop") return exportDesktop(arguments, isError);
     if (name == "build_atlas") return buildAtlas(arguments, isError);
     if (name == "skeleton") return skeleton(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
@@ -858,6 +860,18 @@ ct::Json McpServer::setStartupScene(bool& isError)
     if (!mEditor.setStartupScene())
         return fail("Save the scene in a project first", isError);
     return text(EditorFileSystem::relativeTo(mEditor.mProjectRoot, mEditor.mScenePath) + " starts the game");
+}
+
+ct::Json McpServer::exportDesktop(const ct::Json& arguments, bool& isError)
+{
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (mEditor.mDirty)
+        return fail("The scene has unsaved changes: save_scene first", isError);
+    ct::String message;
+    if (!mEditor.buildDesktop(arguments["run"].as_bool(false), message))
+        return fail(message.c_str(), isError);
+    return text(message);
 }
 
 ct::Json McpServer::exportWeb(const ct::Json& arguments, bool& isError)

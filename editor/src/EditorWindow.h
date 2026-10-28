@@ -86,6 +86,8 @@ private:
     bool setStartupScene();
     void exportWeb(bool run);
     bool buildWeb(bool run, ct::String& message);
+    void exportDesktop(bool run);
+    bool buildDesktop(bool run, ct::String& message);
     void resetLayout();
     void registerTypes();
     void drainLog();

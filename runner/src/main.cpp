@@ -183,16 +183,13 @@ bool loadBytecodeManifest(const ct::String& projectRoot)
 // With no scene to play, the runner plays the pack beside it (the web page puts
 // it at /data.kpak): unpacked where the game reads its files, from the project's
 // startup scene. Audio opens files by path, so a mounted pack would not do.
-bool unpackGame(ct::String& scenePath, ct::String& projectPath)
+bool unpackGame(ct::String& scenePath, ct::String& projectPath, ct::String& title)
 {
 #if defined(__EMSCRIPTEN__)
     const ct::String pack("/data.kpak");
-    const ct::String directory("/project");
 #else
-    char base[4096], temp[4096];
+    char base[4096];
     const ct::String pack = fs_get_base_path(base, sizeof base) ? joinPath(base, "data.kpak") : ct::String("data.kpak");
-    const ct::String directory =
-        fs_get_temp_path(temp, sizeof temp) ? joinPath(temp, "kinetix2d-game") : ct::String("kinetix2d-game");
 #endif
     if (!file_exists(pack.c_str()))
         return false;
@@ -203,6 +200,20 @@ bool unpackGame(ct::String& scenePath, ct::String& projectPath)
         return false;
     }
     ct::Vector<unsigned char> data;
+    if (kpak.Read("project.k2dproj", data))
+    {
+        data.push_back(0);
+        title = ct::Json::parse(reinterpret_cast<const char*>(data.data()))["name"].as_cstr("");
+    }
+#if defined(__EMSCRIPTEN__)
+    const ct::String directory("/project");
+#else
+    // One folder per game, so two games never unpack over each other.
+    char temp[4096];
+    const ct::String folder = "kinetix2d-" + (title.empty() ? ct::String("game") : title);
+    const ct::String directory =
+        fs_get_temp_path(temp, sizeof temp) ? joinPath(temp, folder.c_str()) : folder;
+#endif
     for (std::size_t i = 0; i < kpak.EntryCount(); ++i)
     {
         const char* name = kpak.EntryName(i);
@@ -379,7 +390,8 @@ int main(int argc, char** argv)
 {
     ct::String scenePath = argc >= 2 ? ct::String(argv[1]) : ct::String();
     ct::String projectPath = argc >= 3 ? ct::String(argv[2]) : ct::String();
-    if (scenePath.empty() && !unpackGame(scenePath, projectPath))
+    ct::String title;
+    if (scenePath.empty() && !unpackGame(scenePath, projectPath, title))
     {
         std::fprintf(stderr, "Usage: k2d_runner <scene.k2dscene> [project.k2dproj], or data.kpak beside it\n");
         return 1;
@@ -388,7 +400,7 @@ int main(int argc, char** argv)
                                                         : directoryOf(directoryOf(scenePath.c_str()).c_str());
 
     k2d::Device device;
-    if (!device.Init("Kinetix2D Game", 1280, 720, true))
+    if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), 1280, 720, true))
         return 1;
     k2d::UserData userData;
     const ct::String projectName(path_filename(projectRoot.c_str()));

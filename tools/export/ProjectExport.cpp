@@ -431,3 +431,54 @@ bool ExportWeb(const char* projectRoot, const char* runnerDir, const char* outDi
 }
 
 } // namespace k2d
+
+namespace k2d
+{
+
+bool ExportDesktop(const char* projectRoot, const char* runnerPath, const char* outDir, ct::String& gamePath,
+                   ct::String& error)
+{
+    ct::Vector<unsigned char> runner;
+    if (!readFile(runnerPath, runner))
+    {
+        error = ct::String("No runner at ") + runnerPath + ": build k2d_runner";
+        return false;
+    }
+    char* projectText = file_read_text(join(ct::String(projectRoot), "project.k2dproj").c_str());
+    const ct::Json project = projectText ? ct::Json::parse(projectText) : ct::Json();
+    if (projectText)
+        fs_free(projectText);
+    const char* named = project["name"].as_cstr("");
+    const ct::String source = named[0] ? ct::String(named) : ct::String(path_filename(projectRoot));
+    // A file name every system takes.
+    ct::String name;
+    for (std::size_t i = 0; i < source.size(); ++i)
+    {
+        const char c = source[i];
+        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' ||
+                           c == '_';
+        name += plain ? c : '_';
+    }
+    if (name.empty())
+        name = "game";
+    if (path_has_extension(runnerPath, ".exe"))
+        name += ".exe";
+
+    if (!fs_create_directory(outDir))
+    {
+        error = ct::String("Could not make ") + outDir;
+        return false;
+    }
+    gamePath = join(ct::String(outDir), name.c_str());
+    if (!file_write(gamePath.c_str(), runner.data(), runner.size()) || !fs_make_executable(gamePath.c_str()))
+    {
+        error = "Could not write " + gamePath;
+        return false;
+    }
+    if (!WriteProjectPack(projectRoot, join(ct::String(outDir), "data.kpak").c_str(), error))
+        return false;
+    log_info("Exported the desktop game to %s", gamePath.c_str());
+    return true;
+}
+
+} // namespace k2d

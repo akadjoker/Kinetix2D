@@ -22,4 +22,9 @@ bool WriteProjectPack(const char* projectRoot, const char* packPath, ct::String&
 // k2d_runner.wasm), data.kpak and the page that loads it.
 bool ExportWeb(const char* projectRoot, const char* runnerDir, const char* outDir, ct::String& error);
 
+// A desktop game in outDir: the runner at runnerPath copied under the
+// project's name (gamePath tells where), and data.kpak beside it.
+bool ExportDesktop(const char* projectRoot, const char* runnerPath, const char* outDir, ct::String& gamePath,
+                   ct::String& error);
+
 } // namespace k2d

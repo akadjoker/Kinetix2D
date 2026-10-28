@@ -168,6 +168,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     file->addSeparator();
     file->addAction("Export Web", [this]() { exportWeb(false); });
     file->addAction("Run Web", [this]() { exportWeb(true); })->setShortcut("F7");
+    file->addAction("Export Desktop", [this]() { exportDesktop(false); });
+    file->addAction("Run Desktop", [this]() { exportDesktop(true); })->setShortcut("F8");
     file->addSeparator();
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
@@ -705,6 +707,12 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     if (key == rt::Key::F1 + 6)   // F7
     {
         exportWeb(true);
+        e.consumed = true;
+        return;
+    }
+    if (key == rt::Key::F1 + 7)   // F8
+    {
+        exportDesktop(true);
         e.consumed = true;
         return;
     }

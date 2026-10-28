@@ -314,3 +314,55 @@ bool EditorWindow::buildWeb(bool run, ct::String& message)
 }
 
 } // namespace k2d::editor
+
+namespace k2d::editor
+{
+
+void EditorWindow::exportDesktop(bool run)
+{
+    if (mPlaying)
+        return;
+    askToSave([this, run]()
+    {
+        ct::String message;
+        if (buildDesktop(run, message))
+            log_info("%s", message.c_str());
+        else
+            log_error("Desktop export failed: %s", message.c_str());
+    });
+}
+
+// The saved project as a game for this system in <project>/export/desktop:
+// the runner named after it and data.kpak beside it; run starts it.
+bool EditorWindow::buildDesktop(bool run, ct::String& message)
+{
+    if (mProjectRoot.empty() || !EditorFileSystem::exists(EditorFileSystem::join(mProjectRoot, kProjectFile)))
+    {
+        message = "Open or make a project first";
+        return false;
+    }
+#if defined(_WIN32)
+    const ct::String runner = besideEditor("k2d_runner.exe");
+#else
+    const ct::String runner = besideEditor("k2d_runner");
+#endif
+    const ct::String out = EditorFileSystem::join(mProjectRoot, "export/desktop");
+    ct::String game;
+    if (!ExportDesktop(mProjectRoot.c_str(), runner.c_str(), out.c_str(), game, message))
+        return false;
+    message = "Exported to " + game;
+    if (!run)
+        return true;
+    if (mRunnerId > 0 && process_is_running(mRunnerId))
+        process_kill(mRunnerId);
+    mRunnerId = process_spawn(game.c_str(), nullptr, 0, false);
+    if (mRunnerId <= 0)
+    {
+        message = "Could not start " + game;
+        return false;
+    }
+    message = "Running " + game;
+    return true;
+}
+
+} // namespace k2d::editor
