@@ -4,6 +4,8 @@
 #include "Signal.hpp"
 #include "Widget.hpp"
 
+#include <ct/function.hpp>
+
 namespace k2d::editor
 {
 
@@ -18,6 +20,13 @@ public:
 
     ig::retained::Signal<float, float> panned;
     ig::retained::Signal<float, float, float> zoomed;
+    // The left button, at points in the view: down, moved while down, up.
+    ig::retained::Signal<float, float> pressed;
+    ig::retained::Signal<float, float> dragged;
+    ig::retained::Signal<float, float> released;
+
+    // Drawn over the image, with the view's rectangle on screen.
+    ct::Function<void(ig::retained::PaintContext&, const ig::retained::Rect&)> overlay;
 
     Vec2f sizeHint() const override;
     void paint(ig::retained::PaintContext& ctx) override;
@@ -29,6 +38,7 @@ public:
 private:
     ig::retained::TextureHandle mTexture;
     bool mPanning = false;
+    bool mDragging = false;
 };
 
 } // namespace k2d::editor

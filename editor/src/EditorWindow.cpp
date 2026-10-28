@@ -114,13 +114,26 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             redo();
     });
     mTools->addSeparator();
-    mTools->addToggle(Icons::get("Select"), "Select", true);
-    mTools->addToggle(Icons::get("Move"), "Move");
-    mTools->addToggle(Icons::get("Rotate"), "Rotate");
-    mTools->addToggle(Icons::get("Scale"), "Scale");
+    mToolItems[0] = mTools->addToggle(Icons::get("Select"), "Select", true);
+    mToolItems[1] = mTools->addToggle(Icons::get("Move"), "Move");
+    mToolItems[2] = mTools->addToggle(Icons::get("Rotate"), "Rotate");
+    mToolItems[3] = mTools->addToggle(Icons::get("Scale"), "Scale");
     mTools->addSeparator();
-    mTools->addToggle(Icons::get("Grid"), "Grid", true);
-    mTools->addToggle(Icons::get("Snap"), "Snap");
+    mGridItem = mTools->addToggle(Icons::get("Grid"), "Grid", true);
+    mSnapItem = mTools->addToggle(Icons::get("Snap"), "Snap");
+    mTools->toggleChanged.connect([this](int item, bool on)
+    {
+        if (item == mGridItem)
+            mGizmo.setGrid(on);
+        else if (item == mSnapItem)
+            mGizmo.setSnap(on);
+        // The four tools are one choice: the one pressed stays on.
+        for (int i = 0; i < 4; ++i)
+            if (item == mToolItems[i])
+                mGizmo.setTool(static_cast<SceneTool>(i));
+        for (int i = 0; i < 4; ++i)
+            mTools->setItemChecked(mToolItems[i], static_cast<int>(mGizmo.tool()) == i);
+    });
     toolRow->createChild<rt::Panel>()->setStretch(1.0f);
     mRunBar = toolRow->createChild<rt::ToolBar>();
     mRunBar->setDraggable(false);
@@ -195,6 +208,28 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         mCamera.position.x -= dx / mCamera.zoom.x;
         mCamera.position.y -= dy / mCamera.zoom.y;
+    });
+    mViewport->overlay = [this](rt::PaintContext& ctx, const rt::Rect& area)
+    {
+        mGizmo.setView(mCamera, area.w, area.h);
+        mGizmo.paint(ctx, area, mScene, mSelected);
+    };
+    mViewport->pressed.connect([this](float x, float y)
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        mGizmo.setView(mCamera, area.w, area.h);
+        if (mPlaying || mGizmo.press(mSelected, x, y))
+            return;
+        select(mGizmo.pick(mScene, x, y));
+    });
+    mViewport->dragged.connect([this](float x, float y) { mGizmo.drag(x, y); });
+    mViewport->released.connect([this](float, float)
+    {
+        if (mGizmo.release())
+        {
+            commit(mGizmo.editName());
+            mInspector->show(mSelected);
+        }
     });
     mViewport->zoomed.connect([this](float steps, float, float)
     {

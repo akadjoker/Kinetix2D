@@ -40,6 +40,8 @@ void ViewportPanel::paint(rt::PaintContext& ctx)
         ctx.fill.SetColor(rt::Theme::instance().bgColor);
         ctx.fill.Rectangle(abs.x, abs.y, abs.w, abs.h, true);
     }
+    if (overlay)
+        overlay(ctx, abs);
     for (rt::Widget* child : children_)
         child->paint(ctx);
     ctx.popClip();
@@ -51,6 +53,9 @@ void ViewportPanel::onMousePress(rt::MouseEvent& e)
     if (rt::WidgetApp* app = rt::WidgetApp::existing())
         app->setFocused(this);
     mPanning = e.button != 0;
+    mDragging = e.button == 0;
+    if (mDragging)
+        pressed.emit(e.localX, e.localY);
     e.consumed = true;
 }
 
@@ -58,6 +63,9 @@ void ViewportPanel::onMouseRelease(rt::MouseEvent& e)
 {
     rt::Widget::onMouseRelease(e);
     mPanning = false;
+    if (mDragging)
+        released.emit(e.localX, e.localY);
+    mDragging = false;
     e.consumed = true;
 }
 
@@ -66,6 +74,8 @@ void ViewportPanel::onMouseMove(rt::MouseEvent& e)
     rt::Widget::onMouseMove(e);
     if (mPanning)
         panned.emit(e.relX, e.relY);
+    else if (mDragging)
+        dragged.emit(e.localX, e.localY);
 }
 
 void ViewportPanel::onMouseScroll(rt::MouseEvent& e)

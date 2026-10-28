@@ -2,6 +2,7 @@
 
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
+#include "SceneGizmo.h"
 #include "ViewportPanel.h"
 #include "core/CommandStack.h"
 
@@ -58,6 +59,10 @@ private:
     ig::retained::DockPanel* mDock = nullptr;
     ig::retained::ToolBar* mTools = nullptr;
     ig::retained::ToolBar* mRunBar = nullptr;
+    int mToolItems[4] = {-1, -1, -1, -1};
+    int mGridItem = -1;
+    int mSnapItem = -1;
+    SceneGizmo mGizmo;
     int mUndoItem = -1;
     int mRedoItem = -1;
     int mPlayItem = -1;
