@@ -4,6 +4,7 @@
 #include "AssetsPanel.h"
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
+#include "ParticlesPanel.h"
 #include "SceneGizmo.h"
 #include "ScriptEditorPanel.h"
 #include "SpriteEditorPanel.h"
@@ -48,6 +49,9 @@ private:
     void resetLayout();
     void registerTypes();
     void drainLog();
+    // Particles, animations and action sequences moving in edit mode.
+    void tickEditPreview(GameObject& object, float deltaTime);
+    void restartEditPreview(GameObject& object);
     void onShortcut(ig::retained::KeyEvent& e);
     void setTool(SceneTool tool);
     void showOpenDialog();
@@ -109,6 +113,9 @@ private:
     AnimatorPanel* mAnimator = nullptr;
     TilePainterPanel* mTilePainter = nullptr;
     ScriptEditorPanel* mScriptEditor = nullptr;
+    ParticlesPanel* mParticles = nullptr;
+    int mPreviewItem = -1;
+    bool mLivePreview = true;
     ig::retained::ConsoleWidget* mConsole = nullptr;
     ig::retained::String mDefaultLayout;
 

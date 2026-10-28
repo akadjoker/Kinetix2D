@@ -7,7 +7,10 @@
 #include <k2d/ClassDB.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
+#include <k2d/ActionSequence2D.h>
+#include <k2d/Animation2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/ParticleComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
 #include <k2d/OpenGL.h>
@@ -43,6 +46,7 @@ const char* const kSpritePanel = "Sprite Editor";
 const char* const kAnimatorPanel = "Animator";
 const char* const kTilePanel = "Tile Painter";
 const char* const kScriptPanel = "Script Editor";
+const char* const kParticlesPanel = "Particles";
 
 ct::String directoryOf(const char* path)
 {
@@ -187,11 +191,18 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mToolItems[2] = mTools->addToggle(Icons::get("Rotate"), "Rotate");
     mToolItems[3] = mTools->addToggle(Icons::get("Scale"), "Scale");
     mTools->addSeparator();
+    mPreviewItem = mTools->addToggle(Icons::get("Particle"),
+                                     "Live preview: particles and animations move while editing", true);
     mGridItem = mTools->addToggle(Icons::get("Grid"), "Grid", true);
     mSnapItem = mTools->addToggle(Icons::get("Snap"), "Snap");
     mTools->toggleChanged.connect([this](int item, bool on)
     {
-        if (item == mGridItem)
+        if (item == mPreviewItem)
+        {
+            mLivePreview = on;
+            restartEditPreview(mScene.root());
+        }
+        else if (item == mGridItem)
             mGizmo.setGrid(on);
         else if (item == mSnapItem)
             mGizmo.setSnap(on);
@@ -284,6 +295,15 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
     mAnimator->edited.connect([this](const char* label) { commit(label); });
     mAnimator->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mParticles = mDock->addPanel<ParticlesPanel>(kParticlesPanel);
+    mParticles->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mParticles->edited.connect([this](const char* label, bool final)
+    {
+        if (label)
+            mPendingEdit = label;
+        if (final && !mPendingEdit.empty())
+            commit(mPendingEdit.c_str());
+    });
     mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
     mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mTilePainter->edited.connect([this](const char* label)
@@ -308,6 +328,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mDock->moveTabToLeaf(kAssetsPanel, kConsolePanel);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
     mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
+    mDock->moveTabToLeaf(kParticlesPanel, kConsolePanel);
     mDock->showPanel(kAssetsPanel);
     mDock->showPanel(kScenePanel);
     mDefaultLayout = mDock->saveLayout();
@@ -516,6 +537,7 @@ bool EditorWindow::openScene(const char* path)
 
 void EditorWindow::sceneLoaded()
 {
+    restartEditPreview(mScene.root());
     mHierarchy->rebuild(mScene);
     mTopology = mScene.topologyVersion();
     select(nullptr);
@@ -628,6 +650,9 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     mStatus->layout();
     drainLog();
     mAnimator->tick(deltaTime);
+    mParticles->tick();
+    if (!mPlaying && mLivePreview)
+        tickEditPreview(mScene.root(), deltaTime);
 
     if (mPlaying && !mPaused)
     {
@@ -764,6 +789,7 @@ void EditorWindow::showObject(GameObject* object)
 {
     mInspector->show(object);
     mAnimator->show(object);
+    mParticles->show(object);
     mTilePainter->show(object);
 }
 
@@ -1063,6 +1089,7 @@ void EditorWindow::stopPlay()
     mPlaySnapshot = ct::Json();
     mPlaying = false;
     mScriptEditor->playing = false;
+    restartEditPreview(mScene.root());
     mPaused = false;
     mTopology = mScene.topologyVersion();
     mHierarchy->rebuild(mScene);
@@ -1083,6 +1110,50 @@ void EditorWindow::updateRunBar()
     mRunBar->setItemChecked(mPauseItem, mPaused);
     mRunBar->setItemEnabled(mPauseItem, mPlaying);
     mRunBar->setItemEnabled(mStopItem, mPlaying);
+}
+
+void EditorWindow::tickEditPreview(GameObject& object, float deltaTime)
+{
+    if (!object.isActiveInHierarchy())
+        return;
+    for (std::size_t i = 0; i < object.componentCount<ParticleComponent>(); ++i)
+    {
+        ParticleComponent* particles = object.getComponentAt<ParticleComponent>(i);
+        if (!particles || !particles->active())
+            continue;
+        if (particles->followOwner())
+            particles->system().SetEmitterPosition(object.globalPosition());
+        particles->system().Update(deltaTime);
+    }
+    for (std::size_t i = 0; i < object.componentCount<Animation2D>(); ++i)
+        if (Animation2D* animation = object.getComponentAt<Animation2D>(i); animation && animation->active())
+            animation->Advance(deltaTime);
+    for (std::size_t i = 0; i < object.componentCount<ActionSequence2D>(); ++i)
+        if (ActionSequence2D* sequence = object.getComponentAt<ActionSequence2D>(i);
+            sequence && sequence->active() && sequence->playing())
+            sequence->Advance(deltaTime);
+    for (std::size_t i = 0; i < object.childCount(); ++i)
+        tickEditPreview(*object.child(i), deltaTime);
+}
+
+void EditorWindow::restartEditPreview(GameObject& object)
+{
+    for (std::size_t i = 0; i < object.componentCount<ParticleComponent>(); ++i)
+        if (ParticleComponent* particles = object.getComponentAt<ParticleComponent>(i))
+            particles->system().Reset();
+    for (std::size_t i = 0; i < object.componentCount<Animation2D>(); ++i)
+        if (Animation2D* animation = object.getComponentAt<Animation2D>(i))
+            animation->reset();
+    for (std::size_t i = 0; i < object.componentCount<ActionSequence2D>(); ++i)
+        if (ActionSequence2D* sequence = object.getComponentAt<ActionSequence2D>(i))
+        {
+            if (sequence->autoplay())
+                sequence->play(true);
+            else
+                sequence->stop();
+        }
+    for (std::size_t i = 0; i < object.childCount(); ++i)
+        restartEditPreview(*object.child(i));
 }
 
 void EditorWindow::drainLog()
