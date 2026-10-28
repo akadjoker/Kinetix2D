@@ -229,16 +229,15 @@ namespace k2d
         if (!mCulling || !component.renderBounds(min, max))
             return false;
         const Matrix2D &m = object.globalTransform();
-        const Math::Vec2 corners[4] = {m.Transform(min.x, min.y), m.Transform(max.x, min.y),
-                                       m.Transform(max.x, max.y), m.Transform(min.x, max.y)};
-        Math::Vec2 low = corners[0], high = corners[0];
-        for (int i = 1; i < 4; ++i)
-        {
-            low = Math::Vec2(corners[i].x < low.x ? corners[i].x : low.x, corners[i].y < low.y ? corners[i].y : low.y);
-            high = Math::Vec2(corners[i].x > high.x ? corners[i].x : high.x,
-                              corners[i].y > high.y ? corners[i].y : high.y);
-        }
-        return high.x < mCullMin.x || low.x > mCullMax.x || high.y < mCullMin.y || low.y > mCullMax.y;
+        const float hx = (max.x - min.x) * 0.5f;
+        const float hy = (max.y - min.y) * 0.5f;
+        const float lx = min.x + hx;
+        const float ly = min.y + hy;
+        const float cx = m.a * lx + m.c * ly + m.tx;
+        const float cy = m.b * lx + m.d * ly + m.ty;
+        const float ex = std::fabs(m.a) * hx + std::fabs(m.c) * hy;
+        const float ey = std::fabs(m.b) * hx + std::fabs(m.d) * hy;
+        return cx + ex < mCullMin.x || cx - ex > mCullMax.x || cy + ey < mCullMin.y || cy - ey > mCullMax.y;
     }
 
     RenderQueue &Scene::buildRenderQueue()
