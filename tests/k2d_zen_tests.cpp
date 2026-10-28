@@ -2223,10 +2223,10 @@ static bool testSceneManager()
     k2d::Assets assets;
     k2d::Scene scene;
     k2d::SceneManager manager;
-    k2d::GameObject* root = manager.Load(scene, assets, "assets/senes/ui_controls.k2dscene");
+    k2d::GameObject* root = manager.Load(scene, assets, "senes/ui_controls.k2dscene");
     bool ok = root && root->name() == ct::String("UI Controls Example") &&
               root->getComponent<k2d::UiCanvas>() != nullptr && scene.find("Settings Panel") != nullptr;
-    manager.Request("assets/senes/ui_controls.k2dscene");
+    manager.Request("senes/ui_controls.k2dscene");
     ok = ok && manager.HasRequest() && manager.ApplyRequest(scene, assets) != nullptr && !manager.HasRequest();
     return ok;
 }
