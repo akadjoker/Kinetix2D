@@ -42,6 +42,7 @@ const char* const kAssetsPanel = "Assets";
 const char* const kSpritePanel = "Sprite Editor";
 const char* const kAnimatorPanel = "Animator";
 const char* const kTilePanel = "Tile Painter";
+const char* const kScriptPanel = "Script Editor";
 
 ct::String directoryOf(const char* path)
 {
@@ -240,6 +241,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
     mGame = mDock->addPanel<ViewportPanel>(kGamePanel);
     mSpriteEditor = mDock->addPanel<SpriteEditorPanel>(kSpritePanel, mAssets);
+    mScriptEditor = mDock->addPanel<ScriptEditorPanel>(kScriptPanel);
     mSpriteEditor->addToScene.connect([this](const SpriteRegionDrag& region)
     {
         const rt::Rect area = mViewport->absoluteRect();
@@ -292,6 +294,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         else if ((ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga") &&
                  mSpriteEditor->open(path))
             mDock->showPanel(kSpritePanel);
+        else if ((ext == "py" || ext == "zen" || ext == "zs") && mScriptEditor->open(path))
+            mDock->showPanel(kScriptPanel);
     });
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
@@ -398,7 +402,10 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     const int key = e.key >= 'A' && e.key <= 'Z' ? e.key - 'A' + 'a' : e.key;
     if (e.ctrl)
     {
-        if (key == rt::Key::S)
+        // Ctrl+S saves what has the focus: the script being edited, or the scene.
+        if (key == rt::Key::S && !e.shift && mScriptEditor->owns(mApp->focused()))
+            mScriptEditor->save();
+        else if (key == rt::Key::S)
             e.shift ? showSaveDialog() : save();
         else if (key == rt::Key::O)
             showOpenDialog();
@@ -497,6 +504,7 @@ bool EditorWindow::openScene(const char* path)
     mSceneDocument = files.LoadFile(path, text, true) ? ct::Json::parse(text.Text()) : ct::Json();
     mAssetsPanel->setRoot(mProjectRoot);
     mSpriteEditor->setRoot(mProjectRoot);
+    mScriptEditor->setRoot(mProjectRoot);
     sceneLoaded();
     return true;
 }
@@ -998,6 +1006,7 @@ void EditorWindow::startPlay()
     SetZenScriptsEnabled(true);
     mScene.setSimulationEnabled(true);
     mPlaying = true;
+    mScriptEditor->playing = true;
     mPaused = false;
     mDock->showPanel(kScenePanel);
     updateRunBar();
@@ -1017,6 +1026,7 @@ void EditorWindow::stopPlay()
     Serializer::ReadInto(mScene, mScene.root(), mPlaySnapshot, &mAssets);
     mPlaySnapshot = ct::Json();
     mPlaying = false;
+    mScriptEditor->playing = false;
     mPaused = false;
     mTopology = mScene.topologyVersion();
     mHierarchy->rebuild(mScene);

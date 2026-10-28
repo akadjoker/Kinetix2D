@@ -5,6 +5,7 @@
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
 #include "SceneGizmo.h"
+#include "ScriptEditorPanel.h"
 #include "SpriteEditorPanel.h"
 #include "TilePainterPanel.h"
 #include "ViewportPanel.h"
@@ -104,6 +105,7 @@ private:
     SpriteEditorPanel* mSpriteEditor = nullptr;
     AnimatorPanel* mAnimator = nullptr;
     TilePainterPanel* mTilePainter = nullptr;
+    ScriptEditorPanel* mScriptEditor = nullptr;
     ig::retained::ConsoleWidget* mConsole = nullptr;
     ig::retained::String mDefaultLayout;
 

@@ -34,6 +34,7 @@ add_executable(k2d_editor
     src/AnimatorPanel.cpp
     src/TilePalette.cpp
     src/TilePainterPanel.cpp
+    src/ScriptEditorPanel.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )

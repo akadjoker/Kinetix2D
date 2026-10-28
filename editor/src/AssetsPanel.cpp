@@ -34,7 +34,7 @@ bool hasExtension(const ct::String& path, const char* const* extensions)
 // As EditorFileSystem::extension gives them: no dot, lower case.
 const char* const kImages[] = {"png", "jpg", "jpeg", "bmp", "tga", nullptr};
 const char* const kAudio[] = {"wav", "ogg", "mp3", "flac", nullptr};
-const char* const kScripts[] = {"zen", "zs", nullptr};
+const char* const kScripts[] = {"py", "zen", "zs", nullptr};
 const char* const kScenes[] = {"k2dscene", nullptr};
 const char* const kPrefabs[] = {"k2dprefab", "prefab", nullptr};
 
