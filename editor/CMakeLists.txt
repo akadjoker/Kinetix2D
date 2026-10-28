@@ -28,6 +28,8 @@ add_executable(k2d_editor
     src/ViewportPanel.cpp
     src/SceneGizmo.cpp
     src/AssetsPanel.cpp
+    src/SpriteCanvas.cpp
+    src/SpriteEditorPanel.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )

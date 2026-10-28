@@ -4,6 +4,7 @@
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
 #include "SceneGizmo.h"
+#include "SpriteEditorPanel.h"
 #include "ViewportPanel.h"
 #include "core/CommandStack.h"
 
@@ -51,6 +52,9 @@ private:
     void updateUndoButtons();
     void runHierarchyAction(HierarchyAction action);
     void dropAsset(const ct::String& path, float x, float y);
+    // A sprite object showing the texture, or the region of it when rect has a
+    // size, centred on (x, y) in the scene view.
+    void addSprite(const ct::String& texture, const ct::String& name, const Math::Vec4& rect, float x, float y);
     void dropObject(GameObject* object, GameObject* target, ig::retained::TreeView::DropZone zone);
     void startPlay();
     void stopPlay();
@@ -78,6 +82,7 @@ private:
     HierarchyPanel* mHierarchy = nullptr;
     InspectorPanel* mInspector = nullptr;
     AssetsPanel* mAssetsPanel = nullptr;
+    SpriteEditorPanel* mSpriteEditor = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;

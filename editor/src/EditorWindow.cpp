@@ -35,6 +35,7 @@ const char* const kGamePanel = "Game";
 const char* const kInspectorPanel = "Inspector";
 const char* const kConsolePanel = "Console";
 const char* const kAssetsPanel = "Assets";
+const char* const kSpritePanel = "Sprite Editor";
 
 ct::String directoryOf(const char* path)
 {
@@ -176,6 +177,12 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
     mGame = mDock->addPanel<ViewportPanel>(kGamePanel);
+    mSpriteEditor = mDock->addPanel<SpriteEditorPanel>(kSpritePanel, mAssets);
+    mSpriteEditor->addToScene.connect([this](const SpriteRegionDrag& region)
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        addSprite(region.texture, region.id, region.rect, area.w * 0.5f, area.h * 0.5f);
+    });
     mInspector = mDock->addPanel<InspectorPanel>(kInspectorPanel);
     mInspector->show(nullptr);
     mInspector->edited.connect([this](const char* label, bool final)
@@ -205,8 +212,12 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mAssetsPanel = mDock->addPanel<AssetsPanel>(kAssetsPanel, mAssets);
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
-        if (EditorFileSystem::extension(path) == "k2dscene" && !mPlaying)
+        const ct::String ext = EditorFileSystem::extension(path);
+        if (ext == "k2dscene" && !mPlaying)
             openScene(EditorFileSystem::resolve(mProjectRoot, path).c_str());
+        else if ((ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga") &&
+                 mSpriteEditor->open(path))
+            mDock->showPanel(kSpritePanel);
     });
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
@@ -236,12 +247,14 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mViewport->acceptDrop = [this](const rt::DragPayload& payload)
     {
-        return !mPlaying && payload.type == kAssetPayload;
+        return !mPlaying && (payload.type == kAssetPayload || payload.type == kSpriteRegionPayload);
     };
     mViewport->dropped = [this](const rt::DragPayload& payload, float x, float y)
     {
         if (const ct::String* path = std::any_cast<ct::String>(&payload.data))
             dropAsset(*path, x, y);
+        else if (const SpriteRegionDrag* region = std::any_cast<SpriteRegionDrag>(&payload.data))
+            addSprite(region->texture, region->id, region->rect, x, y);
     };
     mViewport->dragged.connect([this](float x, float y) { mGizmo.drag(x, y); });
     mViewport->released.connect([this](float, float)
@@ -306,6 +319,7 @@ bool EditorWindow::openScene(const char* path)
         mCamera.position = camera->owner()->globalPosition();
     mSceneLabel->setText(path_filename(path));
     mAssetsPanel->setRoot(mProjectRoot);
+    mSpriteEditor->setRoot(mProjectRoot);
     mHierarchy->rebuild(mScene);
     select(nullptr);
     mCommands.clear();
@@ -539,17 +553,28 @@ void EditorWindow::updateUndoButtons()
 // An image dropped on the scene view becomes a sprite object where it lands.
 void EditorWindow::dropAsset(const ct::String& path, float x, float y)
 {
+    const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path));
+    addSprite(path, name, Math::Vec4(0.0f), x, y);
+}
+
+void EditorWindow::addSprite(const ct::String& path, const ct::String& name, const Math::Vec4& rect, float x, float y)
+{
     Texture* texture = mAssets.GetTexture(path.c_str());
-    if (!texture)
+    if (!texture || mPlaying)
         return;
     const rt::Rect area = mViewport->absoluteRect();
     const Math::Vec2 world = mCamera.ScreenToWorld(x, y, area.w, area.h);
-    const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path));
     GameObject* object = mScene.createObject(name.c_str());
     object->setPosition(world);
     SpriteComponent* sprite = object->addComponent<SpriteComponent>();
     sprite->setTexture(texture);
-    sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
+    if (rect.z > 0.0f && rect.w > 0.0f)
+    {
+        sprite->setSourceRect(rect.x, rect.y, rect.z, rect.w);
+        sprite->setSize(Math::Vec2(rect.z, rect.w));
+    }
+    else
+        sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
     mSelected = object;
     refreshTree();
     mInspector->show(object);
