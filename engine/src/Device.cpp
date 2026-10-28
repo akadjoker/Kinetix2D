@@ -166,13 +166,8 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
     }
     window_make_current(mWindow);
 
-#if !K2D_OPENGL_NATIVE_GLES3
-    if (!gladLoadGL((GLADloadfunc)gl_proc_address))
-    {
-        log_error("gladLoadGL failed");
+    if (!LoadOpenGL())
         return false;
-    }
-#endif
 
     log_info("GL_VERSION: %s", (const char*)glGetString(GL_VERSION));
     log_info("GL_RENDERER: %s", (const char*)glGetString(GL_RENDERER));

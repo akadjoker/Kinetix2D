@@ -2,6 +2,7 @@
 #include "Icons.h"
 
 #include <k2d/FileSystem.h>
+#include <k2d/OpenGL.h>
 
 #include <igui_zen/ZenApp.hpp>
 #include <platform.h>
@@ -21,7 +22,7 @@ int main(int argc, char** argv)
     ig::zen::App app;
     if (!app.create(config))
         return 1;
-    if (!app.usesOpenGL())
+    if (!app.usesOpenGL() || !k2d::LoadOpenGL())
     {
         log_error("an OpenGL context is required");
         return 1;

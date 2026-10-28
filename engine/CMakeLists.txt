@@ -69,6 +69,7 @@ add_library(k2d STATIC
     src/FileSystem.cpp
     src/UserData.cpp
     src/Device.cpp
+    src/OpenGL.cpp
     src/Shader.cpp
     src/Texture.cpp
     src/UiTheme.cpp
@@ -180,6 +181,8 @@ if(K2D_NATIVE_GLES3)
     if(EMSCRIPTEN)
         target_link_options(k2d PUBLIC "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2")
     endif()
+else()
+    target_link_libraries(k2d PUBLIC opengles3)
 endif()
 target_link_libraries(k2d PUBLIC platform)
 
