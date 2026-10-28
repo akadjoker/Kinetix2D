@@ -20,6 +20,12 @@ namespace k2d::editor
 // ct::String path relative to the project root.
 extern const char* const kAssetPayload;
 
+// What a project path holds, by its extension.
+bool isImagePath(const ct::String& path);
+bool isScriptPath(const ct::String& path);
+// The project path an asset payload carries, or nullptr for another payload.
+const ct::String* assetPath(const ig::retained::DragPayload& payload);
+
 // The project's files as thumbnails: folders open with a double click, images
 // show themselves, everything else its icon. Items drag out as kAssetPayload.
 class AssetsPanel : public ig::retained::BoxLayout

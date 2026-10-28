@@ -1,5 +1,6 @@
 #include "HierarchyPanel.h"
 
+#include "AssetsPanel.h"
 #include "Icons.h"
 
 #include "MenuWidgets.hpp"
@@ -94,6 +95,19 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
         GameObject** onto = target ? mObjects.find(target) : nullptr;
         if (object)
             dropped.emit(*object, onto ? *onto : nullptr, zone);
+    });
+
+    mTree->setExternalDrop([](const rt::DragPayload& payload)
+    {
+        const ct::String* path = assetPath(payload);
+        return path && isScriptPath(*path);
+    });
+    mTree->externalDropped.connect([this](const rt::DragPayload& payload, rt::TreeNode* node)
+    {
+        const ct::String* path = assetPath(payload);
+        GameObject** object = node ? mObjects.find(node) : nullptr;
+        if (path)
+            scriptDropped.emit(*path, object ? *object : nullptr);
     });
 
     rt::Menu* menu = new rt::Menu();

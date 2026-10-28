@@ -6,6 +6,7 @@
 #include "TreePropertyColorWidgets.hpp"
 
 #include <ct/hashmap.hpp>
+#include <ct/string.hpp>
 
 namespace k2d
 {
@@ -44,6 +45,8 @@ public:
     // An object was dragged onto another: the object, the one it was dropped on
     // (nullptr below the last row), and where.
     ig::retained::Signal<GameObject*, GameObject*, ig::retained::TreeView::DropZone> dropped;
+    // A script from Assets dropped on a row (the object) or below them (nullptr).
+    ig::retained::Signal<const ct::String&, GameObject*> scriptDropped;
 
 private:
     void addObject(ig::retained::TreeNode* parent, GameObject* object);

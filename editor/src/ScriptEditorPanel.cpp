@@ -1,11 +1,14 @@
 #include "ScriptEditorPanel.h"
 
+#include "AssetsPanel.h"
 #include "Icons.h"
 #include "core/EditorFileSystem.h"
 
 #include "BasicWidgets.hpp"
 #include "CodeEditor.hpp"
 #include "ComboBox.hpp"
+#include "FileDialog.hpp"
+#include "WidgetApp.hpp"
 #include "ToolBar.hpp"
 
 #include <k2d/FileBuffer.h>
@@ -13,6 +16,8 @@
 #include <k2d/ZenScriptComponent.h>
 
 #include <platform.h>
+
+#include <cctype>
 
 namespace rt = ig::retained;
 
@@ -29,12 +34,18 @@ ScriptEditorPanel::ScriptEditorPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     bar->setSpacing(6.0f);
     auto* tools = bar->createChild<rt::ToolBar>();
     tools->setDraggable(false);
+    const int newItem = tools->addButton(Icons::get("New"), "New script");
+    const int openItem = tools->addButton(Icons::get("Open"), "Open a script");
     const int saveItem = tools->addButton(Icons::get("Save"), "Save the script (Ctrl+S)");
     const int reloadItem = tools->addButton(Icons::get("Refresh"), "Reload the script from disk");
     const int findItem = tools->addButton(rt::IconId::Search, "Find and replace");
-    tools->buttonClicked.connect([this, saveItem, reloadItem, findItem](int item)
+    tools->buttonClicked.connect([this, newItem, openItem, saveItem, reloadItem, findItem](int item)
     {
-        if (item == saveItem)
+        if (item == newItem)
+            showNewDialog();
+        else if (item == openItem)
+            showOpenDialog();
+        else if (item == saveItem)
             save();
         else if (item == reloadItem)
             reload();
@@ -181,6 +192,81 @@ bool ScriptEditorPanel::reload()
     mCurrent = -1;   // nothing to keep: the disk wins
     show(index);
     return true;
+}
+
+bool ScriptEditorPanel::acceptsDrop(const rt::DragPayload& payload)
+{
+    const ct::String* path = assetPath(payload);
+    return path && isScriptPath(*path);
+}
+
+void ScriptEditorPanel::onDropReceive(const rt::DragPayload& payload)
+{
+    if (const ct::String* path = assetPath(payload))
+        open(*path);
+}
+
+void ScriptEditorPanel::showOpenDialog()
+{
+    auto* dialog = rt::WidgetApp::instance().addFloat<rt::FileDialog>("Open script");
+    dialog->setMode(rt::FileDialog::Mode::Open);
+    dialog->setFilter("*.py;*.zen");
+    const ct::String scripts = EditorFileSystem::join(mRoot, "assets/scripts");
+    dialog->setPath(EditorFileSystem::isDirectory(scripts) ? scripts : mRoot);
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    dialog->accepted.connect([this](const rt::String& path) { open(EditorFileSystem::relativeTo(mRoot, path)); });
+}
+
+// A script with a class named after the file, ready for on_start and on_update.
+void ScriptEditorPanel::showNewDialog()
+{
+    auto* dialog = rt::WidgetApp::instance().addFloat<rt::FileDialog>("New script");
+    dialog->setMode(rt::FileDialog::Mode::Save);
+    dialog->setFilter("*.py");
+    const ct::String scripts = EditorFileSystem::join(mRoot, "assets/scripts");
+    dialog->setPath(EditorFileSystem::isDirectory(scripts) ? scripts : mRoot);
+    dialog->setFileName("new_script.py");
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    dialog->accepted.connect([this](const rt::String& chosen)
+    {
+        ct::String path = chosen;
+        if (EditorFileSystem::extension(path) != "py")
+            path += ".py";
+        if (!EditorFileSystem::exists(path))
+        {
+            // new_script -> NewScript
+            ct::String name;
+            bool upper = true;
+            for (char c : EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)))
+            {
+                if (!std::isalnum(static_cast<unsigned char>(c)))
+                {
+                    upper = true;
+                    continue;
+                }
+                name += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(c))) : c;
+                upper = false;
+            }
+            if (name.empty() || std::isdigit(static_cast<unsigned char>(name[0])))
+                name = ct::String("Script") + name;
+            const ct::String source = ct::String("class ") + name +
+                                      "(ScriptComponent):\n"
+                                      "    speed = 100\n"
+                                      "\n"
+                                      "    def on_start(self):\n"
+                                      "        pass\n"
+                                      "\n"
+                                      "    def on_update(self, dt):\n"
+                                      "        pass\n";
+            if (!FileSystem::Instance().SaveTextFile(path.c_str(), source))
+            {
+                log_error("Could not create %s", path.c_str());
+                return;
+            }
+            log_info("Created %s", path.c_str());
+        }
+        open(EditorFileSystem::relativeTo(mRoot, path));
+    });
 }
 
 } // namespace k2d::editor

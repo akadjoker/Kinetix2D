@@ -72,6 +72,9 @@ private:
     void updateUndoButtons();
     void runHierarchyAction(HierarchyAction action);
     void dropAsset(const ct::String& path, float x, float y);
+    // Adds the script to the object, or to a new object at (x, y) in the scene
+    // view when there is none.
+    void attachScript(const ct::String& path, GameObject* object, float x, float y);
     // A sprite object showing the texture, or the region of it when rect has a
     // size, centred on (x, y) in the scene view.
     void addSprite(const ct::String& texture, const ct::String& name, const Math::Vec4& rect, float x, float y);

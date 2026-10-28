@@ -38,6 +38,26 @@ const char* const kScripts[] = {"py", "zen", "zs", nullptr};
 const char* const kScenes[] = {"k2dscene", nullptr};
 const char* const kPrefabs[] = {"k2dprefab", "prefab", nullptr};
 
+} // namespace
+
+bool isImagePath(const ct::String& path)
+{
+    return hasExtension(path, kImages);
+}
+
+bool isScriptPath(const ct::String& path)
+{
+    return hasExtension(path, kScripts);
+}
+
+const ct::String* assetPath(const rt::DragPayload& payload)
+{
+    return payload.type == kAssetPayload ? std::any_cast<ct::String>(&payload.data) : nullptr;
+}
+
+namespace
+{
+
 rt::IconId iconFor(const ct::String& path, bool directory)
 {
     if (directory)

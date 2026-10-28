@@ -33,6 +33,11 @@ public:
     bool reload();
     // Whether the widget with the focus is this panel's.
     bool owns(const ig::retained::Widget* focused) const;
+    void showOpenDialog();
+    void showNewDialog();
+
+    bool acceptsDrop(const ig::retained::DragPayload& payload) override;
+    void onDropReceive(const ig::retained::DragPayload& payload) override;
     bool hasUnsaved() const;
 
     bool playing = false;

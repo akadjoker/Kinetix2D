@@ -234,6 +234,11 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
     mHierarchy->edited.connect([this](const char* label) { commit(label); });
+    mHierarchy->scriptDropped.connect([this](const ct::String& path, GameObject* object)
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        attachScript(path, object, area.w * 0.5f, area.h * 0.5f);
+    });
     mHierarchy->dropped.connect([this](GameObject* object, GameObject* target, rt::TreeView::DropZone zone)
     {
         dropObject(object, target, zone);
@@ -852,9 +857,40 @@ void EditorWindow::updateUndoButtons()
     mTools->setItemTooltip(mRedoItem, tip);
 }
 
-// An image dropped on the scene view becomes a sprite object where it lands.
+void EditorWindow::attachScript(const ct::String& path, GameObject* object, float x, float y)
+{
+    if (mPlaying)
+        return;
+    if (!object)
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        object = mScene.createObject(EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)).c_str());
+        object->setPosition(mCamera.ScreenToWorld(x, y, area.w, area.h));
+    }
+    ZenScriptComponent* script = object->addComponent<ZenScriptComponent>();
+    if (!script->loadFile(path.c_str()))
+        log_error("Could not load %s", path.c_str());
+    else
+        log_info("Added %s to %s", path.c_str(), object->name().c_str());
+    mSelected = object;
+    refreshTree();
+    showObject(object);
+    commit("Add script");
+}
+
+// An image dropped on the scene view becomes a sprite object where it lands; a
+// script goes onto the object under the pointer, or a new one there.
 void EditorWindow::dropAsset(const ct::String& path, float x, float y)
 {
+    if (isScriptPath(path))
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        mGizmo.setView(mCamera, area.w, area.h);
+        attachScript(path, mGizmo.pick(mScene, x, y), x, y);
+        return;
+    }
+    if (!isImagePath(path))
+        return;
     const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path));
     addSprite(path, name, Math::Vec4(0.0f), x, y);
 }
