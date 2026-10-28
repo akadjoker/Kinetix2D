@@ -38,8 +38,14 @@ public:
     // Shows the object as selected without emitting selectionChanged.
     void select(GameObject* object);
     GameObject* selected() const { return mSelected; }
+    // Every row selected, the first one first.
+    void selectedObjects(ct::Vector<GameObject*>& out) const;
+    // The rows shown selected besides the selected one, without signals.
+    void selectExtra(const ct::Vector<GameObject*>& objects);
 
     ig::retained::Signal<GameObject*> selectionChanged;
+    // Ctrl+click or Shift+click changed the rows selected with the first one.
+    ig::retained::Signal<> selectionSetChanged;
     ig::retained::Signal<HierarchyAction> actionRequested;
     // A visibility or lock toggle changed an object; the argument names the edit.
     ig::retained::Signal<const char*> edited;

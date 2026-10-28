@@ -44,7 +44,17 @@ double-click a polygon or chain edge to add a point there, Ctrl+click a point
 to remove it. A box has a corner to resize it, a circle a point on its rim.
 The collider button in the toolbar shows every object's colliders: green
 solid, blue sensor, orange when the object has no RigidBody2D and the collider
-does nothing.
+does nothing. Joints are drawn from anchor to anchor, and navigation regions
+with their holes; with the Select tool, drag a joint's anchor or a region's
+point (double-click an edge to add one, Ctrl+click to remove), or a sprite of
+the selected SpriteBatch.
+
+Ctrl+click adds an object to the selection or takes it out, in the scene view
+and in the Hierarchy (Shift+click there takes a range); dragging over empty
+space selects what the rectangle holds. Move, Rotate and Scale act on all of
+them, and so do Delete, Duplicate (Ctrl+D), Cut, Copy and Paste (Ctrl+X, C,
+V). Copied objects go to the system clipboard, so they paste into another
+scene or another editor.
 
 ## Atlas
 

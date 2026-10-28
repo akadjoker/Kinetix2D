@@ -54,6 +54,13 @@ public:
     void setColliders(bool colliders) { mColliders = colliders; }
     // How many bones a pulled bone tip moves, itself included.
     void setIkChain(int bones) { mIkChain = bones > 0 ? bones : 1; }
+    // The objects selected with the one passed to press and paint: drawn as
+    // selected and moved, turned and scaled with it.
+    void setSelection(const ct::Vector<GameObject*>* selection) { mSelection = selection; }
+    // A rectangle being dragged out to select what it holds (view points).
+    void setMarquee(bool on, float x0 = 0.0f, float y0 = 0.0f, float x1 = 0.0f, float y1 = 0.0f);
+    // The pickable objects whose origin is in the rectangle.
+    void objectsIn(Scene& scene, float x0, float y0, float x1, float y1, ct::Vector<GameObject*>& out);
 
     // The camera and the size of the view the next calls are measured in.
     void setView(const Camera2D& camera, float width, float height);
@@ -123,6 +130,14 @@ private:
         GameObject* target;
     };
 
+    struct GroupStart
+    {
+        GameObject* object;
+        Math::Vec2 world;
+        Math::Vec2 scale;
+        float rotation;
+    };
+
     struct RegionEntry
     {
         NavigationRegion2D* region;
@@ -146,6 +161,7 @@ private:
     void paintLight(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
     void paintBones(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
     bool boneEnds(const Bone2D& bone, Math::Vec2& from, Math::Vec2& to) const;
+    bool isSelected(const GameObject* object, const GameObject* primary) const;
     GameObject* findTarget(JointEntry& entry);
     bool jointEnds(JointEntry& entry, Math::Vec2& a, Math::Vec2& b);
     void paintJoints(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected);
@@ -176,6 +192,10 @@ private:
     ct::Vector<BoneEntry> mBoneEntries;
     ct::Vector<JointEntry> mJointEntries;
     ct::Vector<RegionEntry> mRegionEntries;
+    const ct::Vector<GameObject*>* mSelection = nullptr;
+    ct::Vector<GroupStart> mGroup;
+    bool mMarquee = false;
+    float mMarqueeX0 = 0.0f, mMarqueeY0 = 0.0f, mMarqueeX1 = 0.0f, mMarqueeY1 = 0.0f;
     ct::Vector<ct::Vector<Math::Vec2>> mLoopScratch;
     ct::Vector<const Math::Vec2*> mHolePointers;
     ct::Vector<int> mHoleCounts;

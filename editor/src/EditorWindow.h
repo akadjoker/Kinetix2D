@@ -121,6 +121,12 @@ private:
     void redo();
     void updateUndoButtons();
     void runHierarchyAction(HierarchyAction action);
+    void selectMany(const ct::Vector<GameObject*>& objects);
+    void toggleSelected(GameObject* object);
+    void topLevelSelection(ct::Vector<GameObject*>& out) const;
+    void deleteSelection(const char* label);
+    void copySelection();
+    void paste();
     void dropAsset(const ct::String& path, float x, float y);
     // Adds the script to the object, or to a new object at (x, y) in the scene
     // view when there is none.
@@ -246,6 +252,10 @@ private:
     // gets new objects, and new ids.
     GameObject* mSelected = nullptr;
     uint64_t mSelectedId = 0;
+    // Every object selected, mSelected first.
+    ct::Vector<GameObject*> mSelection;
+    bool mMarquee = false;
+    float mMarqueeX = 0.0f, mMarqueeY = 0.0f;
     bool mInspectorStale = false;
     bool mPoseStale = false;
     CommandStack mCommands;

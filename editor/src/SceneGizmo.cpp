@@ -466,6 +466,17 @@ SceneGizmo::Press SceneGizmo::press(GameObject* selected, float x, float y, int 
     mStartScale = selected->scale();
     mStartRotation = selected->rotationDegrees();
     mEditName = mTool == SceneTool::Move ? "Move" : (mTool == SceneTool::Rotate ? "Rotate" : "Scale");
+    // The others selected follow, all but those under one of them.
+    mGroup.clear();
+    if (mSelection && mSelection->size() > 1)
+        for (GameObject* other : *mSelection)
+        {
+            bool nested = other == selected || other->locked() || !other->parent();
+            for (GameObject* above = other->parent(); above && !nested; above = above->parent())
+                nested = isSelected(above, selected);
+            if (!nested)
+                mGroup.push_back(GroupStart{other, other->globalPosition(), other->scale(), other->rotationDegrees()});
+        }
     return Press::Drag;
 }
 
@@ -569,6 +580,27 @@ bool SceneGizmo::drag(float x, float y)
         }
         object.setScale(scale);
     }
+    const bool transform = mHandle == Handle::AxisX || mHandle == Handle::AxisY || mHandle == Handle::Free ||
+                           mHandle == Handle::Ring;
+    if (transform)
+    {
+        const Math::Vec2 world = object.globalPosition();
+        const Math::Vec2 moved(world.x - mStartWorld.x, world.y - mStartWorld.y);
+        const float turned = object.rotationDegrees() - mStartRotation;
+        const Math::Vec2 ratio(mStartScale.x != 0.0f ? object.scale().x / mStartScale.x : 1.0f,
+                               mStartScale.y != 0.0f ? object.scale().y / mStartScale.y : 1.0f);
+        for (const GroupStart& start : mGroup)
+        {
+            GameObject& other = *start.object;
+            if (mTool == SceneTool::Move)
+                other.setPosition(other.parent()->globalTransform().AffineInverse().Transform(
+                    Math::Vec2(start.world.x + moved.x, start.world.y + moved.y)));
+            else if (mTool == SceneTool::Rotate)
+                other.setRotationDegrees(start.rotation + turned);
+            else if (mTool == SceneTool::Scale)
+                other.setScale(Math::Vec2(start.scale.x * ratio.x, start.scale.y * ratio.y));
+        }
+    }
     mChanged = true;
     return true;
 }
@@ -582,6 +614,7 @@ bool SceneGizmo::release()
     mPointIndex = -1;
     mJointIndex = -1;
     mRegion = nullptr;
+    mGroup.clear();
     mBatch = nullptr;
     mChanged = false;
     return changed;
@@ -629,9 +662,20 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
     }
     paintBones(ctx, area, selected);
     paintMarkers(ctx, area, selected);
+    if (mMarquee)
+    {
+        ctx.line.SetColor(kSelectedColor);
+        ctx.lineRect(area.x + (mMarqueeX0 < mMarqueeX1 ? mMarqueeX0 : mMarqueeX1),
+                     area.y + (mMarqueeY0 < mMarqueeY1 ? mMarqueeY0 : mMarqueeY1), std::fabs(mMarqueeX1 - mMarqueeX0),
+                     std::fabs(mMarqueeY1 - mMarqueeY0));
+    }
     if (!editable)
         return;
     paintOutline(ctx, area, *selected);
+    if (mSelection)
+        for (GameObject* other : *mSelection)
+            if (other != selected && other->parent())
+                paintOutline(ctx, area, *other);
     paintLight(ctx, area, *selected);
     if (mTool == SceneTool::Select)
     {
@@ -670,7 +714,7 @@ void SceneGizmo::paintMarkers(rt::PaintContext& ctx, const rt::Rect& area, GameO
             continue;
         GameObject& object = *mEntries[i].object;
         const Math::Vec2 p = toScreen(object.globalPosition());
-        const bool isSelected = &object == selected;
+        const bool isSelected = this->isSelected(&object, selected);
         ctx.fill.SetColor(isSelected ? kSelectedColor : rt::Color(70, 180, 235, 220));
         ctx.fill.Circle(area.x + p.x, area.y + p.y, isSelected ? 5.0f : 3.0f, true);
         if (isSelected)
@@ -1058,6 +1102,43 @@ bool SceneGizmo::hitBatch(GameObject& selected, float x, float y, int& index) co
         }
     }
     return false;
+}
+
+} // namespace k2d::editor
+
+namespace k2d::editor
+{
+
+bool SceneGizmo::isSelected(const GameObject* object, const GameObject* primary) const
+{
+    return object && (object == primary || (mSelection && mSelection->contains(object)));
+}
+
+void SceneGizmo::setMarquee(bool on, float x0, float y0, float x1, float y1)
+{
+    mMarquee = on;
+    mMarqueeX0 = x0;
+    mMarqueeY0 = y0;
+    mMarqueeX1 = x1;
+    mMarqueeY1 = y1;
+}
+
+void SceneGizmo::objectsIn(Scene& scene, float x0, float y0, float x1, float y1, ct::Vector<GameObject*>& out)
+{
+    refresh(scene);
+    updateShown();
+    out.clear();
+    const float left = x0 < x1 ? x0 : x1, right = x0 < x1 ? x1 : x0;
+    const float top = y0 < y1 ? y0 : y1, bottom = y0 < y1 ? y1 : y0;
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
+    {
+        GameObject* object = mEntries[i].object;
+        if (!mShown[i] || !pickable(*object))
+            continue;
+        const Math::Vec2 p = toScreen(object->globalPosition());
+        if (p.x >= left && p.x <= right && p.y >= top && p.y <= bottom)
+            out.push_back(object);
+    }
 }
 
 } // namespace k2d::editor

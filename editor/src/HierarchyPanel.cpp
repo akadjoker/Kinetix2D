@@ -83,6 +83,12 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
 
     mTree = createChild<rt::TreeView>();
     mTree->setStretch(1.0f);
+    mTree->setMultiSelect(true);
+    mTree->selectionSetChanged.connect([this]()
+    {
+        if (!mSyncing)
+            selectionSetChanged.emit();
+    });
     mTree->selectionChanged.connect([this](rt::TreeNode* node)
     {
         GameObject** object = node ? mObjects.find(node) : nullptr;
@@ -162,6 +168,25 @@ void HierarchyPanel::addObject(rt::TreeNode* parent, GameObject* object)
     mNodes[object] = node;
     for (std::size_t i = 0; i < object->childCount(); ++i)
         addObject(node, object->child(i));
+}
+
+void HierarchyPanel::selectedObjects(ct::Vector<GameObject*>& out) const
+{
+    ct::Vector<rt::TreeNode*> nodes;
+    mTree->selectedNodes(nodes);
+    out.clear();
+    for (rt::TreeNode* node : nodes)
+        if (GameObject* const* object = mObjects.find(node))
+            out.push_back(*object);
+}
+
+void HierarchyPanel::selectExtra(const ct::Vector<GameObject*>& objects)
+{
+    ct::Vector<rt::TreeNode*> nodes;
+    for (GameObject* object : objects)
+        if (rt::TreeNode* const* node = mNodes.find(object))
+            nodes.push_back(*node);
+    mTree->setExtraSelection(nodes);
 }
 
 void HierarchyPanel::select(GameObject* object)

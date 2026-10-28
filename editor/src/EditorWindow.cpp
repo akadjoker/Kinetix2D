@@ -34,6 +34,7 @@
 #include <platform.h>
 
 #include <cstdio>
+#include <cstring>
 #include <mutex>
 
 namespace rt = ig::retained;
@@ -129,6 +130,8 @@ ct::Vector<std::size_t> pathOf(const GameObject* object)
     return reversed;
 }
 
+const char* const kClipboardTag = "k2d-objects\n";
+
 GameObject* objectAt(GameObject& root, const ct::Vector<std::size_t>& path)
 {
     GameObject* object = &root;
@@ -172,6 +175,16 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::Menu* edit = menuBar->addMenu("Edit");
     edit->addAction("Undo", [this]() { undo(); })->setShortcut("Ctrl+Z");
     edit->addAction("Redo", [this]() { redo(); })->setShortcut("Ctrl+Y");
+    edit->addSeparator();
+    edit->addAction("Cut", [this]()
+    {
+        copySelection();
+        deleteSelection("Cut");
+    })->setShortcut("Ctrl+X");
+    edit->addAction("Copy", [this]() { copySelection(); })->setShortcut("Ctrl+C");
+    edit->addAction("Paste", [this]() { paste(); })->setShortcut("Ctrl+V");
+    edit->addAction("Duplicate", [this]() { runHierarchyAction(HierarchyAction::Duplicate); })->setShortcut("Ctrl+D");
+    edit->addAction("Delete", [this]() { deleteSelection("Delete"); })->setShortcut("Delete");
     rt::Menu* tools = menuBar->addMenu("Tools");
     mMcpAction = tools->addCheckable("MCP Server (127.0.0.1:7777)", false);
     mMcpAction->triggered.connect([this]() { setMcp(mMcp.running() ? 0 : 7777); });
@@ -301,6 +314,16 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         setSelected(object);
         showObject(object);
     });
+    mHierarchy->selectionSetChanged.connect([this]()
+    {
+        ct::Vector<GameObject*> objects;
+        mHierarchy->selectedObjects(objects);
+        mSelection = objects;
+        mSelected = objects.empty() ? nullptr : objects[0];
+        mSelectedId = mSelected ? mSelected->id() : 0;
+        showObject(mSelected);
+    });
+    mGizmo.setSelection(&mSelection);
     mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
     mHierarchy->edited.connect([this](const char* label) { commit(label); });
     mHierarchy->assetDropped.connect([this](const ct::String& path, GameObject* object)
@@ -470,8 +493,23 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         switch (mGizmo.press(mSelected, x, y, clicks, ctrl))
         {
         case SceneGizmo::Press::Miss:
-            select(mGizmo.pick(mScene, x, y));
+        {
+            GameObject* picked = mGizmo.pick(mScene, x, y);
+            if (ctrl && picked)
+                toggleSelected(picked);
+            else if (picked)
+                select(picked);
+            else
+            {
+                // Over nothing: a rectangle selects what it holds when let go.
+                if (!ctrl)
+                    select(nullptr);
+                mMarquee = true;
+                mMarqueeX = x;
+                mMarqueeY = y;
+            }
             break;
+        }
         case SceneGizmo::Press::Edited:
             commit(mGizmo.editName());
             showObject(mSelected);
@@ -496,11 +534,26 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         if (mTilePainter->painting())
             mTilePainter->drag(x, y);
+        else if (mMarquee)
+            mGizmo.setMarquee(true, mMarqueeX, mMarqueeY, x, y);
         else
             mGizmo.drag(x, y);
     });
-    mViewport->released.connect([this](float, float)
+    mViewport->released.connect([this](float x, float y)
     {
+        if (mMarquee)
+        {
+            mMarquee = false;
+            mGizmo.setMarquee(false);
+            ct::Vector<GameObject*> held;
+            mGizmo.objectsIn(mScene, mMarqueeX, mMarqueeY, x, y, held);
+            for (GameObject* object : mSelection)
+                if (!held.contains(object))
+                    held.push_back(object);
+            if (!held.empty())
+                selectMany(held);
+            return;
+        }
         if (mTilePainter->painting())
         {
             if (mTilePainter->release())
@@ -621,6 +674,15 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
             redo();
         else if (key == rt::Key::D)
             runHierarchyAction(HierarchyAction::Duplicate);
+        else if (key == rt::Key::C)
+            copySelection();
+        else if (key == rt::Key::X)
+        {
+            copySelection();
+            deleteSelection("Cut");
+        }
+        else if (key == rt::Key::V)
+            paste();
         else if (key == rt::Key::Q)
             requestQuit();
         else
@@ -890,7 +952,30 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         GameObject* keep = selectedStillInScene() ? mSelected : nullptr;
         mHierarchy->rebuild(mScene);
         if (keep)
+        {
+            // The others selected stay while they are still in the scene.
+            ct::Vector<const GameObject*> present;
+            ct::Vector<const GameObject*> stack;
+            stack.push_back(&mScene.root());
+            while (!stack.empty())
+            {
+                const GameObject* object = stack.back();
+                stack.pop_back();
+                present.push_back(object);
+                for (std::size_t i = 0; i < object->childCount(); ++i)
+                    stack.push_back(object->child(i));
+            }
+            ct::Vector<GameObject*> others;
+            for (GameObject* object : mSelection)
+                if (object != keep && present.contains(object))
+                    others.push_back(object);
             mHierarchy->select(keep);
+            mHierarchy->selectExtra(others);
+            mSelection.clear();
+            mSelection.push_back(keep);
+            for (GameObject* object : others)
+                mSelection.push_back(object);
+        }
         else
             select(nullptr);
     }
@@ -1044,6 +1129,46 @@ void EditorWindow::setSelected(GameObject* object)
 {
     mSelected = object;
     mSelectedId = object ? object->id() : 0;
+    mSelection.clear();
+    if (object)
+        mSelection.push_back(object);
+}
+
+// Several objects selected, the first one the one the inspector shows.
+void EditorWindow::selectMany(const ct::Vector<GameObject*>& objects)
+{
+    select(objects.empty() ? nullptr : objects[0]);
+    mSelection = objects;
+    ct::Vector<GameObject*> others;
+    for (std::size_t i = 1; i < objects.size(); ++i)
+        others.push_back(objects[i]);
+    mHierarchy->selectExtra(others);
+}
+
+void EditorWindow::toggleSelected(GameObject* object)
+{
+    ct::Vector<GameObject*> objects;
+    for (GameObject* other : mSelection)
+        if (other != object)
+            objects.push_back(other);
+    if (objects.size() == mSelection.size())
+        objects.push_back(object);
+    selectMany(objects);
+}
+
+// The selected objects that are not under another selected one: what a copy,
+// a delete or a duplicate takes, children going with their parent.
+void EditorWindow::topLevelSelection(ct::Vector<GameObject*>& out) const
+{
+    out.clear();
+    for (GameObject* object : mSelection)
+    {
+        bool nested = !object->parent();
+        for (GameObject* above = object->parent(); above && !nested; above = above->parent())
+            nested = mSelection.contains(above);
+        if (!nested)
+            out.push_back(object);
+    }
 }
 
 void EditorWindow::select(GameObject* object)
@@ -1532,6 +1657,84 @@ void EditorWindow::dropObject(GameObject* object, GameObject* target, rt::TreeVi
     commit("Reparent");
 }
 
+// Objects in a scene are only disposed of during an update, which the editor
+// does not run: they are cut out of a snapshot instead, the last in the tree
+// first so the paths of the others still hold.
+void EditorWindow::deleteSelection(const char* label)
+{
+    if (mPlaying)
+        return;
+    ct::Vector<GameObject*> objects;
+    topLevelSelection(objects);
+    if (objects.empty())
+        return;
+    ct::Vector<ct::Vector<std::size_t>> paths;
+    for (GameObject* object : objects)
+        paths.push_back(pathOf(object));
+    const auto later = [](const ct::Vector<std::size_t>& a, const ct::Vector<std::size_t>& b)
+    {
+        for (std::size_t i = 0; i < a.size() && i < b.size(); ++i)
+            if (a[i] != b[i])
+                return a[i] > b[i];
+        return a.size() > b.size();
+    };
+    for (std::size_t i = 0; i < paths.size(); ++i)
+        for (std::size_t j = i + 1; j < paths.size(); ++j)
+            if (later(paths[j], paths[i]))
+            {
+                const ct::Vector<std::size_t> held = paths[i];
+                paths[i] = paths[j];
+                paths[j] = held;
+            }
+    ct::Json state = snapshot();
+    for (const ct::Vector<std::size_t>& path : paths)
+    {
+        ct::Json* children = &state;
+        for (std::size_t i = 0; i + 1 < path.size(); ++i)
+            children = &(*children)["children"][path[i]];
+        (*children)["children"].erase(path.back());
+    }
+    setSelected(nullptr);
+    restore(state);
+    commit(label);
+}
+
+// The selection as text on the system clipboard, so it pastes into another
+// scene or another editor.
+void EditorWindow::copySelection()
+{
+    ct::Vector<GameObject*> objects;
+    topLevelSelection(objects);
+    if (objects.empty())
+        return;
+    ct::Json list = ct::Json::array();
+    for (GameObject* object : objects)
+        list.push_back(Serializer::WriteObject(*object, &mAssets));
+    MakePathsRelative(list, mProjectRoot.c_str());
+    clipboard_set((ct::String(kClipboardTag) + list.dump()).c_str());
+    log_info("Copied %zu object(s)", objects.size());
+}
+
+// Beside the selected object, or at the top of the scene.
+void EditorWindow::paste()
+{
+    const char* text = clipboard_get();
+    const std::size_t tag = std::strlen(kClipboardTag);
+    if (mPlaying || std::strncmp(text, kClipboardTag, tag) != 0)
+        return;
+    const ct::Json list = ct::Json::parse(text + tag);
+    GameObject* parent = mSelected ? mSelected->parent() : nullptr;
+    ct::Vector<GameObject*> pasted;
+    for (std::size_t i = 0; list.is_array() && i < list.size(); ++i)
+        if (GameObject* object = Serializer::ReadObject(mScene, list[i], parent, &mAssets))
+            pasted.push_back(object);
+    if (pasted.empty())
+        return;
+    refreshTree();
+    selectMany(pasted);
+    commit("Paste");
+}
+
 void EditorWindow::runHierarchyAction(HierarchyAction action)
 {
     if (mPlaying)
@@ -1550,15 +1753,18 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
     }
     case HierarchyAction::Duplicate:
     {
-        if (!selected)
+        ct::Vector<GameObject*> originals, copies;
+        topLevelSelection(originals);
+        for (GameObject* original : originals)
+        {
+            const ct::Json copy = Serializer::WriteObject(*original, &mAssets);
+            if (GameObject* object = Serializer::ReadObject(mScene, copy, original->parent(), &mAssets))
+                copies.push_back(object);
+        }
+        if (copies.empty())
             return;
-        const ct::Json copy = Serializer::WriteObject(*selected, &mAssets);
-        GameObject* object = Serializer::ReadObject(mScene, copy, selected->parent(), &mAssets);
-        if (!object)
-            return;
-        setSelected(object);
         refreshTree();
-        showObject(object);
+        selectMany(copies);
         commit("Duplicate");
         break;
     }
@@ -1580,22 +1786,8 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
         showSavePrefabDialog(selected);
         break;
     case HierarchyAction::Delete:
-    {
-        if (!selected)
-            return;
-        // Objects in a scene are only disposed of during an update, which the
-        // editor does not run: the object is cut out of a snapshot instead.
-        const ct::Vector<std::size_t> path = pathOf(selected);
-        ct::Json state = snapshot();
-        ct::Json* children = &state;
-        for (std::size_t i = 0; i + 1 < path.size(); ++i)
-            children = &(*children)["children"][path[i]];
-        (*children)["children"].erase(path.back());
-        setSelected(nullptr);
-        restore(state);
-        commit("Delete");
+        deleteSelection("Delete");
         break;
-    }
     }
 }
 
