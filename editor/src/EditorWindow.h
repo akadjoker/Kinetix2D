@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AnimatorPanel.h"
+#include "AtlasPanel.h"
 #include "AssetsPanel.h"
 #include "HierarchyPanel.h"
 #include "ImageEditorPanel.h"
@@ -167,6 +168,7 @@ private:
     InspectorPanel* mInspector = nullptr;
     AssetsPanel* mAssetsPanel = nullptr;
     SpriteEditorPanel* mSpriteEditor = nullptr;
+    AtlasPanel* mAtlas = nullptr;
     AnimatorPanel* mAnimator = nullptr;
     SkeletonPanel* mSkeleton = nullptr;
     TilePainterPanel* mTilePainter = nullptr;

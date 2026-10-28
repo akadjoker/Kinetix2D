@@ -97,6 +97,7 @@ void EditorWindow::setProjectRoot(const ct::String& root)
     mSpriteEditor->setRoot(mProjectRoot);
     mScriptEditor->setRoot(mProjectRoot);
     mImageEditor->setRoot(mProjectRoot);
+    mAtlas->setRoot(mProjectRoot);
     rememberProject();
 }
 

@@ -53,6 +53,7 @@ const char* const kTools = R"JSON([
  {"name":"new_project","description":"Make a project in an empty folder (an absolute path): scenes/, assets/, project.k2dproj and a startup scene with a player that moves with the arrows. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"folder":{"type":"string"}},"required":["folder"]}},
  {"name":"open_project","description":"Open a project (an absolute path to its project.k2dproj or its folder) at its startup scene. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
  {"name":"set_startup_scene","description":"Make the open scene the one the exported game starts with.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"build_atlas","description":"Pack images of the project into one texture: images are project paths of images or of folders of them; output is the project path of the .png to write. Each image becomes a region named after it, kept in output's .sprite.json as the Sprite Editor keeps them, and the list in output's .atlas.json. maxSize (512..4096) caps the page; more pages are numbered _1, _2...","inputSchema":{"type":"object","properties":{"images":{"type":"array","items":{"type":"string"}},"output":{"type":"string"},"maxSize":{"type":"integer"},"padding":{"type":"integer"},"trim":{"type":"boolean"}},"required":["images","output"]}},
  {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
 
@@ -398,6 +399,7 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "open_project") return openProject(arguments, isError);
     if (name == "set_startup_scene") return setStartupScene(isError);
     if (name == "export_web") return exportWeb(arguments, isError);
+    if (name == "build_atlas") return buildAtlas(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -863,6 +865,37 @@ ct::Json McpServer::exportWeb(const ct::Json& arguments, bool& isError)
     if (!mEditor.buildWeb(arguments["run"].as_bool(false), message))
         return fail(message.c_str(), isError);
     return text(message);
+}
+
+ct::Json McpServer::buildAtlas(const ct::Json& arguments, bool& isError)
+{
+    const ct::String output = arguments["output"].as_cstr("");
+    ct::String absolute;
+    if (!projectPath(output, absolute) || EditorFileSystem::extension(output) != "png")
+        return fail("Give output as a project path ending in .png", isError);
+    AtlasPanel& atlas = *mEditor.mAtlas;
+    atlas.clear();
+    atlas.setLayout(static_cast<int>(arguments["maxSize"].as_int(2048)),
+                    static_cast<int>(arguments["padding"].as_int(2)), arguments["trim"].as_bool(false));
+    const ct::Json& images = arguments["images"];
+    for (std::size_t i = 0; images.is_array() && i < images.size(); ++i)
+    {
+        const ct::String path = images[i].as_cstr("");
+        ct::String full;
+        if (!projectPath(path, full))
+            return fail("Images are project paths inside the project", isError);
+        if (EditorFileSystem::isDirectory(full))
+            atlas.addFolder(path);
+        else
+            atlas.addImage(path);
+    }
+    if (atlas.imageCount() == 0)
+        return fail("No images to pack", isError);
+    if (!atlas.build(output))
+        return fail("The atlas was not built: see console", isError);
+    char message[96];
+    std::snprintf(message, sizeof message, "Packed %zu images into ", atlas.imageCount());
+    return text(ct::String(message) + output);
 }
 
 // ── Files ──────────────────────────────────────────────────────────────────

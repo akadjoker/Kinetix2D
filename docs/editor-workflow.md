@@ -46,6 +46,18 @@ The collider button in the toolbar shows every object's colliders: green
 solid, blue sensor, orange when the object has no RigidBody2D and the collider
 does nothing.
 
+## Atlas
+
+The **Atlas** tab packs images into one texture. Drop images or folders from
+Assets on its list (or add a folder with its button), pick the largest page
+size, the padding and whether to trim transparent borders, and build: it asks
+where the image goes and writes `name.png`, `name.sprite.json` with a region
+per image named after it, and `name.atlas.json` with the list, which opens the
+Atlas tab again from Assets. The result opens in the Sprite Editor, from where
+its regions are dragged onto the scene or into the Animator. Images that need
+more than one page give `name_1.png`, `name_2.png`... Trimming moves an image's
+pixels, so leave it off for animation frames that must line up.
+
 ## Skeletons
 
 A skeleton is an object with a **Skeleton2D** and, below it, objects with a
@@ -85,7 +97,8 @@ The tools read the scene (`scene_info`, `scene_tree`, `get_object`), change it
 `save_prefab`), run it (`run`: play, stop, pause, resume, step frames, or window to run the saved scene in the runner) and play
 it (`input`: keys, mouse in game coordinates, buttons), look at it
 (`screenshot` of the scene or game view, `console`, `profile`), and work on the project's
-files (`list_assets`, `read_file`, `write_file`, `save_scene`). Every change is
+files (`list_assets`, `read_file`, `write_file`, `save_scene`, `build_atlas`) and the project
+itself (`new_project`, `open_project`, `set_startup_scene`, `export_web`). Every change is
 an undo step in the editor you are looking at, and nothing is saved until
 `save_scene` or your own Save. Files outside the project are refused.
 

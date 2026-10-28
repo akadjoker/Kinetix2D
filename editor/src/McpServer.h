@@ -56,6 +56,7 @@ private:
     ct::Json openProject(const ct::Json& arguments, bool& isError);
     ct::Json setStartupScene(bool& isError);
     ct::Json exportWeb(const ct::Json& arguments, bool& isError);
+    ct::Json buildAtlas(const ct::Json& arguments, bool& isError);
     ct::Json listAssets(const ct::Json& arguments, bool& isError);
     ct::Json readFile(const ct::Json& arguments, bool& isError);
     ct::Json writeFile(const ct::Json& arguments, bool& isError);

@@ -56,6 +56,7 @@ const char* const kParticlesPanel = "Particles";
 const char* const kSettingsPanel = "Settings";
 const char* const kProfilerPanel = "Profiler";
 const char* const kImagePanel = "Image Editor";
+const char* const kAtlasPanel = "Atlas";
 
 ct::String directoryOf(const char* path)
 {
@@ -315,6 +316,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
     mGame = mDock->addPanel<ViewportPanel>(kGamePanel);
     mSpriteEditor = mDock->addPanel<SpriteEditorPanel>(kSpritePanel, mAssets);
+    mAtlas = mDock->addPanel<AtlasPanel>(kAtlasPanel, mAssets);
+    mAtlas->built.connect([this](const ct::String& path)
+    {
+        mAssetsPanel->refresh();
+        if (mSpriteEditor->open(path))
+            mDock->showPanel(kSpritePanel);
+    });
     mScriptEditor = mDock->addPanel<ScriptEditorPanel>(kScriptPanel);
     mImageEditor = mDock->addPanel<ImageEditorPanel>(kImagePanel, mAssets);
     mSpriteEditor->editPixels.connect([this](const ct::String& path)
@@ -396,6 +404,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mDock->showPanel(kScriptPanel);
         else if (isPrefabPath(path) && !mPlaying)
             openPrefab(path);
+        else if (path.size() > 11 && path.substr(path.size() - 11) == ".atlas.json" && mAtlas->open(path))
+            mDock->showPanel(kAtlasPanel);
     });
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
