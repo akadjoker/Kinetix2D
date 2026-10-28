@@ -22,6 +22,7 @@
 #include <platform.h>
 
 #include <cstdio>
+#include <mutex>
 
 namespace rt = ig::retained;
 
@@ -51,6 +52,47 @@ ct::String joinPath(const ct::String& base, const char* relative)
 {
     char buffer[4096];
     return path_join(buffer, sizeof buffer, base.c_str(), relative) ? ct::String(buffer) : ct::String(relative);
+}
+
+// Engine logs and script output, queued from any thread and shown by the
+// Console on the main one. They still reach stderr as before.
+struct PendingLine
+{
+    rt::LogLevel level;
+    ct::String text;
+};
+std::mutex gLogMutex;
+ct::Vector<PendingLine> gLogLines;
+
+void queueLine(rt::LogLevel level, const char* text)
+{
+    std::lock_guard<std::mutex> lock(gLogMutex);
+    PendingLine line;
+    line.level = level;
+    line.text = text ? text : "";
+    gLogLines.push_back(line);
+}
+
+void editorLog(::LogLevel level, const char* message, void*)
+{
+    static const char* const names[] = {"DEBUG", "INFO", "WARN", "ERROR"};
+    const int index = level >= LOGLEVEL_DEBUG && level <= LOGLEVEL_ERROR ? static_cast<int>(level) : 1;
+    std::fprintf(stderr, "[%s] %s\n", names[index], message);
+    const rt::LogLevel shown = level == LOGLEVEL_ERROR  ? rt::LogLevel::Error
+                               : level == LOGLEVEL_WARN ? rt::LogLevel::Warn
+                               : level == LOGLEVEL_DEBUG ? rt::LogLevel::Trace
+                                                         : rt::LogLevel::Info;
+    queueLine(shown, message);
+}
+
+void scriptOutput(const char* text, bool isError, void*)
+{
+    std::fprintf(isError ? stderr : stdout, "%s", text ? text : "");
+    // print() hands its newline along; the console keeps one line per call.
+    ct::String line = text ? text : "";
+    while (!line.empty() && (line[line.size() - 1] == '\n' || line[line.size() - 1] == '\r'))
+        line = line.substr(0, line.size() - 1);
+    queueLine(isError ? rt::LogLevel::Error : rt::LogLevel::Info, line.c_str());
 }
 
 // The child indices from the scene root down to the object.
@@ -219,7 +261,15 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mInspectorStale = true;
         }
     });
-    mDock->addPanel<rt::Label>(kConsolePanel, "");
+    mConsole = mDock->addPanel<rt::ConsoleWidget>(kConsolePanel);
+    mConsole->setMaxLines(2000);
+    mConsole->setCollapseDuplicates(true);
+    mConsole->onCommand.connect([this](const rt::String& command)
+    {
+        if (command == "clear")
+            mConsole->clear();
+    });
+    log_set_callback(editorLog, nullptr);
     mAssetsPanel = mDock->addPanel<AssetsPanel>(kAssetsPanel, mAssets);
     mAnimator = mDock->addPanel<AnimatorPanel>(kAnimatorPanel, mAssets);
     mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
@@ -349,6 +399,7 @@ void EditorWindow::registerTypes()
     RegisterPhysics2DSerializers();
     RegisterCoreClasses();
     ClassDB::setAssets(&mAssets);
+    SetZenScriptOutput(scriptOutput, nullptr);
     registered = true;
 }
 
@@ -370,7 +421,11 @@ bool EditorWindow::openScene(const char* path)
     mScene.clear();
     mScene.setSimulationEnabled(false);
     if (!GetSceneManager().Load(mScene, mAssets, path))
+    {
+        log_error("Could not open %s", path);
         return false;
+    }
+    log_info("Opened %s", path);
     mTopology = mScene.topologyVersion();
     // The editor camera starts where the game's does, so the scene opens in view.
     mCamera = Camera2D();
@@ -423,10 +478,14 @@ bool EditorWindow::saveScene(const char* path)
     // While playing, the scene as it was before Play is what gets saved.
     document.set("root", mPlaying ? mPlaySnapshot : snapshot());
     if (!FileSystem::Instance().SaveTextFile(path, document.dump(2)))
+    {
+        log_error("Could not save %s", path);
         return false;
+    }
     mSceneDocument = document;
     mScenePath = path;
     markDirty(false);
+    log_info("Saved %s", path);
     mAssetsPanel->refresh();
     return true;
 }
@@ -495,6 +554,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         mFpsFrames = 0;
     }
     mStatus->layout();
+    drainLog();
     mAnimator->tick(deltaTime);
 
     if (mPlaying && !mPaused)
@@ -920,8 +980,23 @@ void EditorWindow::updateRunBar()
     mRunBar->setItemEnabled(mStopItem, mPlaying);
 }
 
+void EditorWindow::drainLog()
+{
+    ct::Vector<PendingLine> lines;
+    {
+        std::lock_guard<std::mutex> lock(gLogMutex);
+        if (gLogLines.empty())
+            return;
+        lines = ct::detail::move(gLogLines);
+        gLogLines.clear();
+    }
+    for (const PendingLine& line : lines)
+        mConsole->log(line.level, line.text);
+}
+
 void EditorWindow::shutdown()
 {
+    log_set_callback(nullptr, nullptr);
     stopPlay();
     mTarget.destroy();
     mGameTarget.destroy();

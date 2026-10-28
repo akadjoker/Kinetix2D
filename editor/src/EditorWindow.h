@@ -11,6 +11,7 @@
 #include "core/CommandStack.h"
 
 #include "BasicWidgets.hpp"
+#include "ConsoleWidget.hpp"
 #include "DockPanel.hpp"
 #include "FileDialog.hpp"
 #include "LayoutWidgets.hpp"
@@ -45,6 +46,7 @@ public:
 private:
     void resetLayout();
     void registerTypes();
+    void drainLog();
     void showOpenDialog();
     void showSaveDialog();
     void save();
@@ -100,6 +102,7 @@ private:
     SpriteEditorPanel* mSpriteEditor = nullptr;
     AnimatorPanel* mAnimator = nullptr;
     TilePainterPanel* mTilePainter = nullptr;
+    ig::retained::ConsoleWidget* mConsole = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;
