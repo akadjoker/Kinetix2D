@@ -43,7 +43,7 @@
         {
           "type": "Sprite",
           "data": {
-            "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/5_Mapa_2.png",
+            "texture": "assets/textures/items/5_Mapa_2.png",
             "size": [
               112.0,
               112.0
@@ -92,7 +92,7 @@
         {
           "type": "Sprite",
           "data": {
-            "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/6_Mapa_4.png",
+            "texture": "assets/textures/items/6_Mapa_4.png",
             "size": [
               99.0,
               99.0

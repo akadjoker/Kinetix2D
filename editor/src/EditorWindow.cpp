@@ -1,6 +1,7 @@
 #include "EditorWindow.h"
 
 #include "Icons.h"
+#include "ProjectExport.h"
 
 #include "TextInputWidgets.hpp"
 
@@ -760,6 +761,7 @@ bool EditorWindow::saveScene(const char* path)
     ct::Json document = mSceneDocument.is_object() ? mSceneDocument : ct::Json::object();
     // While playing, the scene as it was before Play is what gets saved.
     document.set("root", mPlaying ? mPlaySnapshot : snapshot());
+    MakePathsRelative(document, mProjectRoot.c_str());
     if (!FileSystem::Instance().SaveTextFile(path, document.dump(2)))
     {
         log_error("Could not save %s", path);
@@ -1192,6 +1194,13 @@ bool EditorWindow::savePrefab(GameObject* object, const ct::String& path)
     {
         log_error("Could not save prefab %s", path.c_str());
         return false;
+    }
+    FileBuffer written;
+    if (FileSystem::Instance().LoadFile(path.c_str(), written, true))
+    {
+        ct::Json document = ct::Json::parse(written.Text());
+        MakePathsRelative(document, mProjectRoot.c_str());
+        FileSystem::Instance().SaveTextFile(path.c_str(), document.dump(2));
     }
     log_info("Saved prefab %s", path.c_str());
     mAssetsPanel->refresh();

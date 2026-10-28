@@ -18,7 +18,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/32_Disparo.png",
+        "texture": "assets/textures/items/32_Disparo.png",
         "size": [
           4.0,
           4.0

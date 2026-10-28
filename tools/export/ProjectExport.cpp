@@ -112,27 +112,22 @@ bool collect(const char* path, PathType type, void* user)
     return true;
 }
 
-// The editor may have written paths into the project as absolute ones; the
-// runner resolves them from the project and its assets folder.
-void makePortable(ct::Json& node, const ct::String& root)
+void makeRelative(ct::Json& node, const ct::String& root)
 {
     if (node.is_object())
     {
         for (auto& member : node.members())
-            makePortable(member.value, root);
+            makeRelative(member.value, root);
     }
     else if (node.is_array())
     {
         for (std::size_t i = 0; i < node.size(); ++i)
-            makePortable(node[i], root);
+            makeRelative(node[i], root);
     }
     else if (node.is_string())
     {
         const ct::String value = slashes(node.as_cstr(""));
-        const ct::String assets = root + "/assets/";
-        if (startsWith(value, assets))
-            node = ct::Json(value.substr(assets.size()).c_str());
-        else if (startsWith(value, root + "/"))
+        if (startsWith(value, root + "/"))
             node = ct::Json(value.substr(root.size() + 1).c_str());
     }
 }
@@ -263,6 +258,54 @@ const char* const kPageBody =
 
 } // namespace
 
+void MakePathsRelative(ct::Json& document, const char* projectRoot)
+{
+    char absolute[4096];
+    if (!projectRoot || !projectRoot[0] || !path_absolute(absolute, sizeof absolute, projectRoot))
+        return;
+    ct::String root = slashes(absolute);
+    while (root.size() > 1 && root[root.size() - 1] == '/')
+        root = root.substr(0, root.size() - 1);
+    makeRelative(document, root);
+}
+
+int FixPathsInFiles(const char* root)
+{
+    char absolute[4096];
+    if (!root || !path_absolute(absolute, sizeof absolute, root))
+        return -1;
+    Collector collector;
+    collector.root = slashes(absolute);
+    while (collector.root.size() > 1 && collector.root[collector.root.size() - 1] == '/')
+        collector.root = collector.root.substr(0, collector.root.size() - 1);
+    if (!fs_enumerate_directory(collector.root.c_str(), true, collect, &collector))
+        return -1;
+    int changed = 0;
+    for (const ct::String& relative : collector.files)
+    {
+        if (!path_has_extension(relative.c_str(), ".k2dscene") && !path_has_extension(relative.c_str(), ".k2dprefab"))
+            continue;
+        const ct::String path = join(collector.root, relative.c_str());
+        char* text = file_read_text(path.c_str());
+        if (!text)
+            continue;
+        ct::Json::Error parseError;
+        ct::Json document = ct::Json::parse(text, &parseError);
+        const ct::String before = parseError ? ct::String() : document.dump(2);
+        fs_free(text);
+        if (parseError)
+            continue;
+        makeRelative(document, collector.root);
+        const ct::String after = document.dump(2);
+        if (after != before && file_write_text(path.c_str(), after.c_str()))
+        {
+            log_info("Paths made relative in %s", relative.c_str());
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 bool WriteProjectPack(const char* projectRoot, const char* packPath, ct::String& error)
 {
     char absolute[4096];
@@ -321,7 +364,7 @@ bool WriteProjectPack(const char* projectRoot, const char* packPath, ct::String&
                 error = relative + " is not valid JSON";
                 return false;
             }
-            makePortable(document, collector.root);
+            makeRelative(document, collector.root);
             const ct::String portable = document.dump(2);
             pack.AddData(relative.c_str(), portable.c_str(), portable.size());
         }

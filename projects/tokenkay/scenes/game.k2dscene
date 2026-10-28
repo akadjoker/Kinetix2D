@@ -37,8 +37,8 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/4_TILEAG4.PCX.png",
-              "normalMap": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/4_TILEAG4.PCX_normal.png",
+              "texture": "assets/textures/4_TILEAG4.PCX.png",
+              "normalMap": "assets/textures/4_TILEAG4.PCX_normal.png",
               "size": [
                 32.0,
                 33.5
@@ -106,7 +106,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/3_Mapa_puerto.png",
+              "texture": "assets/textures/3_Mapa_puerto.png",
               "size": [
                 1280.0,
                 960.0
@@ -155,7 +155,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -184,7 +184,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -269,7 +269,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -298,7 +298,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -383,7 +383,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -412,7 +412,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -497,7 +497,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -526,7 +526,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -611,7 +611,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/20_Lancha_neumatica.png",
+              "texture": "assets/textures/20_Lancha_neumatica.png",
               "size": [
                 142.0,
                 86.0
@@ -703,7 +703,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+              "texture": "assets/textures/prota_atlas.png",
               "size": [
                 213.0,
                 171.0
@@ -738,7 +738,7 @@
           {
             "type": "ZenScript",
             "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/prota.py"
+              "path": "assets/scripts/prota.py"
             }
           },
           {
@@ -762,7 +762,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         0.0,
@@ -793,7 +793,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         1204.0,
@@ -806,7 +806,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         1032.0,
@@ -819,7 +819,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1712.0,
                         860.0,
@@ -832,7 +832,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1498.0,
                         860.0,
@@ -845,7 +845,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         860.0,
@@ -858,7 +858,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         860.0,
@@ -871,7 +871,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         860.0,
@@ -884,7 +884,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         642.0,
                         1720.0,
@@ -915,7 +915,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         688.0,
@@ -928,7 +928,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         688.0,
@@ -941,7 +941,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         642.0,
                         688.0,
@@ -954,7 +954,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1712.0,
                         516.0,
@@ -967,7 +967,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1498.0,
                         516.0,
@@ -980,7 +980,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         516.0,
@@ -993,7 +993,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         516.0,
@@ -1006,7 +1006,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         516.0,
@@ -1037,7 +1037,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         1720.0,
@@ -1050,7 +1050,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         1548.0,
@@ -1063,7 +1063,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         1376.0,
@@ -1076,7 +1076,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1712.0,
                         1204.0,
@@ -1089,7 +1089,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1498.0,
                         1204.0,
@@ -1102,7 +1102,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         1204.0,
@@ -1115,7 +1115,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         1720.0,
@@ -1128,7 +1128,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         1548.0,
@@ -1159,7 +1159,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         1376.0,
@@ -1172,7 +1172,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         1204.0,
@@ -1185,7 +1185,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1712.0,
                         1032.0,
@@ -1198,7 +1198,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1498.0,
                         1032.0,
@@ -1211,7 +1211,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         1032.0,
@@ -1224,7 +1224,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         1032.0,
@@ -1237,7 +1237,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         1720.0,
@@ -1250,7 +1250,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         856.0,
                         1548.0,
@@ -1281,7 +1281,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         1720.0,
@@ -1294,7 +1294,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         1548.0,
@@ -1307,7 +1307,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         1376.0,
@@ -1320,7 +1320,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         1204.0,
@@ -1333,7 +1333,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         1032.0,
@@ -1346,7 +1346,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         0.0,
@@ -1359,7 +1359,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         688.0,
@@ -1372,7 +1372,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         516.0,
@@ -1403,7 +1403,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         0.0,
@@ -1422,7 +1422,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         214.0,
                         0.0,
@@ -1441,7 +1441,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         0.0,
                         860.0,
@@ -1478,7 +1478,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         1032.0,
@@ -1497,7 +1497,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         860.0,
@@ -1516,7 +1516,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         688.0,
@@ -1553,7 +1553,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1284.0,
                         344.0,
@@ -1572,7 +1572,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1070.0,
                         344.0,
@@ -1591,7 +1591,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         1498.0,
                         172.0,
@@ -1628,7 +1628,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         642.0,
                         344.0,
@@ -1647,7 +1647,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         428.0,
                         344.0,
@@ -1666,7 +1666,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         214.0,
                         1720.0,
@@ -1703,7 +1703,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         214.0,
                         1032.0,
@@ -1722,7 +1722,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         214.0,
                         860.0,
@@ -1741,7 +1741,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/prota_atlas.png",
+                      "texture": "assets/textures/prota_atlas.png",
                       "rect": [
                         214.0,
                         688.0,
@@ -1849,7 +1849,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+              "texture": "assets/textures/enemigos_atlas.png",
               "size": [
                 187.0,
                 124.0
@@ -1884,7 +1884,7 @@
           {
             "type": "ZenScript",
             "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/rojas.py",
+              "path": "assets/scripts/rojas.py",
               "properties": [
                 {
                   "name": "speed",
@@ -1920,7 +1920,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         124.0,
@@ -1951,7 +1951,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         124.0,
@@ -1964,7 +1964,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         124.0,
@@ -1977,7 +1977,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         124.0,
@@ -1990,7 +1990,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         124.0,
@@ -2003,7 +2003,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         124.0,
@@ -2016,7 +2016,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         124.0,
@@ -2029,7 +2029,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         124.0,
@@ -2042,7 +2042,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         124.0,
@@ -2073,7 +2073,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         248.0,
@@ -2086,7 +2086,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         248.0,
@@ -2099,7 +2099,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         248.0,
@@ -2112,7 +2112,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         248.0,
@@ -2125,7 +2125,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         248.0,
@@ -2138,7 +2138,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         248.0,
@@ -2151,7 +2151,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         248.0,
@@ -2164,7 +2164,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         248.0,
@@ -2195,7 +2195,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         248.0,
@@ -2208,7 +2208,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         248.0,
@@ -2221,7 +2221,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         248.0,
@@ -2234,7 +2234,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         248.0,
@@ -2247,7 +2247,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         372.0,
@@ -2260,7 +2260,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         372.0,
@@ -2273,7 +2273,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         372.0,
@@ -2286,7 +2286,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         372.0,
@@ -2317,7 +2317,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         0.0,
@@ -2330,7 +2330,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         0.0,
@@ -2343,7 +2343,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         0.0,
@@ -2356,7 +2356,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         0.0,
@@ -2369,7 +2369,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         0.0,
@@ -2382,7 +2382,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         0.0,
@@ -2395,7 +2395,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         0.0,
@@ -2408,7 +2408,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         0.0,
@@ -2439,7 +2439,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         0.0,
@@ -2452,7 +2452,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         0.0,
@@ -2465,7 +2465,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         0.0,
@@ -2478,7 +2478,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         0.0,
@@ -2491,7 +2491,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         124.0,
@@ -2504,7 +2504,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         124.0,
@@ -2517,7 +2517,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         124.0,
@@ -2530,7 +2530,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         124.0,
@@ -2561,7 +2561,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         496.0,
@@ -2574,7 +2574,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         496.0,
@@ -2587,7 +2587,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         620.0,
@@ -2600,7 +2600,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         620.0,
@@ -2613,7 +2613,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         620.0,
@@ -2626,7 +2626,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         620.0,
@@ -2639,7 +2639,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         620.0,
@@ -2652,7 +2652,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         620.0,
@@ -2683,7 +2683,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         620.0,
@@ -2696,7 +2696,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         620.0,
@@ -2709,7 +2709,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         620.0,
@@ -2722,7 +2722,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         620.0,
@@ -2735,7 +2735,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         620.0,
@@ -2748,7 +2748,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         620.0,
@@ -2761,7 +2761,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         744.0,
@@ -2774,7 +2774,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         744.0,
@@ -2805,7 +2805,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         744.0,
@@ -2818,7 +2818,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         744.0,
@@ -2831,7 +2831,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         744.0,
@@ -2844,7 +2844,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         744.0,
@@ -2857,7 +2857,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         744.0,
@@ -2870,7 +2870,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         744.0,
@@ -2883,7 +2883,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         744.0,
@@ -2896,7 +2896,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         744.0,
@@ -2927,7 +2927,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         744.0,
@@ -2940,7 +2940,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         744.0,
@@ -2953,7 +2953,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         868.0,
@@ -2966,7 +2966,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         868.0,
@@ -2979,7 +2979,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         868.0,
@@ -2992,7 +2992,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         868.0,
@@ -3005,7 +3005,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         868.0,
@@ -3018,7 +3018,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         868.0,
@@ -3049,7 +3049,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         868.0,
@@ -3062,7 +3062,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         868.0,
@@ -3075,7 +3075,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         868.0,
@@ -3088,7 +3088,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         868.0,
@@ -3101,7 +3101,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         868.0,
@@ -3114,7 +3114,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         868.0,
@@ -3127,7 +3127,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         992.0,
@@ -3140,7 +3140,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         992.0,
@@ -3171,7 +3171,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         372.0,
@@ -3190,7 +3190,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         372.0,
@@ -3209,7 +3209,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         372.0,
@@ -3246,7 +3246,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         372.0,
@@ -3265,7 +3265,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         372.0,
@@ -3284,7 +3284,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         372.0,
@@ -3321,7 +3321,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1870.0,
                         372.0,
@@ -3340,7 +3340,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         2057.0,
                         372.0,
@@ -3359,7 +3359,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         0.0,
                         496.0,
@@ -3396,7 +3396,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         187.0,
                         496.0,
@@ -3415,7 +3415,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         496.0,
@@ -3434,7 +3434,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         496.0,
@@ -3471,7 +3471,7 @@
                   "mode": 1,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         496.0,
@@ -3490,7 +3490,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         496.0,
@@ -3509,7 +3509,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         496.0,
@@ -3546,7 +3546,7 @@
                   "mode": 0,
                   "frames": [
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         374.0,
                         992.0,
@@ -3559,7 +3559,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         561.0,
                         992.0,
@@ -3572,7 +3572,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         748.0,
                         992.0,
@@ -3585,7 +3585,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         935.0,
                         992.0,
@@ -3598,7 +3598,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1122.0,
                         992.0,
@@ -3611,7 +3611,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1309.0,
                         992.0,
@@ -3624,7 +3624,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1496.0,
                         992.0,
@@ -3637,7 +3637,7 @@
                       ]
                     },
                     {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/enemigos_atlas.png",
+                      "texture": "assets/textures/enemigos_atlas.png",
                       "rect": [
                         1683.0,
                         992.0,
@@ -5309,7 +5309,7 @@
             "data": {
               "entries": [
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/10_Recorte_grua.png",
+                  "texture": "assets/textures/10_Recorte_grua.png",
                   "position": [
                     -186.5,
                     -86.0
@@ -5329,7 +5329,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/12_Verja.png",
+                  "texture": "assets/textures/12_Verja.png",
                   "position": [
                     -504.5,
                     -187.0
@@ -5349,7 +5349,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/15_Mapa_2.png",
+                  "texture": "assets/textures/15_Mapa_2.png",
                   "position": [
                     213.5,
                     89.0
@@ -5369,7 +5369,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/16_Mapa_1.png",
+                  "texture": "assets/textures/16_Mapa_1.png",
                   "position": [
                     -551.0,
                     115.0
@@ -5389,7 +5389,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/14_Mapa_1.png",
+                  "texture": "assets/textures/14_Mapa_1.png",
                   "position": [
                     204.0,
                     -175.5
@@ -5409,7 +5409,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/13_Mapa_2.png",
+                  "texture": "assets/textures/13_Mapa_2.png",
                   "position": [
                     113.0,
                     -101.0
@@ -5429,7 +5429,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/13_Mapa_2.png",
+                  "texture": "assets/textures/13_Mapa_2.png",
                   "position": [
                     227.5,
                     -69.5
@@ -5449,7 +5449,7 @@
                   "flipY": false
                 },
                 {
-                  "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/11_Recorte_cisterna.png",
+                  "texture": "assets/textures/11_Recorte_cisterna.png",
                   "position": [
                     -264.5,
                     -302.0
@@ -5607,7 +5607,7 @@
                   {
                     "type": "Sprite",
                     "data": {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/5_Mapa_2.png",
+                      "texture": "assets/textures/items/5_Mapa_2.png",
                       "size": [
                         112.0,
                         112.0
@@ -5636,7 +5636,7 @@
                   {
                     "type": "ZenScript",
                     "data": {
-                      "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/radar.py"
+                      "path": "assets/scripts/radar.py"
                     }
                   }
                 ],
@@ -5662,7 +5662,7 @@
                   {
                     "type": "Sprite",
                     "data": {
-                      "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/6_Mapa_4.png",
+                      "texture": "assets/textures/items/6_Mapa_4.png",
                       "size": [
                         99.0,
                         99.0
@@ -5741,7 +5741,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -5770,7 +5770,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -5855,7 +5855,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -5884,7 +5884,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -5969,7 +5969,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -5998,7 +5998,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6083,7 +6083,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6112,7 +6112,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6197,7 +6197,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6226,7 +6226,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6311,7 +6311,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6340,7 +6340,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6425,7 +6425,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6454,7 +6454,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6539,7 +6539,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+              "texture": "assets/textures/items/65_VIDONES.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6568,7 +6568,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+              "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
               "size": [
                 42.0,
                 54.0
@@ -6653,7 +6653,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6682,7 +6682,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6767,7 +6767,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6796,7 +6796,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6881,7 +6881,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6910,7 +6910,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -6995,7 +6995,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+              "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -7024,7 +7024,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+              "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
               "size": [
                 34.0,
                 48.0
@@ -7137,7 +7137,7 @@
   },
   "cursor": {
     "enabled": true,
-    "image": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/31_cursor_de_direccion.png",
+    "image": "assets/textures/items/31_cursor_de_direccion.png",
     "offset": [
       25.0,
       25.0

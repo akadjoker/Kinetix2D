@@ -37,7 +37,7 @@
           {
             "type": "Sprite",
             "data": {
-              "texture": "/media/projectos/projects/cpp/Kinetix2D/assets/Gunner_Red_Crouch.png",
+              "texture": "Gunner_Red_Crouch.png",
               "size": [
                 32.0,
                 32.0

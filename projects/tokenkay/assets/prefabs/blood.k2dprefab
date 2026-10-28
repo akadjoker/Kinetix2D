@@ -18,7 +18,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/111_Charco_Sangre.png",
+        "texture": "assets/textures/items/111_Charco_Sangre.png",
         "size": [
           40.0,
           25.0
@@ -47,7 +47,7 @@
     {
       "type": "ZenScript",
       "data": {
-        "path": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/scripts/blood.py"
+        "path": "assets/scripts/blood.py"
       }
     },
     {

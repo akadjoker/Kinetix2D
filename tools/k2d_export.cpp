@@ -14,6 +14,15 @@ int main(int argc, char** argv)
     ct::String runner;
     for (int i = 1; i < argc; ++i)
     {
+        if (std::strcmp(argv[i], "--fix-paths") == 0 && i + 1 < argc)
+        {
+            const int changed = k2d::FixPathsInFiles(argv[i + 1]);
+            if (changed < 0)
+                std::fprintf(stderr, "k2d_export: cannot read %s\n", argv[i + 1]);
+            else
+                std::printf("%d file(s) rewritten\n", changed);
+            return changed < 0 ? 1 : 0;
+        }
         if (std::strcmp(argv[i], "-o") == 0 && i + 1 < argc)
             out = argv[++i];
         else if (std::strcmp(argv[i], "--runner") == 0 && i + 1 < argc)
@@ -24,7 +33,8 @@ int main(int argc, char** argv)
     if (!project)
     {
         std::printf("k2d_export - a project as a web game: k2d_runner.js and .wasm, data.kpak, index.html\n\n"
-                    "Usage: k2d_export <project folder> [-o out] [--runner folder]\n\n"
+                    "Usage: k2d_export <project folder> [-o out] [--runner folder]\n"
+                    "       k2d_export --fix-paths <folder>   (absolute paths in its scenes and prefabs made relative to it)\n\n"
                     "  -o        where the game goes (default: <project>/export/web)\n"
                     "  --runner  the Emscripten build of k2d_runner (default: web/ beside this program)\n");
         return 1;

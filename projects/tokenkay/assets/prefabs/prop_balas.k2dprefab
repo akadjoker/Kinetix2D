@@ -18,7 +18,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/63_BOMBONAS.PCX.png",
+        "texture": "assets/textures/items/63_BOMBONAS.PCX.png",
         "size": [
           34.0,
           48.0
@@ -47,7 +47,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/64_ROT_BOMB.PCX.png",
+        "texture": "assets/textures/items/64_ROT_BOMB.PCX.png",
         "size": [
           34.0,
           48.0

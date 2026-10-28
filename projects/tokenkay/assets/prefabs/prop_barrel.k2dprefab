@@ -18,7 +18,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/65_VIDONES.PCX.png",
+        "texture": "assets/textures/items/65_VIDONES.PCX.png",
         "size": [
           42.0,
           54.0
@@ -47,7 +47,7 @@
     {
       "type": "Sprite",
       "data": {
-        "texture": "/media/projectos/projects/cpp/Kinetix2D/projects/tokenkay/assets/textures/items/66_ROT_BIDO.PCX.png",
+        "texture": "assets/textures/items/66_ROT_BIDO.PCX.png",
         "size": [
           42.0,
           54.0
