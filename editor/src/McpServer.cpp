@@ -42,7 +42,10 @@ const char* const kTools = R"JSON([
  {"name":"list_assets","description":"Files and folders in a folder of the project (project paths).","inputSchema":{"type":"object","properties":{"folder":{"type":"string","description":"Project path; the project root when left out."}}}},
  {"name":"read_file","description":"A text file of the project, such as a script.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
  {"name":"write_file","description":"Write a text file of the project (a script, say). While the game plays, changed scripts reload.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"text":{"type":"string"}},"required":["path","text"]}},
- {"name":"undo","description":"Undo the last edit, whoever made it.","inputSchema":{"type":"object","properties":{}}}
+ {"name":"undo","description":"Undo the last edit, whoever made it.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"input","description":"Play the game: press keys and move or click the mouse while it runs. key is a letter, a digit, space, enter, escape, tab, backspace, left, right, up, down, shift, ctrl, alt or f1..f12; action is tap (down for one update, the default), down or up. For the mouse give x, y in game coordinates (as the game camera sees them) and optionally button (left, right, middle) with an action. Use run step to advance a paused game between inputs.","inputSchema":{"type":"object","properties":{"key":{"type":"string"},"action":{"type":"string","enum":["tap","down","up"]},"x":{"type":"number"},"y":{"type":"number"},"button":{"type":"string","enum":["left","right","middle"]}}}},
+ {"name":"select","description":"Select an object in the editor, so the user sees it in the hierarchy and inspector.","inputSchema":{"type":"object","properties":{"object":{"type":"string"}},"required":["object"]}},
+ {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}}
 ])JSON";
 
 const char* const kInstructions =
@@ -377,6 +380,9 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "read_file") return readFile(arguments, isError);
     if (name == "write_file") return writeFile(arguments, isError);
     if (name == "undo") return undo();
+    if (name == "input") return input(arguments, isError);
+    if (name == "select") return selectObject(arguments, isError);
+    if (name == "reparent") return reparent(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -851,6 +857,122 @@ ct::Json McpServer::undo()
 {
     mEditor.undo();
     return text(ct::String("Undone; next undo: ") + mEditor.mCommands.undoName());
+}
+
+// ── Playing, selection, hierarchy ──────────────────────────────────────────
+
+namespace
+{
+int keyFromName(const ct::String& raw)
+{
+    ct::String name;
+    for (char c : raw)
+        name += (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    if (name.size() == 1 && name[0] >= 'a' && name[0] <= 'z')
+        return static_cast<int>(Key::A) + (name[0] - 'a');
+    if (name.size() == 1 && name[0] >= '1' && name[0] <= '9')
+        return static_cast<int>(Key::Num1) + (name[0] - '1');
+    if (name == "0")
+        return static_cast<int>(Key::Num0);
+    if (name.size() >= 2 && name[0] == 'f')
+    {
+        const int n = std::atoi(name.c_str() + 1);
+        if (n >= 1 && n <= 12)
+            return static_cast<int>(Key::F1) + n - 1;
+    }
+    static const struct
+    {
+        const char* name;
+        Key key;
+    } kNames[] = {{"space", Key::Space},     {"enter", Key::Enter},   {"return", Key::Enter}, {"escape", Key::Escape},
+                  {"esc", Key::Escape},      {"tab", Key::Tab},       {"backspace", Key::Backspace},
+                  {"left", Key::Left},       {"right", Key::Right},   {"up", Key::Up},         {"down", Key::Down},
+                  {"shift", Key::LeftShift}, {"ctrl", Key::LeftCtrl}, {"alt", Key::LeftAlt}};
+    for (const auto& entry : kNames)
+        if (name == entry.name)
+            return static_cast<int>(entry.key);
+    return -1;
+}
+} // namespace
+
+ct::Json McpServer::input(const ct::Json& arguments, bool& isError)
+{
+    if (!mEditor.mPlaying)
+        return fail("The game is not playing: run play first", isError);
+    const ct::String action = arguments["action"].as_cstr("tap");
+    ct::String done;
+    if (arguments.contains("key"))
+    {
+        const int key = keyFromName(arguments["key"].as_cstr());
+        if (key < 0)
+            return fail(ct::String("Unknown key ") + arguments["key"].as_cstr(), isError);
+        if (action == "up")
+            mEditor.mGameInput.OnKey(key, false, false);
+        else
+        {
+            mEditor.mGameInput.OnKey(key, true, false);
+            if (action != "down")
+                mEditor.mPendingReleases.push_back(key);
+        }
+        done += ct::String(action) + " " + arguments["key"].as_cstr();
+    }
+    if (arguments.contains("x") && arguments.contains("y"))
+    {
+        if (mEditor.mGameVirtualW <= 0.0f || mEditor.mGameVirtualH <= 0.0f)
+            return fail("The game view has not been drawn: show its tab", isError);
+        // Game coordinates to window points, through the game view's viewport.
+        const float x = mEditor.mGameViewX +
+                        static_cast<float>(arguments["x"].as_double()) * mEditor.mGameViewW / mEditor.mGameVirtualW;
+        const float y = mEditor.mGameViewY +
+                        static_cast<float>(arguments["y"].as_double()) * mEditor.mGameViewH / mEditor.mGameVirtualH;
+        mEditor.mGameInput.OnMouseMove(x, y);
+        done += done.empty() ? "mouse moved" : ", mouse moved";
+    }
+    if (arguments.contains("button"))
+    {
+        const ct::String which = arguments["button"].as_cstr();
+        const int button = which == "right" ? 1 : (which == "middle" ? 2 : 0);
+        if (action == "up")
+            mEditor.mGameInput.OnMouseButton(button, false);
+        else
+        {
+            mEditor.mGameInput.OnMouseButton(button, true);
+            if (action != "down")
+                mEditor.mGameInput.OnMouseButton(button, false);
+        }
+        done += ct::String(", ") + action + " " + which + " button";
+    }
+    if (done.empty())
+        return fail("Give a key, a mouse position (x, y) or a button", isError);
+    return text(done);
+}
+
+ct::Json McpServer::selectObject(const ct::Json& arguments, bool& isError)
+{
+    GameObject* object = resolve(arguments["object"]);
+    if (!object)
+        return fail("No such object", isError);
+    mEditor.select(object);
+    return text(ct::String("Selected ") + object->name());
+}
+
+ct::Json McpServer::reparent(const ct::Json& arguments, bool& isError)
+{
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    GameObject* object = resolve(arguments["object"]);
+    if (!object)
+        return fail("No such object", isError);
+    const ct::String parentRef = arguments["parent"].as_cstr("");
+    GameObject* parent = parentRef.empty() ? nullptr : resolve(arguments["parent"]);
+    if (!parentRef.empty() && !parent)
+        return fail("No such parent", isError);
+    for (GameObject* p = parent; p; p = p->parent())
+        if (p == object)
+            return fail("An object cannot go under itself or its own children", isError);
+    mEditor.dropObject(object, parent, parent ? ig::retained::TreeView::DropZone::Inside
+                                              : ig::retained::TreeView::DropZone::After);
+    return text(ct::String("Moved ") + object->name() + " to path " + pathOf(object));
 }
 
 } // namespace k2d::editor

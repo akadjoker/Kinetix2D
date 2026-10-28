@@ -129,6 +129,12 @@ private:
     ig::retained::MenuAction* mMcpAction = nullptr;
     // What the game's scripts and UI read while it plays in the Game view.
     Input mGameInput;
+    // Keys tapped from outside (MCP), let go after one game update.
+    ct::Vector<int> mPendingReleases;
+    // Where the game view showed the game last frame: window points and the
+    // game's own size, to turn game coordinates into the window's.
+    float mGameViewX = 0.0f, mGameViewY = 0.0f, mGameViewW = 0.0f, mGameViewH = 0.0f;
+    float mGameVirtualW = 0.0f, mGameVirtualH = 0.0f;
     // The console's lines, numbered, for tools that read them back (MCP).
     ct::Vector<ct::String> mLogHistory;
     std::size_t mLogFirst = 0;   // the number of the oldest line kept

@@ -726,6 +726,9 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         renderGame(mGame->absoluteRect(), pixelScale);
     // Pressed and released last one frame: the scene has read them by now.
     mGameInput.NewFrame();
+    for (int key : mPendingReleases)
+        mGameInput.OnKey(key, false, false);
+    mPendingReleases.clear();
 }
 
 bool EditorWindow::ensureCanvas()
@@ -784,6 +787,12 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
 
     // Scripts and UI read the pointer in window points, not framebuffer pixels.
     const float inverse = 1.0f / pixelScale;
+    mGameViewX = area.x + viewport.x * inverse;
+    mGameViewY = area.y + viewport.y * inverse;
+    mGameViewW = viewport.width * inverse;
+    mGameViewH = viewport.height * inverse;
+    mGameVirtualW = viewport.virtualWidth;
+    mGameVirtualH = viewport.virtualHeight;
     SetUiViewport(area.x + viewport.x * inverse, area.y + viewport.y * inverse, viewport.width * inverse,
                   viewport.height * inverse, viewport.virtualWidth, viewport.virtualHeight);
     SetZenScriptGameViewport(area.x + viewport.x * inverse, area.y + viewport.y * inverse,
@@ -1112,7 +1121,7 @@ void EditorWindow::startPlay()
     mPlaying = true;
     mScriptEditor->playing = true;
     mPaused = false;
-    mDock->showPanel(kScenePanel);
+    mDock->showPanel(kGamePanel);
     updateRunBar();
     updateUndoButtons();
 }
