@@ -20,6 +20,7 @@
 #include "ConsoleWidget.hpp"
 #include "DockPanel.hpp"
 #include "SideTabBar.hpp"
+#include "DialogWidgets.hpp"
 #include "FileDialog.hpp"
 #include "LayoutWidgets.hpp"
 #include "MenuWidgets.hpp"
@@ -50,6 +51,17 @@ public:
     bool openScene(const char* path);
     void newScene();
     bool saveScene(const char* path);
+    // A prefab file edited on its own, the scene put aside until back.
+    bool openPrefab(const ct::String& path);
+    bool savePrefabMode();
+    // Back to the scene; asks first when the prefab has unsaved changes.
+    void leavePrefab();
+    // Runs proceed once unsaved changes are saved or let go; asks which first.
+    void askToSave(ct::Function<void()> proceed);
+    void requestNewScene();
+    void requestOpenScene(const ct::String& path);
+    void requestQuit();
+    bool editingPrefab() const { return mPrefabMode.active; }
     void frame(float deltaTime, float pixelScale);
     void shutdown();
     // The MCP server on 127.0.0.1:port; off when port is 0.
@@ -151,6 +163,27 @@ private:
     ct::Json mProjectDocument;   // project.k2dproj as read, written back with only physics changed
     int mPreviewItem = -1;
     bool mLivePreview = true;
+    // The scene as it was when a prefab was opened, given back on leaving it.
+    struct PrefabMode
+    {
+        bool active = false;
+        ct::String path;          // the prefab file being edited
+        uint64_t rootId = 0;
+        ct::Json scene;
+        ct::String scenePath;
+        ct::Json sceneDocument;
+        bool sceneDirty = false;
+        CommandStack commands;
+        ct::Json committed;
+        ct::Vector<std::size_t> selection;
+        bool hadSelection = false;
+        Camera2D camera;
+    };
+    PrefabMode mPrefabMode;
+    ig::retained::BoxLayout* mPrefabBar = nullptr;
+    ig::retained::Label* mPrefabLabel = nullptr;
+    void restoreFromPrefab();
+    void syncPrefabBar();
     McpServer mMcp{*this};
     ig::retained::Label* mMcpLabel = nullptr;
     ig::retained::MenuAction* mMcpAction = nullptr;

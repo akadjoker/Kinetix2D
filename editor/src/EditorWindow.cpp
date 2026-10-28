@@ -150,14 +150,14 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 
     rt::MenuBar* menuBar = outer->createChild<rt::MenuBar>();
     rt::Menu* file = menuBar->addMenu("File");
-    file->addAction("New Scene", [this]() { newScene(); })->setShortcut("Ctrl+N");
+    file->addAction("New Scene", [this]() { requestNewScene(); })->setShortcut("Ctrl+N");
     file->addAction("Open Scene...", [this]() { showOpenDialog(); })->setShortcut("Ctrl+O");
     file->addAction("Save", [this]() { save(); })->setShortcut("Ctrl+S");
     file->addAction("Save As...", [this]() { showSaveDialog(); });
     file->addSeparator();
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
-    quit->triggered.connect([this]() { window_set_should_close(mWindow, true); });
+    quit->triggered.connect([this]() { requestQuit(); });
     rt::Menu* edit = menuBar->addMenu("Edit");
     edit->addAction("Undo", [this]() { undo(); })->setShortcut("Ctrl+Z");
     edit->addAction("Redo", [this]() { redo(); })->setShortcut("Ctrl+Y");
@@ -180,7 +180,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mTools->buttonClicked.connect([this, newItem, openItem, saveItem](int item)
     {
         if (item == newItem)
-            newScene();
+            requestNewScene();
         else if (item == openItem)
             showOpenDialog();
         else if (item == saveItem)
@@ -259,7 +259,21 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     workspace->setSpacing(0.0f);
     mLeftBar = workspace->createChild<rt::SideTabBar>(rt::SideTabBar::Side::Left);
     mLeftBar->setPageWidth(260.0f);
-    mDock = workspace->createChild<rt::DockPanel>();
+    auto* centre = workspace->createChild<rt::BoxLayout>(rt::LayoutDir::Vertical);
+    centre->setStretch(1.0f);
+    centre->setPadding(0.0f);
+    centre->setSpacing(0.0f);
+    // Shown only while a prefab is edited: what is open, and the way back.
+    mPrefabBar = centre->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    mPrefabBar->setPadding(2.0f, 8.0f);
+    mPrefabBar->setSpacing(8.0f);
+    iconButton(mPrefabBar, rt::IconId::ArrowLeft, "Back to the scene", [this]() { leavePrefab(); });
+    iconButton(mPrefabBar, "Save", "Save the prefab (Ctrl+S)", [this]() { savePrefabMode(); });
+    mPrefabLabel = mPrefabBar->createChild<rt::Label>("");
+    mPrefabLabel->setStretch(1.0f);
+    mPrefabLabel->setLayoutAlign(rt::Align::Center);
+    mPrefabBar->setVisible(false);
+    mDock = centre->createChild<rt::DockPanel>();
     mDock->setStretch(1.0f);
     mRightBar = workspace->createChild<rt::SideTabBar>(rt::SideTabBar::Side::Right);
     mRightBar->setPageWidth(340.0f);
@@ -340,7 +354,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             commit(mPendingEdit.c_str());
     });
     mProfiler = mDock->addPanel<ProfilerPanel>(kProfilerPanel);
-    mTilePainter = mRightBar->addPage<TilePainterPanel>(Icons::get("TileMap"), kTilePanel);
+    mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
     mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mTilePainter->edited.connect([this](const char* label)
     {
@@ -356,21 +370,19 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         const ct::String ext = EditorFileSystem::extension(path);
         if (ext == "k2dscene" && !mPlaying)
-            openScene(EditorFileSystem::resolve(mProjectRoot, path).c_str());
+            requestOpenScene(EditorFileSystem::resolve(mProjectRoot, path));
         else if ((ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga") &&
                  mSpriteEditor->open(path))
             mDock->showPanel(kSpritePanel);
         else if ((ext == "py" || ext == "zen" || ext == "zs") && mScriptEditor->open(path))
             mDock->showPanel(kScriptPanel);
         else if (isPrefabPath(path) && !mPlaying)
-        {
-            const rt::Rect area = mViewport->absoluteRect();
-            instantiatePrefab(path, nullptr, true, area.w * 0.5f, area.h * 0.5f);
-        }
+            openPrefab(path);
     });
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
     mDock->moveTabToLeaf(kProfilerPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
     mDock->showPanel(kConsolePanel);
     mDock->showPanel(kScenePanel);
     mLeftBar->setCurrentIndex(mLeftBar->indexOf(mHierarchy));
@@ -538,7 +550,7 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
         else if (key == rt::Key::O)
             showOpenDialog();
         else if (key == rt::Key::N)
-            newScene();
+            requestNewScene();
         else if (key == rt::Key::Z)
             e.shift ? redo() : undo();
         else if (key == rt::Key::Y)
@@ -546,7 +558,7 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
         else if (key == rt::Key::D)
             runHierarchyAction(HierarchyAction::Duplicate);
         else if (key == rt::Key::Q)
-            window_set_should_close(mWindow, true);
+            requestQuit();
         else
             return;
         e.consumed = true;
@@ -704,6 +716,11 @@ bool EditorWindow::saveScene(const char* path)
 
 void EditorWindow::save()
 {
+    if (mPrefabMode.active)
+    {
+        savePrefabMode();
+        return;
+    }
     if (mScenePath.empty())
         showSaveDialog();
     else
@@ -713,6 +730,11 @@ void EditorWindow::save()
 void EditorWindow::markDirty(bool dirty)
 {
     mDirty = dirty;
+    if (mPrefabMode.active)
+    {
+        syncPrefabBar();
+        return;
+    }
     ct::String text = mScenePath.empty() ? ct::String("Untitled scene") : EditorFileSystem::fileName(mScenePath);
     if (mDirty)
         text += " *";
@@ -729,7 +751,7 @@ void EditorWindow::showOpenDialog()
     dialog->accepted.connect([this](const rt::String& path)
     {
         if (!mPlaying)
-            openScene(path.c_str());
+            requestOpenScene(path);
     });
 }
 
@@ -968,9 +990,8 @@ void EditorWindow::showObject(GameObject* object)
     mInspector->show(object);
     mAnimator->show(object);
     mParticles->show(object);
-    // A dot on the tools that have something to work on in this object.
+    // A dot on a tool that has something to work on in this object.
     mRightBar->setPageBadge(mRightBar->indexOf(mParticles), object && object->getComponent<ParticleComponent>());
-    mRightBar->setPageBadge(mRightBar->indexOf(mTilePainter), object && object->getComponent<TileMapComponent>());
     mTilePainter->show(object);
 }
 
@@ -1128,6 +1149,182 @@ void EditorWindow::showSavePrefabDialog(GameObject* object)
             path += ".k2dprefab";
         savePrefab(objectAt(mScene.root(), where), path);
     });
+}
+
+bool EditorWindow::openPrefab(const ct::String& path)
+{
+    if (mPrefabMode.active)
+    {
+        if (path == mPrefabMode.path)
+            return true;
+        log_warn("Go back to the scene before opening another prefab");
+        return false;
+    }
+    stopPlay();
+    Prefab prefab;
+    if (!prefab.Load(path.c_str()))
+    {
+        log_error("Could not open prefab %s", path.c_str());
+        return false;
+    }
+    // The scene, its file, its unsaved state, its undo and its view, for later.
+    PrefabMode& mode = mPrefabMode;
+    mode.scene = snapshot();
+    mode.scenePath = mScenePath;
+    mode.sceneDocument = mSceneDocument;
+    mode.sceneDirty = mDirty;
+    mode.commands = ct::detail::move(mCommands);
+    mode.committed = mCommitted;
+    mode.hadSelection = mSelected != nullptr;
+    mode.selection = pathOf(mSelected);
+    mode.camera = mCamera;
+
+    select(nullptr);
+    mScene.clear();
+    GameObject* root = prefab.Instantiate(mScene, nullptr, &mAssets);
+    if (!root)
+    {
+        log_error("Could not instantiate prefab %s", path.c_str());
+        restoreFromPrefab();
+        return false;
+    }
+    mode.active = true;
+    mode.path = path;
+    mode.rootId = root->id();
+    mCommands = CommandStack();
+    mCamera = Camera2D();
+    mCamera.position = root->globalPosition();
+    sceneLoaded();
+    select(root);
+    mDock->showPanel(kScenePanel);
+    syncPrefabBar();
+    log_info("Editing prefab %s", path.c_str());
+    return true;
+}
+
+bool EditorWindow::savePrefabMode()
+{
+    if (!mPrefabMode.active)
+        return false;
+    // The prefab is its root; a root deleted while editing leaves nothing to save.
+    GameObject* root = nullptr;
+    for (std::size_t i = 0; i < mScene.root().childCount() && !root; ++i)
+        if (mScene.root().child(i)->id() == mPrefabMode.rootId)
+            root = mScene.root().child(i);
+    if (!root && mScene.root().childCount() == 1)
+        root = mScene.root().child(0);
+    if (!root)
+    {
+        log_error("The prefab needs one object at the top to be saved");
+        return false;
+    }
+    const ct::String absolute = EditorFileSystem::resolve(mProjectRoot, mPrefabMode.path);
+    if (!savePrefab(root, absolute))
+        return false;
+    markDirty(false);
+    return true;
+}
+
+void EditorWindow::leavePrefab()
+{
+    if (mPrefabMode.active)
+        askToSave([this]() { restoreFromPrefab(); });
+}
+
+void EditorWindow::askToSave(ct::Function<void()> proceed)
+{
+    if (!mDirty)
+    {
+        proceed();
+        return;
+    }
+    const bool prefab = mPrefabMode.active;
+    const ct::String name = prefab ? EditorFileSystem::fileName(mPrefabMode.path)
+                            : mScenePath.empty() ? ct::String("the new scene")
+                                                 : EditorFileSystem::fileName(mScenePath);
+    auto* ask = mApp->addFloat<rt::ChoiceDialog>("Unsaved changes", ct::String("Save the changes to ") + name + "?");
+    const int save = ask->addChoice("Save", Icons::get("Save"), rt::ChoiceDialog::Role::Default);
+    const int discard = ask->addChoice("Don't save", rt::IconId::Trash, rt::ChoiceDialog::Role::Destructive);
+    ask->addChoice("Cancel", rt::IconId::Cross, rt::ChoiceDialog::Role::Cancel);
+    ask->chosen.connect([this, save, discard, prefab, proceed](int choice)
+    {
+        if (choice == discard)
+            proceed();
+        else if (choice == save)
+        {
+            // A scene with no file yet is saved through Save As first; what was
+            // asked for waits for the next try.
+            if (prefab ? savePrefabMode() : (!mScenePath.empty() && saveScene(mScenePath.c_str())))
+                proceed();
+            else if (!prefab && mScenePath.empty())
+                showSaveDialog();
+        }
+    });
+}
+
+void EditorWindow::requestNewScene()
+{
+    if (mPrefabMode.active)
+    {
+        log_warn("Go back to the scene first");
+        return;
+    }
+    askToSave([this]() { newScene(); });
+}
+
+void EditorWindow::requestOpenScene(const ct::String& path)
+{
+    if (mPrefabMode.active)
+    {
+        log_warn("Go back to the scene first");
+        return;
+    }
+    askToSave([this, path]() { openScene(path.c_str()); });
+}
+
+void EditorWindow::requestQuit()
+{
+    askToSave([this]() { window_set_should_close(mWindow, true); });
+}
+
+void EditorWindow::restoreFromPrefab()
+{
+    PrefabMode& mode = mPrefabMode;
+    stopPlay();
+    select(nullptr);
+    mScene.clear();
+    Serializer::ReadInto(mScene, mScene.root(), mode.scene, &mAssets);
+    mScenePath = mode.scenePath;
+    mSceneDocument = mode.sceneDocument;
+    mode.active = false;
+    mode.path.clear();
+    refreshTree();
+    restartEditPreview(mScene.root());
+    mCommands = ct::detail::move(mode.commands);
+    mCommitted = mode.committed;
+    mPendingEdit.clear();
+    mCamera = mode.camera;
+    if (mode.hadSelection)
+        select(objectAt(mScene.root(), mode.selection));
+    updateUndoButtons();
+    markDirty(mode.sceneDirty);
+    mode.scene = ct::Json();
+    mode.sceneDocument = ct::Json();
+    syncPrefabBar();
+}
+
+void EditorWindow::syncPrefabBar()
+{
+    mPrefabBar->setVisible(mPrefabMode.active);
+    if (mPrefabMode.active)
+    {
+        ct::String text = ct::String("Editing prefab  ") + mPrefabMode.path;
+        if (mDirty)
+            text += " *";
+        mPrefabLabel->setText(text);
+        mSceneLabel->setText(EditorFileSystem::fileName(mPrefabMode.path) + (mDirty ? " *" : ""));
+    }
+    rt::WidgetApp::instance().requestLayout();
 }
 
 void EditorWindow::attachScript(const ct::String& path, GameObject* object, float x, float y)
