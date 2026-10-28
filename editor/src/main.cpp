@@ -31,6 +31,7 @@ int main(int argc, char** argv)
     if (argc >= 2 && !window.openScene(argv[1]))
         log_error("Could not open scene: %s", argv[1]);
 
+    app.setEventHook([&window](const Event& event) { window.onPlatformEvent(event); });
     app.setFrameCallback([&app, &window](float deltaTime)
     {
         int width = 0, height = 0, pixelWidth = 0, pixelHeight = 0;

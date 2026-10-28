@@ -8,6 +8,12 @@ struct PlatformWindow;
 
 namespace k2d
 {
+    // A platform key or mouse button as the Input knows it. Device feeds its own
+    // window's events through these; a host that reads the window itself (the
+    // editor, running the game in a panel) feeds an Input of its own the same way.
+    int InputKeyFromPlatform(int platformKey);
+    int InputButtonFromPlatform(int platformButton);
+
     class Device
     {
     public:

@@ -10,6 +10,7 @@
 #include <k2d/ActionSequence2D.h>
 #include <k2d/Animation2D.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/Device.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
@@ -417,6 +418,35 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     app.unhandledKey.connect([this](rt::KeyEvent& e) { onShortcut(e); });
 }
 
+// Keys, buttons and the wheel go to the game while it plays in a visible Game
+// view; the pointer always does, and the game reads it through its viewport.
+void EditorWindow::onPlatformEvent(const Event& event)
+{
+    if (!mPlaying)
+        return;
+    const bool gameShown = mGame && mGame->isVisible();
+    switch (event.type)
+    {
+    case EVENT_KEY:
+        if (gameShown)
+            mGameInput.OnKey(InputKeyFromPlatform(event.data.key.key), event.data.key.down, event.data.key.repeat);
+        break;
+    case EVENT_MOUSE_BUTTON:
+        if (gameShown)
+            mGameInput.OnMouseButton(InputButtonFromPlatform(event.data.mouse.button), event.data.mouse.down);
+        break;
+    case EVENT_MOUSE_MOVE:
+        mGameInput.OnMouseMove(static_cast<float>(event.data.mouse.x), static_cast<float>(event.data.mouse.y));
+        break;
+    case EVENT_MOUSE_WHEEL:
+        if (gameShown)
+            mGameInput.OnWheel(event.data.wheel.y);
+        break;
+    default:
+        break;
+    }
+}
+
 void EditorWindow::setTool(SceneTool tool)
 {
     mTools->toggleChanged.emit(mToolItems[static_cast<int>(tool)], true);
@@ -459,6 +489,9 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     rt::Widget* focused = mApp->focused();
     if (rt::widget_cast<rt::TextInput>(focused) || rt::widget_cast<rt::TextEdit>(focused))
         return;
+    // The game playing in the Game view has the single keys.
+    if (mPlaying && mGame->isVisible())
+        return;
     if (key == rt::Key::Delete)
         runHierarchyAction(HierarchyAction::Delete);
     else if (key == rt::Key::Q)
@@ -492,6 +525,8 @@ void EditorWindow::registerTypes()
     RegisterCoreClasses();
     ClassDB::setAssets(&mAssets);
     SetZenScriptOutput(scriptOutput, nullptr);
+    SetZenScriptInput(&mGameInput);
+    SetUiInput(&mGameInput);
     registered = true;
 }
 
@@ -684,6 +719,8 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     }
     if (mGame && mGame->isVisible())
         renderGame(mGame->absoluteRect(), pixelScale);
+    // Pressed and released last one frame: the scene has read them by now.
+    mGameInput.NewFrame();
 }
 
 bool EditorWindow::ensureCanvas()

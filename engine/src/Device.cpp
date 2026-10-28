@@ -240,6 +240,16 @@ void Device::UpdateSizes()
     window_get_framebuffer_size(mWindow, &mDrawableWidth, &mDrawableHeight);
 }
 
+int InputKeyFromPlatform(int platformKey)
+{
+    return toScancode(platformKey);
+}
+
+int InputButtonFromPlatform(int platformButton)
+{
+    return toMouseButton(platformButton);
+}
+
 bool Device::PollEvents()
 {
     mInput.NewFrame();
@@ -254,10 +264,10 @@ bool Device::PollEvents()
         case EVENT_WINDOW_CLOSE:
             return false;
         case EVENT_KEY:
-            mInput.OnKey(toScancode(event.data.key.key), event.data.key.down, event.data.key.repeat);
+            mInput.OnKey(InputKeyFromPlatform(event.data.key.key), event.data.key.down, event.data.key.repeat);
             break;
         case EVENT_MOUSE_BUTTON:
-            mInput.OnMouseButton(toMouseButton(event.data.mouse.button), event.data.mouse.down);
+            mInput.OnMouseButton(InputButtonFromPlatform(event.data.mouse.button), event.data.mouse.down);
             break;
         case EVENT_MOUSE_MOVE:
             mInput.OnMouseMove((float)event.data.mouse.x, (float)event.data.mouse.y);

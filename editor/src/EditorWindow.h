@@ -23,6 +23,7 @@
 
 #include <k2d/Assets.h>
 #include <k2d/Camera2D.h>
+#include <k2d/Input.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/RenderTarget.h>
 #include <k2d/Scene.h>
@@ -30,7 +31,7 @@
 #include <ct/json.hpp>
 #include <ct/string.hpp>
 
-struct PlatformWindow;
+#include <platform.h>
 
 namespace k2d::editor
 {
@@ -44,6 +45,8 @@ public:
     bool saveScene(const char* path);
     void frame(float deltaTime, float pixelScale);
     void shutdown();
+    // A platform event, as the window reads it: during Play it reaches the game.
+    void onPlatformEvent(const Event& event);
 
 private:
     void resetLayout();
@@ -116,6 +119,8 @@ private:
     ParticlesPanel* mParticles = nullptr;
     int mPreviewItem = -1;
     bool mLivePreview = true;
+    // What the game's scripts and UI read while it plays in the Game view.
+    Input mGameInput;
     ig::retained::ConsoleWidget* mConsole = nullptr;
     ig::retained::String mDefaultLayout;
 
