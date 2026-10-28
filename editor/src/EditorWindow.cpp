@@ -4,10 +4,14 @@
 
 #include <k2d/ClassDB.h>
 #include <k2d/FileSystem.h>
+#include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
+#include <k2d/GameViewport.h>
 #include <k2d/OpenGL.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/SceneManager.h>
+#include <k2d/ScreenFade.h>
+#include <k2d/UiControls.h>
 #include <k2d/Serializer.h>
 #include <k2d/ZenScriptComponent.h>
 
@@ -24,6 +28,7 @@ namespace
 {
 const char* const kHierarchyPanel = "Hierarchy";
 const char* const kScenePanel = "Scene";
+const char* const kGamePanel = "Game";
 const char* const kInspectorPanel = "Inspector";
 const char* const kConsolePanel = "Console";
 
@@ -38,6 +43,33 @@ ct::String joinPath(const ct::String& base, const char* relative)
 {
     char buffer[4096];
     return path_join(buffer, sizeof buffer, base.c_str(), relative) ? ct::String(buffer) : ct::String(relative);
+}
+
+// The child indices from the scene root down to the object.
+ct::Vector<std::size_t> pathOf(const GameObject* object)
+{
+    ct::Vector<std::size_t> path;
+    while (object && object->parent())
+    {
+        path.push_back(object->parent()->childIndex(object));
+        object = object->parent();
+    }
+    ct::Vector<std::size_t> reversed;
+    for (std::size_t i = path.size(); i > 0; --i)
+        reversed.push_back(path[i - 1]);
+    return reversed;
+}
+
+GameObject* objectAt(GameObject& root, const ct::Vector<std::size_t>& path)
+{
+    GameObject* object = &root;
+    for (std::size_t i = 0; i < path.size(); ++i)
+    {
+        if (path[i] >= object->childCount())
+            return nullptr;
+        object = object->child(path[i]);
+    }
+    return path.empty() ? nullptr : object;
 }
 } // namespace
 
@@ -55,6 +87,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
     quit->triggered.connect([this]() { window_set_should_close(mWindow, true); });
+    rt::Menu* edit = menuBar->addMenu("Edit");
+    edit->addAction("Undo", [this]() { undo(); })->setShortcut("Ctrl+Z");
+    edit->addAction("Redo", [this]() { redo(); })->setShortcut("Ctrl+Y");
     rt::Menu* view = menuBar->addMenu("View");
     rt::MenuAction* resetLayout = view->addAction("Reset Layout");
     resetLayout->triggered.connect([this]() { this->resetLayout(); });
@@ -69,8 +104,15 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mTools->addButton(Icons::get("Open"), "Open scene");
     mTools->addButton(Icons::get("Save"), "Save scene");
     mTools->addSeparator();
-    mTools->addButton(Icons::get("Undo"), "Undo");
-    mTools->addButton(Icons::get("Redo"), "Redo");
+    mUndoItem = mTools->addButton(Icons::get("Undo"), "Undo");
+    mRedoItem = mTools->addButton(Icons::get("Redo"), "Redo");
+    mTools->buttonClicked.connect([this](int item)
+    {
+        if (item == mUndoItem)
+            undo();
+        else if (item == mRedoItem)
+            redo();
+    });
     mTools->addSeparator();
     mTools->addToggle(Icons::get("Select"), "Select", true);
     mTools->addToggle(Icons::get("Move"), "Move");
@@ -99,18 +141,54 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     toolRow->createChild<rt::Panel>()->setStretch(1.0f);
     updateRunBar();
+    updateUndoButtons();
 
     mDock = outer->createChild<rt::DockPanel>();
     mDock->setStretch(1.0f);
     mHierarchy = mDock->addPanel<HierarchyPanel>(kHierarchyPanel);
-    mHierarchy->selectionChanged.connect([this](GameObject* object) { showSelection(object); });
+    mHierarchy->selectionChanged.connect([this](GameObject* object)
+    {
+        mSelected = object;
+        mInspector->show(object);
+    });
+    mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
+    mHierarchy->edited.connect([this](const char* label) { commit(label); });
+    mHierarchy->dropped.connect([this](GameObject* object, GameObject* target, rt::TreeView::DropZone zone)
+    {
+        dropObject(object, target, zone);
+    });
     mViewport = mDock->addPanel<ViewportPanel>(kScenePanel);
+    mGame = mDock->addPanel<ViewportPanel>(kGamePanel);
     mInspector = mDock->addPanel<InspectorPanel>(kInspectorPanel);
     mInspector->show(nullptr);
+    mInspector->edited.connect([this](const char* label, bool final)
+    {
+        if (label)
+            mPendingEdit = label;
+        if (final && !mPendingEdit.empty())
+            commit(mPendingEdit.c_str());
+    });
+    mInspector->addComponentRequested.connect([this](const char* type)
+    {
+        if (mSelected && Serializer::Create(*mSelected, type))
+        {
+            commit("Add component");
+            mInspectorStale = true;
+        }
+    });
+    mInspector->removeComponentRequested.connect([this](Component* component)
+    {
+        if (mSelected && mSelected->removeComponent(component))
+        {
+            commit("Remove component");
+            mInspectorStale = true;
+        }
+    });
     mDock->addPanel<rt::Label>(kConsolePanel, "");
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
+    mDock->showPanel(kScenePanel);
     mDefaultLayout = mDock->saveLayout();
 
     mViewport->panned.connect([this](float dx, float dy)
@@ -163,7 +241,11 @@ bool EditorWindow::openScene(const char* path)
     mTopology = mScene.topologyVersion();
     mSceneLabel->setText(path_filename(path));
     mHierarchy->rebuild(mScene);
-    showSelection(nullptr);
+    select(nullptr);
+    mCommands.clear();
+    mCommitted = snapshot();
+    mPendingEdit.clear();
+    updateUndoButtons();
     return true;
 }
 
@@ -195,25 +277,39 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     {
         mTopology = mScene.topologyVersion();
         mHierarchy->rebuild(mScene);
-        showSelection(nullptr);
+        select(nullptr);
+    }
+    if (mInspectorStale)
+    {
+        mInspectorStale = false;
+        refreshTree();
+        mInspector->show(mSelected);
     }
 
-    if (!mViewport || !mViewport->isVisible())
-        return;
-    const rt::Rect area = mViewport->absoluteRect();
-    renderScene(area.w, area.h, pixelScale);
+    if (mViewport && mViewport->isVisible())
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        renderScene(area.w, area.h, pixelScale);
+    }
+    if (mGame && mGame->isVisible())
+        renderGame(mGame->absoluteRect(), pixelScale);
 }
 
-void EditorWindow::renderScene(float width, float height, float pixelScale)
+bool EditorWindow::ensureCanvas()
 {
     if (!mCanvasReady && !mCanvasFailed)
     {
         mCanvasReady = mCanvas.Init();
         mCanvasFailed = !mCanvasReady;
     }
+    return mCanvasReady;
+}
+
+void EditorWindow::renderScene(float width, float height, float pixelScale)
+{
     const int pixelWidth = static_cast<int>(width * pixelScale + 0.5f);
     const int pixelHeight = static_cast<int>(height * pixelScale + 0.5f);
-    if (!mCanvasReady || !mTarget.resize(pixelWidth, pixelHeight))
+    if (!ensureCanvas() || !mTarget.resize(pixelWidth, pixelHeight))
         return;
 
     mTarget.bind();
@@ -230,9 +326,250 @@ void EditorWindow::renderScene(float width, float height, float pixelScale)
     mViewport->setTexture(texture);
 }
 
-void EditorWindow::showSelection(GameObject* object)
+// The scene as the game sees it: through the active camera, at the camera's
+// resolution, letterboxed into the panel as the runner does in its window.
+void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
 {
+    const int pixelWidth = static_cast<int>(area.w * pixelScale + 0.5f);
+    const int pixelHeight = static_cast<int>(area.h * pixelScale + 0.5f);
+    if (!ensureCanvas() || !mGameTarget.resize(pixelWidth, pixelHeight))
+        return;
+
+    CameraComponent* camera = mScene.activeCamera();
+    const GameViewport viewport =
+        camera ? CalculateGameViewport(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight),
+                                       camera->viewportWidth(), camera->viewportHeight(),
+                                       camera->viewportScaleMode(), camera->integerScale())
+               : CalculateGameViewport(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight),
+                                       area.w, area.h);
+    if (!viewport.valid())
+        return;
+
+    // Scripts and UI read the pointer in window points, not framebuffer pixels.
+    const float inverse = 1.0f / pixelScale;
+    SetUiViewport(area.x + viewport.x * inverse, area.y + viewport.y * inverse, viewport.width * inverse,
+                  viewport.height * inverse, viewport.virtualWidth, viewport.virtualHeight);
+    SetZenScriptGameViewport(area.x + viewport.x * inverse, area.y + viewport.y * inverse,
+                             viewport.width * inverse, viewport.height * inverse, viewport.virtualWidth,
+                             viewport.virtualHeight);
+
+    mGameTarget.bind();
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // The framebuffer is drawn flipped, so the letterbox is measured from the bottom.
+    const float bottom = static_cast<float>(pixelHeight) - viewport.y - viewport.height;
+    glViewport(static_cast<int>(viewport.x + 0.5f), static_cast<int>(bottom + 0.5f),
+               static_cast<int>(viewport.width + 0.5f), static_cast<int>(viewport.height + 0.5f));
+    if (camera)
+    {
+        camera->setRenderViewport(viewport.virtualWidth, viewport.virtualHeight);
+        mCanvas.SetProjection(camera->projection());
+        SetZenScriptGameCamera(&camera->camera());
+        mScene.setRenderCamera(&camera->camera(), viewport.virtualWidth, viewport.virtualHeight);
+    }
+    else
+    {
+        mCanvas.SetProjection(mGameCamera.Projection(viewport.virtualWidth, viewport.virtualHeight));
+        SetZenScriptGameCamera(&mGameCamera);
+        mScene.setRenderCamera(&mGameCamera, viewport.virtualWidth, viewport.virtualHeight);
+    }
+    mScene.render(mCanvas);
+    GetScreenFade().Draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    rt::TextureHandle texture;
+    texture.value = mGameTarget.texture();
+    mGame->setTexture(texture);
+}
+
+void EditorWindow::select(GameObject* object)
+{
+    mSelected = object;
+    mHierarchy->select(object);
     mInspector->show(object);
+}
+
+void EditorWindow::refreshTree()
+{
+    mTopology = mScene.topologyVersion();
+    mHierarchy->rebuild(mScene);
+    mHierarchy->select(mSelected);
+}
+
+ct::Json EditorWindow::snapshot() const
+{
+    return Serializer::WriteObject(mScene.root(), const_cast<Assets*>(&mAssets));
+}
+
+void EditorWindow::restore(const ct::Json& state)
+{
+    const ct::Vector<std::size_t> path = pathOf(mSelected);
+    select(nullptr);
+    mScene.clear();
+    Serializer::ReadInto(mScene, mScene.root(), state, &mAssets);
+    mSelected = objectAt(mScene.root(), path);
+    refreshTree();
+    mInspector->show(mSelected);
+}
+
+// Every edit is recorded as the whole scene before and after it, as the legacy
+// editor did: simple, and right for any change the serializer can write.
+void EditorWindow::commit(const char* label)
+{
+    mPendingEdit.clear();
+    if (mPlaying)
+        return;
+    SceneCommand command;
+    command.label = label;
+    command.before = mCommitted;
+    command.after = snapshot();
+    mCommitted = command.after;
+    mCommands.push(ct::detail::move(command));
+    updateUndoButtons();
+}
+
+void EditorWindow::undo()
+{
+    if (mPlaying)
+        return;
+    if (!mPendingEdit.empty())
+        commit(mPendingEdit.c_str());
+    if (const SceneCommand* command = mCommands.undo())
+    {
+        mCommitted = command->before;
+        restore(mCommitted);
+    }
+    updateUndoButtons();
+}
+
+void EditorWindow::redo()
+{
+    if (mPlaying)
+        return;
+    if (const SceneCommand* command = mCommands.redo())
+    {
+        mCommitted = command->after;
+        restore(mCommitted);
+    }
+    updateUndoButtons();
+}
+
+void EditorWindow::updateUndoButtons()
+{
+    mTools->setItemEnabled(mUndoItem, !mPlaying && mCommands.canUndo());
+    mTools->setItemEnabled(mRedoItem, !mPlaying && mCommands.canRedo());
+    char tip[128];
+    std::snprintf(tip, sizeof tip, "Undo %s", mCommands.undoName());
+    mTools->setItemTooltip(mUndoItem, tip);
+    std::snprintf(tip, sizeof tip, "Redo %s", mCommands.redoName());
+    mTools->setItemTooltip(mRedoItem, tip);
+}
+
+// Inside makes the object the last child of the target; Before and After put it
+// next to the target, under the target's parent. The local transform is kept.
+void EditorWindow::dropObject(GameObject* object, GameObject* target, rt::TreeView::DropZone zone)
+{
+    if (mPlaying || !object)
+        return;
+    GameObject* parent = &mScene.root();
+    std::size_t index = 0;
+    if (!target)
+        index = parent->childCount();
+    else if (zone == rt::TreeView::DropZone::Inside)
+    {
+        parent = target;
+        index = target->childCount();
+    }
+    else
+    {
+        parent = target->parent();
+        index = parent->childIndex(target) + (zone == rt::TreeView::DropZone::After ? 1 : 0);
+    }
+
+    if (object->parent() == parent)
+    {
+        // The object leaves its slot first, so a slot further down moves up one.
+        if (parent->childIndex(object) < index)
+            --index;
+    }
+    else if (!mScene.reparent(object, parent))
+        return;
+    // A reparented object arrives last; walk it up (or down) to its slot.
+    std::size_t current = parent->childIndex(object);
+    while (current > index && parent->moveChildUp(object))
+        --current;
+    while (current < index && parent->moveChildDown(object))
+        ++current;
+
+    mSelected = object;
+    refreshTree();
+    mInspector->show(object);
+    commit("Reparent");
+}
+
+void EditorWindow::runHierarchyAction(HierarchyAction action)
+{
+    if (mPlaying)
+        return;
+    GameObject* selected = mSelected;
+    switch (action)
+    {
+    case HierarchyAction::Create:
+    {
+        GameObject* object = mScene.createObject("GameObject", selected ? selected->parent() : nullptr);
+        mSelected = object;
+        refreshTree();
+        mInspector->show(object);
+        commit("New object");
+        break;
+    }
+    case HierarchyAction::Duplicate:
+    {
+        if (!selected)
+            return;
+        const ct::Json copy = Serializer::WriteObject(*selected, &mAssets);
+        GameObject* object = Serializer::ReadObject(mScene, copy, selected->parent(), &mAssets);
+        if (!object)
+            return;
+        mSelected = object;
+        refreshTree();
+        mInspector->show(object);
+        commit("Duplicate");
+        break;
+    }
+    case HierarchyAction::MoveUp:
+    case HierarchyAction::MoveDown:
+    {
+        GameObject* parent = selected ? selected->parent() : nullptr;
+        if (!parent)
+            return;
+        const bool moved = action == HierarchyAction::MoveUp ? parent->moveChildUp(selected)
+                                                             : parent->moveChildDown(selected);
+        if (!moved)
+            return;
+        refreshTree();
+        commit(action == HierarchyAction::MoveUp ? "Move up" : "Move down");
+        break;
+    }
+    case HierarchyAction::Delete:
+    {
+        if (!selected)
+            return;
+        // Objects in a scene are only disposed of during an update, which the
+        // editor does not run: the object is cut out of a snapshot instead.
+        const ct::Vector<std::size_t> path = pathOf(selected);
+        ct::Json state = snapshot();
+        ct::Json* children = &state;
+        for (std::size_t i = 0; i + 1 < path.size(); ++i)
+            children = &(*children)["children"][path[i]];
+        (*children)["children"].erase(path.back());
+        mSelected = nullptr;
+        restore(state);
+        commit("Delete");
+        break;
+    }
+    }
 }
 
 void EditorWindow::startPlay()
@@ -253,7 +590,9 @@ void EditorWindow::startPlay()
     mScene.setSimulationEnabled(true);
     mPlaying = true;
     mPaused = false;
+    mDock->showPanel(kGamePanel);
     updateRunBar();
+    updateUndoButtons();
 }
 
 void EditorWindow::stopPlay()
@@ -262,7 +601,7 @@ void EditorWindow::stopPlay()
         return;
     SetZenScriptsEnabled(false);
     GetSceneManager().ClearRequest();
-    showSelection(nullptr);
+    select(nullptr);
     mScene.clear();
     mScene.setSimulationEnabled(false);
     mScene.setGravity(mEditGravity);
@@ -272,7 +611,9 @@ void EditorWindow::stopPlay()
     mPaused = false;
     mTopology = mScene.topologyVersion();
     mHierarchy->rebuild(mScene);
+    mSelected = nullptr;
     updateRunBar();
+    updateUndoButtons();
 }
 
 void EditorWindow::setPaused(bool paused)
@@ -293,6 +634,7 @@ void EditorWindow::shutdown()
 {
     stopPlay();
     mTarget.destroy();
+    mGameTarget.destroy();
     if (mCanvasReady)
         mCanvas.Shutdown();
     mCanvasReady = false;

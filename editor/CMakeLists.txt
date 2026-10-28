@@ -26,6 +26,7 @@ add_executable(k2d_editor
     src/HierarchyPanel.cpp
     src/InspectorPanel.cpp
     src/ViewportPanel.cpp
+    src/core/CommandStack.cpp
 )
 target_include_directories(k2d_editor PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d igui::zen)

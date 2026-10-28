@@ -2,6 +2,8 @@
 
 #include "Icons.h"
 
+#include "MenuWidgets.hpp"
+
 #include <k2d/GameObject.h>
 #include <k2d/Scene.h>
 
@@ -50,14 +52,59 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
 {
     setPadding(0.0f);
     setSpacing(0.0f);
+
+    mTools = createChild<rt::ToolBar>();
+    mTools->setDraggable(false);
+    const int create = mTools->addButton(Icons::get("Add"), "New object");
+    const int duplicate = mTools->addButton(Icons::get("Duplicate"), "Duplicate");
+    mTools->addSeparator();
+    // The atlas has no arrows yet; iGUI's own are drawn in the same toolbar.
+    const int up = mTools->addButton(rt::IconId::ArrowUp, "Move up");
+    const int down = mTools->addButton(rt::IconId::ArrowDown, "Move down");
+    mTools->addSeparator();
+    const int remove = mTools->addButton(Icons::get("Remove"), "Delete");
+    mTools->buttonClicked.connect([this, create, duplicate, up, down, remove](int item)
+    {
+        if (item == create)
+            actionRequested.emit(HierarchyAction::Create);
+        else if (item == duplicate)
+            actionRequested.emit(HierarchyAction::Duplicate);
+        else if (item == up)
+            actionRequested.emit(HierarchyAction::MoveUp);
+        else if (item == down)
+            actionRequested.emit(HierarchyAction::MoveDown);
+        else if (item == remove)
+            actionRequested.emit(HierarchyAction::Delete);
+    });
+
     mTree = createChild<rt::TreeView>();
     mTree->setStretch(1.0f);
     mTree->selectionChanged.connect([this](rt::TreeNode* node)
     {
         GameObject** object = node ? mObjects.find(node) : nullptr;
         mSelected = object ? *object : nullptr;
-        selectionChanged.emit(mSelected);
+        if (!mSyncing)
+            selectionChanged.emit(mSelected);
     });
+
+    mTree->setDragEnabled(true);
+    mTree->nodeDropped.connect([this](rt::TreeNode* node, rt::TreeNode* target, rt::TreeView::DropZone zone)
+    {
+        GameObject** object = mObjects.find(node);
+        GameObject** onto = target ? mObjects.find(target) : nullptr;
+        if (object)
+            dropped.emit(*object, onto ? *onto : nullptr, zone);
+    });
+
+    rt::Menu* menu = new rt::Menu();
+    menu->addAction("New Object", [this]() { actionRequested.emit(HierarchyAction::Create); });
+    menu->addAction("Duplicate", [this]() { actionRequested.emit(HierarchyAction::Duplicate); });
+    menu->addSeparator();
+    menu->addAction("Move Up", [this]() { actionRequested.emit(HierarchyAction::MoveUp); });
+    menu->addAction("Move Down", [this]() { actionRequested.emit(HierarchyAction::MoveDown); });
+    menu->addSeparator();
+    menu->addAction("Delete", [this]() { actionRequested.emit(HierarchyAction::Delete); });
+    mTree->setContextMenu(menu);
     mTree->toggleChanged.connect([this](rt::TreeNode* node, int toggle, bool on)
     {
         GameObject** object = node ? mObjects.find(node) : nullptr;
@@ -67,13 +114,17 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
             (*object)->setVisible(on);
         else
             (*object)->setLocked(on);
+        edited.emit(toggle == 0 ? "Toggle visibility" : "Toggle lock");
     });
 }
 
 void HierarchyPanel::rebuild(Scene& scene)
 {
+    mSyncing = true;
     mTree->clear();
+    mSyncing = false;
     mObjects.clear();
+    mNodes.clear();
     mSelected = nullptr;
     GameObject& root = scene.root();
     for (std::size_t i = 0; i < root.childCount(); ++i)
@@ -90,8 +141,18 @@ void HierarchyPanel::addObject(rt::TreeNode* parent, GameObject* object)
     node->addToggle(Icons::get("Lock"), Icons::get("Unlock"), object->locked(), "Locked: click to unlock",
                     "Unlocked: click to lock");
     mObjects[node] = object;
+    mNodes[object] = node;
     for (std::size_t i = 0; i < object->childCount(); ++i)
         addObject(node, object->child(i));
+}
+
+void HierarchyPanel::select(GameObject* object)
+{
+    rt::TreeNode** node = object ? mNodes.find(object) : nullptr;
+    mSyncing = true;
+    mTree->setSelectedNode(node ? *node : nullptr);
+    mSyncing = false;
+    mSelected = node ? object : nullptr;
 }
 
 } // namespace k2d::editor

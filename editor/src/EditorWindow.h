@@ -3,6 +3,7 @@
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
 #include "ViewportPanel.h"
+#include "core/CommandStack.h"
 
 #include "BasicWidgets.hpp"
 #include "DockPanel.hpp"
@@ -35,8 +36,19 @@ public:
 
 private:
     void resetLayout();
+    bool ensureCanvas();
     void renderScene(float width, float height, float pixelScale);
-    void showSelection(GameObject* object);
+    void renderGame(const ig::retained::Rect& area, float pixelScale);
+    void select(GameObject* object);
+    void refreshTree();
+    ct::Json snapshot() const;
+    void restore(const ct::Json& state);
+    void commit(const char* label);
+    void undo();
+    void redo();
+    void updateUndoButtons();
+    void runHierarchyAction(HierarchyAction action);
+    void dropObject(GameObject* object, GameObject* target, ig::retained::TreeView::DropZone zone);
     void startPlay();
     void stopPlay();
     void setPaused(bool paused);
@@ -46,6 +58,8 @@ private:
     ig::retained::DockPanel* mDock = nullptr;
     ig::retained::ToolBar* mTools = nullptr;
     ig::retained::ToolBar* mRunBar = nullptr;
+    int mUndoItem = -1;
+    int mRedoItem = -1;
     int mPlayItem = -1;
     int mPauseItem = -1;
     int mStopItem = -1;
@@ -53,6 +67,7 @@ private:
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;
     ViewportPanel* mViewport = nullptr;
+    ViewportPanel* mGame = nullptr;
     HierarchyPanel* mHierarchy = nullptr;
     InspectorPanel* mInspector = nullptr;
     ig::retained::String mDefaultLayout;
@@ -61,6 +76,9 @@ private:
     Scene mScene;
     CanvasRenderer mCanvas;
     RenderTarget mTarget;
+    RenderTarget mGameTarget;
+    // The camera the Game view falls back to when the scene has none active.
+    Camera2D mGameCamera;
     Camera2D mCamera;
     bool mCanvasReady = false;
     bool mCanvasFailed = false;
@@ -69,6 +87,14 @@ private:
     ct::Json mPlaySnapshot;
     Math::Vec2 mEditGravity;
     uint32_t mTopology = 0;
+
+    // The selection survives undo by its path of child indices: a restored scene
+    // gets new objects, and new ids.
+    GameObject* mSelected = nullptr;
+    bool mInspectorStale = false;
+    CommandStack mCommands;
+    ct::Json mCommitted;
+    ct::String mPendingEdit;
     float mFpsTime = 0.0f;
     int mFpsFrames = 0;
 };

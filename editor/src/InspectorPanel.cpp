@@ -7,6 +7,7 @@
 
 #include <k2d/ClassDB.h>
 #include <k2d/GameObject.h>
+#include <k2d/Serializer.h>
 
 namespace rt = ig::retained;
 
@@ -31,6 +32,11 @@ public:
         return {kLabelWidth, rt::Label::sizeHint().y};
     }
 };
+
+ct::String editName(const char* property)
+{
+    return ct::String("Edit ") + property;
+}
 
 } // namespace
 
@@ -63,7 +69,8 @@ rt::BoxLayout* InspectorPanel::row(rt::Widget* parent, const char* name)
     return line;
 }
 
-rt::SpinSlider* InspectorPanel::number(rt::Widget* parent, const char* label, double value, double step)
+rt::SpinSlider* InspectorPanel::number(rt::Widget* parent, const char* label, double value, double step,
+                                       const ct::String& edit, ct::Function<void(double)> change)
 {
     auto* field = parent->createChild<rt::SpinSlider>();
     field->setLabel(label);
@@ -73,6 +80,12 @@ rt::SpinSlider* InspectorPanel::number(rt::Widget* parent, const char* label, do
     field->setControlState(rt::SpinSlider::ControlState::Hide);
     field->setValueNoSignal(value);
     field->setStretch(1.0f);
+    // A drag is one edit: it stays open while the value moves and closes on release.
+    field->valueChanged.connect([this, field, edit, change](double v) {
+        change(v);
+        edited.emit(edit.c_str(), !field->isGrabbing());
+    });
+    field->ungrabbed.connect([this, edit]() { edited.emit(edit.c_str(), true); });
     return field;
 }
 
@@ -92,6 +105,7 @@ void InspectorPanel::show(GameObject* object)
             for (std::size_t index = 0; index < count; ++index)
                 addComponent(componentType, index);
         }
+        addComponentPicker();
     }
     setScrollY(0.0f);
     rt::WidgetApp::instance().requestLayout();
@@ -102,36 +116,36 @@ void InspectorPanel::addTransform()
     auto* name = row(mColumn, "Name")->createChild<rt::TextInput>(mObject->name());
     name->setStretch(1.0f);
     name->submitted.connect([this](const rt::String& text) {
-        if (mObject)
-            mObject->setName(text);
+        mObject->setName(text);
+        edited.emit("Rename", true);
     });
 
     auto* section = mColumn->createChild<rt::Collapsible>("Transform");
 
     const Math::Vec2 position = mObject->position();
     rt::BoxLayout* line = row(section, "Position");
-    number(line, "x", position.x, 0.01)->valueChanged.connect([this](double v) {
+    number(line, "x", position.x, 0.01, "Move", [this](double v) {
         Math::Vec2 p = mObject->position();
         p.x = static_cast<float>(v);
         mObject->setPosition(p);
     });
-    number(line, "y", position.y, 0.01)->valueChanged.connect([this](double v) {
+    number(line, "y", position.y, 0.01, "Move", [this](double v) {
         Math::Vec2 p = mObject->position();
         p.y = static_cast<float>(v);
         mObject->setPosition(p);
     });
 
-    number(row(section, "Rotation"), "", mObject->rotationDegrees(), 0.1)
-        ->valueChanged.connect([this](double v) { mObject->setRotationDegrees(static_cast<float>(v)); });
+    number(row(section, "Rotation"), "", mObject->rotationDegrees(), 0.1, "Rotate",
+           [this](double v) { mObject->setRotationDegrees(static_cast<float>(v)); });
 
     const Math::Vec2 scale = mObject->scale();
     line = row(section, "Scale");
-    number(line, "x", scale.x, 0.01)->valueChanged.connect([this](double v) {
+    number(line, "x", scale.x, 0.01, "Scale", [this](double v) {
         Math::Vec2 s = mObject->scale();
         s.x = static_cast<float>(v);
         mObject->setScale(s);
     });
-    number(line, "y", scale.y, 0.01)->valueChanged.connect([this](double v) {
+    number(line, "y", scale.y, 0.01, "Scale", [this](double v) {
         Math::Vec2 s = mObject->scale();
         s.y = static_cast<float>(v);
         mObject->setScale(s);
@@ -140,13 +154,31 @@ void InspectorPanel::addTransform()
 
 void InspectorPanel::addComponent(ComponentType type, std::size_t index)
 {
-    const Component* target = component(type, index);
+    Component* target = component(type, index);
     const ClassInfo* info = target ? ClassDB::find(*target) : nullptr;
     if (!info)
         return;
     auto* section = mColumn->createChild<rt::Collapsible>(info->name);
     for (std::size_t p = 0; p < info->properties.size(); ++p)
         addProperty(section, type, index, info->properties[p]);
+    auto* remove = section->createChild<rt::Button>("Remove Component");
+    remove->clicked.connect([this, target]() { removeComponentRequested.emit(target); });
+}
+
+void InspectorPanel::addComponentPicker()
+{
+    auto* picker = mColumn->createChild<rt::ComboBox>();
+    picker->addItem("Add Component...");
+    for (std::size_t i = 0; i < Serializer::TypeCount(); ++i)
+        picker->addItem(Serializer::TypeName(i));
+    picker->setSelectedIndex(0);
+    picker->setMaxVisible(16);
+    picker->selectionChanged.connect([this, picker](int index) {
+        if (index <= 0)
+            return;
+        addComponentRequested.emit(Serializer::TypeName(static_cast<std::size_t>(index - 1)));
+        picker->setSelectedIndex(0);
+    });
 }
 
 void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::size_t index,
@@ -156,6 +188,7 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
     const PropertyValue value = property.get(*target);
     const PropertyInfo& info = property.info;
     const ClassProperty* bound = &property;
+    const ct::String edit = editName(info.name.c_str());
     rt::BoxLayout* line = row(parent, info.name.c_str());
 
     // Writes the value back through the ClassDB setter; the component is looked up
@@ -175,7 +208,10 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
     {
         auto* check = line->createChild<rt::CheckBox>();
         check->setChecked(value.asBool());
-        check->toggled.connect([apply](bool on) { apply(PropertyValue::from(on)); });
+        check->toggled.connect([this, apply, edit](bool on) {
+            apply(PropertyValue::from(on));
+            edited.emit(edit.c_str(), true);
+        });
         break;
     }
     case PropertyType::Int:
@@ -186,7 +222,10 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
                 combo->addItem(info.enumName(i));
             combo->setSelectedIndex(value.asInt());
             combo->setStretch(1.0f);
-            combo->selectionChanged.connect([apply](int i) { apply(PropertyValue::from(i)); });
+            combo->selectionChanged.connect([this, apply, edit](int i) {
+                apply(PropertyValue::from(i));
+                edited.emit(edit.c_str(), true);
+            });
             break;
         }
         [[fallthrough]];
@@ -194,7 +233,10 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
     {
         const bool integer = info.type == PropertyType::Int;
         const double step = info.rangeStep > 0.0f ? info.rangeStep : (integer ? 1.0 : 0.01);
-        auto* field = number(line, "", integer ? value.asInt() : value.asFloat(), step);
+        const double start = integer ? value.asInt() : value.asFloat();
+        auto* field = number(line, "", start, step, edit, [apply, integer](double v) {
+            apply(integer ? PropertyValue::from(static_cast<int>(v)) : PropertyValue::from(static_cast<float>(v)));
+        });
         field->setEditingInteger(integer);
         if (info.hint == PropertyHint::Range)
         {
@@ -203,22 +245,19 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
             field->setAllowGreater(false);
             field->setAllowLesser(false);
             field->setControlState(rt::SpinSlider::ControlState::PreferSlider);
-            field->setValueNoSignal(integer ? value.asInt() : value.asFloat());
+            field->setValueNoSignal(start);
         }
-        field->valueChanged.connect([apply, integer](double v) {
-            apply(integer ? PropertyValue::from(static_cast<int>(v)) : PropertyValue::from(static_cast<float>(v)));
-        });
         break;
     }
     case PropertyType::Vec2:
     {
         const Math::Vec2 v = value.asVec2();
-        number(line, "x", v.x, 0.01)->valueChanged.connect([apply, current](double x) {
+        number(line, "x", v.x, 0.01, edit, [apply, current](double x) {
             Math::Vec2 w = current().asVec2();
             w.x = static_cast<float>(x);
             apply(PropertyValue::from(w));
         });
-        number(line, "y", v.y, 0.01)->valueChanged.connect([apply, current](double y) {
+        number(line, "y", v.y, 0.01, edit, [apply, current](double y) {
             Math::Vec2 w = current().asVec2();
             w.y = static_cast<float>(y);
             apply(PropertyValue::from(w));
@@ -234,19 +273,18 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
         const int count = info.hint == PropertyHint::ColorNoAlpha ? 3 : 4;
         for (int i = 0; i < count; ++i)
         {
-            auto* field = number(line, names[i], channels[i], 0.01);
+            auto* field = number(line, names[i], channels[i], 0.01, edit, [apply, current, i](double x) {
+                Color w = current().asColor();
+                float* channel[4] = {&w.r, &w.g, &w.b, &w.a};
+                *channel[i] = static_cast<float>(x);
+                apply(PropertyValue::from(w));
+            });
             field->setMin(0.0);
             field->setMax(1.0);
             field->setAllowGreater(false);
             field->setAllowLesser(false);
             field->setControlState(rt::SpinSlider::ControlState::PreferSlider);
             field->setValueNoSignal(channels[i]);
-            field->valueChanged.connect([apply, current, i](double x) {
-                Color w = current().asColor();
-                float* channel[4] = {&w.r, &w.g, &w.b, &w.a};
-                *channel[i] = static_cast<float>(x);
-                apply(PropertyValue::from(w));
-            });
         }
         break;
     }
@@ -254,7 +292,10 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
     {
         auto* text = line->createChild<rt::TextInput>(value.asString());
         text->setStretch(1.0f);
-        text->submitted.connect([apply](const rt::String& s) { apply(PropertyValue::from(s)); });
+        text->submitted.connect([this, apply, edit](const rt::String& s) {
+            apply(PropertyValue::from(s));
+            edited.emit(edit.c_str(), true);
+        });
         break;
     }
     case PropertyType::ResourcePath:
