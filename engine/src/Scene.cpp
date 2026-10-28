@@ -209,7 +209,14 @@ namespace k2d
     void Scene::render(CanvasRenderer &canvas)
     {
         canvas.SetCanvasModulate(mAmbient.r, mAmbient.g, mAmbient.b);
+        if (mRenderCamera && mRenderViewportWidth > 0.0f && mRenderViewportHeight > 0.0f)
+        {
+            float minX, minY, maxX, maxY;
+            mRenderCamera->VisibleRect(minX, minY, maxX, maxY, mRenderViewportWidth, mRenderViewportHeight);
+            canvas.SetCullRect(minX, minY, maxX, maxY);
+        }
         buildRenderQueue().Flush(canvas);
+        canvas.ClearCullRect();
         canvas.SetCanvasModulate(1.0f, 1.0f, 1.0f);
     }
 

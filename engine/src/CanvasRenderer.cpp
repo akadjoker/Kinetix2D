@@ -461,7 +461,8 @@ CanvasRenderer::CanvasRenderer()
       mDirectionalLights(nullptr), mDirectionalLightCount(0), mShadowFlagsLoc(-1), mShadowColorLoc(-1),
       mShadowFilterLoc(-1), mShadowAtlasLoc(-1), mCanvasSizeLoc(-1), mOccluders(nullptr), mOccluderCount(0),
       mOrthoWidth(1280.0f), mOrthoHeight(720.0f), mShadowLightLoc(-1), mShadowOffsetLoc(-1),
-      mShadowDirectionalLoc(-1), mShadowFrameLoc(-1), mShadowCenterLoc(-1), mShadowVertexCapacity(0)
+      mShadowDirectionalLoc(-1), mShadowFrameLoc(-1), mShadowCenterLoc(-1), mShadowVertexCapacity(0),
+      mCulling(false), mCullMinX(0.0f), mCullMinY(0.0f), mCullMaxX(0.0f), mCullMaxY(0.0f)
 {
     std::memset(&mStats, 0, sizeof(mStats));
 }
@@ -561,6 +562,35 @@ void CanvasRenderer::SetCanvasModulate(float r, float g, float b)
     mCanvasModulate = Color(r, g, b, 1.0f);
 }
 
+void CanvasRenderer::SetCullRect(float minX, float minY, float maxX, float maxY)
+{
+    mCulling = true;
+    mCullMinX = minX;
+    mCullMinY = minY;
+    mCullMaxX = maxX;
+    mCullMaxY = maxY;
+}
+
+void CanvasRenderer::ClearCullRect()
+{
+    mCulling = false;
+}
+
+bool CanvasRenderer::InView(const Matrix2D& m, float x0, float y0, float x1, float y1) const
+{
+    const Math::Vec2 corners[4] = {m.Transform(x0, y0), m.Transform(x1, y0), m.Transform(x1, y1),
+                                   m.Transform(x0, y1)};
+    float minX = corners[0].x, maxX = corners[0].x, minY = corners[0].y, maxY = corners[0].y;
+    for (int i = 1; i < 4; ++i)
+    {
+        minX = corners[i].x < minX ? corners[i].x : minX;
+        maxX = corners[i].x > maxX ? corners[i].x : maxX;
+        minY = corners[i].y < minY ? corners[i].y : minY;
+        maxY = corners[i].y > maxY ? corners[i].y : maxY;
+    }
+    return maxX >= mCullMinX && minX <= mCullMaxX && maxY >= mCullMinY && minY <= mCullMaxY;
+}
+
 unsigned int CanvasRenderer::CreateShader(const char* fragmentSource)
 {
 
@@ -602,8 +632,20 @@ void CanvasRenderer::DrawItems(const RenderItem* items, size_t count, const Poin
                                const Occluder* occluders, size_t occluderCount)
 {
     ProfileScope profileScope("render.expand");
-    mLights = lights;
-    mLightCount = (int)lightCount;
+    mVisibleLights.clear();
+    for (size_t i = 0; i < lightCount && mVisibleLights.size() < (size_t)kMaxPointLights; ++i)
+    {
+        const PointLight& light = lights[i];
+        if (mCulling && (light.position.x + light.radius < mCullMinX || light.position.x - light.radius > mCullMaxX ||
+                         light.position.y + light.radius < mCullMinY || light.position.y - light.radius > mCullMaxY))
+        {
+            mStats.lightsCulled++;
+            continue;
+        }
+        mVisibleLights.push_back(light);
+    }
+    mLights = mVisibleLights.data();
+    mLightCount = (int)mVisibleLights.size();
     mDirectionalLights = directionalLights;
     mDirectionalLightCount = (int)directionalLightCount;
     mOccluders = occluders;
@@ -632,6 +674,13 @@ void CanvasRenderer::DrawItems(const RenderItem* items, size_t count, const Poin
             case RenderCommand::kRect:
             {
                 Matrix2D m = item.xform * drawTransform * Matrix2D::Translation(c.x, c.y);
+                const float x0 = -c.pivotX * c.width;
+                const float y0 = -c.pivotY * c.height;
+                if (mCulling && !InView(m, x0, y0, x0 + c.width, y0 + c.height))
+                {
+                    mStats.commandsCulled++;
+                    break;
+                }
                 EmitQuad(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, c.water, m, c.width, c.height,
                          c.texWidth, c.texHeight, c.pivotX, c.pivotY, c.srcX, c.srcY, c.srcW, c.srcH,
                          (c.flags & 1) != 0, (c.flags & 2) != 0, c.color, c.lightMask);
@@ -645,6 +694,23 @@ void CanvasRenderer::DrawItems(const RenderItem* items, size_t count, const Poin
                 if (points && points->size() >= 3)
                 {
                     Matrix2D m = item.xform * drawTransform;
+                    if (mCulling)
+                    {
+                        float x0 = (*points)[0].x, y0 = (*points)[0].y, x1 = x0, y1 = y0;
+                        for (size_t p = 1; p < points->size(); ++p)
+                        {
+                            const Math::Vec2& point = (*points)[p];
+                            x0 = point.x < x0 ? point.x : x0;
+                            x1 = point.x > x1 ? point.x : x1;
+                            y0 = point.y < y0 ? point.y : y0;
+                            y1 = point.y > y1 ? point.y : y1;
+                        }
+                        if (!InView(m, x0, y0, x1, y1))
+                        {
+                            mStats.commandsCulled++;
+                            break;
+                        }
+                    }
                     EmitPolygon(item.blendMode, c.textureId, c.normalTextureId, c.customProgram, c.water, m, *points,
                                 c.color, c.lightMask, c.texWidth, c.texHeight);
                 }

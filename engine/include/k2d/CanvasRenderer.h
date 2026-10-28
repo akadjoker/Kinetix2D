@@ -30,6 +30,8 @@ class CanvasRenderer
         size_t indicesDrawn;
         size_t textureSwitches;
         size_t batchesFlushed;
+        size_t commandsCulled;
+        size_t lightsCulled;
     };
 
     CanvasRenderer();
@@ -44,6 +46,10 @@ class CanvasRenderer
     void SetDefaultLightTexture(unsigned int textureId);
 
     void SetCanvasModulate(float r, float g, float b);
+    // The world rectangle in view: rects, polygons and lights wholly outside
+    // it are skipped. Without one, nothing is.
+    void SetCullRect(float minX, float minY, float maxX, float maxY);
+    void ClearCullRect();
 
     unsigned int CreateShader(const char* fragmentSource);
     void DestroyShader(unsigned int program);
@@ -154,6 +160,7 @@ class CanvasRenderer
     void EmitText(BlendMode blendMode, const Matrix2D& matrix, float x, float y, float size, const char* text,
                   const Color& color, unsigned int lightMask);
     void FlattenOccluderEdges();
+    bool InView(const Matrix2D& m, float x0, float y0, float x1, float y1) const;
     void SetupFontTexture();
 
     Config mConfig;
@@ -235,6 +242,12 @@ class CanvasRenderer
     int mShadowCenterLoc;
     ct::Vector<Math::Vec4> mShadowVertices;
     size_t mShadowVertexCapacity;
+    ct::Vector<PointLight> mVisibleLights;
+    bool mCulling;
+    float mCullMinX;
+    float mCullMinY;
+    float mCullMaxX;
+    float mCullMaxY;
 };
 
 } // namespace k2d
