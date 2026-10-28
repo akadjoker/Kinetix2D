@@ -9,6 +9,7 @@
 #include <k2d/GameObject.h>
 #include <k2d/Image.h>
 #include <k2d/OpenGL.h>
+#include <k2d/Profiler.h>
 #include <k2d/Serializer.h>
 #include <k2d/ZenScriptComponent.h>
 
@@ -47,6 +48,7 @@ const char* const kTools = R"JSON([
  {"name":"select","description":"Select an object in the editor, so the user sees it in the hierarchy and inspector.","inputSchema":{"type":"object","properties":{"object":{"type":"string"}},"required":["object"]}},
  {"name":"instantiate_prefab","description":"Put an instance of a prefab (a project path to a .k2dprefab) in the scene, at x, y in the world when given, under parent when given. Returns its path. One undo step.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"x":{"type":"number"},"y":{"type":"number"},"parent":{"type":"string"}},"required":["path"]}},
  {"name":"save_prefab","description":"Save an object and its children as a prefab file (a project path ending in .k2dprefab).","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"path":{"type":"string"}},"required":["object","path"]}},
+ {"name":"profile","description":"Where the engine's frame time goes: each profile scope (scene update, physics, rendering, scripts...) with its average and peak milliseconds and calls per frame. Best read while the game plays.","inputSchema":{"type":"object","properties":{}}},
  {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}}
 ])JSON";
 
@@ -387,6 +389,7 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "reparent") return reparent(arguments, isError);
     if (name == "instantiate_prefab") return instantiatePrefab(arguments, isError);
     if (name == "save_prefab") return savePrefab(arguments, isError);
+    if (name == "profile") return profile();
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -1018,6 +1021,27 @@ ct::Json McpServer::savePrefab(const ct::Json& arguments, bool& isError)
     if (!mEditor.savePrefab(object, absolute))
         return fail("Could not save the prefab: see console", isError);
     return text(ct::String("Saved ") + object->name() + " as " + path);
+}
+
+ct::Json McpServer::profile()
+{
+    const Profiler& profiler = Profiler::Get();
+    ct::Json result = ct::Json::object();
+    result.set("frameMilliseconds", ct::Json(static_cast<double>(profiler.frameMilliseconds())));
+    result.set("playing", ct::Json(mEditor.mPlaying));
+    ct::Json scopes = ct::Json::array();
+    for (uint32_t i = 0; i < profiler.sampleCount(); ++i)
+    {
+        const ProfileSample& s = profiler.samples()[i];
+        ct::Json scope = ct::Json::object();
+        scope.set("name", ct::Json(s.name));
+        scope.set("averageMs", ct::Json(static_cast<double>(s.average)));
+        scope.set("maxMs", ct::Json(static_cast<double>(s.maximum)));
+        scope.set("calls", ct::Json(static_cast<std::int64_t>(s.displayCalls)));
+        scopes.push_back(scope);
+    }
+    result.set("scopes", scopes);
+    return text(result.dump(2));
 }
 
 } // namespace k2d::editor

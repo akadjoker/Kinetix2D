@@ -38,6 +38,7 @@ add_executable(k2d_editor
     src/ParticlesPanel.cpp
     src/McpServer.cpp
     src/SettingsPanel.cpp
+    src/ProfilerPanel.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )

@@ -13,6 +13,8 @@
 #include <k2d/Device.h>
 #include <k2d/ParticleComponent.h>
 #include <k2d/Prefab.h>
+#include <k2d/Profiler.h>
+#include <k2d/ZenRuntime.h>
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
 #include <k2d/OpenGL.h>
@@ -50,6 +52,7 @@ const char* const kTilePanel = "Tile Painter";
 const char* const kScriptPanel = "Script Editor";
 const char* const kParticlesPanel = "Particles";
 const char* const kSettingsPanel = "Settings";
+const char* const kProfilerPanel = "Profiler";
 
 ct::String directoryOf(const char* path)
 {
@@ -318,6 +321,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         if (final && !mPendingEdit.empty())
             commit(mPendingEdit.c_str());
     });
+    mProfiler = mDock->addPanel<ProfilerPanel>(kProfilerPanel);
     mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
     mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mTilePainter->edited.connect([this](const char* label)
@@ -348,6 +352,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
     mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
     mDock->moveTabToLeaf(kParticlesPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kProfilerPanel, kConsolePanel);
     mDock->moveTabToLeaf(kSettingsPanel, kInspectorPanel);
     mDock->showPanel(kInspectorPanel);
     mDock->showPanel(kAssetsPanel);
@@ -697,6 +702,7 @@ void EditorWindow::showSaveDialog()
 
 void EditorWindow::frame(float deltaTime, float pixelScale)
 {
+    Profiler::Get().beginFrame();
     mFpsTime += deltaTime;
     ++mFpsFrames;
     if (mFpsTime >= 1.0f)
@@ -720,6 +726,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         SetZenScriptFrameStats(deltaTime, mFpsTime > 0.0f ? mFpsFrames / mFpsTime : 0.0f);
         mScene.update(deltaTime);
         DispatchZenScriptEvents(mScene.root());
+        ZenRuntime::instance().submitProfilerSamples();
         if (GetSceneManager().HasRequest() && GetSceneManager().ApplyRequest(mScene, mAssets))
             mScene.setSimulationEnabled(true);
     }
@@ -750,6 +757,8 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     for (int key : mPendingReleases)
         mGameInput.OnKey(key, false, false);
     mPendingReleases.clear();
+    Profiler::Get().endFrame();
+    mProfiler->tick();
 }
 
 bool EditorWindow::ensureCanvas()

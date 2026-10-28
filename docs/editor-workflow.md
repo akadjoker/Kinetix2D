@@ -35,7 +35,7 @@ The tools read the scene (`scene_info`, `scene_tree`, `get_object`), change it
 `reparent`, `select`, `undo`), use prefabs (`instantiate_prefab`,
 `save_prefab`), run it (`run`: play, stop, pause, resume, step frames) and play
 it (`input`: keys, mouse in game coordinates, buttons), look at it
-(`screenshot` of the scene or game view, `console`), and work on the project's
+(`screenshot` of the scene or game view, `console`, `profile`), and work on the project's
 files (`list_assets`, `read_file`, `write_file`, `save_scene`). Every change is
 an undo step in the editor you are looking at, and nothing is saved until
 `save_scene` or your own Save. Files outside the project are refused.

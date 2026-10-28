@@ -6,6 +6,7 @@
 #include "InspectorPanel.h"
 #include "McpServer.h"
 #include "ParticlesPanel.h"
+#include "ProfilerPanel.h"
 #include "SceneGizmo.h"
 #include "SettingsPanel.h"
 #include "ScriptEditorPanel.h"
@@ -132,6 +133,7 @@ private:
     ScriptEditorPanel* mScriptEditor = nullptr;
     ParticlesPanel* mParticles = nullptr;
     SettingsPanel* mSettings = nullptr;
+    ProfilerPanel* mProfiler = nullptr;
     PhysicsSettings mPhysics;
     ct::Json mProjectDocument;   // project.k2dproj as read, written back with only physics changed
     int mPreviewItem = -1;

@@ -61,6 +61,7 @@ private:
     ct::Json reparent(const ct::Json& arguments, bool& isError);
     ct::Json instantiatePrefab(const ct::Json& arguments, bool& isError);
     ct::Json savePrefab(const ct::Json& arguments, bool& isError);
+    ct::Json profile();
 
     GameObject* resolve(const ct::Json& reference) const;
     ct::String pathOf(const GameObject* object) const;
