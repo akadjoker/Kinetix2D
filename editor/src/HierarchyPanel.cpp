@@ -63,10 +63,13 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     const int up = mTools->addButton(rt::IconId::ArrowUp, "Move up");
     const int down = mTools->addButton(rt::IconId::ArrowDown, "Move down");
     mTools->addSeparator();
+    const int prefab = mTools->addButton(Icons::get("Prefab"), "Save as prefab");
     const int remove = mTools->addButton(Icons::get("Remove"), "Delete");
-    mTools->buttonClicked.connect([this, create, duplicate, up, down, remove](int item)
+    mTools->buttonClicked.connect([this, create, duplicate, up, down, prefab, remove](int item)
     {
-        if (item == create)
+        if (item == prefab)
+            actionRequested.emit(HierarchyAction::SavePrefab);
+        else if (item == create)
             actionRequested.emit(HierarchyAction::Create);
         else if (item == duplicate)
             actionRequested.emit(HierarchyAction::Duplicate);
@@ -100,14 +103,14 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mTree->setExternalDrop([](const rt::DragPayload& payload)
     {
         const ct::String* path = assetPath(payload);
-        return path && isScriptPath(*path);
+        return path && (isScriptPath(*path) || isPrefabPath(*path));
     });
     mTree->externalDropped.connect([this](const rt::DragPayload& payload, rt::TreeNode* node)
     {
         const ct::String* path = assetPath(payload);
         GameObject** object = node ? mObjects.find(node) : nullptr;
         if (path)
-            scriptDropped.emit(*path, object ? *object : nullptr);
+            assetDropped.emit(*path, object ? *object : nullptr);
     });
 
     rt::Menu* menu = new rt::Menu();
@@ -117,6 +120,7 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     menu->addAction("Move Up", [this]() { actionRequested.emit(HierarchyAction::MoveUp); });
     menu->addAction("Move Down", [this]() { actionRequested.emit(HierarchyAction::MoveDown); });
     menu->addSeparator();
+    menu->addAction("Save as Prefab...", [this]() { actionRequested.emit(HierarchyAction::SavePrefab); });
     menu->addAction("Delete", [this]() { actionRequested.emit(HierarchyAction::Delete); });
     mTree->setContextMenu(menu);
     mTree->toggleChanged.connect([this](rt::TreeNode* node, int toggle, bool on)

@@ -50,6 +50,11 @@ bool isScriptPath(const ct::String& path)
     return hasExtension(path, kScripts);
 }
 
+bool isPrefabPath(const ct::String& path)
+{
+    return hasExtension(path, kPrefabs);
+}
+
 const ct::String* assetPath(const rt::DragPayload& payload)
 {
     return payload.type == kAssetPayload ? std::any_cast<ct::String>(&payload.data) : nullptr;

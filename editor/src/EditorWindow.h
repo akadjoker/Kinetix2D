@@ -87,6 +87,11 @@ private:
     // Adds the script to the object, or to a new object at (x, y) in the scene
     // view when there is none.
     void attachScript(const ct::String& path, GameObject* object, float x, float y);
+    // An instance of the prefab under parent (the top when nullptr); at (x, y)
+    // in the scene view when placed, where the prefab had it otherwise.
+    GameObject* instantiatePrefab(const ct::String& path, GameObject* parent, bool placed, float x, float y);
+    void showSavePrefabDialog(GameObject* object);
+    bool savePrefab(GameObject* object, const ct::String& path);
     // A sprite object showing the texture, or the region of it when rect has a
     // size, centred on (x, y) in the scene view.
     void addSprite(const ct::String& texture, const ct::String& name, const Math::Vec4& rect, float x, float y);

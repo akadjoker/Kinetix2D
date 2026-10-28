@@ -59,6 +59,8 @@ private:
     ct::Json input(const ct::Json& arguments, bool& isError);
     ct::Json selectObject(const ct::Json& arguments, bool& isError);
     ct::Json reparent(const ct::Json& arguments, bool& isError);
+    ct::Json instantiatePrefab(const ct::Json& arguments, bool& isError);
+    ct::Json savePrefab(const ct::Json& arguments, bool& isError);
 
     GameObject* resolve(const ct::Json& reference) const;
     ct::String pathOf(const GameObject* object) const;

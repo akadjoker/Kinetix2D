@@ -23,7 +23,8 @@ enum class HierarchyAction
     Duplicate,
     MoveUp,
     MoveDown,
-    Delete
+    Delete,
+    SavePrefab
 };
 
 class HierarchyPanel : public ig::retained::BoxLayout
@@ -45,8 +46,9 @@ public:
     // An object was dragged onto another: the object, the one it was dropped on
     // (nullptr below the last row), and where.
     ig::retained::Signal<GameObject*, GameObject*, ig::retained::TreeView::DropZone> dropped;
-    // A script from Assets dropped on a row (the object) or below them (nullptr).
-    ig::retained::Signal<const ct::String&, GameObject*> scriptDropped;
+    // A script or a prefab from Assets dropped on a row (the object) or below
+    // them (nullptr).
+    ig::retained::Signal<const ct::String&, GameObject*> assetDropped;
 
 private:
     void addObject(ig::retained::TreeNode* parent, GameObject* object);

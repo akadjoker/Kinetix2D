@@ -31,9 +31,18 @@ the port shows in the status bar. With Claude Code:
     claude mcp add --transport http kinetix2d http://127.0.0.1:7777/mcp
 
 The tools read the scene (`scene_info`, `scene_tree`, `get_object`), change it
-(`set_property`, `create_object`, `add_component`, `delete_object`, `undo`),
-run it (`run`: play, stop, pause, resume, step frames), look at it
+(`set_property`, `create_object`, `add_component`, `delete_object`,
+`reparent`, `select`, `undo`), use prefabs (`instantiate_prefab`,
+`save_prefab`), run it (`run`: play, stop, pause, resume, step frames) and play
+it (`input`: keys, mouse in game coordinates, buttons), look at it
 (`screenshot` of the scene or game view, `console`), and work on the project's
 files (`list_assets`, `read_file`, `write_file`, `save_scene`). Every change is
 an undo step in the editor you are looking at, and nothing is saved until
 `save_scene` or your own Save. Files outside the project are refused.
+
+## Prefabs
+
+Save an object and its children as a prefab with the prefab button of the
+Hierarchy, or **Save as Prefab...** in its menu. Drag a `.k2dprefab` from Assets
+onto the scene view to place it there, onto a row of the Hierarchy to put it
+under that object, or double-click it to place it in the middle of the view.

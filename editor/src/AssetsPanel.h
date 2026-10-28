@@ -23,6 +23,7 @@ extern const char* const kAssetPayload;
 // What a project path holds, by its extension.
 bool isImagePath(const ct::String& path);
 bool isScriptPath(const ct::String& path);
+bool isPrefabPath(const ct::String& path);
 // The project path an asset payload carries, or nullptr for another payload.
 const ct::String* assetPath(const ig::retained::DragPayload& payload);
 

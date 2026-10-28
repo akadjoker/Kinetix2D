@@ -45,6 +45,8 @@ const char* const kTools = R"JSON([
  {"name":"undo","description":"Undo the last edit, whoever made it.","inputSchema":{"type":"object","properties":{}}},
  {"name":"input","description":"Play the game: press keys and move or click the mouse while it runs. key is a letter, a digit, space, enter, escape, tab, backspace, left, right, up, down, shift, ctrl, alt or f1..f12; action is tap (down for one update, the default), down or up. For the mouse give x, y in game coordinates (as the game camera sees them) and optionally button (left, right, middle) with an action. Use run step to advance a paused game between inputs.","inputSchema":{"type":"object","properties":{"key":{"type":"string"},"action":{"type":"string","enum":["tap","down","up"]},"x":{"type":"number"},"y":{"type":"number"},"button":{"type":"string","enum":["left","right","middle"]}}}},
  {"name":"select","description":"Select an object in the editor, so the user sees it in the hierarchy and inspector.","inputSchema":{"type":"object","properties":{"object":{"type":"string"}},"required":["object"]}},
+ {"name":"instantiate_prefab","description":"Put an instance of a prefab (a project path to a .k2dprefab) in the scene, at x, y in the world when given, under parent when given. Returns its path. One undo step.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"x":{"type":"number"},"y":{"type":"number"},"parent":{"type":"string"}},"required":["path"]}},
+ {"name":"save_prefab","description":"Save an object and its children as a prefab file (a project path ending in .k2dprefab).","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"path":{"type":"string"}},"required":["object","path"]}},
  {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}}
 ])JSON";
 
@@ -383,6 +385,8 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "input") return input(arguments, isError);
     if (name == "select") return selectObject(arguments, isError);
     if (name == "reparent") return reparent(arguments, isError);
+    if (name == "instantiate_prefab") return instantiatePrefab(arguments, isError);
+    if (name == "save_prefab") return savePrefab(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -973,6 +977,47 @@ ct::Json McpServer::reparent(const ct::Json& arguments, bool& isError)
     mEditor.dropObject(object, parent, parent ? ig::retained::TreeView::DropZone::Inside
                                               : ig::retained::TreeView::DropZone::After);
     return text(ct::String("Moved ") + object->name() + " to path " + pathOf(object));
+}
+
+ct::Json McpServer::instantiatePrefab(const ct::Json& arguments, bool& isError)
+{
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    ct::String absolute;
+    const ct::String path = arguments["path"].as_cstr();
+    if (!projectPath(path, absolute) || !EditorFileSystem::exists(absolute))
+        return fail("Give the project path of a .k2dprefab", isError);
+    GameObject* parent = nullptr;
+    if (arguments.contains("parent") && !(parent = resolve(arguments["parent"])))
+        return fail("No such parent", isError);
+    GameObject* object = mEditor.instantiatePrefab(absolute, parent, false, 0.0f, 0.0f);
+    if (!object)
+        return fail("The prefab did not load: see console", isError);
+    if (arguments.contains("x") || arguments.contains("y"))
+    {
+        const Math::Vec2 world(static_cast<float>(arguments["x"].as_double(0.0)),
+                               static_cast<float>(arguments["y"].as_double(0.0)));
+        object->setPosition(object->parent()->globalTransform().AffineInverse().Transform(world));
+        mEditor.commit("MCP: place prefab");
+        mEditor.showObject(object);
+    }
+    return text(ct::String("Instantiated ") + path + " as " + object->name() + " at path " + pathOf(object));
+}
+
+ct::Json McpServer::savePrefab(const ct::Json& arguments, bool& isError)
+{
+    GameObject* object = resolve(arguments["object"]);
+    if (!object)
+        return fail("No such object", isError);
+    ct::String absolute;
+    ct::String path = arguments["path"].as_cstr();
+    if (EditorFileSystem::extension(path) != "k2dprefab")
+        path += ".k2dprefab";
+    if (!projectPath(path, absolute))
+        return fail("Give a project path inside the project", isError);
+    if (!mEditor.savePrefab(object, absolute))
+        return fail("Could not save the prefab: see console", isError);
+    return text(ct::String("Saved ") + object->name() + " as " + path);
 }
 
 } // namespace k2d::editor

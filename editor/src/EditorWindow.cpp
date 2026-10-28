@@ -12,6 +12,7 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/Device.h>
 #include <k2d/ParticleComponent.h>
+#include <k2d/Prefab.h>
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
 #include <k2d/OpenGL.h>
@@ -249,10 +250,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
     mHierarchy->edited.connect([this](const char* label) { commit(label); });
-    mHierarchy->scriptDropped.connect([this](const ct::String& path, GameObject* object)
+    mHierarchy->assetDropped.connect([this](const ct::String& path, GameObject* object)
     {
         const rt::Rect area = mViewport->absoluteRect();
-        attachScript(path, object, area.w * 0.5f, area.h * 0.5f);
+        if (isPrefabPath(path))
+            instantiatePrefab(path, object, false, 0.0f, 0.0f);
+        else
+            attachScript(path, object, area.w * 0.5f, area.h * 0.5f);
     });
     mHierarchy->dropped.connect([this](GameObject* object, GameObject* target, rt::TreeView::DropZone zone)
     {
@@ -325,6 +329,11 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mDock->showPanel(kSpritePanel);
         else if ((ext == "py" || ext == "zen" || ext == "zs") && mScriptEditor->open(path))
             mDock->showPanel(kScriptPanel);
+        else if (isPrefabPath(path) && !mPlaying)
+        {
+            const rt::Rect area = mViewport->absoluteRect();
+            instantiatePrefab(path, nullptr, true, area.w * 0.5f, area.h * 0.5f);
+        }
     });
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
@@ -934,6 +943,72 @@ void EditorWindow::updateUndoButtons()
     mTools->setItemTooltip(mRedoItem, tip);
 }
 
+GameObject* EditorWindow::instantiatePrefab(const ct::String& path, GameObject* parent, bool placed, float x, float y)
+{
+    if (mPlaying)
+        return nullptr;
+    Prefab prefab;
+    if (!prefab.Load(path.c_str()))
+    {
+        log_error("Could not load prefab %s", path.c_str());
+        return nullptr;
+    }
+    GameObject* object = prefab.Instantiate(mScene, parent, &mAssets);
+    if (!object)
+    {
+        log_error("Could not instantiate %s", path.c_str());
+        return nullptr;
+    }
+    if (placed)
+    {
+        const rt::Rect area = mViewport->absoluteRect();
+        const Math::Vec2 world = mCamera.ScreenToWorld(x, y, area.w, area.h);
+        object->setPosition(object->parent()->globalTransform().AffineInverse().Transform(world));
+    }
+    mSelected = object;
+    refreshTree();
+    showObject(object);
+    restartEditPreview(*object);
+    commit("Add prefab");
+    return object;
+}
+
+bool EditorWindow::savePrefab(GameObject* object, const ct::String& path)
+{
+    Prefab prefab;
+    if (!object || !prefab.SaveToFile(path.c_str(), *object, &mAssets))
+    {
+        log_error("Could not save prefab %s", path.c_str());
+        return false;
+    }
+    log_info("Saved prefab %s", path.c_str());
+    mAssetsPanel->refresh();
+    return true;
+}
+
+void EditorWindow::showSavePrefabDialog(GameObject* object)
+{
+    if (!object)
+        return;
+    auto* dialog = mApp->addFloat<rt::FileDialog>("Save as prefab");
+    dialog->setMode(rt::FileDialog::Mode::Save);
+    dialog->setFilter("*.k2dprefab");
+    const ct::String prefabs = EditorFileSystem::join(mProjectRoot, "assets/prefabs");
+    dialog->setPath(EditorFileSystem::isDirectory(prefabs) ? prefabs
+                    : (mProjectRoot.empty() ? EditorFileSystem::currentDirectory() : mProjectRoot));
+    dialog->setFileName(object->name() + ".k2dprefab");
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    // The object is looked up again by path: the scene may change meanwhile.
+    const ct::Vector<std::size_t> where = pathOf(object);
+    dialog->accepted.connect([this, where](const rt::String& chosen)
+    {
+        ct::String path = chosen;
+        if (EditorFileSystem::extension(path) != "k2dprefab")
+            path += ".k2dprefab";
+        savePrefab(objectAt(mScene.root(), where), path);
+    });
+}
+
 void EditorWindow::attachScript(const ct::String& path, GameObject* object, float x, float y)
 {
     if (mPlaying)
@@ -964,6 +1039,11 @@ void EditorWindow::dropAsset(const ct::String& path, float x, float y)
         const rt::Rect area = mViewport->absoluteRect();
         mGizmo.setView(mCamera, area.w, area.h);
         attachScript(path, mGizmo.pick(mScene, x, y), x, y);
+        return;
+    }
+    if (isPrefabPath(path))
+    {
+        instantiatePrefab(path, nullptr, true, x, y);
         return;
     }
     if (!isImagePath(path))
@@ -1082,6 +1162,9 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
         commit(action == HierarchyAction::MoveUp ? "Move up" : "Move down");
         break;
     }
+    case HierarchyAction::SavePrefab:
+        showSavePrefabDialog(selected);
+        break;
     case HierarchyAction::Delete:
     {
         if (!selected)
