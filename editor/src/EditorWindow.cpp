@@ -280,6 +280,7 @@ bool EditorWindow::openScene(const char* path)
         RegisterZenScriptSerializer();
         RegisterPhysics2DSerializers();
         RegisterCoreClasses();
+        ClassDB::setAssets(&mAssets);
         registered = true;
     }
     const ct::String sceneDirectory = directoryOf(path);

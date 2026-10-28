@@ -1,5 +1,8 @@
 #include "InspectorPanel.h"
 
+#include "AssetsPanel.h"
+#include "core/EditorFileSystem.h"
+
 #include "ComboBox.hpp"
 #include "SpinSlider.hpp"
 #include "TextInputWidgets.hpp"
@@ -31,6 +34,58 @@ public:
     {
         return {kLabelWidth, rt::Label::sizeHint().y};
     }
+};
+
+// A resource path: typed and submitted, or an asset dropped from the Assets
+// panel when its extension is one the property takes.
+class ResourceField : public rt::TextInput
+{
+public:
+    IG_WIDGET_CLASS(ResourceField, rt::TextInput);
+
+    ResourceField(const rt::String& text, const ct::String& extensions)
+        : rt::TextInput(text), mExtensions(extensions)
+    {
+    }
+
+    ct::Function<void(const ct::String&)> picked;
+
+    bool acceptsDrop(const rt::DragPayload& payload) override
+    {
+        const ct::String* path = std::any_cast<ct::String>(&payload.data);
+        return payload.type == kAssetPayload && path && takes(*path);
+    }
+
+    void onDropReceive(const rt::DragPayload& payload) override
+    {
+        if (const ct::String* path = std::any_cast<ct::String>(&payload.data))
+        {
+            setText(*path);
+            if (picked)
+                picked(*path);
+        }
+    }
+
+private:
+    bool takes(const ct::String& path) const
+    {
+        if (mExtensions.empty())
+            return true;
+        const ct::String ext = EditorFileSystem::extension(path);
+        std::size_t start = 0;
+        while (start <= mExtensions.size())
+        {
+            std::size_t end = mExtensions.find(',', start);
+            if (end == ct::String::npos)
+                end = mExtensions.size();
+            if (mExtensions.substr(start, end - start) == ext)
+                return true;
+            start = end + 1;
+        }
+        return false;
+    }
+
+    ct::String mExtensions;
 };
 
 ct::String editName(const char* property)
@@ -300,9 +355,24 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
     }
     case PropertyType::ResourcePath:
     {
-        // Read only until resources can be picked and loaded from here.
-        auto* text = line->createChild<rt::TextInput>(value.asString(), rt::TextInput::Mode::ReadOnly);
-        text->setStretch(1.0f);
+        auto* field = line->createChild<ResourceField>(value.asString(), info.hintString);
+        field->setStretch(1.0f);
+        field->setPlaceholder("Drop an asset here");
+        field->picked = [this, apply, edit](const ct::String& path) {
+            apply(PropertyValue::resourcePath(path));
+            edited.emit(edit.c_str(), true);
+        };
+        field->submitted.connect([field](const rt::String& text) {
+            if (field->picked)
+                field->picked(text);
+        });
+        auto* clear = line->createChild<rt::Button>("x");
+        clear->setTooltip("Clear");
+        clear->clicked.connect([field]() {
+            field->setText("");
+            if (field->picked)
+                field->picked("");
+        });
         break;
     }
     case PropertyType::Nil:
