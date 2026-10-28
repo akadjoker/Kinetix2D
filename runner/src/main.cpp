@@ -399,10 +399,12 @@ int main(int argc, char** argv)
     const ct::String projectRoot = !projectPath.empty() ? directoryOf(projectPath.c_str())
                                                         : directoryOf(directoryOf(scenePath.c_str()).c_str());
 
-    k2d::Device device;
+    // The game lives in statics: on the web the browser calls the frame after
+    // main has given its stack back.
+    static k2d::Device device;
     if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), 1280, 720, true))
         return 1;
-    k2d::UserData userData;
+    static k2d::UserData userData;
     const ct::String projectName(path_filename(projectRoot.c_str()));
     if (userData.open("Kinetix2D", projectName.empty() ? "Runner" : projectName.c_str()))
     {
@@ -426,12 +428,12 @@ int main(int argc, char** argv)
 
         k2d::RegisterZenScriptSerializer();
         k2d::RegisterPhysics2DSerializers();
-        k2d::Assets assets;
-        k2d::Scene scene;
-        k2d::CanvasRenderer canvas;
+        static k2d::Assets assets;
+        static k2d::Scene scene;
+        static k2d::CanvasRenderer canvas;
         // Held here, not per frame: Scene::setRenderCamera keeps the pointer
         // for the whole render pass, so it must outlive the frame body.
-        k2d::Camera2D defaultCamera;
+        static k2d::Camera2D defaultCamera;
 
         k2d::SetZenScriptInput(&device.GetInput());
         k2d::SetUiInput(&device.GetInput());
@@ -502,15 +504,17 @@ int main(int argc, char** argv)
                     log_warn("Audio unavailable; continuing without sound\n");
                 else
                     k2d::GetAudio().LoadSettings(userData);
-                k2d::VirtualPad virtualPad;
+                static k2d::VirtualPad virtualPad;
                 virtualPad.SetTexture(k2d::VirtualPad::DefaultTexture(assets));
                 virtualPad.SetKeyBindings((int)k2d::Key::Left, (int)k2d::Key::Right, (int)k2d::Key::Up, (int)k2d::Key::Down,
                                           (int)k2d::Key::Space, (int)k2d::Key::LeftCtrl);
                 configureVirtualPad(sceneJson, virtualPad);
                 k2d::SetZenScriptVirtualPad(&virtualPad);
-                bool profilerVisible = false;
-                while (device.PollEvents())
+                static bool profilerVisible = false;
+                static const auto frame = []() -> bool
                 {
+                    if (!device.PollEvents())
+                        return false;
                     k2d::Profiler::Get().beginFrame();
                     if (device.GetInput().KeyPressed((int)k2d::Key::F5))
                     {
@@ -608,13 +612,18 @@ int main(int argc, char** argv)
                     }
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
+                    return true;
+                };
 #if defined(__EMSCRIPTEN__)
-                    // The browser owns the event loop. Asyncify preserves the
-                    // runner state across this yield and schedules the next
-                    // frame without blocking the UI thread.
-                    emscripten_sleep(0);
-#endif
+                // The browser calls a frame at each repaint; this never returns.
+                emscripten_set_main_loop_arg([](void*) { frame(); }, nullptr, 0, 1);
+#else
+                while (frame())
+                {
                 }
+#endif
+                scene.clear();
+                assets.Clear();
                 canvas.Shutdown();
                 k2d::GetAudio().SaveSettings(userData);
                 k2d::GetAudio().Shutdown();
