@@ -1,0 +1,269 @@
+#include "PropertyFields.h"
+
+#include "AssetsPanel.h"
+#include "Icons.h"
+#include "core/EditorFileSystem.h"
+
+#include "BasicWidgets.hpp"
+#include "ComboBox.hpp"
+#include "SpinSlider.hpp"
+#include "TextInputWidgets.hpp"
+#include "TreePropertyColorWidgets.hpp"
+
+#include <cmath>
+
+namespace rt = ig::retained;
+
+namespace k2d::editor
+{
+
+namespace
+{
+
+class FieldLabel : public rt::Label
+{
+public:
+    IG_WIDGET_CLASS(FieldLabel, rt::Label);
+
+    explicit FieldLabel(const rt::String& text) : rt::Label(text) {}
+
+    Vec2f sizeHint() const override { return {kFieldLabelWidth, rt::Label::sizeHint().y}; }
+};
+
+class NumberField : public rt::SpinSlider
+{
+public:
+    IG_WIDGET_CLASS(NumberField, rt::SpinSlider);
+
+    Vec2f sizeHint() const override
+    {
+        const Vec2f hint = rt::SpinSlider::sizeHint();
+        return {hint.x > kNumberMinWidth ? hint.x : kNumberMinWidth, hint.y};
+    }
+};
+
+// A resource path: typed and submitted, or an asset dropped from the Assets
+// panel when its extension is one the property takes.
+class ResourceField : public rt::TextInput
+{
+public:
+    IG_WIDGET_CLASS(ResourceField, rt::TextInput);
+
+    ResourceField(const rt::String& text, const ct::String& extensions)
+        : rt::TextInput(text), mExtensions(extensions)
+    {
+    }
+
+    ct::Function<void(const ct::String&)> picked;
+
+    bool acceptsDrop(const rt::DragPayload& payload) override
+    {
+        const ct::String* path = assetPath(payload);
+        return path && takes(*path);
+    }
+
+    void onDropReceive(const rt::DragPayload& payload) override
+    {
+        if (const ct::String* path = assetPath(payload))
+        {
+            setText(*path);
+            if (picked)
+                picked(*path);
+        }
+    }
+
+private:
+    bool takes(const ct::String& path) const
+    {
+        if (mExtensions.empty())
+            return true;
+        const ct::String ext = EditorFileSystem::extension(path);
+        std::size_t start = 0;
+        while (start <= mExtensions.size())
+        {
+            std::size_t end = mExtensions.find(',', start);
+            if (end == ct::String::npos)
+                end = mExtensions.size();
+            if (mExtensions.substr(start, end - start) == ext)
+                return true;
+            start = end + 1;
+        }
+        return false;
+    }
+
+    ct::String mExtensions;
+};
+
+unsigned char byte(float v)
+{
+    return static_cast<unsigned char>(v <= 0.0f ? 0 : (v >= 1.0f ? 255 : static_cast<int>(v * 255.0f + 0.5f)));
+}
+
+rt::Color toWidget(const Color& c)
+{
+    return rt::Color(byte(c.r), byte(c.g), byte(c.b), byte(c.a));
+}
+
+Color fromWidget(const rt::Color& c)
+{
+    return Color(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f);
+}
+
+} // namespace
+
+rt::BoxLayout* addFieldRow(rt::Widget* parent, const char* label)
+{
+    auto* line = parent->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    line->setPadding(0.0f);
+    line->setSpacing(4.0f);
+    line->createChild<FieldLabel>(label);
+    return line;
+}
+
+rt::SpinSlider* addNumberField(rt::Widget* parent, const char* label, double value, const NumberSpec& spec,
+                               ct::Function<void(double, bool)> changed)
+{
+    auto* field = parent->createChild<NumberField>();
+    field->setLabel(label);
+    field->setStep(spec.step);
+    field->setEditingInteger(spec.integer);
+    const bool bounded = spec.minimum > -1.0e8 && spec.maximum < 1.0e8;
+    field->setMin(bounded ? spec.minimum : -1.0e9);
+    field->setMax(bounded ? spec.maximum : 1.0e9);
+    field->setAllowGreater(!bounded);
+    field->setAllowLesser(!bounded);
+    field->setControlState(bounded ? rt::SpinSlider::ControlState::PreferSlider : rt::SpinSlider::ControlState::Hide);
+    field->setValueNoSignal(value);
+    field->setStretch(1.0f);
+    // While dragging the value moves live; the release is the edit's end.
+    field->valueChanged.connect([field, changed](double v) {
+        if (changed)
+            changed(v, !field->isGrabbing());
+    });
+    field->ungrabbed.connect([field, changed]() {
+        if (changed)
+            changed(field->value(), true);
+    });
+    return field;
+}
+
+rt::BoxLayout* addPropertyRow(rt::Widget* parent, const PropertyInfo& info, const FieldBinding& binding,
+                              const FieldEdited& edited)
+{
+    rt::BoxLayout* line = addFieldRow(parent, info.name.c_str());
+    const PropertyValue value = binding.get();
+    const ct::Function<void(const PropertyValue&)> set = binding.set;
+    const ct::Function<PropertyValue()> get = binding.get;
+
+    switch (info.type)
+    {
+    case PropertyType::Bool:
+    {
+        auto* check = line->createChild<rt::CheckBox>();
+        check->setChecked(value.asBool());
+        check->toggled.connect([set, edited](bool on) {
+            set(PropertyValue::from(on));
+            edited(true);
+        });
+        break;
+    }
+    case PropertyType::Int:
+        if (info.hint == PropertyHint::Enum)
+        {
+            auto* combo = line->createChild<rt::ComboBox>();
+            for (std::size_t i = 0; i < info.enumCount(); ++i)
+                combo->addItem(info.enumName(i));
+            combo->setSelectedIndex(value.asInt());
+            combo->setStretch(1.0f);
+            combo->selectionChanged.connect([set, edited](int i) {
+                set(PropertyValue::from(i));
+                edited(true);
+            });
+            break;
+        }
+        [[fallthrough]];
+    case PropertyType::Float:
+    {
+        const bool integer = info.type == PropertyType::Int;
+        NumberSpec spec;
+        spec.integer = integer;
+        spec.step = info.rangeStep > 0.0f ? info.rangeStep : (integer ? 1.0 : 0.01);
+        if (info.hint == PropertyHint::Range)
+        {
+            spec.minimum = info.rangeMin;
+            spec.maximum = info.rangeMax;
+        }
+        addNumberField(line, "", integer ? value.asInt() : value.asFloat(), spec, [set, edited, integer](double v, bool final) {
+            set(integer ? PropertyValue::from(static_cast<int>(std::lround(v))) : PropertyValue::from(static_cast<float>(v)));
+            edited(final);
+        });
+        break;
+    }
+    case PropertyType::Vec2:
+    {
+        const Math::Vec2 v = value.asVec2();
+        NumberSpec spec;
+        addNumberField(line, "x", v.x, spec, [get, set, edited](double x, bool final) {
+            Math::Vec2 w = get().asVec2();
+            w.x = static_cast<float>(x);
+            set(PropertyValue::from(w));
+            edited(final);
+        });
+        addNumberField(line, "y", v.y, spec, [get, set, edited](double y, bool final) {
+            Math::Vec2 w = get().asVec2();
+            w.y = static_cast<float>(y);
+            set(PropertyValue::from(w));
+            edited(final);
+        });
+        break;
+    }
+    case PropertyType::Color:
+    {
+        auto* swatch = line->createChild<rt::ColorButton>(toWidget(value.asColor()));
+        swatch->setShowAlpha(info.hint != PropertyHint::ColorNoAlpha);
+        swatch->setStretch(1.0f);
+        swatch->colorChanged.connect([set, edited](rt::Color c) {
+            set(PropertyValue::from(fromWidget(c)));
+            edited(false);
+        });
+        swatch->colorCommitted.connect([edited](rt::Color) { edited(true); });
+        break;
+    }
+    case PropertyType::String:
+    {
+        auto* text = line->createChild<rt::TextInput>(value.asString());
+        text->setStretch(1.0f);
+        text->submitted.connect([set, edited](const rt::String& s) {
+            set(PropertyValue::from(s));
+            edited(true);
+        });
+        break;
+    }
+    case PropertyType::ResourcePath:
+    {
+        auto* field = line->createChild<ResourceField>(value.asString(), info.hintString);
+        field->setStretch(1.0f);
+        field->setPlaceholder("Drop an asset here");
+        field->picked = [set, edited](const ct::String& path) {
+            set(PropertyValue::resourcePath(path));
+            edited(true);
+        };
+        field->submitted.connect([field](const rt::String& text) {
+            if (field->picked)
+                field->picked(text);
+        });
+        iconButton(line, rt::IconId::Cross, "Clear", [field]() {
+            field->setText("");
+            if (field->picked)
+                field->picked("");
+        });
+        break;
+    }
+    case PropertyType::Nil:
+        line->createChild<rt::Label>(value.toString());
+        break;
+    }
+    return line;
+}
+
+} // namespace k2d::editor

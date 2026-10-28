@@ -40,6 +40,7 @@ add_executable(k2d_editor
     src/SettingsPanel.cpp
     src/ProfilerPanel.cpp
     src/ImageEditorPanel.cpp
+    src/PropertyFields.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )

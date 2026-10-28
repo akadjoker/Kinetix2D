@@ -49,9 +49,6 @@ private:
     void addComponentPicker();
     void addProperty(ig::retained::Widget* parent, ComponentType type, std::size_t index,
                      const ClassProperty& property);
-    ig::retained::BoxLayout* row(ig::retained::Widget* parent, const char* name);
-    ig::retained::SpinSlider* number(ig::retained::Widget* parent, const char* label, double value,
-                                     double step, const ct::String& edit, ct::Function<void(double)> change);
     Component* component(ComponentType type, std::size_t index) const;
 
     ig::retained::BoxLayout* mColumn = nullptr;
