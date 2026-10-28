@@ -12,6 +12,7 @@
 
 #include "BasicWidgets.hpp"
 #include "DockPanel.hpp"
+#include "FileDialog.hpp"
 #include "LayoutWidgets.hpp"
 #include "MenuWidgets.hpp"
 #include "ToolBar.hpp"
@@ -36,11 +37,20 @@ class EditorWindow
 public:
     void build(ig::retained::WidgetApp& app, PlatformWindow* window);
     bool openScene(const char* path);
+    void newScene();
+    bool saveScene(const char* path);
     void frame(float deltaTime, float pixelScale);
     void shutdown();
 
 private:
     void resetLayout();
+    void registerTypes();
+    void showOpenDialog();
+    void showSaveDialog();
+    void save();
+    void markDirty(bool dirty);
+    // Scene state that starts again for a scene just opened or made.
+    void sceneLoaded();
     bool ensureCanvas();
     void renderScene(float width, float height, float pixelScale);
     void renderGame(const ig::retained::Rect& area, float pixelScale);
@@ -94,6 +104,12 @@ private:
 
     Assets mAssets;
     ct::String mProjectRoot;
+    ig::retained::WidgetApp* mApp = nullptr;
+    // The scene file as read: saving writes it back with only "root" replaced,
+    // so what the editor does not edit (physics, cursor, ...) is kept.
+    ct::String mScenePath;
+    ct::Json mSceneDocument;
+    bool mDirty = false;
     Scene mScene;
     CanvasRenderer mCanvas;
     RenderTarget mTarget;

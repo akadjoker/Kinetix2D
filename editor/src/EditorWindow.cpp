@@ -3,6 +3,7 @@
 #include "Icons.h"
 
 #include <k2d/ClassDB.h>
+#include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
 #include <k2d/CameraComponent.h>
 #include <k2d/GameObject.h>
@@ -83,6 +84,7 @@ GameObject* objectAt(GameObject& root, const ct::Vector<std::size_t>& path)
 void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 {
     mWindow = window;
+    mApp = &app;
     rt::Widget* root = app.addStage("main");
     rt::BoxLayout* outer = root->createChild<rt::BoxLayout>(rt::LayoutDir::Vertical);
     outer->setStretch(1.0f);
@@ -91,6 +93,11 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 
     rt::MenuBar* menuBar = outer->createChild<rt::MenuBar>();
     rt::Menu* file = menuBar->addMenu("File");
+    file->addAction("New Scene", [this]() { newScene(); })->setShortcut("Ctrl+N");
+    file->addAction("Open Scene...", [this]() { showOpenDialog(); })->setShortcut("Ctrl+O");
+    file->addAction("Save", [this]() { save(); })->setShortcut("Ctrl+S");
+    file->addAction("Save As...", [this]() { showSaveDialog(); });
+    file->addSeparator();
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
     quit->triggered.connect([this]() { window_set_should_close(mWindow, true); });
@@ -107,9 +114,18 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     toolRow->setSpacing(0.0f);
     mTools = toolRow->createChild<rt::ToolBar>();
     mTools->setDraggable(false);
-    mTools->addButton(Icons::get("New"), "New scene");
-    mTools->addButton(Icons::get("Open"), "Open scene");
-    mTools->addButton(Icons::get("Save"), "Save scene");
+    const int newItem = mTools->addButton(Icons::get("New"), "New scene");
+    const int openItem = mTools->addButton(Icons::get("Open"), "Open scene");
+    const int saveItem = mTools->addButton(Icons::get("Save"), "Save scene");
+    mTools->buttonClicked.connect([this, newItem, openItem, saveItem](int item)
+    {
+        if (item == newItem)
+            newScene();
+        else if (item == openItem)
+            showOpenDialog();
+        else if (item == saveItem)
+            save();
+    });
     mTools->addSeparator();
     mUndoItem = mTools->addButton(Icons::get("Undo"), "Undo");
     mRedoItem = mTools->addButton(Icons::get("Redo"), "Redo");
@@ -324,17 +340,21 @@ void EditorWindow::resetLayout()
         mDock->restoreLayout(mDefaultLayout);
 }
 
-bool EditorWindow::openScene(const char* path)
+void EditorWindow::registerTypes()
 {
     static bool registered = false;
-    if (!registered)
-    {
-        RegisterZenScriptSerializer();
-        RegisterPhysics2DSerializers();
-        RegisterCoreClasses();
-        ClassDB::setAssets(&mAssets);
-        registered = true;
-    }
+    if (registered)
+        return;
+    RegisterZenScriptSerializer();
+    RegisterPhysics2DSerializers();
+    RegisterCoreClasses();
+    ClassDB::setAssets(&mAssets);
+    registered = true;
+}
+
+bool EditorWindow::openScene(const char* path)
+{
+    registerTypes();
     const ct::String sceneDirectory = directoryOf(path);
     const ct::String projectRoot = directoryOf(sceneDirectory.c_str());
     // Absolute, so asset paths can be made relative to it.
@@ -356,16 +376,110 @@ bool EditorWindow::openScene(const char* path)
     mCamera = Camera2D();
     if (CameraComponent* camera = mScene.activeCamera())
         mCamera.position = camera->owner()->globalPosition();
-    mSceneLabel->setText(path_filename(path));
+    mScenePath = EditorFileSystem::isAbsolute(path)
+                     ? ct::String(path)
+                     : EditorFileSystem::join(EditorFileSystem::currentDirectory(), path);
+    FileBuffer text;
+    mSceneDocument = files.LoadFile(path, text, true) ? ct::Json::parse(text.Text()) : ct::Json();
     mAssetsPanel->setRoot(mProjectRoot);
     mSpriteEditor->setRoot(mProjectRoot);
+    sceneLoaded();
+    return true;
+}
+
+void EditorWindow::sceneLoaded()
+{
     mHierarchy->rebuild(mScene);
+    mTopology = mScene.topologyVersion();
     select(nullptr);
     mCommands.clear();
     mCommitted = snapshot();
     mPendingEdit.clear();
     updateUndoButtons();
+    markDirty(false);
+}
+
+// An empty scene with a camera, in the open project; it is saved with Save As.
+void EditorWindow::newScene()
+{
+    registerTypes();
+    stopPlay();
+    mScene.clear();
+    mScene.setSimulationEnabled(false);
+    GameObject* cameraObject = mScene.createObject("Camera");
+    if (Component* camera = Serializer::Create(*cameraObject, "Camera"))
+        mScene.makeCameraActive(*static_cast<CameraComponent*>(camera));
+    mCamera = Camera2D();
+    mScenePath.clear();
+    mSceneDocument = ct::Json();
+    sceneLoaded();
+}
+
+bool EditorWindow::saveScene(const char* path)
+{
+    if (!path || !path[0])
+        return false;
+    ct::Json document = mSceneDocument.is_object() ? mSceneDocument : ct::Json::object();
+    // While playing, the scene as it was before Play is what gets saved.
+    document.set("root", mPlaying ? mPlaySnapshot : snapshot());
+    if (!FileSystem::Instance().SaveTextFile(path, document.dump(2)))
+        return false;
+    mSceneDocument = document;
+    mScenePath = path;
+    markDirty(false);
+    mAssetsPanel->refresh();
     return true;
+}
+
+void EditorWindow::save()
+{
+    if (mScenePath.empty())
+        showSaveDialog();
+    else
+        saveScene(mScenePath.c_str());
+}
+
+void EditorWindow::markDirty(bool dirty)
+{
+    mDirty = dirty;
+    ct::String text = mScenePath.empty() ? ct::String("Untitled scene") : EditorFileSystem::fileName(mScenePath);
+    if (mDirty)
+        text += " *";
+    mSceneLabel->setText(text);
+}
+
+void EditorWindow::showOpenDialog()
+{
+    auto* dialog = mApp->addFloat<rt::FileDialog>("Open scene");
+    dialog->setMode(rt::FileDialog::Mode::Open);
+    dialog->setFilter("*.k2dscene");
+    dialog->setPath(mProjectRoot.empty() ? EditorFileSystem::currentDirectory() : mProjectRoot);
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    dialog->accepted.connect([this](const rt::String& path)
+    {
+        if (!mPlaying)
+            openScene(path.c_str());
+    });
+}
+
+void EditorWindow::showSaveDialog()
+{
+    auto* dialog = mApp->addFloat<rt::FileDialog>("Save scene");
+    dialog->setMode(rt::FileDialog::Mode::Save);
+    dialog->setFilter("*.k2dscene");
+    const ct::String scenes = EditorFileSystem::join(mProjectRoot, "scenes");
+    dialog->setPath(!mScenePath.empty() ? directoryOf(mScenePath.c_str())
+                    : EditorFileSystem::isDirectory(scenes) ? scenes
+                    : (mProjectRoot.empty() ? EditorFileSystem::currentDirectory() : mProjectRoot));
+    dialog->setFileName(mScenePath.empty() ? ct::String("scene.k2dscene") : EditorFileSystem::fileName(mScenePath));
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    dialog->accepted.connect([this](const rt::String& chosen)
+    {
+        ct::String path = chosen;
+        if (EditorFileSystem::extension(path) != "k2dscene")
+            path += ".k2dscene";
+        saveScene(path.c_str());
+    });
 }
 
 void EditorWindow::frame(float deltaTime, float pixelScale)
@@ -569,6 +683,7 @@ void EditorWindow::commit(const char* label)
     mCommitted = command.after;
     mCommands.push(ct::detail::move(command));
     updateUndoButtons();
+    markDirty(true);
 }
 
 void EditorWindow::undo()
@@ -581,6 +696,7 @@ void EditorWindow::undo()
     {
         mCommitted = command->before;
         restore(mCommitted);
+        markDirty(true);
     }
     updateUndoButtons();
 }
@@ -593,6 +709,7 @@ void EditorWindow::redo()
     {
         mCommitted = command->after;
         restore(mCommitted);
+        markDirty(true);
     }
     updateUndoButtons();
 }
