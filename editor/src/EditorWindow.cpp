@@ -239,6 +239,10 @@ bool EditorWindow::openScene(const char* path)
     if (!GetSceneManager().Load(mScene, mAssets, path))
         return false;
     mTopology = mScene.topologyVersion();
+    // The editor camera starts where the game's does, so the scene opens in view.
+    mCamera = Camera2D();
+    if (CameraComponent* camera = mScene.activeCamera())
+        mCamera.position = camera->owner()->globalPosition();
     mSceneLabel->setText(path_filename(path));
     mHierarchy->rebuild(mScene);
     select(nullptr);
@@ -314,6 +318,10 @@ void EditorWindow::renderScene(float width, float height, float pixelScale)
 
     mTarget.bind();
     glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClearColor(0.12f, 0.12f, 0.13f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     mCanvas.SetProjection(mCamera.Projection(width, height));
@@ -590,7 +598,7 @@ void EditorWindow::startPlay()
     mScene.setSimulationEnabled(true);
     mPlaying = true;
     mPaused = false;
-    mDock->showPanel(kGamePanel);
+    mDock->showPanel(kScenePanel);
     updateRunBar();
     updateUndoButtons();
 }
