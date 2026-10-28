@@ -47,6 +47,8 @@ private:
     void resetLayout();
     void registerTypes();
     void drainLog();
+    void onShortcut(ig::retained::KeyEvent& e);
+    void setTool(SceneTool tool);
     void showOpenDialog();
     void showSaveDialog();
     void save();

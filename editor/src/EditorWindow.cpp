@@ -2,6 +2,8 @@
 
 #include "Icons.h"
 
+#include "TextInputWidgets.hpp"
+
 #include <k2d/ClassDB.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
@@ -382,6 +384,63 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mSceneLabel = mStatus->createChild<rt::Label>("No scene");
     mFpsLabel = mStatus->createChild<rt::Label>("0 fps");
     app.setStage("main");
+    app.unhandledKey.connect([this](rt::KeyEvent& e) { onShortcut(e); });
+}
+
+void EditorWindow::setTool(SceneTool tool)
+{
+    mTools->toggleChanged.emit(mToolItems[static_cast<int>(tool)], true);
+}
+
+// Keys no widget took. Single keys are left alone while text is being typed.
+void EditorWindow::onShortcut(rt::KeyEvent& e)
+{
+    const int key = e.key >= 'A' && e.key <= 'Z' ? e.key - 'A' + 'a' : e.key;
+    if (e.ctrl)
+    {
+        if (key == rt::Key::S)
+            e.shift ? showSaveDialog() : save();
+        else if (key == rt::Key::O)
+            showOpenDialog();
+        else if (key == rt::Key::N)
+            newScene();
+        else if (key == rt::Key::Z)
+            e.shift ? redo() : undo();
+        else if (key == rt::Key::Y)
+            redo();
+        else if (key == rt::Key::D)
+            runHierarchyAction(HierarchyAction::Duplicate);
+        else if (key == rt::Key::Q)
+            window_set_should_close(mWindow, true);
+        else
+            return;
+        e.consumed = true;
+        return;
+    }
+    if (key == rt::Key::F1 + 4)   // F5: the function keys are consecutive
+    {
+        mPlaying ? stopPlay() : startPlay();
+        e.consumed = true;
+        return;
+    }
+    rt::Widget* focused = mApp->focused();
+    if (rt::widget_cast<rt::TextInput>(focused) || rt::widget_cast<rt::TextEdit>(focused))
+        return;
+    if (key == rt::Key::Delete)
+        runHierarchyAction(HierarchyAction::Delete);
+    else if (key == rt::Key::Q)
+        setTool(SceneTool::Select);
+    else if (key == rt::Key::W)
+        setTool(SceneTool::Move);
+    else if (key == rt::Key::E)
+        setTool(SceneTool::Rotate);
+    else if (key == rt::Key::R)
+        setTool(SceneTool::Scale);
+    else if (key == rt::Key::F && mSelected)
+        mCamera.position = mSelected->globalPosition();
+    else
+        return;
+    e.consumed = true;
 }
 
 void EditorWindow::resetLayout()
