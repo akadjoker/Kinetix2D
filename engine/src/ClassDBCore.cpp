@@ -140,9 +140,9 @@ void RegisterCoreClasses()
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Bool, "music"), &AudioPlayer::music, &AudioPlayer::setMusic);
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Bool, "autoplay"), &AudioPlayer::autoplay, &AudioPlayer::setAutoplay);
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Bool, "loop"), &AudioPlayer::loop, &AudioPlayer::setLoop);
-    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Float, "volume"), &AudioPlayer::volume, &AudioPlayer::setVolume);
-    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Float, "pitch"), &AudioPlayer::pitch, &AudioPlayer::setPitch);
-    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Float, "pan"), &AudioPlayer::pan, &AudioPlayer::setPan);
+    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo::range(PropertyType::Float, "volume", 0.0f, 4.0f, 0.01f), &AudioPlayer::volume, &AudioPlayer::setVolume);
+    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo::range(PropertyType::Float, "pitch", 0.01f, 4.0f, 0.01f), &AudioPlayer::pitch, &AudioPlayer::setPitch);
+    ClassDB::addProperty<AudioPlayer>(c, PropertyInfo::range(PropertyType::Float, "pan", -1.0f, 1.0f, 0.01f), &AudioPlayer::pan, &AudioPlayer::setPan);
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Bool, "spatial"), &AudioPlayer::spatial, &AudioPlayer::setSpatial);
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Float, "minDistance"), &AudioPlayer::minDistance, &AudioPlayer::setMinDistance);
     ClassDB::addProperty<AudioPlayer>(c, PropertyInfo(PropertyType::Float, "maxDistance"), &AudioPlayer::maxDistance, &AudioPlayer::setMaxDistance);
@@ -200,7 +200,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("CapsuleShape", ComponentType::CapsuleShape, ComponentClass::None);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo(PropertyType::Vec2, "size"), &CapsuleShape::size, &CapsuleShape::setSize);
-    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo(PropertyType::Int, "segments"), &CapsuleShape::segments, &CapsuleShape::setSegments);
+    ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::range(PropertyType::Int, "segments", 3.0f, 512.0f, 1.0f), &CapsuleShape::segments, &CapsuleShape::setSegments);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::enumeration("mode", "Fill,Line"), &CapsuleShape::mode, &CapsuleShape::setMode);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo(PropertyType::Float, "lineWidth"), &CapsuleShape::lineWidth, &CapsuleShape::setLineWidth);
     ClassDB::addProperty<CapsuleShape>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &CapsuleShape::blendMode, &CapsuleShape::setBlendMode);
@@ -245,7 +245,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<CharacterBody2D>(c, PropertyInfo(PropertyType::Int, "maxSlides"), &CharacterBody2D::maxSlides, &CharacterBody2D::setMaxSlides);
     ClassDB::addProperty<CharacterBody2D>(c, PropertyInfo::enumeration("motionMode", "Floating,Grounded"), &CharacterBody2D::motionMode, &CharacterBody2D::setMotionMode);
     ClassDB::addProperty<CharacterBody2D>(c, PropertyInfo(PropertyType::Vec2, "upDirection"), &CharacterBody2D::upDirection, &CharacterBody2D::setUpDirection);
-    ClassDB::addProperty<CharacterBody2D>(c, PropertyInfo(PropertyType::Float, "floorMaxAngleDegrees"), &CharacterBody2D::floorMaxAngleDegrees, &CharacterBody2D::setFloorMaxAngleDegrees);
+    ClassDB::addProperty<CharacterBody2D>(c, PropertyInfo::range(PropertyType::Float, "floorMaxAngleDegrees", 0.0f, 90.0f, 1.0f), &CharacterBody2D::floorMaxAngleDegrees, &CharacterBody2D::setFloorMaxAngleDegrees);
     }
     {
     ClassInfo& c = ClassDB::add("CircleCollider2D", ComponentType::Collider, ComponentClass::CircleCollider2D);
@@ -272,7 +272,7 @@ void RegisterCoreClasses()
     {
     ClassInfo& c = ClassDB::add("CircleShape", ComponentType::CircleShape, ComponentClass::None);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo(PropertyType::Float, "radius"), &CircleShape::radius, &CircleShape::setRadius);
-    ClassDB::addProperty<CircleShape>(c, PropertyInfo(PropertyType::Int, "segments"), &CircleShape::segments, &CircleShape::setSegments);
+    ClassDB::addProperty<CircleShape>(c, PropertyInfo::range(PropertyType::Int, "segments", 3.0f, 512.0f, 1.0f), &CircleShape::segments, &CircleShape::setSegments);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo::enumeration("mode", "Fill,Line"), &CircleShape::mode, &CircleShape::setMode);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo(PropertyType::Float, "lineWidth"), &CircleShape::lineWidth, &CircleShape::setLineWidth);
     ClassDB::addProperty<CircleShape>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &CircleShape::blendMode, &CircleShape::setBlendMode);
@@ -289,7 +289,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("DirectionalLight2D", ComponentType::Light, ComponentClass::DirectionalLight2D);
-    ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Float, "energy"), &DirectionalLight2D::energy, &DirectionalLight2D::setEnergy);
+    ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f), &DirectionalLight2D::energy, &DirectionalLight2D::setEnergy);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Bool, "castShadow"), &DirectionalLight2D::castShadow, &DirectionalLight2D::setCastShadow);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"), &DirectionalLight2D::shadowFilter, &DirectionalLight2D::setShadowFilter);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Int, "cullMask"), &DirectionalLight2D::cullMask, &DirectionalLight2D::setCullMask);
@@ -371,7 +371,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("Light2D", ComponentType::Light, ComponentClass::Light2D);
-    ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Float, "energy"), &Light2D::energy, &Light2D::setEnergy);
+    ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f), &Light2D::energy, &Light2D::setEnergy);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Float, "radius"), &Light2D::radius, &Light2D::setRadius);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Bool, "castShadow"), &Light2D::castShadow, &Light2D::setCastShadow);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"), &Light2D::shadowFilter, &Light2D::setShadowFilter);
@@ -434,7 +434,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "angularOffset"), &MotorJoint2D::angularOffset, &MotorJoint2D::setAngularOffset);
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "maxForce"), &MotorJoint2D::maxForce, &MotorJoint2D::setMaxForce);
     ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "maxTorque"), &MotorJoint2D::maxTorque, &MotorJoint2D::setMaxTorque);
-    ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo(PropertyType::Float, "correctionFactor"), &MotorJoint2D::correctionFactor, &MotorJoint2D::setCorrectionFactor);
+    ClassDB::addProperty<MotorJoint2D>(c, PropertyInfo::range(PropertyType::Float, "correctionFactor", 0.0f, 1.0f, 0.01f), &MotorJoint2D::correctionFactor, &MotorJoint2D::setCorrectionFactor);
     ClassDB::addProperty<Joint2D>(c, PropertyInfo(PropertyType::Bool, "collideConnected"), &Joint2D::collideConnected, &Joint2D::setCollideConnected);
     }
     {
@@ -645,8 +645,8 @@ void RegisterCoreClasses()
     ClassInfo& c = ClassDB::add("RigidBody2D", ComponentType::RigidBody, ComponentClass::None);
     ClassDB::addProperty<RigidBody2D>(c, PropertyInfo::enumeration("bodyType", "Static,Kinematic,Dynamic"), &RigidBody2D::bodyType, &RigidBody2D::setBodyType);
     ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "density"), &RigidBody2D::density, &RigidBody2D::setDensity);
-    ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "friction"), &RigidBody2D::friction, &RigidBody2D::setFriction);
-    ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "restitution"), &RigidBody2D::restitution, &RigidBody2D::setRestitution);
+    ClassDB::addProperty<RigidBody2D>(c, PropertyInfo::range(PropertyType::Float, "friction", 0.0f, 1.0f, 0.01f), &RigidBody2D::friction, &RigidBody2D::setFriction);
+    ClassDB::addProperty<RigidBody2D>(c, PropertyInfo::range(PropertyType::Float, "restitution", 0.0f, 1.0f, 0.01f), &RigidBody2D::restitution, &RigidBody2D::setRestitution);
     ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "linearDamping"), &RigidBody2D::linearDamping, &RigidBody2D::setLinearDamping);
     ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "angularDamping"), &RigidBody2D::angularDamping, &RigidBody2D::setAngularDamping);
     ClassDB::addProperty<RigidBody2D>(c, PropertyInfo(PropertyType::Float, "gravityScale"), &RigidBody2D::gravityScale, &RigidBody2D::setGravityScale);
