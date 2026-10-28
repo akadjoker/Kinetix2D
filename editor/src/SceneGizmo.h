@@ -10,6 +10,7 @@
 
 namespace k2d
 {
+class Bone2D;
 class Collider2D;
 class GameObject;
 class Scene;
@@ -47,6 +48,8 @@ public:
     void setGrid(bool grid) { mGrid = grid; }
     void setSnap(bool snap) { mSnap = snap; }
     void setColliders(bool colliders) { mColliders = colliders; }
+    // How many bones a pulled bone tip moves, itself included.
+    void setIkChain(int bones) { mIkChain = bones > 0 ? bones : 1; }
 
     // The camera and the size of the view the next calls are measured in.
     void setView(const Camera2D& camera, float width, float height);
@@ -77,7 +80,9 @@ private:
         AxisY,
         Free,
         Ring,
-        Point
+        Point,
+        BoneTurn,
+        BoneTip
     };
 
     struct Entry
@@ -89,6 +94,12 @@ private:
     struct ColliderEntry
     {
         Collider2D* collider;
+        int entry;
+    };
+
+    struct BoneEntry
+    {
+        Bone2D* bone;
         int entry;
     };
 
@@ -107,6 +118,8 @@ private:
                        const Collider2D& collider) const;
     void paintPoints(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
     void paintLight(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
+    void paintBones(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
+    bool boneEnds(const Bone2D& bone, Math::Vec2& from, Math::Vec2& to) const;
     void paintHandles(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
 
     SceneTool mTool = SceneTool::Select;
@@ -124,6 +137,8 @@ private:
     uint32_t mTopology = 0;
     ct::Vector<Entry> mEntries;
     ct::Vector<ColliderEntry> mColliderEntries;
+    ct::Vector<BoneEntry> mBoneEntries;
+    int mIkChain = 2;
     ct::Vector<unsigned char> mShown;
     ct::Vector<Math::Vec2> mScratch;
 

@@ -10,6 +10,7 @@
 #include "ProfilerPanel.h"
 #include "SceneGizmo.h"
 #include "SettingsPanel.h"
+#include "SkeletonPanel.h"
 #include "ScriptEditorPanel.h"
 #include "SpriteEditorPanel.h"
 #include "TilePainterPanel.h"
@@ -167,6 +168,7 @@ private:
     AssetsPanel* mAssetsPanel = nullptr;
     SpriteEditorPanel* mSpriteEditor = nullptr;
     AnimatorPanel* mAnimator = nullptr;
+    SkeletonPanel* mSkeleton = nullptr;
     TilePainterPanel* mTilePainter = nullptr;
     ScriptEditorPanel* mScriptEditor = nullptr;
     ParticlesPanel* mParticles = nullptr;

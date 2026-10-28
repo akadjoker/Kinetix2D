@@ -49,6 +49,7 @@ const char* const kConsolePanel = "Console";
 const char* const kAssetsPanel = "Assets";
 const char* const kSpritePanel = "Sprite Editor";
 const char* const kAnimatorPanel = "Animator";
+const char* const kSkeletonPanel = "Skeleton";
 const char* const kTilePanel = "Tile Painter";
 const char* const kScriptPanel = "Script Editor";
 const char* const kParticlesPanel = "Particles";
@@ -358,6 +359,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
     mAnimator->edited.connect([this](const char* label) { commit(label); });
     mAnimator->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mSkeleton = mDock->addPanel<SkeletonPanel>(kSkeletonPanel, mScene);
+    mSkeleton->edited.connect([this](const char* label) { commit(label); });
+    mSkeleton->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mParticles = mRightBar->addPage<ParticlesPanel>(Icons::get("Particle"), kParticlesPanel);
     mParticles->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mParticles->edited.connect([this](const char* label, bool final)
@@ -395,6 +399,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kSkeletonPanel, kConsolePanel);
     mDock->moveTabToLeaf(kProfilerPanel, kConsolePanel);
     mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
     mDock->showPanel(kConsolePanel);
@@ -436,6 +441,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mTilePainter->press(x, y);
             return;
         }
+        mGizmo.setIkChain(mSkeleton->ikChain());
         switch (mGizmo.press(mSelected, x, y, clicks, ctrl))
         {
         case SceneGizmo::Press::Miss:
@@ -478,6 +484,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         }
         if (mGizmo.release())
         {
+            // Under Animate a bone posed in the view is keyed, not moved at rest.
+            if (mSelected && mSkeleton->animating())
+                mSkeleton->keyBone(*mSelected);
             commit(mGizmo.editName());
             showObject(mSelected);
         }
@@ -684,6 +693,7 @@ bool EditorWindow::openScene(const char* path)
 
 void EditorWindow::sceneLoaded()
 {
+    mSkeleton->stopAnimating();
     restartEditPreview(mScene.root());
     mHierarchy->rebuild(mScene);
     mTopology = mScene.topologyVersion();
@@ -821,6 +831,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     }
     drainLog();
     mAnimator->tick(deltaTime);
+    mSkeleton->tick(deltaTime);
     mParticles->tick();
     if (!mPlaying && mLivePreview)
         tickEditPreview(mScene.root(), deltaTime);
@@ -1009,6 +1020,7 @@ void EditorWindow::showObject(GameObject* object)
 {
     mInspector->show(object);
     mAnimator->show(object);
+    mSkeleton->show(object);
     mParticles->show(object);
     // A dot on a tool that has something to work on in this object.
     mRightBar->setPageBadge(mRightBar->indexOf(mParticles), object && object->getComponent<ParticleComponent>());
@@ -1033,9 +1045,13 @@ void EditorWindow::refreshTree()
     mHierarchy->select(mSelected);
 }
 
+// Posed skeletons are written at rest: their keys hold the animation.
 ct::Json EditorWindow::snapshot() const
 {
-    return Serializer::WriteObject(mScene.root(), const_cast<Assets*>(&mAssets));
+    mSkeleton->restPose();
+    ct::Json state = Serializer::WriteObject(mScene.root(), const_cast<Assets*>(&mAssets));
+    mSkeleton->showPose();
+    return state;
 }
 
 void EditorWindow::restore(const ct::Json& state)
@@ -1529,6 +1545,7 @@ void EditorWindow::startPlay()
         return;
     // Play simulates the scene in place, as the legacy editor did; Stop throws
     // away what physics and scripts changed by reading the snapshot back.
+    mSkeleton->stopAnimating();
     mPlaySnapshot = Serializer::WriteObject(mScene.root(), &mAssets);
     GetSceneManager().ClearRequest();
     SetZenScriptAssets(&mAssets);

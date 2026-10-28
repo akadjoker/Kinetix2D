@@ -46,6 +46,24 @@ The collider button in the toolbar shows every object's colliders: green
 solid, blue sensor, orange when the object has no RigidBody2D and the collider
 does nothing.
 
+## Skeletons
+
+A skeleton is an object with a **Skeleton2D** and, below it, objects with a
+**Bone2D**: each bone points along its local x for its length. The scene view
+draws the bones; click one to select it. With the **Select** tool, dragging a
+bone turns it, and dragging its tip pulls the chain above it by IK (the **IK**
+field of the Skeleton panel says how many bones move).
+
+The **Skeleton** panel, under the views, lists the clips (new, duplicate,
+delete, name, length, loop) and shows each animated bone and property as a
+track with its keys. Turn on **Animate** (the record button) to work on the
+clip: the bones show the clip at the playhead, and every pose made in the scene
+view is keyed there. Without Animate, moving bones edits the rest pose the keys
+are measured from, and that rest pose is what the scene file keeps. Drag keys
+along their track, delete the selected ones, give them an easing, and play the
+clip in the editor. **autoplay** in the Inspector names the clip the game
+starts with.
+
 ## Example scenes
 
 Choose **File → New Example Scene → Shapes** or **Physics**. These examples

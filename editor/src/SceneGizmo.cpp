@@ -6,9 +6,11 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/Collider2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/Bone2D.h>
 #include <k2d/Light2D.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
+#include <k2d/Skeleton2D.h>
 
 #include <cfloat>
 #include <cmath>
@@ -43,6 +45,7 @@ const rt::Color kSolidColor(110, 225, 140, 220);
 const rt::Color kSensorColor(90, 180, 255, 220);
 const rt::Color kNoBodyColor(240, 150, 60, 200);
 const rt::Color kLightColor(255, 220, 120, 140);
+const rt::Color kBoneColor(205, 215, 235, 210);
 
 float distanceToSegment(float px, float py, float ax, float ay, float bx, float by, float* along = nullptr)
 {
@@ -99,6 +102,7 @@ void SceneGizmo::refresh(Scene& scene)
     mTopology = scene.topologyVersion();
     mEntries.clear();
     mColliderEntries.clear();
+    mBoneEntries.clear();
     GameObject& root = scene.root();
     for (std::size_t i = 0; i < root.childCount(); ++i)
         mEntries.push_back(Entry{root.child(i), -1});
@@ -114,7 +118,20 @@ void SceneGizmo::refresh(Scene& scene)
             if (collider && colliderPointCount(*collider) > 0)
                 mColliderEntries.push_back(ColliderEntry{collider, static_cast<int>(i)});
         }
+        if (Bone2D* bone = object->getComponent<Bone2D>())
+            mBoneEntries.push_back(BoneEntry{bone, static_cast<int>(i)});
     }
+}
+
+// The bone from its joint to its tip, in the view's points.
+bool SceneGizmo::boneEnds(const Bone2D& bone, Math::Vec2& from, Math::Vec2& to) const
+{
+    const GameObject* object = bone.owner();
+    if (!object || bone.length() <= 0.0f)
+        return false;
+    from = toScreen(object->globalPosition());
+    to = toScreen(object->globalTransform().Transform(bone.length(), 0.0f));
+    return true;
 }
 
 void SceneGizmo::updateShown()
@@ -144,6 +161,23 @@ GameObject* SceneGizmo::pick(Scene& scene, float x, float y)
         if (distance < bestDistance)
         {
             bestDistance = distance;
+            best = object;
+        }
+    }
+    if (best)
+        return best;
+
+    float bestBone = kHitRadius;
+    for (const BoneEntry& entry : mBoneEntries)
+    {
+        GameObject* object = mEntries[static_cast<std::size_t>(entry.entry)].object;
+        Math::Vec2 a, b;
+        if (!mShown[static_cast<std::size_t>(entry.entry)] || !pickable(*object) || !boneEnds(*entry.bone, a, b))
+            continue;
+        const float distance = distanceToSegment(x, y, a.x, a.y, b.x, b.y);
+        if (distance <= bestBone)
+        {
+            bestBone = distance;
             best = object;
         }
     }
@@ -292,15 +326,31 @@ SceneGizmo::Press SceneGizmo::press(GameObject* selected, float x, float y, int 
             return Press::Drag;
         }
         Math::Vec2 point;
-        if (!hitSegment(*selected, x, y, collider, index, point))
+        if (hitSegment(*selected, x, y, collider, index, point))
+        {
+            if (clicks < 2 || !insertColliderPoint(*collider, bodyScale(*selected), index, point, mScratch))
+                return Press::Shape;
+            mHandle = Handle::Point;
+            mPointCollider = collider;
+            mPointIndex = index + 1;
+            mChanged = true;
+            mEditName = "Add collider point";
+            return Press::Drag;
+        }
+        // A bone turns when its body is dragged and pulls its chain by the tip.
+        Math::Vec2 joint, tip;
+        const Bone2D* bone = selected->getComponent<Bone2D>();
+        if (!bone || !boneEnds(*bone, joint, tip))
             return Press::Miss;
-        if (clicks < 2 || !insertColliderPoint(*collider, bodyScale(*selected), index, point, mScratch))
-            return Press::Shape;
-        mHandle = Handle::Point;
-        mPointCollider = collider;
-        mPointIndex = index + 1;
-        mChanged = true;
-        mEditName = "Add collider point";
+        const bool atTip = std::sqrt((x - tip.x) * (x - tip.x) + (y - tip.y) * (y - tip.y)) <= kPointHitRadius;
+        if (!atTip && distanceToSegment(x, y, joint.x, joint.y, tip.x, tip.y) > kHitRadius)
+            return Press::Miss;
+        mHandle = atTip ? Handle::BoneTip : Handle::BoneTurn;
+        mStartX = x;
+        mStartY = y;
+        mStartWorld = selected->globalPosition();
+        mStartRotation = selected->rotationDegrees();
+        mEditName = atTip ? "Pull bone chain" : "Turn bone";
         return Press::Drag;
     }
     mHandle = hit(*selected, x, y);
@@ -330,6 +380,14 @@ bool SceneGizmo::drag(float x, float y)
         setColliderPoint(*mPointCollider, bodyScale(object), mPointIndex, bodyFrame(object).AffineInverse().Transform(world),
                          mScratch);
     }
+    else if (mHandle == Handle::BoneTip)
+    {
+        Skeleton2D* skeleton = nullptr;
+        for (GameObject* above = &object; above && !skeleton; above = above->parent())
+            skeleton = above->getComponent<Skeleton2D>();
+        if (!skeleton || !skeleton->solveIK(object.name().c_str(), toWorld(x, y), mIkChain, 16, 0.25f))
+            return false;
+    }
     else if (mTool == SceneTool::Move)
     {
         const Math::Vec2 from = toWorld(mStartX, mStartY);
@@ -341,7 +399,7 @@ bool SceneGizmo::drag(float x, float y)
         // that into the local position the object keeps.
         object.setPosition(object.parent()->globalTransform().AffineInverse().Transform(world));
     }
-    else if (mTool == SceneTool::Rotate)
+    else if (mTool == SceneTool::Rotate || mHandle == Handle::BoneTurn)
     {
         const float start = std::atan2(mStartY - c.y, mStartX - c.x);
         const float now = std::atan2(y - c.y, x - c.x);
@@ -424,6 +482,7 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
                     paintCollider(ctx, area, *selected, *collider);
     }
 
+    paintBones(ctx, area, selected);
     paintMarkers(ctx, area, selected);
     if (!editable)
         return;
@@ -558,6 +617,35 @@ void SceneGizmo::paintPoints(rt::PaintContext& ctx, const rt::Rect& area, GameOb
             ctx.fill.SetColor(active ? kActiveColor : kSelectedColor);
             ctx.fillRect(area.x + s.x - kPointHalfSize, area.y + s.y - kPointHalfSize, kPointHalfSize * 2.0f,
                          kPointHalfSize * 2.0f);
+        }
+    }
+}
+
+void SceneGizmo::paintBones(rt::PaintContext& ctx, const rt::Rect& area, GameObject* selected) const
+{
+    for (const BoneEntry& entry : mBoneEntries)
+    {
+        Math::Vec2 a, b;
+        if (!mShown[static_cast<std::size_t>(entry.entry)] || !boneEnds(*entry.bone, a, b))
+            continue;
+        const bool isSelected = entry.bone->owner() == selected;
+        const float dx = b.x - a.x, dy = b.y - a.y;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        if (length < 1.0f)
+            continue;
+        const float width = length * 0.12f < 8.0f ? length * 0.12f : 8.0f;
+        const float nx = -dy / length * width, ny = dx / length * width;
+        const float mx = a.x + dx * 0.2f, my = a.y + dy * 0.2f;
+        const Math::Vec2 kite[4] = {Math::Vec2(a.x, a.y), Math::Vec2(mx + nx, my + ny), Math::Vec2(b.x, b.y),
+                                    Math::Vec2(mx - nx, my - ny)};
+        ctx.line.SetColor(isSelected ? kSelectedColor : kBoneColor);
+        for (int k = 0; k < 4; ++k)
+            ctx.line.Line2D(area.x + kite[k].x, area.y + kite[k].y, area.x + kite[(k + 1) % 4].x,
+                            area.y + kite[(k + 1) % 4].y);
+        if (isSelected && mTool == SceneTool::Select)
+        {
+            ctx.fill.SetColor(mHandle == Handle::BoneTip ? kActiveColor : kSelectedColor);
+            ctx.fill.Circle(area.x + b.x, area.y + b.y, 4.0f, true);
         }
     }
 }
