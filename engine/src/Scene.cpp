@@ -260,6 +260,8 @@ namespace k2d
         }
         mParticles.submit(mRenderQueue);
         compactComponentLists();
+        Profiler::Get().addCounter("items", mRenderQueue.ItemCount());
+        Profiler::Get().addCounter("culled", mRenderCulled);
         return mRenderQueue;
     }
 

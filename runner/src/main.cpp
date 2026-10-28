@@ -372,6 +372,15 @@ void drawProfilerOverlay(k2d::CanvasRenderer& canvas, float width, float height)
                   frameMs > 0.0f ? 1000.0f / frameMs : 0.0f, frameAverage, frameMaximum);
     addLine(line);
 
+    int used = 0;
+    line[0] = '\0';
+    for (uint32_t i = 0; i < profiler.counterCount() && used < static_cast<int>(sizeof(line)); ++i)
+        used += std::snprintf(line + used, sizeof(line) - static_cast<size_t>(used), "%s%s %llu", i ? " | " : "",
+                              profiler.counters()[i].name,
+                              static_cast<unsigned long long>(profiler.counters()[i].display));
+    if (used > 0)
+        addLine(line);
+
     const auto addSample = [&](const k2d::ProfileSample& sample)
     {
         std::snprintf(line, sizeof(line), "%s: %.2f ms | avg %.2f | max %.2f (%u calls)", sample.name, sample.display,

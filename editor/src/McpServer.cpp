@@ -49,7 +49,7 @@ const char* const kTools = R"JSON([
  {"name":"select","description":"Select an object in the editor, so the user sees it in the hierarchy and inspector.","inputSchema":{"type":"object","properties":{"object":{"type":"string"}},"required":["object"]}},
  {"name":"instantiate_prefab","description":"Put an instance of a prefab (a project path to a .k2dprefab) in the scene, at x, y in the world when given, under parent when given. Returns its path. One undo step.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"x":{"type":"number"},"y":{"type":"number"},"parent":{"type":"string"}},"required":["path"]}},
  {"name":"save_prefab","description":"Save an object and its children as a prefab file (a project path ending in .k2dprefab).","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"path":{"type":"string"}},"required":["object","path"]}},
- {"name":"profile","description":"Where the engine's frame time goes: each profile scope (scene update, physics, rendering, scripts...) with its average and peak milliseconds and calls per frame. Best read while the game plays.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"profile","description":"Where the engine's frame time goes: each profile scope (scene update, physics, rendering, scripts...) with its average and peak milliseconds and calls per frame, and the frame's counters (draw calls, vertices, items, culled, lights, bodies, contacts). Best read while the game plays.","inputSchema":{"type":"object","properties":{}}},
  {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}},
  {"name":"new_project","description":"Make a project in an empty folder (an absolute path): scenes/, assets/, project.k2dproj and a startup scene with a player that moves with the arrows. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"folder":{"type":"string"}},"required":["folder"]}},
  {"name":"open_project","description":"Open a project (an absolute path to its project.k2dproj or its folder) at its startup scene. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
@@ -1186,6 +1186,11 @@ ct::Json McpServer::profile()
         scopes.push_back(scope);
     }
     result.set("scopes", scopes);
+    ct::Json counters = ct::Json::object();
+    for (uint32_t i = 0; i < profiler.counterCount(); ++i)
+        counters.set(profiler.counters()[i].name,
+                     ct::Json(static_cast<std::int64_t>(profiler.counters()[i].display)));
+    result.set("counters", counters);
     return text(result.dump(2));
 }
 

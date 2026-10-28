@@ -138,6 +138,7 @@ ProfilerPanel::ProfilerPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mFrame = bar->createChild<rt::Label>("");
     mFrame->setStretch(1.0f);
     mFrame->setLayoutAlign(rt::Align::Center);
+    mCounters = createChild<rt::Label>("");
     auto* scroll = createChild<rt::ScrollView>();
     scroll->setStretch(1.0f);
     mView = scroll->setContent<ProfileView>();
@@ -152,6 +153,15 @@ void ProfilerPanel::tick()
     // The engine's share of the frame: the interface is drawn outside it.
     std::snprintf(text, sizeof text, "engine %.2f ms a frame", frame);
     mFrame->setText(text);
+    const Profiler& profiler = Profiler::Get();
+    char counters[512];
+    int used = 0;
+    counters[0] = '\0';
+    for (uint32_t i = 0; i < profiler.counterCount() && used < static_cast<int>(sizeof counters); ++i)
+        used += std::snprintf(counters + used, sizeof counters - static_cast<std::size_t>(used), "%s%s %llu",
+                              i ? "   " : "  ", profiler.counters()[i].name,
+                              static_cast<unsigned long long>(profiler.counters()[i].display));
+    mCounters->setText(counters);
     mView->capture();
 }
 

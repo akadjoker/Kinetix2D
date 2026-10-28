@@ -9,11 +9,12 @@ namespace k2d
     const double Profiler::RefreshSeconds = 0.25;
 
     Profiler::Profiler()
-        : mFrameStart(0), mFrequency(1), mLastRefresh(0),
+        : mCounterCount(0), mFrameStart(0), mFrequency(1), mLastRefresh(0),
           mFrameMilliseconds(0.0f), mDisplayFrameMilliseconds(0.0f),
           mSampleCount(0), mDepth(0), mEnabled(true)
     {
         std::memset(mSamples, 0, sizeof(mSamples));
+        std::memset(mCounters, 0, sizeof(mCounters));
         std::memset(mStack, 0, sizeof(mStack));
     }
 
@@ -35,6 +36,8 @@ namespace k2d
             mSamples[i].milliseconds = 0.0f;
             mSamples[i].calls = 0;
         }
+        for (uint32_t i = 0; i < mCounterCount; ++i)
+            mCounters[i].value = 0;
         mDepth = 0;
         mFrameStart = time_nanos();
     }
@@ -58,6 +61,8 @@ namespace k2d
         {
             mLastRefresh = now;
             mDisplayFrameMilliseconds = mFrameMilliseconds;
+            for (uint32_t i = 0; i < mCounterCount; ++i)
+                mCounters[i].display = mCounters[i].value;
         }
 
         for (uint32_t i = 0; i < mSampleCount; ++i)
@@ -141,6 +146,25 @@ namespace k2d
             mSamples[sample].milliseconds += milliseconds;
             mSamples[sample].calls += calls;
         }
+    }
+
+    void Profiler::addCounter(const char *name, uint64_t value)
+    {
+        if (!mEnabled || !name)
+            return;
+        for (uint32_t i = 0; i < mCounterCount; ++i)
+            if (std::strcmp(mCounters[i].name, name) == 0)
+            {
+                mCounters[i].value += value;
+                return;
+            }
+        if (mCounterCount >= MaxCounters)
+            return;
+        ProfileCounter &counter = mCounters[mCounterCount++];
+        std::strncpy(counter.name, name, sizeof(counter.name) - 1);
+        counter.name[sizeof(counter.name) - 1] = '\0';
+        counter.value = value;
+        counter.display = 0;
     }
 
     const ProfileSample *Profiler::samples() const

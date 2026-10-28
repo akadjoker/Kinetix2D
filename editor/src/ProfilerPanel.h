@@ -28,6 +28,7 @@ public:
 private:
     bool mFrozen = false;
     ig::retained::Label* mFrame = nullptr;
+    ig::retained::Label* mCounters = nullptr;
     ProfileView* mView = nullptr;
 };
 

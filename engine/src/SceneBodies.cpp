@@ -307,6 +307,8 @@ void Scene::stepBodies(float deltaTime)
     }
 
     mParticles.step(deltaTime);
+    Profiler::Get().addCounter("bodies", mBodies.size());
+    Profiler::Get().addCounter("contacts", mContacts.size());
 }
 
 }

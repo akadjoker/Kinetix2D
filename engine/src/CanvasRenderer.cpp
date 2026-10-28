@@ -630,6 +630,7 @@ void CanvasRenderer::DrawItems(const RenderItem* items, size_t count, const Poin
                                const Occluder* occluders, size_t occluderCount)
 {
     ProfileScope profileScope("render.expand");
+    const size_t culledBefore = mStats.commandsCulled + mStats.lightsCulled;
     mVisibleLights.clear();
     for (size_t i = 0; i < lightCount && mVisibleLights.size() < (size_t)kMaxPointLights; ++i)
     {
@@ -727,6 +728,9 @@ void CanvasRenderer::DrawItems(const RenderItem* items, size_t count, const Poin
     }
 
     Flush();
+    Profiler& profiler = Profiler::Get();
+    profiler.addCounter("lights", (uint64_t)mLightCount + (uint64_t)mDirectionalLightCount);
+    profiler.addCounter("culled", mStats.commandsCulled + mStats.lightsCulled - culledBefore);
 }
 
 void CanvasRenderer::EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId,
@@ -917,6 +921,8 @@ void CanvasRenderer::Flush()
 
     mStats.drawCalls += mDrawCalls.size();
     mStats.verticesDrawn += mVertices.size();
+    Profiler::Get().addCounter("draw calls", mDrawCalls.size());
+    Profiler::Get().addCounter("vertices", mVertices.size());
     mStats.indicesDrawn += mIndices.size();
     mStats.batchesFlushed++;
 
