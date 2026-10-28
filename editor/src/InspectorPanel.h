@@ -37,6 +37,8 @@ public:
     InspectorPanel();
 
     void show(GameObject* object);
+    // The same object shown again with its values now, at the same scroll.
+    void refresh();
 
     // An edit was made; final is false while a value is still being dragged.
     ig::retained::Signal<const char*, bool> edited;

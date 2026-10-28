@@ -11,6 +11,7 @@
 #include <k2d/OpenGL.h>
 #include <k2d/Profiler.h>
 #include <k2d/Serializer.h>
+#include <k2d/Skeleton2D.h>
 #include <k2d/ZenScriptComponent.h>
 
 #include <platform.h>
@@ -53,6 +54,7 @@ const char* const kTools = R"JSON([
  {"name":"new_project","description":"Make a project in an empty folder (an absolute path): scenes/, assets/, project.k2dproj and a startup scene with a player that moves with the arrows. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"folder":{"type":"string"}},"required":["folder"]}},
  {"name":"open_project","description":"Open a project (an absolute path to its project.k2dproj or its folder) at its startup scene. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
  {"name":"set_startup_scene","description":"Make the open scene the one the exported game starts with.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"skeleton","description":"The Skeleton2D on object or above it: without clips, its speed, autoplay and clips (each with name, duration, loop and tracks: bone name, property x|y|rotation|scaleX|scaleY, keys as [time, value, easing 0 linear|1 step|2 in|3 out|4 in-out]; values are offsets from the bone's rest pose, scales are factors). Given clips (and autoplay), they replace the skeleton's. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"clips":{"type":"array"},"autoplay":{"type":"string"}},"required":["object"]}},
  {"name":"build_atlas","description":"Pack images of the project into one texture: images are project paths of images or of folders of them; output is the project path of the .png to write. Each image becomes a region named after it, kept in output's .sprite.json as the Sprite Editor keeps them, and the list in output's .atlas.json. maxSize (512..4096) caps the page; more pages are numbered _1, _2...","inputSchema":{"type":"object","properties":{"images":{"type":"array","items":{"type":"string"}},"output":{"type":"string"},"maxSize":{"type":"integer"},"padding":{"type":"integer"},"trim":{"type":"boolean"}},"required":["images","output"]}},
  {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
@@ -400,6 +402,7 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "set_startup_scene") return setStartupScene(isError);
     if (name == "export_web") return exportWeb(arguments, isError);
     if (name == "build_atlas") return buildAtlas(arguments, isError);
+    if (name == "skeleton") return skeleton(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -864,6 +867,37 @@ ct::Json McpServer::exportWeb(const ct::Json& arguments, bool& isError)
     ct::String message;
     if (!mEditor.buildWeb(arguments["run"].as_bool(false), message))
         return fail(message.c_str(), isError);
+    return text(message);
+}
+
+ct::Json McpServer::skeleton(const ct::Json& arguments, bool& isError)
+{
+    GameObject* object = resolve(arguments["object"]);
+    Skeleton2D* skeleton = nullptr;
+    for (GameObject* above = object; above && !skeleton; above = above->parent())
+        skeleton = above->getComponent<Skeleton2D>();
+    if (!skeleton)
+        return fail("No Skeleton2D on that object or above it", isError);
+    const ct::Json& clips = arguments["clips"];
+    if (!clips.is_array())
+        return text(Serializer::WriteComponentData(*skeleton, &mEditor.mAssets).dump(2));
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    skeleton->clearAnimation();
+    while (skeleton->clipCount() > 0)
+    {
+        const ct::String name = skeleton->clipAt(0)->name;
+        skeleton->removeClip(name.c_str());
+    }
+    ct::Json data = Serializer::WriteComponentData(*skeleton, &mEditor.mAssets);
+    data.set("clips", clips);
+    if (arguments.contains("autoplay"))
+        data.set("autoplay", arguments["autoplay"]);
+    Serializer::ReadComponentData(*skeleton, data, &mEditor.mAssets);
+    mEditor.commit("Skeleton clips");
+    mEditor.showObject(mEditor.mSelected);
+    char message[64];
+    std::snprintf(message, sizeof message, "%zu clips on the skeleton", skeleton->clipCount());
     return text(message);
 }
 

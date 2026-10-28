@@ -34,6 +34,9 @@ namespace k2d
         static std::size_t TypeCount();
         static const char *TypeName(std::size_t index);
         static Component *Create(GameObject &owner, const char *typeName);
+        // One component's data as the scene file holds it, and read back into it.
+        static ct::Json WriteComponentData(const Component &component, Assets *assets = nullptr);
+        static bool ReadComponentData(Component &component, const ct::Json &data, Assets *assets = nullptr);
         static bool RegisterType(ComponentType type, const char *name, CreateFn create,
                                  WriteFn write, ReadFn read, MatchFn matches = nullptr);
     };

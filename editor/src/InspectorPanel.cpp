@@ -47,6 +47,13 @@ void InspectorPanel::clear()
         mColumn->removeChild(mColumn->children().back());
 }
 
+void InspectorPanel::refresh()
+{
+    const float y = scrollY();
+    show(mObject);
+    setScrollY(y);
+}
+
 void InspectorPanel::show(GameObject* object)
 {
     clear();

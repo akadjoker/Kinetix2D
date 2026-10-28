@@ -57,6 +57,10 @@ public:
 
     ig::retained::Signal<const char*> edited;
     ig::retained::Signal<const char*> addComponentRequested;
+    // The bones moved to another time of the clip, by hand.
+    ig::retained::Signal<> posed;
+    // A bone made from the panel, to select.
+    ig::retained::Signal<GameObject*> boneAdded;
 
 private:
     Skeleton2D* skeleton() const;

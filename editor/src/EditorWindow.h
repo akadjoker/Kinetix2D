@@ -246,6 +246,7 @@ private:
     GameObject* mSelected = nullptr;
     uint64_t mSelectedId = 0;
     bool mInspectorStale = false;
+    bool mPoseStale = false;
     CommandStack mCommands;
     ct::Json mCommitted;
     ct::String mPendingEdit;

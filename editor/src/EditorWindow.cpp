@@ -375,6 +375,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mSkeleton = mDock->addPanel<SkeletonPanel>(kSkeletonPanel, mScene);
     mSkeleton->edited.connect([this](const char* label) { commit(label); });
     mSkeleton->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mSkeleton->posed.connect([this]() { mPoseStale = true; });
+    mSkeleton->boneAdded.connect([this](GameObject* bone)
+    {
+        setSelected(bone);
+        refreshTree();
+        showObject(bone);
+    });
     mParticles = mRightBar->addPage<ParticlesPanel>(Icons::get("Particle"), kParticlesPanel);
     mParticles->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mParticles->edited.connect([this](const char* label, bool final)
@@ -506,11 +513,17 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             showObject(mSelected);
         }
     });
-    mViewport->zoomed.connect([this](float steps, float, float)
+    // The point under the pointer stays where it is while the view zooms.
+    mViewport->zoomed.connect([this](float steps, float x, float y)
     {
+        const rt::Rect area = mViewport->absoluteRect();
+        const Math::Vec2 before = mCamera.ScreenToWorld(x, y, area.w, area.h);
         const float factor = steps > 0.0f ? 1.1f : 1.0f / 1.1f;
         mCamera.zoom.x *= factor;
         mCamera.zoom.y *= factor;
+        const Math::Vec2 after = mCamera.ScreenToWorld(x, y, area.w, area.h);
+        mCamera.position.x += before.x - after.x;
+        mCamera.position.y += before.y - after.y;
     });
 
     mStatus = outer->createChild<rt::StatusBar>();
@@ -882,6 +895,11 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         mInspectorStale = false;
         refreshTree();
         showObject(mSelected);
+    }
+    if (mPoseStale)
+    {
+        mPoseStale = false;
+        mInspector->refresh();
     }
 
     if (mViewport && mViewport->isVisible())

@@ -1883,6 +1883,24 @@ void ReadComponent(GameObject& owner, const ct::Json& entryJson, Assets* assets)
 }
 } // namespace
 
+ct::Json Serializer::WriteComponentData(const Component& component, Assets* assets)
+{
+    const TypeEntry* entry = FindEntryForComponent(component);
+    ct::Json data = ct::Json::object();
+    if (entry)
+        entry->write(component, data, assets);
+    return data;
+}
+
+bool Serializer::ReadComponentData(Component& component, const ct::Json& data, Assets* assets)
+{
+    const TypeEntry* entry = FindEntryForComponent(component);
+    if (!entry)
+        return false;
+    entry->read(component, data, assets);
+    return true;
+}
+
 bool Serializer::IsRegistered(ComponentType type)
 {
     return AnyEntryForType(type);

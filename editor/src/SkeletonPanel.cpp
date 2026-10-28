@@ -66,7 +66,7 @@ void saveRest(GameObject& object)
 }
 
 // A skeleton has a clip current only while this panel shows it posed.
-bool posed(const Skeleton2D& skeleton)
+bool isPosed(const Skeleton2D& skeleton)
 {
     return skeleton.currentAnimation()[0] != '\0';
 }
@@ -193,6 +193,7 @@ SkeletonPanel::SkeletonPanel(Scene& scene) : rt::BoxLayout(rt::LayoutDir::Vertic
     mAnimateItem = mTools->addToggle(rt::IconId::Record,
                                      "Animate: the bones show the clip at the playhead, and posing them in the scene "
                                      "view keys them (drag a bone to turn it, its tip to pull its chain)");
+    const int addBoneItem = mTools->addButton(Icons::get("Add"), "Add a bone at the tip of the selected one");
     const int keyItem = mTools->addButton(Icons::get("Bone"), "Key the selected bone at the playhead");
     const int removeKeyItem = mTools->addButton(Icons::get("Remove"), "Delete the selected keys");
     mTools->toggleChanged.connect([this](int item, bool on)
@@ -207,9 +208,21 @@ SkeletonPanel::SkeletonPanel(Scene& scene) : rt::BoxLayout(rt::LayoutDir::Vertic
         else if (item == mAnimateItem)
             setAnimate(on);
     });
-    mTools->buttonClicked.connect([this, keyItem, removeKeyItem](int item)
+    mTools->buttonClicked.connect([this, addBoneItem, keyItem, removeKeyItem](int item)
     {
-        if (item == keyItem && mObject && mObject->getComponent<Bone2D>())
+        if (item == addBoneItem && mObject && !mAnimate)
+        {
+            // At the selected bone's tip, as long; under the skeleton itself, at its origin.
+            const Bone2D* parentBone = mObject->getComponent<Bone2D>();
+            char name[48];
+            std::snprintf(name, sizeof name, "Bone_%zu", mScene.objectCount() + 1);
+            GameObject* made = mScene.createObject(name, mObject);
+            made->setPosition(Math::Vec2(parentBone ? parentBone->length() : 0.0f, 0.0f));
+            made->addComponent<Bone2D>()->setLength(parentBone ? parentBone->length() : 50.0f);
+            boneAdded.emit(made);
+            edited.emit("Add bone");
+        }
+        else if (item == keyItem && mObject && mObject->getComponent<Bone2D>())
         {
             keyBone(*mObject);
             changed("Key bone");
@@ -283,6 +296,7 @@ SkeletonPanel::SkeletonPanel(Scene& scene) : rt::BoxLayout(rt::LayoutDir::Vertic
         // On whole frames, so keys made there line up across tracks.
         mTime = std::floor(time * kFramesPerSecond + 0.5f) / kFramesPerSecond;
         applyPose();
+        posed.emit();
     });
     mTimeline->onKeyframeSelected.connect([this](int track, int key)
     {
@@ -306,6 +320,7 @@ SkeletonPanel::SkeletonPanel(Scene& scene) : rt::BoxLayout(rt::LayoutDir::Vertic
             return;
         t.keyframes[static_cast<std::size_t>(key)].time = time < 0.0f ? 0.0f : (time > current->duration ? current->duration : time);
         applyPose();
+        posed.emit();
     });
     mTimeline->onKeyframeDropped.connect([this](int, int, float, float)
     {
@@ -437,7 +452,7 @@ void SkeletonPanel::setAnimate(bool on)
         // What the bones show now is the pose the keys are measured from.
         forEachSkeleton(mScene.root(), [](Skeleton2D& other)
         {
-            if (posed(other))
+            if (isPosed(other))
                 other.clearAnimation();
         });
         if (s->owner())
@@ -449,7 +464,7 @@ void SkeletonPanel::setAnimate(bool on)
         mPlaying = false;
         forEachSkeleton(mScene.root(), [](Skeleton2D& other)
         {
-            if (posed(other))
+            if (isPosed(other))
                 other.clearAnimation();
         });
     }
@@ -468,7 +483,7 @@ void SkeletonPanel::restPose()
 {
     forEachSkeleton(mScene.root(), [](Skeleton2D& s)
     {
-        if (posed(s))
+        if (isPosed(s))
             s.resetToRest();
     });
 }
@@ -477,7 +492,7 @@ void SkeletonPanel::showPose()
 {
     forEachSkeleton(mScene.root(), [](Skeleton2D& s)
     {
-        if (posed(s))
+        if (isPosed(s))
             s.seek(s.currentTime());
     });
 }
