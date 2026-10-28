@@ -155,12 +155,15 @@ SpriteEditorPanel::SpriteEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutD
     tools->setDraggable(false);
     const int saveItem = tools->addButton(Icons::get("Save"), "Save the regions");
     const int fitItem = tools->addButton(Icons::get("ZoomFit"), "Fit the image in view");
-    tools->buttonClicked.connect([this, saveItem, fitItem](int item)
+    const int pixelsItem = tools->addButton(rt::IconId::Edit, "Edit pixels: open the image in the Image Editor");
+    tools->buttonClicked.connect([this, saveItem, fitItem, pixelsItem](int item)
     {
         if (item == saveItem)
             save();
         else if (item == fitItem)
             mCanvas->fit();
+        else if (item == pixelsItem && mTexture)
+            editPixels.emit(mPath);
     });
     mTitle = bar->createChild<rt::Label>("No image");
     mTitle->setStretch(1.0f);

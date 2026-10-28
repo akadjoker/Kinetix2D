@@ -3,6 +3,7 @@
 #include "AnimatorPanel.h"
 #include "AssetsPanel.h"
 #include "HierarchyPanel.h"
+#include "ImageEditorPanel.h"
 #include "InspectorPanel.h"
 #include "McpServer.h"
 #include "ParticlesPanel.h"
@@ -54,6 +55,7 @@ public:
     bool setMcp(std::uint16_t port);
     // A platform event, as the window reads it: during Play it reaches the game.
     void onPlatformEvent(const Event& event);
+    void feedGameMouse();
 
 private:
     void resetLayout();
@@ -138,6 +140,7 @@ private:
     ParticlesPanel* mParticles = nullptr;
     SettingsPanel* mSettings = nullptr;
     ProfilerPanel* mProfiler = nullptr;
+    ImageEditorPanel* mImageEditor = nullptr;
     PhysicsSettings mPhysics;
     ct::Json mProjectDocument;   // project.k2dproj as read, written back with only physics changed
     int mPreviewItem = -1;

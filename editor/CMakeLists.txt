@@ -39,6 +39,7 @@ add_executable(k2d_editor
     src/McpServer.cpp
     src/SettingsPanel.cpp
     src/ProfilerPanel.cpp
+    src/ImageEditorPanel.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )

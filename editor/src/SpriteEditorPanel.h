@@ -58,6 +58,8 @@ public:
 
     // "Add to scene" on the selected region.
     ig::retained::Signal<const SpriteRegionDrag&> addToScene;
+    // "Edit pixels": the open image, by its project path.
+    ig::retained::Signal<const ct::String&> editPixels;
 
     bool currentRegion(SpriteRegionDrag& out) const;
     // Every region of the open image, in order; false when none is open.

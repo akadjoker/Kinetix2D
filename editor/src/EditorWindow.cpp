@@ -53,6 +53,7 @@ const char* const kScriptPanel = "Script Editor";
 const char* const kParticlesPanel = "Particles";
 const char* const kSettingsPanel = "Settings";
 const char* const kProfilerPanel = "Profiler";
+const char* const kImagePanel = "Image Editor";
 
 ct::String directoryOf(const char* path)
 {
@@ -274,6 +275,12 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mGame = mDock->addPanel<ViewportPanel>(kGamePanel);
     mSpriteEditor = mDock->addPanel<SpriteEditorPanel>(kSpritePanel, mAssets);
     mScriptEditor = mDock->addPanel<ScriptEditorPanel>(kScriptPanel);
+    mImageEditor = mDock->addPanel<ImageEditorPanel>(kImagePanel, mAssets);
+    mSpriteEditor->editPixels.connect([this](const ct::String& path)
+    {
+        if (mImageEditor->open(path))
+            mDock->showPanel(kImagePanel);
+    });
     mSpriteEditor->addToScene.connect([this](const SpriteRegionDrag& region)
     {
         const rt::Rect area = mViewport->absoluteRect();
@@ -448,8 +455,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     app.unhandledKey.connect([this](rt::KeyEvent& e) { onShortcut(e); });
 }
 
-// Keys, buttons and the wheel go to the game while it plays in a visible Game
-// view; the pointer always does, and the game reads it through its viewport.
+// Keys and the wheel go to the game while it plays in a visible Game view.
+// The pointer and its buttons are read from the window each frame instead
+// (feedGameMouse), so the game never misses them.
 void EditorWindow::onPlatformEvent(const Event& event)
 {
     if (!mPlaying)
@@ -461,19 +469,33 @@ void EditorWindow::onPlatformEvent(const Event& event)
         if (gameShown)
             mGameInput.OnKey(InputKeyFromPlatform(event.data.key.key), event.data.key.down, event.data.key.repeat);
         break;
-    case EVENT_MOUSE_BUTTON:
-        if (gameShown)
-            mGameInput.OnMouseButton(InputButtonFromPlatform(event.data.mouse.button), event.data.mouse.down);
-        break;
-    case EVENT_MOUSE_MOVE:
-        mGameInput.OnMouseMove(static_cast<float>(event.data.mouse.x), static_cast<float>(event.data.mouse.y));
-        break;
     case EVENT_MOUSE_WHEEL:
         if (gameShown)
             mGameInput.OnWheel(event.data.wheel.y);
         break;
     default:
         break;
+    }
+}
+
+// The pointer as the window has it, and its buttons as pressed over the Game
+// view: a press that began there holds until it is let go, wherever it goes.
+void EditorWindow::feedGameMouse()
+{
+    int mx = 0, my = 0;
+    mouse_position(mWindow, &mx, &my);
+    mGameInput.OnMouseMove(static_cast<float>(mx), static_cast<float>(my));
+    const rt::Rect area = mGame->absoluteRect();
+    const bool over = mGame->isVisible() && mx >= area.x && my >= area.y && mx < area.x + area.w &&
+                      my < area.y + area.h;
+    const int platformButtons[3] = {MOUSE_LEFT, MOUSE_RIGHT, MOUSE_MIDDLE};
+    for (int platformButton : platformButtons)
+    {
+        const int button = InputButtonFromPlatform(platformButton);
+        const bool held = mGameInput.MouseDown(button);
+        const bool down = mouse_button_down(mWindow, platformButton) && (over || held);
+        if (down != held)
+            mGameInput.OnMouseButton(button, down);
     }
 }
 
@@ -488,7 +510,20 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     const int key = e.key >= 'A' && e.key <= 'Z' ? e.key - 'A' + 'a' : e.key;
     if (e.ctrl)
     {
-        // Ctrl+S saves what has the focus: the script being edited, or the scene.
+        // Ctrl+S, Z and Y work on what has the focus: the script or image being
+        // edited, or the scene.
+        const bool inImage = mImageEditor->owns(mApp->focused());
+        if (inImage && (key == rt::Key::S || key == rt::Key::Z || key == rt::Key::Y))
+        {
+            if (key == rt::Key::S)
+                mImageEditor->save();
+            else if (key == rt::Key::Y || e.shift)
+                mImageEditor->redo();
+            else
+                mImageEditor->undo();
+            e.consumed = true;
+            return;
+        }
         if (key == rt::Key::S && !e.shift && mScriptEditor->owns(mApp->focused()))
             mScriptEditor->save();
         else if (key == rt::Key::S)
@@ -603,6 +638,7 @@ bool EditorWindow::openScene(const char* path)
     mAssetsPanel->setRoot(mProjectRoot);
     mSpriteEditor->setRoot(mProjectRoot);
     mScriptEditor->setRoot(mProjectRoot);
+    mImageEditor->setRoot(mProjectRoot);
     sceneLoaded();
     return true;
 }
@@ -740,6 +776,8 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     if (!mPlaying && mLivePreview)
         tickEditPreview(mScene.root(), deltaTime);
 
+    if (mPlaying)
+        feedGameMouse();
     if (mPlaying && !mPaused)
     {
         SetZenScriptFrameStats(deltaTime, mFpsTime > 0.0f ? mFpsFrames / mFpsTime : 0.0f);
