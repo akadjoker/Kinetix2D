@@ -33,7 +33,7 @@ the port shows in the status bar. With Claude Code:
 The tools read the scene (`scene_info`, `scene_tree`, `get_object`), change it
 (`set_property`, `create_object`, `add_component`, `delete_object`,
 `reparent`, `select`, `undo`), use prefabs (`instantiate_prefab`,
-`save_prefab`), run it (`run`: play, stop, pause, resume, step frames) and play
+`save_prefab`), run it (`run`: play, stop, pause, resume, step frames, or window to run the saved scene in the runner) and play
 it (`input`: keys, mouse in game coordinates, buttons), look at it
 (`screenshot` of the scene or game view, `console`, `profile`), and work on the project's
 files (`list_assets`, `read_file`, `write_file`, `save_scene`). Every change is

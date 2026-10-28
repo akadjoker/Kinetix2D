@@ -228,6 +228,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mPlayItem = mRunBar->addToggle(Icons::get("Play"), "Play");
     mPauseItem = mRunBar->addToggle(Icons::get("Pause"), "Pause");
     mStopItem = mRunBar->addButton(Icons::get("Stop"), "Stop");
+    mRunBar->addSeparator();
+    mWindowItem = mRunBar->addButton(Icons::get("Export"), "Play in a window: the saved scene in the runner (F6)");
     mRunBar->toggleChanged.connect([this](int item, bool on)
     {
         if (item == mPlayItem)
@@ -239,6 +241,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         if (item == mStopItem)
             stopPlay();
+        else if (item == mWindowItem)
+            runInWindow();
     });
     toolRow->createChild<rt::Panel>()->setStretch(1.0f);
     updateRunBar();
@@ -512,6 +516,12 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
         e.consumed = true;
         return;
     }
+    if (key == rt::Key::F1 + 5)   // F6
+    {
+        runInWindow();
+        e.consumed = true;
+        return;
+    }
     rt::Widget* focused = mApp->focused();
     if (rt::widget_cast<rt::TextInput>(focused) || rt::widget_cast<rt::TextEdit>(focused))
         return;
@@ -715,6 +725,15 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     }
     mStatus->layout();
     mMcp.poll();
+    if (mRunnerId > 0 && !process_is_running(mRunnerId))
+    {
+        const int code = process_exit_code(mRunnerId);
+        if (code != 0)
+            log_error("The game window closed with code %d", code);
+        else
+            log_info("The game window closed");
+        mRunnerId = 0;
+    }
     drainLog();
     mAnimator->tick(deltaTime);
     mParticles->tick();
@@ -1252,6 +1271,41 @@ void EditorWindow::stopPlay()
     updateUndoButtons();
 }
 
+void EditorWindow::runInWindow()
+{
+    if (mScenePath.empty())
+    {
+        log_warn("Save the scene once before running it in a window");
+        showSaveDialog();
+        return;
+    }
+    if (mDirty && !saveScene(mScenePath.c_str()))
+        return;
+    // One game window at a time: run again means start over.
+    if (mRunnerId > 0 && process_is_running(mRunnerId))
+        process_kill(mRunnerId);
+    char base[1024];
+    if (!fs_get_base_path(base, sizeof base))
+        base[0] = '\0';
+#if defined(_WIN32)
+    const ct::String runner = ct::String(base) + "k2d_runner.exe";
+#else
+    const ct::String runner = ct::String(base) + "k2d_runner";
+#endif
+    if (!EditorFileSystem::exists(runner))
+    {
+        log_error("No runner at %s: build k2d_runner", runner.c_str());
+        return;
+    }
+    const ct::String project = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
+    const char* args[2] = {mScenePath.c_str(), project.c_str()};
+    mRunnerId = process_spawn(runner.c_str(), args, EditorFileSystem::exists(project) ? 2 : 1, false);
+    if (mRunnerId > 0)
+        log_info("Running %s in a window", EditorFileSystem::fileName(mScenePath).c_str());
+    else
+        log_error("Could not start the runner");
+}
+
 void EditorWindow::setPaused(bool paused)
 {
     mPaused = mPlaying && paused;
@@ -1438,6 +1492,8 @@ bool EditorWindow::setMcp(std::uint16_t port)
 
 void EditorWindow::shutdown()
 {
+    if (mRunnerId > 0 && process_is_running(mRunnerId))
+        process_kill(mRunnerId);
     mMcp.stop();
     log_set_callback(nullptr, nullptr);
     stopPlay();

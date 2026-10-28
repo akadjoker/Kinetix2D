@@ -36,7 +36,7 @@ const char* const kTools = R"JSON([
  {"name":"add_component","description":"Add a component by type name (see component_types). For a script give type \"ZenScript\" and script, a project path to a .py file.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"type":{"type":"string"},"script":{"type":"string"}},"required":["object","type"]}},
  {"name":"delete_object","description":"Delete an object and its children. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"}},"required":["object"]}},
  {"name":"component_types","description":"The component type names add_component takes.","inputSchema":{"type":"object","properties":{}}},
- {"name":"run","description":"Control the game: play (from the scene as it is), stop (back to the scene as it was before play), pause, resume, or step a number of frames of 1/60 s while paused.","inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["play","stop","pause","resume","step"]},"frames":{"type":"integer"}},"required":["action"]}},
+ {"name":"run","description":"Control the game: play (from the scene as it is), stop (back to the scene as it was before play), pause, resume, step a number of frames of 1/60 s while paused, or window (save the scene and run it in the runner, a game window of its own).","inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["play","stop","pause","resume","step","window"]},"frames":{"type":"integer"}},"required":["action"]}},
  {"name":"console","description":"Lines of the editor console (engine log, script output and errors). Each has a number; pass since to get only newer ones.","inputSchema":{"type":"object","properties":{"since":{"type":"integer"},"limit":{"type":"integer"}}}},
  {"name":"screenshot","description":"A PNG of the scene view (the editor camera) or the game view (the game camera), as last drawn.","inputSchema":{"type":"object","properties":{"view":{"type":"string","enum":["scene","game"]}}}},
  {"name":"save_scene","description":"Save the open scene to its file.","inputSchema":{"type":"object","properties":{}}},
@@ -710,6 +710,11 @@ ct::Json McpServer::run(const ct::Json& arguments, bool& isError)
         mEditor.startPlay();
     else if (action == "stop")
         mEditor.stopPlay();
+    else if (action == "window")
+    {
+        mEditor.runInWindow();
+        return text(mEditor.mRunnerId > 0 ? "The game runs in its own window" : "Could not run it: see console");
+    }
     else if (action == "pause" || action == "resume")
         mEditor.setPaused(action == "pause");
     else if (action == "step")

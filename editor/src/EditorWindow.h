@@ -105,6 +105,8 @@ private:
     void stopPlay();
     void setPaused(bool paused);
     void updateRunBar();
+    // The saved scene in the runner, in a window of its own.
+    void runInWindow();
 
     PlatformWindow* mWindow = nullptr;
     ig::retained::DockPanel* mDock = nullptr;
@@ -119,6 +121,8 @@ private:
     int mPlayItem = -1;
     int mPauseItem = -1;
     int mStopItem = -1;
+    int mWindowItem = -1;
+    int64_t mRunnerId = 0;
     ig::retained::StatusBar* mStatus = nullptr;
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;
