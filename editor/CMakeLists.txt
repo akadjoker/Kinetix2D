@@ -23,6 +23,7 @@ add_executable(k2d_editor
     "${K2D_EDITOR_ICONS_PNG_HEADER}"
     "${K2D_EDITOR_ICONS_TXT_HEADER}"
     src/EditorWindow.cpp
+    src/EditorProject.cpp
     src/HierarchyPanel.cpp
     src/InspectorPanel.cpp
     src/ViewportPanel.cpp
@@ -46,7 +47,7 @@ add_executable(k2d_editor
     src/core/CommandStack.cpp
 )
 target_include_directories(k2d_editor PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d igui::zen)
+target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d k2d_export_lib igui::zen)
 target_compile_features(k2d_editor PRIVATE cxx_std_17)
 if(NOT MSVC)
     target_compile_options(k2d_editor PRIVATE -fno-rtti)

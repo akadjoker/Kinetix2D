@@ -150,10 +150,17 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 
     rt::MenuBar* menuBar = outer->createChild<rt::MenuBar>();
     rt::Menu* file = menuBar->addMenu("File");
+    file->addAction("New Project...", [this]() { showNewProjectDialog(); });
+    file->addAction("Open Project...", [this]() { showOpenProjectDialog(); });
+    file->addSeparator();
     file->addAction("New Scene", [this]() { requestNewScene(); })->setShortcut("Ctrl+N");
     file->addAction("Open Scene...", [this]() { showOpenDialog(); })->setShortcut("Ctrl+O");
     file->addAction("Save", [this]() { save(); })->setShortcut("Ctrl+S");
     file->addAction("Save As...", [this]() { showSaveDialog(); });
+    file->addAction("Set as Startup Scene", [this]() { setStartupScene(); });
+    file->addSeparator();
+    file->addAction("Export Web", [this]() { exportWeb(false); });
+    file->addAction("Run Web", [this]() { exportWeb(true); })->setShortcut("F7");
     file->addSeparator();
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
@@ -593,6 +600,12 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
         e.consumed = true;
         return;
     }
+    if (key == rt::Key::F1 + 6)   // F7
+    {
+        exportWeb(true);
+        e.consumed = true;
+        return;
+    }
     rt::Widget* focused = mApp->focused();
     if (rt::widget_cast<rt::TextInput>(focused) || rt::widget_cast<rt::TextEdit>(focused))
         return;
@@ -641,14 +654,8 @@ bool EditorWindow::openScene(const char* path)
 {
     registerTypes();
     const ct::String sceneDirectory = directoryOf(path);
-    const ct::String projectRoot = directoryOf(sceneDirectory.c_str());
-    // Absolute, so asset paths can be made relative to it.
-    mProjectRoot = EditorFileSystem::isAbsolute(projectRoot)
-                       ? projectRoot
-                       : EditorFileSystem::join(EditorFileSystem::currentDirectory(), projectRoot.c_str());
+    setProjectRoot(findProjectRoot(sceneDirectory));
     FileSystem& files = FileSystem::Instance();
-    files.AddSearchPath(projectRoot.c_str());
-    files.AddSearchPath(joinPath(projectRoot, "assets").c_str());
     files.AddSearchPath(sceneDirectory.c_str());
 
     stopPlay();
@@ -671,10 +678,6 @@ bool EditorWindow::openScene(const char* path)
     FileBuffer text;
     mSceneDocument = files.LoadFile(path, text, true) ? ct::Json::parse(text.Text()) : ct::Json();
     loadPhysics();
-    mAssetsPanel->setRoot(mProjectRoot);
-    mSpriteEditor->setRoot(mProjectRoot);
-    mScriptEditor->setRoot(mProjectRoot);
-    mImageEditor->setRoot(mProjectRoot);
     sceneLoaded();
     return true;
 }
@@ -1789,6 +1792,8 @@ void EditorWindow::shutdown()
 {
     if (mRunnerId > 0 && process_is_running(mRunnerId))
         process_kill(mRunnerId);
+    if (mWebServerId > 0 && process_is_running(mWebServerId))
+        process_kill(mWebServerId);
     mMcp.stop();
     log_set_callback(nullptr, nullptr);
     stopPlay();

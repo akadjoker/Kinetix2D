@@ -31,7 +31,9 @@ int main(int argc, char** argv)
 
     k2d::editor::EditorWindow window;
     window.build(app.widgets(), app.window());
-    // k2d_editor [scene] [--mcp[=port]]
+    // k2d_editor [scene.k2dscene | project.k2dproj] [--mcp[=port]]; with neither,
+    // the last project opened.
+    bool opened = false;
     for (int i = 1; i < argc; ++i)
     {
         if (std::strncmp(argv[i], "--mcp", 5) == 0)
@@ -39,9 +41,15 @@ int main(int argc, char** argv)
             const int port = argv[i][5] == '=' ? std::atoi(argv[i] + 6) : 7777;
             window.setMcp(static_cast<std::uint16_t>(port > 0 && port < 65536 ? port : 7777));
         }
-        else if (!window.openScene(argv[i]))
+        else if (path_has_extension(argv[i], ".k2dproj"))
+            opened = window.openProject(argv[i]) || opened;
+        else if (window.openScene(argv[i]))
+            opened = true;
+        else
             log_error("Could not open scene: %s", argv[i]);
     }
+    if (!opened)
+        window.openLastProject();
 
     app.setEventHook([&window](const Event& event) { window.onPlatformEvent(event); });
     app.setFrameCallback([&app, &window](float deltaTime)

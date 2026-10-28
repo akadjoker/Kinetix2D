@@ -49,7 +49,11 @@ const char* const kTools = R"JSON([
  {"name":"instantiate_prefab","description":"Put an instance of a prefab (a project path to a .k2dprefab) in the scene, at x, y in the world when given, under parent when given. Returns its path. One undo step.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"x":{"type":"number"},"y":{"type":"number"},"parent":{"type":"string"}},"required":["path"]}},
  {"name":"save_prefab","description":"Save an object and its children as a prefab file (a project path ending in .k2dprefab).","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"path":{"type":"string"}},"required":["object","path"]}},
  {"name":"profile","description":"Where the engine's frame time goes: each profile scope (scene update, physics, rendering, scripts...) with its average and peak milliseconds and calls per frame. Best read while the game plays.","inputSchema":{"type":"object","properties":{}}},
- {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}}
+ {"name":"reparent","description":"Move an object under another (parent), or to the top when parent is empty. It keeps its local position. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"parent":{"type":"string"}},"required":["object"]}},
+ {"name":"new_project","description":"Make a project in an empty folder (an absolute path): scenes/, assets/, project.k2dproj and a startup scene with a player that moves with the arrows. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"folder":{"type":"string"}},"required":["folder"]}},
+ {"name":"open_project","description":"Open a project (an absolute path to its project.k2dproj or its folder) at its startup scene. Unsaved changes to the open scene are lost.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
+ {"name":"set_startup_scene","description":"Make the open scene the one the exported game starts with.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
 
 const char* const kInstructions =
@@ -390,6 +394,10 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "instantiate_prefab") return instantiatePrefab(arguments, isError);
     if (name == "save_prefab") return savePrefab(arguments, isError);
     if (name == "profile") return profile();
+    if (name == "new_project") return newProject(arguments, isError);
+    if (name == "open_project") return openProject(arguments, isError);
+    if (name == "set_startup_scene") return setStartupScene(isError);
+    if (name == "export_web") return exportWeb(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
 }
 
@@ -807,6 +815,54 @@ ct::Json McpServer::saveScene(bool& isError)
     if (!mEditor.saveScene(mEditor.mScenePath.c_str()))
         return fail("Could not save: see console", isError);
     return text(ct::String("Saved ") + mEditor.mScenePath);
+}
+
+// ── Projects ───────────────────────────────────────────────────────────────
+
+ct::Json McpServer::newProject(const ct::Json& arguments, bool& isError)
+{
+    const ct::String folder = arguments["folder"].as_cstr("");
+    if (!EditorFileSystem::isAbsolute(folder))
+        return fail("Give the folder as an absolute path", isError);
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (!mEditor.createProject(folder))
+        return fail("Could not make the project: see console", isError);
+    return text("New project in " + mEditor.mProjectRoot + ", open at " + mEditor.mScenePath);
+}
+
+ct::Json McpServer::openProject(const ct::Json& arguments, bool& isError)
+{
+    ct::String path = arguments["path"].as_cstr("");
+    if (!EditorFileSystem::isAbsolute(path))
+        return fail("Give the project as an absolute path", isError);
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (EditorFileSystem::isDirectory(path))
+        path = EditorFileSystem::join(path, "project.k2dproj");
+    if (!mEditor.openProject(path))
+        return fail("Could not open the project: see console", isError);
+    return text("Opened " + mEditor.mProjectRoot + " at " +
+                (mEditor.mScenePath.empty() ? ct::String("a new scene") : mEditor.mScenePath));
+}
+
+ct::Json McpServer::setStartupScene(bool& isError)
+{
+    if (!mEditor.setStartupScene())
+        return fail("Save the scene in a project first", isError);
+    return text(EditorFileSystem::relativeTo(mEditor.mProjectRoot, mEditor.mScenePath) + " starts the game");
+}
+
+ct::Json McpServer::exportWeb(const ct::Json& arguments, bool& isError)
+{
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (mEditor.mDirty)
+        return fail("The scene has unsaved changes: save_scene first", isError);
+    ct::String message;
+    if (!mEditor.buildWeb(arguments["run"].as_bool(false), message))
+        return fail(message.c_str(), isError);
+    return text(message);
 }
 
 // ── Files ──────────────────────────────────────────────────────────────────

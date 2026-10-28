@@ -48,6 +48,10 @@ class EditorWindow
 
 public:
     void build(ig::retained::WidgetApp& app, PlatformWindow* window);
+    // A project is a folder with project.k2dproj, scenes/ and assets/.
+    bool openProject(const ct::String& projectFile);
+    bool createProject(const ct::String& folder);
+    bool openLastProject();
     bool openScene(const char* path);
     void newScene();
     bool saveScene(const char* path);
@@ -71,6 +75,14 @@ public:
     void feedGameMouse();
 
 private:
+    ct::String findProjectRoot(const ct::String& sceneDirectory) const;
+    void setProjectRoot(const ct::String& root);
+    void rememberProject();
+    void showNewProjectDialog();
+    void showOpenProjectDialog();
+    bool setStartupScene();
+    void exportWeb(bool run);
+    bool buildWeb(bool run, ct::String& message);
     void resetLayout();
     void registerTypes();
     void drainLog();
@@ -144,6 +156,7 @@ private:
     int mStopItem = -1;
     int mWindowItem = -1;
     int64_t mRunnerId = 0;
+    int64_t mWebServerId = 0;
     ig::retained::StatusBar* mStatus = nullptr;
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;

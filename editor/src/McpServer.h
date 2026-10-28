@@ -52,6 +52,10 @@ private:
     ct::Json console(const ct::Json& arguments);
     ct::Json screenshot(const ct::Json& arguments, bool& isError);
     ct::Json saveScene(bool& isError);
+    ct::Json newProject(const ct::Json& arguments, bool& isError);
+    ct::Json openProject(const ct::Json& arguments, bool& isError);
+    ct::Json setStartupScene(bool& isError);
+    ct::Json exportWeb(const ct::Json& arguments, bool& isError);
     ct::Json listAssets(const ct::Json& arguments, bool& isError);
     ct::Json readFile(const ct::Json& arguments, bool& isError);
     ct::Json writeFile(const ct::Json& arguments, bool& isError);

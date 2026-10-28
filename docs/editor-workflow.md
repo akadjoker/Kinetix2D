@@ -1,5 +1,25 @@
 # Editor quick workflow
 
+## Projects and the web
+
+**File → New Project...** asks for a folder and a name and makes the project
+there: `scenes/`, `assets/`, `project.k2dproj` and a startup scene with a
+player that moves with the arrows or WASD, so **Play** works at once.
+**Open Project...** opens a `project.k2dproj` at its startup scene, and the
+editor opens the last project again when started with no arguments.
+**Set as Startup Scene** makes the open scene the one the game starts with.
+
+**Export Web** writes the game into `<project>/export/web`: `index.html`,
+`data.kpak` (scenes, assets, scripts compiled to bytecode) and the web
+runner. **Run Web** (F7) also serves it on `http://127.0.0.1:8090/` and
+opens the browser. Upload the folder to any static host to publish it. The
+web runner is the Emscripten build of `k2d_runner` in `bin/web/`, made once:
+
+    emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DK2D_RUNTIME_OUTPUT_DIRECTORY=$PWD/bin/web
+    cmake --build build-web --target k2d_runner
+
+`k2d_export <project>` does the same export from the command line.
+
 ## Scripts
 
 In **Assets**, use the file-plus button to create a `.py` script. Pick a
