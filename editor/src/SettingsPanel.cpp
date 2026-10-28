@@ -51,6 +51,14 @@ void SettingsPanel::rebuild()
     row(scene, PropertyInfo(PropertyType::Color, "ambient"), [this]() { return PropertyValue::from(mSettings.ambient); },
         [this](const PropertyValue& v) { mSettings.ambient = v.asColor(); }, false);
 
+    auto* display = mFields->createChild<rt::Collapsible>("Project display");
+    row(display, PropertyInfo::range(PropertyType::Int, "width", 64.0f, 7680.0f, 1.0f),
+        [this]() { return PropertyValue::from(mSettings.displayWidth); },
+        [this](const PropertyValue& v) { mSettings.displayWidth = v.asInt() >= 64 ? v.asInt() : 64; }, true);
+    row(display, PropertyInfo::range(PropertyType::Int, "height", 64.0f, 4320.0f, 1.0f),
+        [this]() { return PropertyValue::from(mSettings.displayHeight); },
+        [this](const PropertyValue& v) { mSettings.displayHeight = v.asInt() >= 64 ? v.asInt() : 64; }, true);
+
     auto* project = mFields->createChild<rt::Collapsible>("Project physics");
     row(project, PropertyInfo(PropertyType::Vec2, "gravity"), [this]() { return PropertyValue::from(mSettings.gravity); },
         [this](const PropertyValue& v) { mSettings.gravity = v.asVec2(); }, true);

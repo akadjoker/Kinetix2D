@@ -20,6 +20,8 @@ struct SceneSettings
     bool sceneGravity = false;   // the scene overrides the project's gravity
     Math::Vec2 sceneGravityValue = Math::Vec2(0.0f, 980.0f);
     Color ambient;
+    int displayWidth = 1280;    // the window the game opens
+    int displayHeight = 720;
 
     Math::Vec2 effectiveGravity() const { return sceneGravity ? sceneGravityValue : gravity; }
 };

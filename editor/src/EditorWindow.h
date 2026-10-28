@@ -26,6 +26,7 @@
 #include "FileDialog.hpp"
 #include "LayoutWidgets.hpp"
 #include "MenuWidgets.hpp"
+#include "ComboBox.hpp"
 #include "ToolBar.hpp"
 #include "WidgetApp.hpp"
 
@@ -221,6 +222,9 @@ private:
     // game's own size, to turn game coordinates into the window's.
     float mGameViewX = 0.0f, mGameViewY = 0.0f, mGameViewW = 0.0f, mGameViewH = 0.0f;
     float mGameVirtualW = 0.0f, mGameVirtualH = 0.0f;
+    // The screen the Game view stands for: the project's, the panel itself, or a preset.
+    ig::retained::ComboBox* mGameScreen = nullptr;
+    int mGameScreenIndex = 0;
     // The console's lines, numbered, for tools that read them back (MCP).
     ct::Vector<ct::String> mLogHistory;
     std::size_t mLogFirst = 0;   // the number of the oldest line kept

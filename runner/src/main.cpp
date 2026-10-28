@@ -272,6 +272,19 @@ PhysicsConfig loadPhysics(const char* projectPath)
     return config;
 }
 
+// The window the project asks for; 1280 x 720 without one.
+void loadDisplay(const char* projectPath, int& width, int& height)
+{
+    ct::Json project;
+    if (!projectPath || !projectPath[0] || !loadJson(projectPath, project))
+        return;
+    const ct::Json& display = project["display"];
+    if (!display.is_object())
+        return;
+    width = static_cast<int>(display["width"].as_int(width));
+    height = static_cast<int>(display["height"].as_int(height));
+}
+
 void configureVirtualPad(const ct::Json& sceneJson, k2d::VirtualPad& pad)
 {
     const ct::Json& config = sceneJson["virtualPad"];
@@ -402,7 +415,10 @@ int main(int argc, char** argv)
     // The game lives in statics: on the web the browser calls the frame after
     // main has given its stack back.
     static k2d::Device device;
-    if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), 1280, 720, true))
+    int windowWidth = 1280;
+    int windowHeight = 720;
+    loadDisplay(projectPath.c_str(), windowWidth, windowHeight);
+    if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), windowWidth, windowHeight, true))
         return 1;
     static k2d::UserData userData;
     const ct::String projectName(path_filename(projectRoot.c_str()));

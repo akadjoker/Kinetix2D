@@ -6,6 +6,7 @@
 #include <k2d/CameraComponent.h>
 #include <k2d/Collider2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/GameViewport.h>
 #include <k2d/Bone2D.h>
 #include <k2d/ClassDB.h>
 #include <k2d/Joint2D.h>
@@ -17,6 +18,7 @@
 #include <k2d/Skeleton2D.h>
 
 #include <cfloat>
+#include <cstdio>
 #include <cmath>
 
 namespace rt = ig::retained;
@@ -627,17 +629,8 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
     if (mGrid)
         paintGrid(ctx, area);
 
-    // The game camera's frame, so the view shows what the game will see.
     if (CameraComponent* camera = scene.activeCamera())
-    {
-        const Math::Vec2 centre = camera->owner()->globalPosition();
-        const float halfW = camera->viewportWidth() * 0.5f / camera->camera().zoom.x;
-        const float halfH = camera->viewportHeight() * 0.5f / camera->camera().zoom.y;
-        const Math::Vec2 a = toScreen(Math::Vec2(centre.x - halfW, centre.y - halfH));
-        const Math::Vec2 b = toScreen(Math::Vec2(centre.x + halfW, centre.y + halfH));
-        ctx.line.SetColor(rt::Color(150, 120, 230, 200));
-        ctx.lineRect(area.x + a.x, area.y + a.y, b.x - a.x, b.y - a.y);
-    }
+        paintCameraFrames(ctx, area, *camera);
 
     const bool editable = selected && selected->parent();
     if (mColliders)
@@ -727,6 +720,70 @@ void SceneGizmo::paintMarkers(rt::PaintContext& ctx, const rt::Rect& area, GameO
                            area.y + p.y - 6.0f);
         }
     }
+}
+
+// What the game will see: the camera's resolution, the window around it (wider
+// than the camera where Fit leaves bars, the same where Expand fills it) and
+// the limits the camera keeps inside.
+void SceneGizmo::paintCameraFrames(rt::PaintContext& ctx, const rt::Rect& area, const CameraComponent& camera) const
+{
+    const float width = camera.viewportWidth();
+    const float height = camera.viewportHeight();
+    if (width <= 0.0f || height <= 0.0f)
+        return;
+    const Matrix2D toWorld = camera.camera().CameraXform(width, height);
+    auto corners = [&](float halfW, float halfH, Math::Vec2 out[4]) {
+        const float cx = width * 0.5f;
+        const float cy = height * 0.5f;
+        out[0] = toScreen(toWorld.Transform(cx - halfW, cy - halfH));
+        out[1] = toScreen(toWorld.Transform(cx + halfW, cy - halfH));
+        out[2] = toScreen(toWorld.Transform(cx + halfW, cy + halfH));
+        out[3] = toScreen(toWorld.Transform(cx - halfW, cy + halfH));
+    };
+    char label[96];
+    Math::Vec2 frame[4];
+    const GameViewport screen = CalculateGameViewport(mDisplayWidth, mDisplayHeight, width, height,
+                                                      camera.viewportScaleMode(), camera.integerScale());
+    if (screen.valid())
+    {
+        const float pixelsPerUnit = screen.width / screen.virtualWidth;
+        corners(mDisplayWidth * 0.5f / pixelsPerUnit, mDisplayHeight * 0.5f / pixelsPerUnit, frame);
+        std::snprintf(label, sizeof(label), "Screen %.0f x %.0f", mDisplayWidth, mDisplayHeight);
+        paintFrame(ctx, area, frame, rt::Color(90, 200, 255, 170), label, true);
+    }
+    corners(width * 0.5f, height * 0.5f, frame);
+    std::snprintf(label, sizeof(label), "Camera %.0f x %.0f | %s", width, height,
+                  camera.viewportScaleMode() == ViewportScaleMode::Expand ? "Expand" : "Fit");
+    paintFrame(ctx, area, frame, rt::Color(150, 120, 230, 220), label, false);
+
+    const Camera2D& view = camera.camera();
+    if (view.limitEnabled)
+    {
+        const Math::Vec4& l = view.limits;
+        frame[0] = toScreen(Math::Vec2(l.x, l.y));
+        frame[1] = toScreen(Math::Vec2(l.z, l.y));
+        frame[2] = toScreen(Math::Vec2(l.z, l.w));
+        frame[3] = toScreen(Math::Vec2(l.x, l.w));
+        paintFrame(ctx, area, frame, rt::Color(255, 170, 60, 200), "Limits", false);
+    }
+}
+
+void SceneGizmo::paintFrame(rt::PaintContext& ctx, const rt::Rect& area, const Math::Vec2 corners[4],
+                            const rt::Color& color, const char* label, bool labelBelow) const
+{
+    ctx.line.SetColor(color);
+    for (int i = 0; i < 4; ++i)
+    {
+        const Math::Vec2& a = corners[i];
+        const Math::Vec2& b = corners[(i + 1) % 4];
+        ctx.line.Line2D(area.x + a.x, area.y + a.y, area.x + b.x, area.y + b.y);
+    }
+    const auto& theme = rt::Theme::instance();
+    ctx.font.SetFontSize(theme.fontSize);
+    ctx.font.SetBatch(&ctx.text);
+    ctx.font.SetColor(color);
+    const Math::Vec2& at = labelBelow ? corners[3] : corners[0];
+    ctx.font.Print(label, area.x + at.x + 4.0f, area.y + at.y + 4.0f);
 }
 
 void SceneGizmo::paintOutline(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const

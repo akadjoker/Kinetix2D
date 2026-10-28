@@ -33,6 +33,7 @@
 
 #include <platform.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
@@ -47,6 +48,17 @@ namespace
 const char* const kHierarchyPanel = "Hierarchy";
 const char* const kScenePanel = "Scene";
 const char* const kGamePanel = "Game";
+
+// Width 0 is the project's display, -1 the panel as it is.
+struct GameScreen
+{
+    const char* name;
+    int width;
+    int height;
+};
+const GameScreen kGameScreens[] = {{"Project screen", 0, 0}, {"Free", -1, -1},      {"1920 x 1080", 1920, 1080},
+                                   {"1280 x 720", 1280, 720},  {"1024 x 768", 1024, 768}, {"800 x 600", 800, 600},
+                                   {"720 x 1280", 720, 1280},  {"1080 x 1920", 1080, 1920}};
 const char* const kInspectorPanel = "Inspector";
 const char* const kConsolePanel = "Console";
 const char* const kAssetsPanel = "Assets";
@@ -277,9 +289,22 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         else if (item == mWindowItem)
             runInWindow();
     });
-    rt::ToolBar* toolFill = toolRow->createChild<rt::ToolBar>();
+    auto* toolRight = toolRow->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    toolRight->setPadding(0.0f);
+    toolRight->setSpacing(0.0f);
+    toolRight->setStretch(1.0f);
+    rt::ToolBar* toolFill = toolRight->createChild<rt::ToolBar>();
     toolFill->setDraggable(false);
     toolFill->setStretch(1.0f);
+    mGameScreen = toolRight->createChild<rt::ComboBox>();
+    for (const GameScreen& screen : kGameScreens)
+        mGameScreen->addItem(screen.name);
+    mGameScreen->setSelectedIndex(0);
+    mGameScreen->selectionChanged.connect([this](int index)
+    {
+        if (index >= 0)
+            mGameScreenIndex = index;
+    });
     updateRunBar();
     updateUndoButtons();
 
@@ -1059,15 +1084,31 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
     if (!ensureCanvas() || !mGameTarget.resize(pixelWidth, pixelHeight))
         return;
 
+    // The chosen screen, as large as the panel holds it; the camera's
+    // letterbox goes inside it as the runner puts it inside its window.
+    float screenX = 0.0f, screenY = 0.0f;
+    float screenW = static_cast<float>(pixelWidth), screenH = static_cast<float>(pixelHeight);
+    float virtualW = area.w, virtualH = area.h;
+    const GameScreen& chosen = kGameScreens[mGameScreenIndex];
+    if (chosen.width >= 0)
+    {
+        virtualW = static_cast<float>(chosen.width > 0 ? chosen.width : mSceneSettings.displayWidth);
+        virtualH = static_cast<float>(chosen.height > 0 ? chosen.height : mSceneSettings.displayHeight);
+        const float scale = std::fmin(screenW / virtualW, screenH / virtualH);
+        screenX = (screenW - virtualW * scale) * 0.5f;
+        screenY = (screenH - virtualH * scale) * 0.5f;
+        screenW = virtualW * scale;
+        screenH = virtualH * scale;
+    }
     CameraComponent* camera = mScene.activeCamera();
-    const GameViewport viewport =
-        camera ? CalculateGameViewport(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight),
-                                       camera->viewportWidth(), camera->viewportHeight(),
-                                       camera->viewportScaleMode(), camera->integerScale())
-               : CalculateGameViewport(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight),
-                                       area.w, area.h);
+    GameViewport viewport = camera ? CalculateGameViewport(screenW, screenH, camera->viewportWidth(),
+                                                           camera->viewportHeight(), camera->viewportScaleMode(),
+                                                           camera->integerScale())
+                                   : CalculateGameViewport(screenW, screenH, virtualW, virtualH);
     if (!viewport.valid())
         return;
+    viewport.x += screenX;
+    viewport.y += screenY;
 
     // Scripts and UI read the pointer in window points, not framebuffer pixels.
     const float inverse = 1.0f / pixelScale;
@@ -1085,8 +1126,14 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
 
     mGameTarget.bind();
     glDisable(GL_SCISSOR_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.09f, 0.09f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(static_cast<int>(screenX + 0.5f), static_cast<int>(screenY + 0.5f), static_cast<int>(screenW + 0.5f),
+              static_cast<int>(screenH + 0.5f));
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
     // The framebuffer is drawn flipped, so the letterbox is measured from the bottom.
     const float bottom = static_cast<float>(pixelHeight) - viewport.y - viewport.height;
     glViewport(static_cast<int>(viewport.x + 0.5f), static_cast<int>(bottom + 0.5f),
@@ -1954,6 +2001,12 @@ void EditorWindow::loadSettings()
         mSceneSettings.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(mSceneSettings.velocityIterations));
         mSceneSettings.treeBroadphase = physics["treeBroadphase"].as_bool(mSceneSettings.treeBroadphase);
     }
+    const ct::Json& display = mProjectDocument["display"];
+    if (display.is_object())
+    {
+        mSceneSettings.displayWidth = static_cast<int>(display["width"].as_int(mSceneSettings.displayWidth));
+        mSceneSettings.displayHeight = static_cast<int>(display["height"].as_int(mSceneSettings.displayHeight));
+    }
     const ct::Json& scenePhysics = mSceneDocument["physics"];
     mSceneSettings.sceneGravity = scenePhysics.is_object() && scenePhysics["gravity"].is_array();
     mSceneSettings.sceneGravityValue = readVec(scenePhysics["gravity"], mSceneSettings.gravity);
@@ -1966,6 +2019,7 @@ void EditorWindow::applySettings()
 {
     mScene.setGravity(mSceneSettings.effectiveGravity());
     mScene.setAmbient(mSceneSettings.ambient);
+    mGizmo.setDisplay(static_cast<float>(mSceneSettings.displayWidth), static_cast<float>(mSceneSettings.displayHeight));
     mScene.setFixedTimeStep(mSceneSettings.fixedTimeStep);
     mScene.setVelocityIterations(mSceneSettings.velocityIterations);
     mScene.setTreeBroadphase(mSceneSettings.treeBroadphase);
@@ -1993,6 +2047,10 @@ void EditorWindow::settingsChanged(const SceneSettings& settings, bool project)
         physics.set("velocityIterations", ct::Json(mSceneSettings.velocityIterations));
         physics.set("treeBroadphase", ct::Json(mSceneSettings.treeBroadphase));
         mProjectDocument.set("physics", physics);
+        ct::Json display = ct::Json::object();
+        display.set("width", ct::Json(mSceneSettings.displayWidth));
+        display.set("height", ct::Json(mSceneSettings.displayHeight));
+        mProjectDocument.set("display", display);
         const ct::String projectFile = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
         if (FileSystem::Instance().SaveTextFile(projectFile.c_str(), mProjectDocument.dump(2)))
             log_info("Saved project physics");

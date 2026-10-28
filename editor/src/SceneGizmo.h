@@ -11,6 +11,7 @@
 namespace k2d
 {
 class Bone2D;
+class CameraComponent;
 class Collider2D;
 class Joint2D;
 class NavigationRegion2D;
@@ -52,6 +53,12 @@ public:
     void setGrid(bool grid) { mGrid = grid; }
     void setSnap(bool snap) { mSnap = snap; }
     void setColliders(bool colliders) { mColliders = colliders; }
+    // The size of the game's window, for the screen's frame around the camera.
+    void setDisplay(float width, float height)
+    {
+        mDisplayWidth = width;
+        mDisplayHeight = height;
+    }
     // How many bones a pulled bone tip moves, itself included.
     void setIkChain(int bones) { mIkChain = bones > 0 ? bones : 1; }
     // The objects selected with the one passed to press and paint: drawn as
@@ -153,6 +160,10 @@ private:
     bool hitSegment(GameObject& selected, float x, float y, Collider2D*& collider, int& after,
                     Math::Vec2& point) const;
     void paintGrid(ig::retained::PaintContext& ctx, const ig::retained::Rect& area) const;
+    void paintCameraFrames(ig::retained::PaintContext& ctx, const ig::retained::Rect& area,
+                           const CameraComponent& camera) const;
+    void paintFrame(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, const Math::Vec2 corners[4],
+                    const ig::retained::Color& color, const char* label, bool labelBelow) const;
     void paintMarkers(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject* selected) const;
     void paintOutline(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& selected) const;
     void paintCollider(ig::retained::PaintContext& ctx, const ig::retained::Rect& area, GameObject& object,
@@ -176,6 +187,8 @@ private:
 
     SceneTool mTool = SceneTool::Select;
     bool mGrid = true;
+    float mDisplayWidth = 1280.0f;
+    float mDisplayHeight = 720.0f;
     bool mSnap = false;
     bool mColliders = true;
     Camera2D mCamera;
