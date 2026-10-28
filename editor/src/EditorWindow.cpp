@@ -1133,7 +1133,6 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
               static_cast<int>(screenH + 0.5f));
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
     // The framebuffer is drawn flipped, so the letterbox is measured from the bottom.
     const float bottom = static_cast<float>(pixelHeight) - viewport.y - viewport.height;
     glViewport(static_cast<int>(viewport.x + 0.5f), static_cast<int>(bottom + 0.5f),
@@ -1153,6 +1152,7 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
     }
     mScene.render(mCanvas);
     GetScreenFade().Draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
+    glDisable(GL_SCISSOR_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     rt::TextureHandle texture;

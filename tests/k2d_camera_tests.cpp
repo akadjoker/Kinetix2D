@@ -114,6 +114,29 @@ int main()
     const bool expandViewport = Near(expand.x, 0.0f) && Near(expand.y, 0.0f) && Near(expand.width, 1920.0f) &&
                                 Near(expand.height, 1080.0f) && Near(expand.virtualWidth, 853.333333f) &&
                                 Near(expand.virtualHeight, 480.0f);
+    const k2d::GameViewport crop =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Crop);
+    const k2d::GameViewport stretch =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Stretch);
+    const k2d::GameViewport fitWidth =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::FitWidth);
+    const k2d::GameViewport fitHeight =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::FitHeight);
+    const k2d::GameViewport native =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Native);
+    bool modeNames = k2d::ParseViewportScaleMode("unknown") == k2d::ViewportScaleMode::Fit;
+    for (int i = 0; i < 7; ++i)
+    {
+        const k2d::ViewportScaleMode mode = static_cast<k2d::ViewportScaleMode>(i);
+        modeNames = modeNames && k2d::ParseViewportScaleMode(k2d::ViewportScaleModeName(mode)) == mode;
+    }
+    const bool otherModes =
+        Near(crop.width, 1920.0f) && Near(crop.height, 1440.0f) && Near(crop.y, -180.0f) &&
+        Near(crop.virtualWidth, 640.0f) && Near(stretch.width, 1920.0f) && Near(stretch.height, 1080.0f) &&
+        Near(stretch.virtualHeight, 480.0f) && Near(fitWidth.virtualWidth, 640.0f) &&
+        Near(fitWidth.virtualHeight, 360.0f) && Near(fitHeight.virtualWidth, 853.333333f) &&
+        Near(fitHeight.virtualHeight, 480.0f) && Near(native.virtualWidth, 1920.0f) &&
+        Near(native.virtualHeight, 1080.0f) && modeNames;
 
     k2d::CameraComponent camera;
     camera.setViewport(1280.0f, 720.0f);
@@ -170,16 +193,16 @@ int main()
     const bool feedbackStops = !feedback.isShaking() && !feedback.isZoomPunching() &&
                                Near(feedback.shakeOffset.x, 0.0f) && Near(feedback.shakeOffset.y, 0.0f);
 
-    std::printf("camera: transform_follow=%s writes_back=%s legacy_migration=%s fit=%s integer=%s expand=%s center=%s viewport=%s "
+    std::printf("camera: transform_follow=%s writes_back=%s legacy_migration=%s fit=%s integer=%s expand=%s other_modes=%s center=%s viewport=%s "
                 "resize_zoom=%s limits=%s smoothing=%s dead_zone=%s trauma=%s shake=%s zoom_punch=%s stop=%s\n",
                 followsTransform ? "pass" : "fail", writesBack ? "pass" : "fail", legacyMigration ? "pass" : "fail",
                 fitViewport ? "pass" : "fail", integerViewport ? "pass" : "fail", expandViewport ? "pass" : "fail",
-                centerMaps ? "pass" : "fail", viewportMaps ? "pass" : "fail", resized ? "pass" : "fail",
+                otherModes ? "pass" : "fail", centerMaps ? "pass" : "fail", viewportMaps ? "pass" : "fail", resized ? "pass" : "fail",
                 limits ? "pass" : "fail", smoothing ? "pass" : "fail", deadZoneApplied ? "pass" : "fail",
                 trauma ? "pass" : "fail", shake ? "pass" : "fail", zoomPunch ? "pass" : "fail",
                 feedbackStops ? "pass" : "fail");
     return followsTransform && writesBack && legacyMigration && fitViewport && integerViewport && expandViewport &&
-                   centerMaps && viewportMaps && resized && limits && smoothing && deadZoneApplied && trauma && shake &&
+                   otherModes && centerMaps && viewportMaps && resized && limits && smoothing && deadZoneApplied && trauma && shake &&
                    zoomPunch && feedbackStops
                ? 0
                : 1;

@@ -176,7 +176,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("CameraComponent", ComponentType::Camera, ComponentClass::None);
-    ClassDB::addProperty<CameraComponent>(c, PropertyInfo::enumeration("viewportScaleMode", "Fit,Expand"), &CameraComponent::viewportScaleMode, &CameraComponent::setViewportScaleMode);
+    ClassDB::addProperty<CameraComponent>(c, PropertyInfo::enumeration("viewportScaleMode", "Fit,Expand,Crop,Stretch,Fit Width,Fit Height,Native"), &CameraComponent::viewportScaleMode, &CameraComponent::setViewportScaleMode);
     ClassDB::addProperty<CameraComponent>(c, PropertyInfo(PropertyType::Bool, "integerScale"), &CameraComponent::integerScale, &CameraComponent::setIntegerScale);
     ClassDB::addProperty<CameraComponent>(c, PropertyInfo(PropertyType::Int, "renderPriority"), &CameraComponent::renderPriority, &CameraComponent::setRenderPriority);
     ClassDB::addProperty<CameraComponent>(c, PropertyInfo(PropertyType::String, "followTargetName"), &CameraComponent::followTargetName, &CameraComponent::setFollowTargetName);

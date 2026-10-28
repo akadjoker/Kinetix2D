@@ -1367,6 +1367,9 @@ void CanvasRenderer::RenderShadowAtlas()
     glGetIntegerv(GL_VIEWPORT, previousViewport);
     GLint previousFramebuffer = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
+    GLint previousScissor[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    const GLboolean previousScissorTest = glIsEnabled(GL_SCISSOR_TEST);
 
     static const int textureSize = 2048;
 
@@ -1424,7 +1427,9 @@ void CanvasRenderer::RenderShadowAtlas()
     glBindVertexArray(0);
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)previousFramebuffer);
     glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
-    glDisable(GL_SCISSOR_TEST);
+    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
+    if (!previousScissorTest)
+        glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glEnable(GL_BLEND);

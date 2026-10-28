@@ -746,14 +746,15 @@ void SceneGizmo::paintCameraFrames(rt::PaintContext& ctx, const rt::Rect& area, 
                                                       camera.viewportScaleMode(), camera.integerScale());
     if (screen.valid())
     {
-        const float pixelsPerUnit = screen.width / screen.virtualWidth;
-        corners(mDisplayWidth * 0.5f / pixelsPerUnit, mDisplayHeight * 0.5f / pixelsPerUnit, frame);
+        const float unitsX = screen.virtualWidth / screen.width;
+        const float unitsY = screen.virtualHeight / screen.height;
+        corners(mDisplayWidth * 0.5f * unitsX, mDisplayHeight * 0.5f * unitsY, frame);
         std::snprintf(label, sizeof(label), "Screen %.0f x %.0f", mDisplayWidth, mDisplayHeight);
         paintFrame(ctx, area, frame, rt::Color(90, 200, 255, 170), label, true);
     }
     corners(width * 0.5f, height * 0.5f, frame);
     std::snprintf(label, sizeof(label), "Camera %.0f x %.0f | %s", width, height,
-                  camera.viewportScaleMode() == ViewportScaleMode::Expand ? "Expand" : "Fit");
+                  ViewportScaleModeName(camera.viewportScaleMode()));
     paintFrame(ctx, area, frame, rt::Color(150, 120, 230, 220), label, false);
 
     const Camera2D& view = camera.camera();
