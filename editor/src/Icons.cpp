@@ -1,5 +1,6 @@
 #include "Icons.h"
 
+#include "ToolBar.hpp"
 #include "WidgetApp.hpp"
 
 #include <k2d/Image.h>
@@ -110,6 +111,18 @@ rt::IconId Icons::get(const char* name)
 {
     const rt::IconId* icon = state().icons.find(ct::String(name));
     return icon ? *icon : rt::IconId::None;
+}
+
+rt::ToolBar* iconButton(rt::Widget* parent, rt::IconId icon, const char* tooltip, ct::Function<void()> clicked)
+{
+    auto* bar = parent->createChild<rt::ToolBar>();
+    bar->setDraggable(false);
+    bar->addButton(icon, tooltip);
+    bar->buttonClicked.connect([clicked](int) {
+        if (clicked)
+            clicked();
+    });
+    return bar;
 }
 
 } // namespace k2d::editor

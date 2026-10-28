@@ -1,6 +1,7 @@
 #include "InspectorPanel.h"
 
 #include "AssetsPanel.h"
+#include "Icons.h"
 #include "core/EditorFileSystem.h"
 
 #include "ComboBox.hpp"
@@ -216,8 +217,8 @@ void InspectorPanel::addComponent(ComponentType type, std::size_t index)
     auto* section = mColumn->createChild<rt::Collapsible>(info->name);
     for (std::size_t p = 0; p < info->properties.size(); ++p)
         addProperty(section, type, index, info->properties[p]);
-    auto* remove = section->createChild<rt::Button>("Remove Component");
-    remove->clicked.connect([this, target]() { removeComponentRequested.emit(target); });
+    iconButton(section, "Remove", "Remove this component",
+               [this, target]() { removeComponentRequested.emit(target); });
 }
 
 void InspectorPanel::addComponentPicker()
@@ -366,9 +367,7 @@ void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::si
             if (field->picked)
                 field->picked(text);
         });
-        auto* clear = line->createChild<rt::Button>("x");
-        clear->setTooltip("Clear");
-        clear->clicked.connect([field]() {
+        iconButton(line, rt::IconId::Cross, "Clear", [field]() {
             field->setText("");
             if (field->picked)
                 field->picked("");

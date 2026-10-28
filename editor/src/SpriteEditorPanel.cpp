@@ -168,14 +168,11 @@ SpriteEditorPanel::SpriteEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutD
 
     mAlpha = integerField(bar, "alpha", 1, 1, 255);
     mMinPixels = integerField(bar, "min px", 4, 1, 1000000);
-    auto* detectButton = bar->createChild<rt::Button>("Detect");
-    detectButton->setTooltip("Replace the regions with the islands of opaque pixels");
-    detectButton->clicked.connect([this]() { detect(); });
+    iconButton(bar, "Search", "Detect: replace the regions with the islands of opaque pixels",
+               [this]() { detect(); });
     mColumns = integerField(bar, "cols", 1, 1, 256);
     mRows = integerField(bar, "rows", 1, 1, 256);
-    auto* splitButton = bar->createChild<rt::Button>("Split");
-    splitButton->setTooltip("Replace the regions with a grid of cols x rows cells");
-    splitButton->clicked.connect([this]() { split(); });
+    iconButton(bar, "Grid", "Split: replace the regions with a grid of cols x rows cells", [this]() { split(); });
 
     auto* body = createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
     body->setStretch(1.0f);
@@ -241,14 +238,13 @@ SpriteEditorPanel::SpriteEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutD
     }
 
     mPreview = side->createChild<RegionPreview>(*this);
-    auto* add = side->createChild<rt::Button>("Add to scene");
-    add->setTooltip("A sprite object showing this region, in the middle of the scene view");
-    add->clicked.connect([this]()
-    {
-        SpriteRegionDrag region;
-        if (currentRegion(region))
-            addToScene.emit(region);
-    });
+    iconButton(side, "Add", "Add to scene: a sprite object showing this region, in the middle of the scene view",
+               [this]()
+               {
+                   SpriteRegionDrag region;
+                   if (currentRegion(region))
+                       addToScene.emit(region);
+               });
 
     mCanvas = body->createChild<SpriteCanvas>();
     mCanvas->setStretch(1.0f);
