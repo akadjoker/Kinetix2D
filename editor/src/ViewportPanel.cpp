@@ -84,4 +84,16 @@ void ViewportPanel::onMouseScroll(rt::MouseEvent& e)
     e.consumed = true;
 }
 
+bool ViewportPanel::acceptsDrop(const rt::DragPayload& payload)
+{
+    return acceptDrop && acceptDrop(payload);
+}
+
+void ViewportPanel::onDropReceive(const rt::DragPayload& payload)
+{
+    const rt::Rect abs = absoluteRect();
+    if (dropped)
+        dropped(payload, payload.dropX - abs.x, payload.dropY - abs.y);
+}
+
 } // namespace k2d::editor

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AssetsPanel.h"
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
 #include "SceneGizmo.h"
@@ -49,6 +50,7 @@ private:
     void redo();
     void updateUndoButtons();
     void runHierarchyAction(HierarchyAction action);
+    void dropAsset(const ct::String& path, float x, float y);
     void dropObject(GameObject* object, GameObject* target, ig::retained::TreeView::DropZone zone);
     void startPlay();
     void stopPlay();
@@ -75,9 +77,11 @@ private:
     ViewportPanel* mGame = nullptr;
     HierarchyPanel* mHierarchy = nullptr;
     InspectorPanel* mInspector = nullptr;
+    AssetsPanel* mAssetsPanel = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;
+    ct::String mProjectRoot;
     Scene mScene;
     CanvasRenderer mCanvas;
     RenderTarget mTarget;

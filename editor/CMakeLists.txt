@@ -27,6 +27,8 @@ add_executable(k2d_editor
     src/InspectorPanel.cpp
     src/ViewportPanel.cpp
     src/SceneGizmo.cpp
+    src/AssetsPanel.cpp
+    src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
 )
 target_include_directories(k2d_editor PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")

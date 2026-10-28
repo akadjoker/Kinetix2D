@@ -10,6 +10,9 @@
 #include <k2d/OpenGL.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/SceneManager.h>
+#include <k2d/SpriteComponent.h>
+#include <k2d/Texture.h>
+#include "core/EditorFileSystem.h"
 #include <k2d/ScreenFade.h>
 #include <k2d/UiControls.h>
 #include <k2d/Serializer.h>
@@ -31,6 +34,7 @@ const char* const kScenePanel = "Scene";
 const char* const kGamePanel = "Game";
 const char* const kInspectorPanel = "Inspector";
 const char* const kConsolePanel = "Console";
+const char* const kAssetsPanel = "Assets";
 
 ct::String directoryOf(const char* path)
 {
@@ -198,9 +202,17 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         }
     });
     mDock->addPanel<rt::Label>(kConsolePanel, "");
+    mAssetsPanel = mDock->addPanel<AssetsPanel>(kAssetsPanel, mAssets);
+    mAssetsPanel->fileOpened.connect([this](const ct::String& path)
+    {
+        if (EditorFileSystem::extension(path) == "k2dscene" && !mPlaying)
+            openScene(EditorFileSystem::resolve(mProjectRoot, path).c_str());
+    });
     mDock->splitOff(kHierarchyPanel, rt::DockSide::Left, 0.2f);
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
+    mDock->moveTabToLeaf(kAssetsPanel, kConsolePanel);
+    mDock->showPanel(kAssetsPanel);
     mDock->showPanel(kScenePanel);
     mDefaultLayout = mDock->saveLayout();
 
@@ -222,6 +234,15 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             return;
         select(mGizmo.pick(mScene, x, y));
     });
+    mViewport->acceptDrop = [this](const rt::DragPayload& payload)
+    {
+        return !mPlaying && payload.type == kAssetPayload;
+    };
+    mViewport->dropped = [this](const rt::DragPayload& payload, float x, float y)
+    {
+        if (const ct::String* path = std::any_cast<ct::String>(&payload.data))
+            dropAsset(*path, x, y);
+    };
     mViewport->dragged.connect([this](float x, float y) { mGizmo.drag(x, y); });
     mViewport->released.connect([this](float, float)
     {
@@ -263,6 +284,10 @@ bool EditorWindow::openScene(const char* path)
     }
     const ct::String sceneDirectory = directoryOf(path);
     const ct::String projectRoot = directoryOf(sceneDirectory.c_str());
+    // Absolute, so asset paths can be made relative to it.
+    mProjectRoot = EditorFileSystem::isAbsolute(projectRoot)
+                       ? projectRoot
+                       : EditorFileSystem::join(EditorFileSystem::currentDirectory(), projectRoot.c_str());
     FileSystem& files = FileSystem::Instance();
     files.AddSearchPath(projectRoot.c_str());
     files.AddSearchPath(joinPath(projectRoot, "assets").c_str());
@@ -279,6 +304,7 @@ bool EditorWindow::openScene(const char* path)
     if (CameraComponent* camera = mScene.activeCamera())
         mCamera.position = camera->owner()->globalPosition();
     mSceneLabel->setText(path_filename(path));
+    mAssetsPanel->setRoot(mProjectRoot);
     mHierarchy->rebuild(mScene);
     select(nullptr);
     mCommands.clear();
@@ -507,6 +533,26 @@ void EditorWindow::updateUndoButtons()
     mTools->setItemTooltip(mUndoItem, tip);
     std::snprintf(tip, sizeof tip, "Redo %s", mCommands.redoName());
     mTools->setItemTooltip(mRedoItem, tip);
+}
+
+// An image dropped on the scene view becomes a sprite object where it lands.
+void EditorWindow::dropAsset(const ct::String& path, float x, float y)
+{
+    Texture* texture = mAssets.GetTexture(path.c_str());
+    if (!texture)
+        return;
+    const rt::Rect area = mViewport->absoluteRect();
+    const Math::Vec2 world = mCamera.ScreenToWorld(x, y, area.w, area.h);
+    const ct::String name = EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path));
+    GameObject* object = mScene.createObject(name.c_str());
+    object->setPosition(world);
+    SpriteComponent* sprite = object->addComponent<SpriteComponent>();
+    sprite->setTexture(texture);
+    sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
+    mSelected = object;
+    refreshTree();
+    mInspector->show(object);
+    commit("Add sprite");
 }
 
 // Inside makes the object the last child of the target; Before and After put it

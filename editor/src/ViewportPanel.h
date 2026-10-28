@@ -25,6 +25,11 @@ public:
     ig::retained::Signal<float, float> dragged;
     ig::retained::Signal<float, float> released;
 
+    // Drag and drop from other panels: whether a payload is taken, and the drop,
+    // at points in the view.
+    ct::Function<bool(const ig::retained::DragPayload&)> acceptDrop;
+    ct::Function<void(const ig::retained::DragPayload&, float, float)> dropped;
+
     // Drawn over the image, with the view's rectangle on screen.
     ct::Function<void(ig::retained::PaintContext&, const ig::retained::Rect&)> overlay;
 
@@ -34,6 +39,8 @@ public:
     void onMouseRelease(ig::retained::MouseEvent& e) override;
     void onMouseMove(ig::retained::MouseEvent& e) override;
     void onMouseScroll(ig::retained::MouseEvent& e) override;
+    bool acceptsDrop(const ig::retained::DragPayload& payload) override;
+    void onDropReceive(const ig::retained::DragPayload& payload) override;
 
 private:
     ig::retained::TextureHandle mTexture;
