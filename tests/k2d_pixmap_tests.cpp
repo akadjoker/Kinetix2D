@@ -1,3 +1,4 @@
+#include <k2d/Image.h>
 #include <k2d/Pixmap.h>
 
 #include <cstdio>
@@ -82,6 +83,17 @@ int main()
     const bool thresholdIncludesAbove = trimThreshold.ComputeTrimBounds(9, lowX, lowY, lowW, lowH) && lowX == 3 &&
                                         lowY == 3 && lowW == 1 && lowH == 1;
 
+    // PNG in memory, decoded back to the same pixels.
+    ct::Vector<unsigned char> png;
+    const bool encoded = k2d::EncodePng(saved.Width(), saved.Height(), saved.Pixels(), saved.Width() * 4, png);
+    int decodedW = 0, decodedH = 0;
+    unsigned char* decoded = encoded ? k2d::DecodeImageRgba(png.data(), png.size(), decodedW, decodedH) : nullptr;
+    const bool memoryPngOk = decoded && decodedW == 4 && decodedH == 4 && decoded[(2 * 4 + 2) * 4] == 10 &&
+                             decoded[(2 * 4 + 2) * 4 + 1] == 20 && decoded[0] == 200;
+    if (decoded)
+        k2d::FreeImage(decoded);
+    std::printf("pixmap: memory_png=%s\n", memoryPngOk ? "pass" : "fail");
+
     std::printf("pixmap: clear=%s pixel=%s rect=%s circle=%s save=%s load=%s normalmap=%s "
                "normal_flat=%s normal_edge=%s trim=%s trim_empty=%s trim_threshold=%s\n",
                 clear ? "pass" : "fail", pixel ? "pass" : "fail",
@@ -90,7 +102,7 @@ int main()
                 normalMapOk ? "pass" : "fail", flatOk ? "pass" : "fail", edgeOk ? "pass" : "fail",
                 trimOk ? "pass" : "fail", trimEmptyOk ? "pass" : "fail",
                 (thresholdExcludesAtOrBelow && thresholdIncludesAbove) ? "pass" : "fail");
-    return clear && pixel && rect && circle && savedOk && loadedOk && normalMapOk && flatOk && edgeOk && trimOk &&
+    return memoryPngOk && clear && pixel && rect && circle && savedOk && loadedOk && normalMapOk && flatOk && edgeOk && trimOk &&
                    trimEmptyOk && thresholdExcludesAtOrBelow && thresholdIncludesAbove
                ? 0
                : 1;

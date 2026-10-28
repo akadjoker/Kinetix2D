@@ -4,6 +4,7 @@
 #include "AssetsPanel.h"
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
+#include "McpServer.h"
 #include "ParticlesPanel.h"
 #include "SceneGizmo.h"
 #include "ScriptEditorPanel.h"
@@ -38,6 +39,8 @@ namespace k2d::editor
 
 class EditorWindow
 {
+    friend class McpServer;
+
 public:
     void build(ig::retained::WidgetApp& app, PlatformWindow* window);
     bool openScene(const char* path);
@@ -45,6 +48,8 @@ public:
     bool saveScene(const char* path);
     void frame(float deltaTime, float pixelScale);
     void shutdown();
+    // The MCP server on 127.0.0.1:port; off when port is 0.
+    bool setMcp(std::uint16_t port);
     // A platform event, as the window reads it: during Play it reaches the game.
     void onPlatformEvent(const Event& event);
 
@@ -119,8 +124,14 @@ private:
     ParticlesPanel* mParticles = nullptr;
     int mPreviewItem = -1;
     bool mLivePreview = true;
+    McpServer mMcp{*this};
+    ig::retained::Label* mMcpLabel = nullptr;
+    ig::retained::MenuAction* mMcpAction = nullptr;
     // What the game's scripts and UI read while it plays in the Game view.
     Input mGameInput;
+    // The console's lines, numbered, for tools that read them back (MCP).
+    ct::Vector<ct::String> mLogHistory;
+    std::size_t mLogFirst = 0;   // the number of the oldest line kept
     ig::retained::ConsoleWidget* mConsole = nullptr;
     ig::retained::String mDefaultLayout;
 

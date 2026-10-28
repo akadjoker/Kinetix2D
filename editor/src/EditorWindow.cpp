@@ -154,6 +154,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::Menu* edit = menuBar->addMenu("Edit");
     edit->addAction("Undo", [this]() { undo(); })->setShortcut("Ctrl+Z");
     edit->addAction("Redo", [this]() { redo(); })->setShortcut("Ctrl+Y");
+    rt::Menu* tools = menuBar->addMenu("Tools");
+    mMcpAction = tools->addCheckable("MCP Server (127.0.0.1:7777)", false);
+    mMcpAction->triggered.connect([this]() { setMcp(mMcp.running() ? 0 : 7777); });
     rt::Menu* view = menuBar->addMenu("View");
     rt::MenuAction* resetLayout = view->addAction("Reset Layout");
     resetLayout->triggered.connect([this]() { this->resetLayout(); });
@@ -414,6 +417,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mStatus->setSpacing(16.0f);
     mSceneLabel = mStatus->createChild<rt::Label>("No scene");
     mFpsLabel = mStatus->createChild<rt::Label>("0 fps");
+    mMcpLabel = mStatus->createChild<rt::Label>("");
     app.setStage("main");
     app.unhandledKey.connect([this](rt::KeyEvent& e) { onShortcut(e); });
 }
@@ -683,6 +687,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         mFpsFrames = 0;
     }
     mStatus->layout();
+    mMcp.poll();
     drainLog();
     mAnimator->tick(deltaTime);
     mParticles->tick();
@@ -1203,12 +1208,38 @@ void EditorWindow::drainLog()
         lines = ct::detail::move(gLogLines);
         gLogLines.clear();
     }
+    static const char* const levels[] = {"trace", "info", "warn", "error"};
     for (const PendingLine& line : lines)
+    {
         mConsole->log(line.level, line.text);
+        mLogHistory.push_back(ct::String(levels[static_cast<int>(line.level)]) + ": " + line.text);
+    }
+    const std::size_t keep = 1000;
+    if (mLogHistory.size() > keep * 2)
+    {
+        const std::size_t drop = mLogHistory.size() - keep;
+        mLogHistory.erase(mLogHistory.begin(), mLogHistory.begin() + drop);
+        mLogFirst += drop;
+    }
+}
+
+bool EditorWindow::setMcp(std::uint16_t port)
+{
+    if (port == 0)
+        mMcp.stop();
+    else
+        mMcp.start(port);
+    char text[64];
+    std::snprintf(text, sizeof text, "MCP 127.0.0.1:%u", static_cast<unsigned>(mMcp.port()));
+    mMcpLabel->setText(mMcp.running() ? text : "");
+    if (mMcpAction)
+        mMcpAction->setChecked(mMcp.running());
+    return mMcp.running();
 }
 
 void EditorWindow::shutdown()
 {
+    mMcp.stop();
     log_set_callback(nullptr, nullptr);
     stopPlay();
     mTarget.destroy();
