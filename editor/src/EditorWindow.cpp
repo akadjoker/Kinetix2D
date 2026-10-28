@@ -36,6 +36,7 @@ const char* const kInspectorPanel = "Inspector";
 const char* const kConsolePanel = "Console";
 const char* const kAssetsPanel = "Assets";
 const char* const kSpritePanel = "Sprite Editor";
+const char* const kAnimatorPanel = "Animator";
 
 ct::String directoryOf(const char* path)
 {
@@ -167,7 +168,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mHierarchy->selectionChanged.connect([this](GameObject* object)
     {
         mSelected = object;
-        mInspector->show(object);
+        showObject(object);
     });
     mHierarchy->actionRequested.connect([this](HierarchyAction action) { runHierarchyAction(action); });
     mHierarchy->edited.connect([this](const char* label) { commit(label); });
@@ -192,14 +193,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         if (final && !mPendingEdit.empty())
             commit(mPendingEdit.c_str());
     });
-    mInspector->addComponentRequested.connect([this](const char* type)
-    {
-        if (mSelected && Serializer::Create(*mSelected, type))
-        {
-            commit("Add component");
-            mInspectorStale = true;
-        }
-    });
+    mInspector->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mInspector->removeComponentRequested.connect([this](Component* component)
     {
         if (mSelected && mSelected->removeComponent(component))
@@ -210,6 +204,10 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     });
     mDock->addPanel<rt::Label>(kConsolePanel, "");
     mAssetsPanel = mDock->addPanel<AssetsPanel>(kAssetsPanel, mAssets);
+    mAnimator = mDock->addPanel<AnimatorPanel>(kAnimatorPanel, mAssets);
+    mAnimator->spriteRegions = [this](ct::Vector<SpriteRegionDrag>& out) { return mSpriteEditor->allRegions(out); };
+    mAnimator->edited.connect([this](const char* label) { commit(label); });
+    mAnimator->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
         const ct::String ext = EditorFileSystem::extension(path);
@@ -223,6 +221,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mDock->splitOff(kInspectorPanel, rt::DockSide::Right, 0.25f);
     mDock->splitOff(kConsolePanel, rt::DockSide::Bottom, 0.25f);
     mDock->moveTabToLeaf(kAssetsPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
     mDock->showPanel(kAssetsPanel);
     mDock->showPanel(kScenePanel);
     mDefaultLayout = mDock->saveLayout();
@@ -262,7 +261,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         if (mGizmo.release())
         {
             commit(mGizmo.editName());
-            mInspector->show(mSelected);
+            showObject(mSelected);
         }
     });
     mViewport->zoomed.connect([this](float steps, float, float)
@@ -342,6 +341,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         mFpsFrames = 0;
     }
     mStatus->layout();
+    mAnimator->tick(deltaTime);
 
     if (mPlaying && !mPaused)
     {
@@ -363,7 +363,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     {
         mInspectorStale = false;
         refreshTree();
-        mInspector->show(mSelected);
+        showObject(mSelected);
     }
 
     if (mViewport && mViewport->isVisible())
@@ -471,7 +471,24 @@ void EditorWindow::select(GameObject* object)
 {
     mSelected = object;
     mHierarchy->select(object);
+    showObject(object);
+}
+
+void EditorWindow::showObject(GameObject* object)
+{
     mInspector->show(object);
+    mAnimator->show(object);
+}
+
+// Shown again on the next frame: the request can come from a widget the
+// inspector is about to replace.
+void EditorWindow::addComponent(const char* type)
+{
+    if (mSelected && !mPlaying && Serializer::Create(*mSelected, type))
+    {
+        commit("Add component");
+        mInspectorStale = true;
+    }
 }
 
 void EditorWindow::refreshTree()
@@ -494,7 +511,7 @@ void EditorWindow::restore(const ct::Json& state)
     Serializer::ReadInto(mScene, mScene.root(), state, &mAssets);
     mSelected = objectAt(mScene.root(), path);
     refreshTree();
-    mInspector->show(mSelected);
+    showObject(mSelected);
 }
 
 // Every edit is recorded as the whole scene before and after it, as the legacy
@@ -577,7 +594,7 @@ void EditorWindow::addSprite(const ct::String& path, const ct::String& name, con
         sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
     mSelected = object;
     refreshTree();
-    mInspector->show(object);
+    showObject(object);
     commit("Add sprite");
 }
 
@@ -619,7 +636,7 @@ void EditorWindow::dropObject(GameObject* object, GameObject* target, rt::TreeVi
 
     mSelected = object;
     refreshTree();
-    mInspector->show(object);
+    showObject(object);
     commit("Reparent");
 }
 
@@ -635,7 +652,7 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
         GameObject* object = mScene.createObject("GameObject", selected ? selected->parent() : nullptr);
         mSelected = object;
         refreshTree();
-        mInspector->show(object);
+        showObject(object);
         commit("New object");
         break;
     }
@@ -649,7 +666,7 @@ void EditorWindow::runHierarchyAction(HierarchyAction action)
             return;
         mSelected = object;
         refreshTree();
-        mInspector->show(object);
+        showObject(object);
         commit("Duplicate");
         break;
     }

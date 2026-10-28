@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AnimatorPanel.h"
 #include "AssetsPanel.h"
 #include "HierarchyPanel.h"
 #include "InspectorPanel.h"
@@ -43,6 +44,9 @@ private:
     void renderScene(float width, float height, float pixelScale);
     void renderGame(const ig::retained::Rect& area, float pixelScale);
     void select(GameObject* object);
+    // The panels that show the selected object, shown it again.
+    void showObject(GameObject* object);
+    void addComponent(const char* type);
     void refreshTree();
     ct::Json snapshot() const;
     void restore(const ct::Json& state);
@@ -83,6 +87,7 @@ private:
     InspectorPanel* mInspector = nullptr;
     AssetsPanel* mAssetsPanel = nullptr;
     SpriteEditorPanel* mSpriteEditor = nullptr;
+    AnimatorPanel* mAnimator = nullptr;
     ig::retained::String mDefaultLayout;
 
     Assets mAssets;

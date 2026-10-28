@@ -266,6 +266,22 @@ bool SpriteEditorPanel::currentRegion(SpriteRegionDrag& out) const
     return true;
 }
 
+bool SpriteEditorPanel::allRegions(ct::Vector<SpriteRegionDrag>& out) const
+{
+    out.clear();
+    if (!mTexture)
+        return false;
+    for (std::size_t i = 0; i < mAtlas.regionCount(); ++i)
+    {
+        SpriteRegionDrag region;
+        region.texture = mPath;
+        region.id = mAtlas.regionAt(i)->id;
+        region.rect = mAtlas.regionAt(i)->rect;
+        out.push_back(region);
+    }
+    return true;
+}
+
 bool SpriteEditorPanel::open(const ct::String& path)
 {
     if (mDirty)

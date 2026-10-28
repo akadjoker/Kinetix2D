@@ -60,6 +60,8 @@ public:
     ig::retained::Signal<const SpriteRegionDrag&> addToScene;
 
     bool currentRegion(SpriteRegionDrag& out) const;
+    // Every region of the open image, in order; false when none is open.
+    bool allRegions(ct::Vector<SpriteRegionDrag>& out) const;
 
 private:
     void markEdited();
