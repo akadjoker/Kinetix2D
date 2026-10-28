@@ -16,7 +16,7 @@ namespace k2d
     Scene::Scene()
         : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
           mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
-          mGravity(0.0f, 980.0f), mUseTree(true), mClock(nullptr), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
+          mGravity(0.0f, 980.0f), mUseTree(true), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
           // Not 0: equal stamps mean "already synced this frame", so matching
           // the initial frame stamp would skip the very first sync and leave
           // every query looking at an empty tree.
@@ -27,7 +27,6 @@ namespace k2d
           mSimulationEnabled(false), mHasDirtyBodies(false), mParticles(*this)
     {
         mRoot.mScene = this;
-        mNarrowMs = 0.0f;
     }
 
     Scene::~Scene()
@@ -170,31 +169,33 @@ namespace k2d
 
     void Scene::update(float deltaTime)
     {
-        ProfileScope profileScope("scene.update");
-        ++mFrameStamp;
-        // Capture the counts: components added from an update begin on the next
-        // frame. Removed components become null entries until compaction, so a
-        // callback can never invalidate the list being iterated.
-        const std::size_t count = mAllComponents.size();
-        for (std::size_t i = 0; i < count; ++i)
         {
-            Component *component = mAllComponents[i];
-            GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveInHierarchy())
-                object->updateComponent(component, deltaTime);
-        }
+            ProfileScope profileScope("scene.update");
+            ++mFrameStamp;
+            // Capture the counts: components added from an update begin on the next
+            // frame. Removed components become null entries until compaction, so a
+            // callback can never invalidate the list being iterated.
+            const std::size_t count = mAllComponents.size();
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                Component *component = mAllComponents[i];
+                GameObject *object = component ? component->owner() : nullptr;
+                if (object && !object->disposed() && object->isActiveInHierarchy())
+                    object->updateComponent(component, deltaTime);
+            }
 
-        const std::size_t lateCount = mLateUpdateComponents.size();
-        for (std::size_t i = 0; i < lateCount; ++i)
-        {
-            Component *component = mLateUpdateComponents[i];
-            GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveInHierarchy())
-                object->lateUpdateComponent(component, deltaTime);
+            const std::size_t lateCount = mLateUpdateComponents.size();
+            for (std::size_t i = 0; i < lateCount; ++i)
+            {
+                Component *component = mLateUpdateComponents[i];
+                GameObject *object = component ? component->owner() : nullptr;
+                if (object && !object->disposed() && object->isActiveInHierarchy())
+                    object->lateUpdateComponent(component, deltaTime);
+            }
+            flushDisposed();
+            compactComponentLists();
+            updateUi();
         }
-        flushDisposed();
-        compactComponentLists();
-        updateUi();
         stepBodies(deltaTime);
     }
 

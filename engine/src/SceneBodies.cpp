@@ -277,7 +277,7 @@ void Scene::stepBodies(float deltaTime)
     if (!mSimulationEnabled)
         return;
 
-    ProfileScope profileScope("scene.step_bodies");
+    ProfileScope profileScope("physics.step");
     if (mHasDirtyBodies)
         rebuildDirtyBodies();
     resolveJoints();

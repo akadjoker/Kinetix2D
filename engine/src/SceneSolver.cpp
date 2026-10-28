@@ -3,6 +3,7 @@
 #include "Collide2D.h"
 #include "k2d/GameObject.h"
 #include "k2d/Joint2D.h"
+#include "k2d/Profiler.h"
 #include "k2d/RigidBody2D.h"
 
 #include <cmath>
@@ -255,64 +256,52 @@ void Scene::step(float dt)
 
     ++mStepStamp;
 
-    double t0 = mClock ? mClock() : 0.0;
-
-    for (size_t i = 0; i < mBodies.size(); ++i)
-        mBodies[i]->IntegrateVelocity(mGravity, dt);
-
-    double t1 = mClock ? mClock() : 0.0;
+    {
+        ProfileScope profileScope("physics.integrate");
+        for (size_t i = 0; i < mBodies.size(); ++i)
+            mBodies[i]->IntegrateVelocity(mGravity, dt);
+    }
 
     updateContacts();
     updateContactEvents();
 
-    double t2 = mClock ? mClock() : 0.0;
-
-    initContactConstraints();
-    warmStartContacts();
-
-    mStepProfile.solveVelocityContacts = 0.0f;
-    for (size_t i = 0; i < mJoints.size(); ++i)
-        if (mJoints[i]->isConnected() && JointIsActive(mJoints[i]))
-            mJoints[i]->initVelocity(dt);
-
-    for (int it = 0; it < mVelocityIterations; ++it)
     {
+        ProfileScope profileScope("physics.solve");
+        initContactConstraints();
+        warmStartContacts();
+
         for (size_t i = 0; i < mJoints.size(); ++i)
             if (mJoints[i]->isConnected() && JointIsActive(mJoints[i]))
-                mJoints[i]->solveVelocity(dt);
-        solveContactVelocities();
+                mJoints[i]->initVelocity(dt);
+
+        for (int it = 0; it < mVelocityIterations; ++it)
+        {
+            for (size_t i = 0; i < mJoints.size(); ++i)
+                if (mJoints[i]->isConnected() && JointIsActive(mJoints[i]))
+                    mJoints[i]->solveVelocity(dt);
+            solveContactVelocities();
+        }
+
+        storeContactImpulses();
+
+        mBulletSweeps.clear();
+        for (size_t i = 0; i < mBodies.size(); ++i)
+        {
+            RigidBody2D* b = mBodies[i];
+            if (b->IsBullet() && b->bodyType() == BodyType::Dynamic && b->IsAwake())
+                mBulletSweeps.push_back(BulletSweep{b, b->WorldCenter()});
+        }
     }
-
-    storeContactImpulses();
-
-    double t3 = mClock ? mClock() : 0.0;
-
-    mBulletSweeps.clear();
-    for (size_t i = 0; i < mBodies.size(); ++i)
     {
-        RigidBody2D* b = mBodies[i];
-        if (b->IsBullet() && b->bodyType() == BodyType::Dynamic && b->IsAwake())
-            mBulletSweeps.push_back(BulletSweep{b, b->WorldCenter()});
+        ProfileScope profileScope("physics.integrate");
+        for (size_t i = 0; i < mBodies.size(); ++i)
+            mBodies[i]->IntegratePosition(dt);
     }
-
-    for (size_t i = 0; i < mBodies.size(); ++i)
-        mBodies[i]->IntegratePosition(dt);
-
-    double t4 = mClock ? mClock() : 0.0;
-
-    solveContactPositions();
-    solveBulletSweeps();
-    updateSleeping(dt);
-
-    if (mClock)
     {
-        double t5 = mClock();
-        mStepProfile.integrate = (float)((t1 - t0 + t4 - t3) * 1000.0);
-        mStepProfile.narrowphase = mNarrowMs;
-        mStepProfile.broadphase = (float)((t2 - t1) * 1000.0) - mNarrowMs;
-        mStepProfile.solveVelocity = (float)((t3 - t2) * 1000.0);
-        mStepProfile.solveVelocityJoints = mStepProfile.solveVelocity - mStepProfile.solveVelocityContacts;
-        mStepProfile.solvePosition = (float)((t5 - t4) * 1000.0);
+        ProfileScope profileScope("physics.solve");
+        solveContactPositions();
+        solveBulletSweeps();
+        updateSleeping(dt);
     }
 }
 
@@ -643,13 +632,10 @@ void Scene::solveContactVelocitiesOne(ContactInfo& c)
 
 void Scene::solveContactVelocities()
 {
-    double start = mClock ? mClock() : 0.0;
     for (size_t i = 0; i < mDynamicContacts.size(); ++i)
         solveContactVelocitiesOne(*mDynamicContacts[i]);
     for (size_t i = 0; i < mStaticContacts.size(); ++i)
         solveContactVelocitiesOne(*mStaticContacts[i]);
-    if (mClock)
-        mStepProfile.solveVelocityContacts += (float)((mClock() - start) * 1000.0);
 }
 
 void Scene::storeContactImpulses()
@@ -904,11 +890,13 @@ void Scene::updateContacts()
 
 void Scene::updateContactsTree()
 {
-    syncProxies();
-    findNewPairs();
+    {
+        ProfileScope profileScope("physics.broadphase");
+        syncProxies();
+        findNewPairs();
+    }
 
-    double n0 = mClock ? mClock() : 0.0;
-
+    ProfileScope profileScope("physics.narrowphase");
     mKeyScratch.clear();
     for (auto& entry : mPairs)
     {
@@ -928,13 +916,11 @@ void Scene::updateContactsTree()
     }
     for (size_t i = 0; i < mKeyScratch.size(); ++i)
         mPairs.erase(mKeyScratch[i]);
-
-    if (mClock)
-        mNarrowMs = (float)((mClock() - n0) * 1000.0);
 }
 
 void Scene::updateContactsBrute()
 {
+    ProfileScope profileScope("physics.narrowphase");
     for (size_t i = 0; i < mBodies.size(); ++i)
     {
         RigidBody2D* bi = mBodies[i];

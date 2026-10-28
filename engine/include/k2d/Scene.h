@@ -130,7 +130,6 @@ namespace k2d
 
         std::size_t bodyCount() const { return mBodies.size(); }
         std::size_t contactCount() const { return mContacts.size(); }
-        const StepProfile &stepProfile() const { return mStepProfile; }
 
         void debugDrawBodies(CanvasRenderer &canvas, unsigned flags);
 
@@ -233,9 +232,6 @@ namespace k2d
         ct::HashMap<uint64_t, BodyPair> mPairs;
         ct::Vector<uint64_t> mKeyScratch;
         bool mUseTree;
-        double (*mClock)();
-        StepProfile mStepProfile;
-        float mNarrowMs;
         ct::HashMap<uint64_t, PairContactState> mPairContactStates;
         ct::Vector<ContactInfo *> mDynamicContacts;
         ct::Vector<ContactInfo *> mStaticContacts;

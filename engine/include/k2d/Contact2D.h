@@ -62,17 +62,6 @@ struct PairContactState
     float tangentImpulse[kMaxManifoldPoints] = {0.0f, 0.0f};
 };
 
-struct StepProfile
-{
-    float broadphase = 0.0f;
-    float narrowphase = 0.0f;
-    float solveVelocity = 0.0f;
-    float solveVelocityJoints = 0.0f;
-    float solveVelocityContacts = 0.0f;
-    float solvePosition = 0.0f;
-    float integrate = 0.0f;
-};
-
 struct RayCastHit
 {
     RigidBody2D* body = nullptr;
