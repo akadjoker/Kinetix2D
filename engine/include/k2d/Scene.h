@@ -1,6 +1,7 @@
 #pragma once
 
 #include "k2d/Camera2D.h"
+#include "k2d/Color.h"
 #include "k2d/CollisionInfo.h"
 #include "k2d/Contact2D.h"
 #include "k2d/DynamicTree2D.h"
@@ -79,6 +80,9 @@ namespace k2d
         void setSimulationEnabled(bool enabled);
         bool simulationEnabled() const { return mSimulationEnabled; }
 
+        // The light where no Light2D reaches; white leaves every colour as it is.
+        void setAmbient(const Color &ambient) { mAmbient = ambient; }
+        const Color &ambient() const { return mAmbient; }
         void setGravity(const Math::Vec2 &gravity) { mGravity = gravity; }
         Math::Vec2 gravity() const { return mGravity; }
         void setFixedTimeStep(float seconds) { mFixedStep = seconds > 0.0f ? seconds : 0.0f; }
@@ -217,6 +221,7 @@ namespace k2d
         const Camera2D *mRenderCamera;
         float mRenderViewportWidth;
         float mRenderViewportHeight;
+        Color mAmbient;
 
         Math::Vec2 mGravity;
         ct::Vector<RigidBody2D *> mBodies;

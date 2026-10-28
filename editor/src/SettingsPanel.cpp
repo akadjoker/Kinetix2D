@@ -20,7 +20,7 @@ SettingsPanel::SettingsPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     rebuild();
 }
 
-void SettingsPanel::show(const PhysicsSettings& settings)
+void SettingsPanel::show(const SceneSettings& settings)
 {
     mSettings = settings;
     rebuild();
@@ -48,6 +48,8 @@ void SettingsPanel::rebuild()
         [this](const PropertyValue& v) { mSettings.sceneGravity = v.asBool(); }, false);
     row(scene, PropertyInfo(PropertyType::Vec2, "gravity"), [this]() { return PropertyValue::from(mSettings.sceneGravityValue); },
         [this](const PropertyValue& v) { mSettings.sceneGravityValue = v.asVec2(); }, false);
+    row(scene, PropertyInfo(PropertyType::Color, "ambient"), [this]() { return PropertyValue::from(mSettings.ambient); },
+        [this](const PropertyValue& v) { mSettings.ambient = v.asColor(); }, false);
 
     auto* project = mFields->createChild<rt::Collapsible>("Project physics");
     row(project, PropertyInfo(PropertyType::Vec2, "gravity"), [this]() { return PropertyValue::from(mSettings.gravity); },

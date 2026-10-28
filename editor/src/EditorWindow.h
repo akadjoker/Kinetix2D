@@ -91,9 +91,9 @@ private:
     void resetLayout();
     void registerTypes();
     void drainLog();
-    void loadPhysics();
-    void applyPhysics();
-    void physicsChanged(const PhysicsSettings& settings, bool project);
+    void loadSettings();
+    void applySettings();
+    void settingsChanged(const SceneSettings& settings, bool project);
     // Particles, animations and action sequences moving in edit mode.
     void tickEditPreview(GameObject& object, float deltaTime);
     void restartEditPreview(GameObject& object);
@@ -186,7 +186,7 @@ private:
     SettingsPanel* mSettings = nullptr;
     ProfilerPanel* mProfiler = nullptr;
     ImageEditorPanel* mImageEditor = nullptr;
-    PhysicsSettings mPhysics;
+    SceneSettings mSceneSettings;
     ct::Json mProjectDocument;   // project.k2dproj as read, written back with only physics changed
     int mPreviewItem = -1;
     bool mLivePreview = true;

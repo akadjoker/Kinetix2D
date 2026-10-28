@@ -1,6 +1,7 @@
 #include "k2d/Scene.h"
 
 #include "k2d/CameraComponent.h"
+#include "k2d/CanvasRenderer.h"
 #include "k2d/Collider2D.h"
 #include "k2d/Input.h"
 #include "k2d/Joint2D.h"
@@ -206,7 +207,9 @@ namespace k2d
 
     void Scene::render(CanvasRenderer &canvas)
     {
+        canvas.SetCanvasModulate(mAmbient.r, mAmbient.g, mAmbient.b);
         buildRenderQueue().Flush(canvas);
+        canvas.SetCanvasModulate(1.0f, 1.0f, 1.0f);
     }
 
     RenderQueue &Scene::buildRenderQueue()

@@ -165,6 +165,11 @@ float shadowLit(vec2 uv, float depth, int filterMode, bool wrap)
 void main()
 {
     vec4 base = texture(u_texture, v_texcoord) * v_color;
+    if ((v_lightMask & 0x80000000u) != 0u)
+    {
+        FragColor = base;
+        return;
+    }
     // Godot's CanvasModulate (canvas.glsl:716, color *= canvas_modulation):
     // darkens the unlit pass only. The light loops below multiply by the
     // UN-modulated base color (canvas.glsl:711 base_color / :814

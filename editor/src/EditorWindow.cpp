@@ -428,9 +428,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         mInspectorStale = true;
     });
     mSettings = mRightBar->addPage<SettingsPanel>(Icons::get("Settings"), kSettingsPanel);
-    mSettings->changed.connect([this](const PhysicsSettings& settings, bool project)
+    mSettings->changed.connect([this](const SceneSettings& settings, bool project)
     {
-        physicsChanged(settings, project);
+        settingsChanged(settings, project);
     });
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
@@ -787,7 +787,7 @@ bool EditorWindow::openScene(const char* path)
                      : EditorFileSystem::join(EditorFileSystem::currentDirectory(), path);
     FileBuffer text;
     mSceneDocument = files.LoadFile(path, text, true) ? ct::Json::parse(text.Text()) : ct::Json();
-    loadPhysics();
+    loadSettings();
     sceneLoaded();
     return true;
 }
@@ -818,9 +818,10 @@ void EditorWindow::newScene()
     mCamera = Camera2D();
     mScenePath.clear();
     mSceneDocument = ct::Json();
-    mPhysics.sceneGravity = false;
-    applyPhysics();
-    mSettings->show(mPhysics);
+    mSceneSettings.sceneGravity = false;
+    mSceneSettings.ambient = Color();
+    applySettings();
+    mSettings->show(mSceneSettings);
     sceneLoaded();
 }
 
@@ -1824,7 +1825,7 @@ void EditorWindow::stopPlay()
     select(nullptr);
     mScene.clear();
     mScene.setSimulationEnabled(false);
-    applyPhysics();
+    applySettings();
     Serializer::ReadInto(mScene, mScene.root(), mPlaySnapshot, &mAssets);
     mPlaySnapshot = ct::Json();
     mPlaying = false;
@@ -1932,9 +1933,9 @@ void EditorWindow::restartEditPreview(GameObject& object)
 }
 
 // As the runner does: the project's physics, the scene's gravity over it.
-void EditorWindow::loadPhysics()
+void EditorWindow::loadSettings()
 {
-    mPhysics = PhysicsSettings();
+    mSceneSettings = SceneSettings();
     mProjectDocument = ct::Json();
     FileBuffer file;
     const ct::String projectFile = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
@@ -1948,30 +1949,32 @@ void EditorWindow::loadPhysics()
     const ct::Json& physics = mProjectDocument["physics"];
     if (physics.is_object())
     {
-        mPhysics.gravity = readVec(physics["gravity"], mPhysics.gravity);
-        mPhysics.fixedTimeStep = static_cast<float>(physics["fixedTimeStep"].as_double(mPhysics.fixedTimeStep));
-        mPhysics.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(mPhysics.velocityIterations));
-        mPhysics.treeBroadphase = physics["treeBroadphase"].as_bool(mPhysics.treeBroadphase);
+        mSceneSettings.gravity = readVec(physics["gravity"], mSceneSettings.gravity);
+        mSceneSettings.fixedTimeStep = static_cast<float>(physics["fixedTimeStep"].as_double(mSceneSettings.fixedTimeStep));
+        mSceneSettings.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(mSceneSettings.velocityIterations));
+        mSceneSettings.treeBroadphase = physics["treeBroadphase"].as_bool(mSceneSettings.treeBroadphase);
     }
     const ct::Json& scenePhysics = mSceneDocument["physics"];
-    mPhysics.sceneGravity = scenePhysics.is_object() && scenePhysics["gravity"].is_array();
-    mPhysics.sceneGravityValue = readVec(scenePhysics["gravity"], mPhysics.gravity);
-    applyPhysics();
-    mSettings->show(mPhysics);
+    mSceneSettings.sceneGravity = scenePhysics.is_object() && scenePhysics["gravity"].is_array();
+    mSceneSettings.sceneGravityValue = readVec(scenePhysics["gravity"], mSceneSettings.gravity);
+    mSceneSettings.ambient = mScene.ambient();
+    applySettings();
+    mSettings->show(mSceneSettings);
 }
 
-void EditorWindow::applyPhysics()
+void EditorWindow::applySettings()
 {
-    mScene.setGravity(mPhysics.effectiveGravity());
-    mScene.setFixedTimeStep(mPhysics.fixedTimeStep);
-    mScene.setVelocityIterations(mPhysics.velocityIterations);
-    mScene.setTreeBroadphase(mPhysics.treeBroadphase);
+    mScene.setGravity(mSceneSettings.effectiveGravity());
+    mScene.setAmbient(mSceneSettings.ambient);
+    mScene.setFixedTimeStep(mSceneSettings.fixedTimeStep);
+    mScene.setVelocityIterations(mSceneSettings.velocityIterations);
+    mScene.setTreeBroadphase(mSceneSettings.treeBroadphase);
 }
 
-void EditorWindow::physicsChanged(const PhysicsSettings& settings, bool project)
+void EditorWindow::settingsChanged(const SceneSettings& settings, bool project)
 {
-    mPhysics = settings;
-    applyPhysics();
+    mSceneSettings = settings;
+    applySettings();
     auto vec = [](const Math::Vec2& v) {
         ct::Json a = ct::Json::array();
         a.push_back(ct::Json(static_cast<double>(v.x)));
@@ -1985,10 +1988,10 @@ void EditorWindow::physicsChanged(const PhysicsSettings& settings, bool project)
         if (!mProjectDocument.is_object())
             mProjectDocument = ct::Json::object();
         ct::Json physics = ct::Json::object();
-        physics.set("gravity", vec(mPhysics.gravity));
-        physics.set("fixedTimeStep", ct::Json(static_cast<double>(mPhysics.fixedTimeStep)));
-        physics.set("velocityIterations", ct::Json(mPhysics.velocityIterations));
-        physics.set("treeBroadphase", ct::Json(mPhysics.treeBroadphase));
+        physics.set("gravity", vec(mSceneSettings.gravity));
+        physics.set("fixedTimeStep", ct::Json(static_cast<double>(mSceneSettings.fixedTimeStep)));
+        physics.set("velocityIterations", ct::Json(mSceneSettings.velocityIterations));
+        physics.set("treeBroadphase", ct::Json(mSceneSettings.treeBroadphase));
         mProjectDocument.set("physics", physics);
         const ct::String projectFile = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
         if (FileSystem::Instance().SaveTextFile(projectFile.c_str(), mProjectDocument.dump(2)))
@@ -2000,10 +2003,10 @@ void EditorWindow::physicsChanged(const PhysicsSettings& settings, bool project)
     // The scene's gravity is written with the scene.
     if (!mSceneDocument.is_object())
         mSceneDocument = ct::Json::object();
-    if (mPhysics.sceneGravity)
+    if (mSceneSettings.sceneGravity)
     {
         ct::Json physics = mSceneDocument["physics"].is_object() ? mSceneDocument["physics"] : ct::Json::object();
-        physics.set("gravity", vec(mPhysics.sceneGravityValue));
+        physics.set("gravity", vec(mSceneSettings.sceneGravityValue));
         mSceneDocument.set("physics", physics);
     }
     else if (mSceneDocument.contains("physics"))
@@ -2015,6 +2018,19 @@ void EditorWindow::physicsChanged(const PhysicsSettings& settings, bool project)
         else
             mSceneDocument.set("physics", physics);
     }
+    const Color& ambient = mSceneSettings.ambient;
+    if (ambient.r != 1.0f || ambient.g != 1.0f || ambient.b != 1.0f)
+    {
+        ct::Json color = ct::Json::array();
+        color.push_back(ct::Json(static_cast<double>(ambient.r)));
+        color.push_back(ct::Json(static_cast<double>(ambient.g)));
+        color.push_back(ct::Json(static_cast<double>(ambient.b)));
+        ct::Json lighting = ct::Json::object();
+        lighting.set("ambient", color);
+        mSceneDocument.set("lighting", lighting);
+    }
+    else if (mSceneDocument.contains("lighting"))
+        mSceneDocument.erase("lighting");
     markDirty(true);
 }
 

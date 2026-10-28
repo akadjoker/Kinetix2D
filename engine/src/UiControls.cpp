@@ -162,6 +162,7 @@ namespace k2d
         command.pivotX = 0.0f;
         command.pivotY = 0.0f;
         command.color = color;
+        command.lightMask = kUnlitLightMask;
         item.commands.push_back(command);
     }
 
@@ -180,6 +181,7 @@ namespace k2d
         command.texWidth = gUiThemeTexture->Width();
         command.texHeight = gUiThemeTexture->Height();
         command.color = color;
+        command.lightMask = kUnlitLightMask;
         item.commands.push_back(command);
     }
 
@@ -194,6 +196,7 @@ namespace k2d
         command.width = size;
         command.text = text;
         command.color = color;
+        command.lightMask = kUnlitLightMask;
         item.commands.push_back(command);
     }
 

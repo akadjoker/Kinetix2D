@@ -162,6 +162,9 @@ struct RenderItem
 };
 
 static const int kMaxPointLights = 8;
+// A light mask bit no light carries: the item is drawn as it is, untouched by
+// lights and by the scene's ambient. The UI is.
+static const unsigned int kUnlitLightMask = 0x80000000u;
 static const int kMaxDirectionalLights = 8;
 
 } // namespace k2d

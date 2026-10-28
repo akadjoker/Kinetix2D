@@ -150,7 +150,7 @@ bool EditorWindow::openProject(const ct::String& projectFile)
         return openScene(scene.c_str());
     setProjectRoot(root);
     newScene();
-    loadPhysics();
+    loadSettings();
     log_info("Opened project %s", root.c_str());
     return true;
 }
@@ -191,7 +191,7 @@ bool EditorWindow::createProject(const ct::String& folder)
 
     setProjectRoot(root);
     newScene();
-    loadPhysics();
+    loadSettings();
     GameObject* player = mScene.createObject("Player");
     if (Component* shape = Serializer::Create(*player, "RectShape"))
         static_cast<RectShape*>(shape)->setColor(90, 200, 150);

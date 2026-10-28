@@ -71,6 +71,11 @@ GameObject *SceneManager::Load(Scene &scene, Assets &assets, const char *path)
     // outside that nested branch instead of inside the loaded scene.
     GameObject &sceneRoot = scene.root();
     Serializer::ReadInto(scene, sceneRoot, root, &assets);
+    const ct::Json &ambient = document["lighting"]["ambient"];
+    scene.setAmbient(ambient.is_array() && ambient.size() >= 3
+                         ? Color((float)ambient[0].as_double(1.0), (float)ambient[1].as_double(1.0),
+                                 (float)ambient[2].as_double(1.0))
+                         : Color());
 
     mCurrentPath = path;
     return &sceneRoot;
