@@ -15,7 +15,7 @@ if(EMSCRIPTEN)
         # miniaudio's Web Audio ScriptProcessor callback accesses the
         # interleaved PCM buffer through Module.HEAPF32. Emscripten keeps
         # this view private unless it is explicitly exported.
-        "-sEXPORTED_RUNTIME_METHODS=HEAPF32"
+        "-sEXPORTED_RUNTIME_METHODS=HEAPF32,FS,addRunDependency,removeRunDependency"
         "-sMIN_WEBGL_VERSION=2"
         "-sMAX_WEBGL_VERSION=2"
         "-sFULL_ES3=1"

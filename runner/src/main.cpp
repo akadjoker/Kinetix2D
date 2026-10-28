@@ -9,6 +9,7 @@
 #include <k2d/GameObject.h>
 #include <k2d/GameViewport.h>
 #include <k2d/InputActionMap.h>
+#include <k2d/KPak.h>
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/MouseCursor.h>
 #include <k2d/Profiler.h>
@@ -179,6 +180,52 @@ bool loadBytecodeManifest(const ct::String& projectRoot)
     return true;
 }
 
+// With no scene to play, the runner plays the pack beside it (the web page puts
+// it at /data.kpak): unpacked where the game reads its files, from the project's
+// startup scene. Audio opens files by path, so a mounted pack would not do.
+bool unpackGame(ct::String& scenePath, ct::String& projectPath)
+{
+#if defined(__EMSCRIPTEN__)
+    const ct::String pack("/data.kpak");
+    const ct::String directory("/project");
+#else
+    char base[4096], temp[4096];
+    const ct::String pack = fs_get_base_path(base, sizeof base) ? joinPath(base, "data.kpak") : ct::String("data.kpak");
+    const ct::String directory =
+        fs_get_temp_path(temp, sizeof temp) ? joinPath(temp, "kinetix2d-game") : ct::String("kinetix2d-game");
+#endif
+    if (!file_exists(pack.c_str()))
+        return false;
+    k2d::KPak kpak;
+    if (!kpak.Open(pack.c_str()))
+    {
+        log_error("Could not open %s\n", pack.c_str());
+        return false;
+    }
+    ct::Vector<unsigned char> data;
+    for (std::size_t i = 0; i < kpak.EntryCount(); ++i)
+    {
+        const char* name = kpak.EntryName(i);
+        const ct::String target = joinPath(directory, name);
+        if (!kpak.Read(name, data) || !fs_create_directory(directoryOf(target.c_str()).c_str()) ||
+            !file_write(target.c_str(), data.data(), data.size()))
+        {
+            log_error("Could not unpack %s\n", name);
+            return false;
+        }
+    }
+    projectPath = joinPath(directory, "project.k2dproj");
+    ct::Json project;
+    const char* startup = loadJson(projectPath.c_str(), project) ? project["startupScene"].as_cstr("") : "";
+    if (!startup[0])
+    {
+        log_error("The game has no startup scene\n");
+        return false;
+    }
+    scenePath = joinPath(directory, startup);
+    return true;
+}
+
 void applyRoot(k2d::Scene& scene, const ct::Json& rootJson, k2d::Assets& assets)
 {
     k2d::GameObject& root = scene.root();
@@ -330,13 +377,15 @@ void drawProfilerOverlay(k2d::CanvasRenderer& canvas, float width, float height)
 
 int main(int argc, char** argv)
 {
-    if (argc < 2)
+    ct::String scenePath = argc >= 2 ? ct::String(argv[1]) : ct::String();
+    ct::String projectPath = argc >= 3 ? ct::String(argv[2]) : ct::String();
+    if (scenePath.empty() && !unpackGame(scenePath, projectPath))
     {
-        std::fprintf(stderr, "Usage: k2d_runner <scene.k2dscene> [project.k2dproj]\n");
+        std::fprintf(stderr, "Usage: k2d_runner <scene.k2dscene> [project.k2dproj], or data.kpak beside it\n");
         return 1;
     }
-
-    const ct::String projectRoot = argc >= 3 ? directoryOf(argv[2]) : directoryOf(directoryOf(argv[1]).c_str());
+    const ct::String projectRoot = !projectPath.empty() ? directoryOf(projectPath.c_str())
+                                                        : directoryOf(directoryOf(scenePath.c_str()).c_str());
 
     k2d::Device device;
     if (!device.Init("Kinetix2D Game", 1280, 720, true))
@@ -353,12 +402,12 @@ int main(int argc, char** argv)
     {
         k2d::FileSystem::Instance().AddSearchPath(projectRoot.c_str());
         k2d::FileSystem::Instance().AddSearchPath(joinPath(projectRoot, "assets").c_str());
-        k2d::FileSystem::Instance().AddSearchPath(directoryOf(argv[1]).c_str());
+        k2d::FileSystem::Instance().AddSearchPath(directoryOf(scenePath.c_str()).c_str());
 
         ct::Json sceneJson;
-        if (!loadJson(argv[1], sceneJson))
+        if (!loadJson(scenePath.c_str(), sceneJson))
         {
-            log_error("Could not load scene: %s\n", argv[1]);
+            log_error("Could not load scene: %s\n", scenePath.c_str());
             device.Shutdown();
             return 1;
         }
@@ -385,16 +434,16 @@ int main(int argc, char** argv)
         const ct::Json& rootJson = sceneJson["root"];
         if (!rootJson.is_object())
         {
-            log_error("Invalid scene (missing root object): %s\n", argv[1]);
+            log_error("Invalid scene (missing root object): %s\n", scenePath.c_str());
             result = 1;
         }
-        else if (result == 0 && !k2d::GetSceneManager().Load(scene, assets, argv[1]))
+        else if (result == 0 && !k2d::GetSceneManager().Load(scene, assets, scenePath.c_str()))
         {
-            log_error("Could not load scene: %s\n", argv[1]);
+            log_error("Could not load scene: %s\n", scenePath.c_str());
             result = 1;
         }
 
-        PhysicsConfig physicsConfig = loadPhysics(argc >= 3 ? argv[2] : nullptr);
+        PhysicsConfig physicsConfig = loadPhysics(projectPath.empty() ? nullptr : projectPath.c_str());
         const ct::Json& scenePhysics = sceneJson["physics"];
         if (scenePhysics.is_object())
             physicsConfig.gravity = readVec2(scenePhysics["gravity"], physicsConfig.gravity);

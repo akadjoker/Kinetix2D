@@ -92,9 +92,7 @@ add_subdirectory(runner)
 add_subdirectory(editor)
 
 include(GNUInstallDirs)
-install(TARGETS k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(PROGRAMS tools/export_web.sh tools/export_web.py DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES tools/export_web.bat DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_export k2d_webserver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY assets DESTINATION .)
 install(FILES README.md DESTINATION .)
 

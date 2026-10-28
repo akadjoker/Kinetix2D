@@ -133,8 +133,16 @@ bool Device::Init(const char* title, int width, int height, bool vsync)
 
     WindowConfig config = {};
     config.title = title;
+#if defined(__EMSCRIPTEN__)
+    // The game takes the canvas as the page lays it out.
+    config.width = 0;
+    config.height = 0;
+    (void)width;
+    (void)height;
+#else
     config.width = width;
     config.height = height;
+#endif
     MonitorInfo monitor = {};
     if (monitor_get_info(0, &monitor))
     {
