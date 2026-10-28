@@ -1772,6 +1772,30 @@ bool Serializer::IsRegistered(ComponentType type)
     return AnyEntryForType(type);
 }
 
+std::size_t Serializer::TypeCount()
+{
+    std::size_t count = 0;
+    AllEntries(count);
+    return count + RuntimeEntries().size();
+}
+
+const char* Serializer::TypeName(std::size_t index)
+{
+    std::size_t count = 0;
+    const TypeEntry* entries = AllEntries(count);
+    if (index < count)
+        return entries[index].name;
+    index -= count;
+    const ct::Vector<TypeEntry>& runtime = RuntimeEntries();
+    return index < runtime.size() ? runtime[index].name : nullptr;
+}
+
+Component* Serializer::Create(GameObject& owner, const char* typeName)
+{
+    const TypeEntry* entry = FindByName(typeName);
+    return entry ? entry->create(owner) : nullptr;
+}
+
 bool Serializer::RegisterType(ComponentType type, const char* name, CreateFn create, WriteFn write, ReadFn read,
                               MatchFn matches)
 {

@@ -29,6 +29,11 @@ namespace k2d
         static void ReadInto(Scene &scene, GameObject &object, const ct::Json &json,
                              Assets *assets = nullptr);
         static bool IsRegistered(ComponentType type);
+        // The registered component types by name, built-in first: what an editor
+        // offers to add, and Create adds one with its defaults.
+        static std::size_t TypeCount();
+        static const char *TypeName(std::size_t index);
+        static Component *Create(GameObject &owner, const char *typeName);
         static bool RegisterType(ComponentType type, const char *name, CreateFn create,
                                  WriteFn write, ReadFn read, MatchFn matches = nullptr);
     };

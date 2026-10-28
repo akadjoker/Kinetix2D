@@ -225,6 +225,21 @@ bool TestUnregisteredTypeIsSkipped()
     return k2d::Serializer::IsRegistered(k2d::ComponentType::Sprite) && components.is_array() && components.size() == 1;
 }
 
+bool TestCreateByName()
+{
+    bool sawSprite = false;
+    for (std::size_t i = 0; i < k2d::Serializer::TypeCount(); ++i)
+        sawSprite = sawSprite || std::strcmp(k2d::Serializer::TypeName(i), "Sprite") == 0;
+
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("Created");
+    k2d::Component* sprite = k2d::Serializer::Create(*object, "Sprite");
+    k2d::Component* missing = k2d::Serializer::Create(*object, "NoSuchType");
+    return sawSprite && sprite && sprite->type() == k2d::ComponentType::Sprite && !missing &&
+           object->rawComponentCount(k2d::ComponentType::Sprite) == 1 &&
+           k2d::Serializer::TypeName(k2d::Serializer::TypeCount()) == nullptr;
+}
+
 bool TestTileMapRoundTrip()
 {
     k2d::Scene srcScene;
@@ -732,6 +747,7 @@ int main()
     bool camera = TestCameraRoundTrip();
     bool particle = TestParticleComponentRoundTrip();
     bool doubleRoundTrip = TestDoubleRoundTripIsStable();
+    bool createByName = TestCreateByName();
 
     std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s action_rates=%s "
                 "unregistered_skipped=%s\n",
@@ -744,10 +760,11 @@ int main()
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
     std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
+    std::printf("Serializer types: create_by_name=%s\n", createByName ? "pass" : "fail");
 
     return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
             ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
-            doubleRoundTrip)
+            doubleRoundTrip && createByName)
                ? 0
                : 1;
 }
