@@ -1,4 +1,6 @@
+#include <k2d/Assets.h>
 #include <k2d/ClassDB.h>
+#include <k2d/SpriteComponent.h>
 #include <k2d/GameObject.h>
 #include <k2d/Light2D.h>
 #include <k2d/Scene.h>
@@ -43,9 +45,39 @@ bool testLightClass()
 }
 } // namespace
 
+// Texture properties show the path the Assets know the texture by. No GL here,
+// so no texture is made: an empty path clears, and a path that cannot be
+// loaded, or a write with no Assets set, leaves the sprite as it was.
+bool testTextureProperty()
+{
+    k2d::RegisterCoreClasses();
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("sprite");
+    k2d::SpriteComponent* sprite = object->addComponent<k2d::SpriteComponent>();
+    const k2d::ClassInfo* info = k2d::ClassDB::find(*sprite);
+    const k2d::ClassProperty* texture = info ? info->find("texture") : nullptr;
+    bool ok = texture && texture->info.type == k2d::PropertyType::ResourcePath &&
+              texture->info.hint == k2d::PropertyHint::File && info->find("normalMap");
+
+    k2d::PropertyValue value;
+    k2d::ClassDB::setAssets(nullptr);
+    ok = ok && k2d::ClassDB::get(*sprite, "texture", value) && value.type() == k2d::PropertyType::ResourcePath &&
+         value.asString().empty();
+    ok = ok && k2d::ClassDB::set(*sprite, "texture", k2d::PropertyValue::resourcePath("a.png")) && !sprite->texture();
+
+    k2d::Assets assets;
+    k2d::ClassDB::setAssets(&assets);
+    ok = ok && k2d::ClassDB::set(*sprite, "texture", k2d::PropertyValue::resourcePath("missing/none.png")) &&
+         !sprite->texture();
+    ok = ok && k2d::ClassDB::set(*sprite, "texture", k2d::PropertyValue::resourcePath("")) && !sprite->texture();
+    k2d::ClassDB::setAssets(nullptr);
+    return ok;
+}
+
 int main()
 {
     const bool light = testLightClass();
-    std::printf("classdb: light=%s\n", light ? "pass" : "fail");
-    return light ? 0 : 1;
+    const bool texture = testTextureProperty();
+    std::printf("classdb: light=%s texture=%s\n", light ? "pass" : "fail", texture ? "pass" : "fail");
+    return light && texture ? 0 : 1;
 }

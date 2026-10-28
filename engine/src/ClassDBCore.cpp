@@ -1,5 +1,8 @@
 #include "k2d/ClassDB.h"
 
+#include "k2d/Assets.h"
+#include "k2d/Texture.h"
+
 #include "k2d/ActionSequence2D.h"
 #include "k2d/Animation2D.h"
 #include "k2d/AudioPlayer.h"
@@ -45,6 +48,45 @@
 
 namespace k2d
 {
+
+namespace
+{
+
+const char* const kImageFiles = "png,jpg,jpeg,bmp,tga";
+
+// A texture as the path the Assets know it by; a path written back is looked
+// up there, and loaded under that name when it is not yet.
+template <class T>
+void addTexture(ClassInfo& c, const char* name, Texture* (T::*get)() const, void (T::*set)(Texture*))
+{
+    ClassDB::addProperty(
+        c, PropertyInfo::file(name, kImageFiles),
+        [get](const Component& component)
+        {
+            Assets* assets = ClassDB::assets();
+            const char* path = assets ? assets->FindTextureName((static_cast<const T&>(component).*get)()) : nullptr;
+            return PropertyValue::resourcePath(path ? path : "");
+        },
+        [set](Component& component, const PropertyValue& value)
+        {
+            const ct::String& path = value.asString();
+            Assets* assets = ClassDB::assets();
+            if (path.empty())
+            {
+                (static_cast<T&>(component).*set)(nullptr);
+                return;
+            }
+            if (!assets)
+                return;
+            Texture* texture = assets->GetTexture(path.c_str());
+            if (!texture)
+                texture = assets->LoadTexture(path.c_str(), path.c_str());
+            if (texture)
+                (static_cast<T&>(component).*set)(texture);
+        });
+}
+
+} // namespace
 
 void RegisterCoreClasses()
 {
@@ -326,6 +368,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("Line2D", ComponentType::LinePath, ComponentClass::None);
+    addTexture<Line2D>(c, "texture", &Line2D::texture, &Line2D::setTexture);
     ClassDB::addProperty<Line2D>(c, PropertyInfo(PropertyType::Float, "width"), &Line2D::width, &Line2D::setWidth);
     ClassDB::addProperty<Line2D>(c, PropertyInfo(PropertyType::Bool, "closed"), &Line2D::closed, &Line2D::setClosed);
     ClassDB::addProperty<Line2D>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &Line2D::blendMode, &Line2D::setBlendMode);
@@ -386,6 +429,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("NinePatchComponent", ComponentType::NinePatch, ComponentClass::None);
+    addTexture<NinePatchComponent>(c, "texture", &NinePatchComponent::texture, &NinePatchComponent::setTexture);
     ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo(PropertyType::Vec2, "size"), &NinePatchComponent::size, &NinePatchComponent::setSize);
     ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo(PropertyType::Vec2, "pivot"), &NinePatchComponent::pivot, &NinePatchComponent::setPivot);
     ClassDB::addProperty<NinePatchComponent>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &NinePatchComponent::blendMode, &NinePatchComponent::setBlendMode);
@@ -402,6 +446,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("ParallaxLayerComponent", ComponentType::ParallaxLayer, ComponentClass::None);
+    addTexture<ParallaxLayerComponent>(c, "texture", &ParallaxLayerComponent::texture, &ParallaxLayerComponent::setTexture);
     ClassDB::addProperty<ParallaxLayerComponent>(c, PropertyInfo(PropertyType::Vec2, "motionScale"), &ParallaxLayerComponent::motionScale, &ParallaxLayerComponent::setMotionScale);
     ClassDB::addProperty<ParallaxLayerComponent>(c, PropertyInfo(PropertyType::Vec2, "tileSize"), &ParallaxLayerComponent::tileSize, &ParallaxLayerComponent::setTileSize);
     ClassDB::addProperty<ParallaxLayerComponent>(c, PropertyInfo::color("color"), &ParallaxLayerComponent::color, &ParallaxLayerComponent::setColor);
@@ -421,6 +466,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("Polygon2D", ComponentType::Polygon2D, ComponentClass::None);
+    addTexture<Polygon2D>(c, "texture", &Polygon2D::texture, &Polygon2D::setTexture);
     ClassDB::addProperty<Polygon2D>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &Polygon2D::blendMode, &Polygon2D::setBlendMode);
     ClassDB::addProperty(
         c, PropertyInfo::color("color"),
@@ -506,6 +552,8 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("SpriteComponent", ComponentType::Sprite, ComponentClass::None);
+    addTexture<SpriteComponent>(c, "texture", &SpriteComponent::texture, &SpriteComponent::setTexture);
+    addTexture<SpriteComponent>(c, "normalMap", &SpriteComponent::normalMap, &SpriteComponent::setNormalMap);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "size"), &SpriteComponent::size, &SpriteComponent::setSize);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "pivot"), &SpriteComponent::pivot, &SpriteComponent::setPivot);
     ClassDB::addProperty<SpriteComponent>(c, PropertyInfo(PropertyType::Vec2, "renderOffset"), &SpriteComponent::renderOffset, &SpriteComponent::setRenderOffset);
@@ -578,6 +626,7 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("TileMapComponent", ComponentType::TileMap, ComponentClass::None);
+    addTexture<TileMapComponent>(c, "texture", &TileMapComponent::texture, &TileMapComponent::setTexture);
     ClassDB::addProperty<TileMapComponent>(c, PropertyInfo(PropertyType::Int, "atlasTilesX"), &TileMapComponent::atlasTilesX, &TileMapComponent::setAtlasTilesX);
     ClassDB::addProperty<TileMapComponent>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &TileMapComponent::blendMode, &TileMapComponent::setBlendMode);
     ClassDB::addProperty(

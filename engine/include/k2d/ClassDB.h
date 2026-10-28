@@ -11,6 +11,8 @@
 namespace k2d
 {
 
+class Assets;
+
 enum class PropertyHint : uint8_t
 {
     None,
@@ -85,6 +87,12 @@ class ClassDB
     static bool get(const Component& component, const char* property, PropertyValue& out);
     static bool set(Component& component, const char* property, const PropertyValue& value);
     static void clear();
+
+    // Where resource properties (textures) turn into the paths they show and
+    // back: the editor sets its Assets here. Unset, they read empty and a
+    // write of a path is ignored.
+    static void setAssets(Assets* assets);
+    static Assets* assets();
 };
 
 void RegisterCoreClasses();

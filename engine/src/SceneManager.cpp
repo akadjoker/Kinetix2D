@@ -9,6 +9,8 @@
 
 #include <ct/json.hpp>
 
+#include <cstring>
+
 namespace k2d
 {
 namespace
@@ -25,8 +27,15 @@ void preloadTextures(const ct::Json &node, Assets &assets)
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
                 const char *path = value.as_cstr("");
-                if (path[0] && !assets.GetTexture(path))
-                    assets.LoadTexture(path, path, true, false);
+                if (path[0] && !assets.GetTexture(path) && !assets.LoadTexture(path, path, true, false))
+                {
+                    // A path from another machine: try its tails ("assets/x.png",
+                    // then "x.png", ...) against the search paths. The texture keeps
+                    // the name the scene gives it, so the components still find it.
+                    for (const char *tail = std::strchr(path + 1, '/'); tail; tail = std::strchr(tail + 1, '/'))
+                        if (tail[1] && assets.LoadTexture(path, tail + 1, true, false))
+                            break;
+                }
             }
             else
                 preloadTextures(value, assets);

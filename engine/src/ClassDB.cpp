@@ -152,6 +152,21 @@ bool ClassDB::set(Component& component, const char* property, const PropertyValu
     return true;
 }
 
+namespace
+{
+Assets* gAssets = nullptr;
+}
+
+void ClassDB::setAssets(Assets* assets)
+{
+    gAssets = assets;
+}
+
+Assets* ClassDB::assets()
+{
+    return gAssets;
+}
+
 void ClassDB::clear()
 {
     for (std::size_t i = 0; i < classes().size(); ++i)
