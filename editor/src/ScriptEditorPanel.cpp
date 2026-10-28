@@ -175,6 +175,7 @@ bool ScriptEditorPanel::save()
         if (reloaded > 0)
             log_info("Reloaded %d changed script(s)", static_cast<int>(reloaded));
     }
+    saved.emit(document.path);
     return true;
 }
 

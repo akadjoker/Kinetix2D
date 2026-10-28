@@ -31,6 +31,8 @@ public:
     bool open(const ct::String& path);
     bool save();
     bool reload();
+    // A script written to its file (its project path).
+    ig::retained::Signal<const ct::String&> saved;
     // Whether the widget with the focus is this panel's.
     bool owns(const ig::retained::Widget* focused) const;
     void showOpenDialog();

@@ -8,6 +8,9 @@
 #include "WidgetApp.hpp"
 
 #include <k2d/ClassDB.h>
+
+#include <cstdlib>
+#include <cstring>
 #include <k2d/GameObject.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
@@ -24,6 +27,52 @@ namespace
 ct::String editName(const char* property)
 {
     return ct::String("Edit ") + property;
+}
+
+const char* skipSpaces(const char* p, const char* stop)
+{
+    while (p < stop && (*p == ' ' || *p == '\t'))
+        ++p;
+    return p;
+}
+
+// "speed = 240  # range(0, 500[, 5])" on the line that sets a variable, as
+// Godot's export_range: the comment leaves the script itself alone.
+bool scriptRange(const char* source, const ct::String& name, PropertyInfo& info)
+{
+    for (const char* line = source; line && *line;)
+    {
+        const char* end = std::strchr(line, '\n');
+        const char* stop = end ? end : line + std::strlen(line);
+        const char* p = skipSpaces(line, stop);
+        if (stop - p > 5 && std::strncmp(p, "self.", 5) == 0)
+            p += 5;
+        if (static_cast<std::size_t>(stop - p) > name.size() && std::strncmp(p, name.c_str(), name.size()) == 0)
+        {
+            const char* q = skipSpaces(p + name.size(), stop);
+            if (q < stop && *q == ':')
+                while (q < stop && *q != '=')
+                    ++q;
+            const char* hash = q < stop && *q == '=' ? static_cast<const char*>(std::memchr(q, '#', stop - q)) : nullptr;
+            const char* r = hash ? skipSpaces(hash + 1, stop) : nullptr;
+            if (r && stop - r > 6 && std::strncmp(r, "range(", 6) == 0)
+            {
+                char* next = nullptr;
+                const float minimum = std::strtof(r + 6, &next);
+                const float maximum = next && *next == ',' ? std::strtof(next + 1, &next) : minimum;
+                const float step = next && *next == ',' ? std::strtof(next + 1, &next) : 0.0f;
+                if (maximum > minimum)
+                {
+                    const bool integer = info.type == PropertyType::Int;
+                    info = PropertyInfo::range(info.type, name.c_str(), minimum, maximum,
+                                               step > 0.0f ? step : (integer ? 1.0f : 0.01f));
+                    return true;
+                }
+            }
+        }
+        line = end ? end + 1 : stop;
+    }
+    return false;
 }
 } // namespace
 
@@ -127,10 +176,11 @@ void InspectorPanel::addScript(ComponentType type, std::size_t index)
     for (std::size_t i = 0; i < target->declaredPropertyCount(); ++i)
         declared.push_back(*target->declaredPropertyAt(i));
     FileBuffer source;
-    if (declared.empty() && !path.empty() && FileSystem::Instance().LoadFile(path.c_str(), source, true))
+    const bool read = !path.empty() && FileSystem::Instance().LoadFile(path.c_str(), source, true);
+    if (declared.empty() && read)
         ScanZenScriptProperties(source.Text(), declared);
     for (const ZenScriptProperty& property : declared)
-        addScriptProperty(section, type, index, property);
+        addScriptProperty(section, type, index, property, read ? source.Text() : nullptr);
     if (declared.empty())
         section->createChild<rt::Label>(path.empty() ? "No script file" : "No variables (speed = 200 in the class)");
     auto* tools = section->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
@@ -142,7 +192,7 @@ void InspectorPanel::addScript(ComponentType type, std::size_t index)
 }
 
 void InspectorPanel::addScriptProperty(rt::Widget* parent, ComponentType type, std::size_t index,
-                                       const ZenScriptProperty& declared)
+                                       const ZenScriptProperty& declared, const char* source)
 {
     const ZenScriptProperty fallback = declared;
     const PropertyType kind = fallback.kind == ZenScriptProperty::Kind::Bool     ? PropertyType::Bool
@@ -189,7 +239,10 @@ void InspectorPanel::addScriptProperty(rt::Widget* parent, ComponentType type, s
         }
     };
     const ct::String label = editName(fallback.name.c_str());
-    addPropertyRow(parent, PropertyInfo(kind, fallback.name.c_str()), binding,
+    PropertyInfo info(kind, fallback.name.c_str());
+    if (source && (kind == PropertyType::Int || kind == PropertyType::Float))
+        scriptRange(source, fallback.name, info);
+    addPropertyRow(parent, info, binding,
                    [this, label](bool final) { edited.emit(label.c_str(), final); });
 }
 

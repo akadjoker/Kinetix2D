@@ -345,6 +345,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             commit(mPendingEdit.c_str());
     });
     mInspector->addComponentRequested.connect([this](const char* type) { addComponent(type); });
+    mScriptEditor->saved.connect([this](const ct::String&) { mInspectorStale = true; });
     mInspector->scriptOpenRequested.connect([this](const ct::String& path)
     {
         if (mScriptEditor->open(path))

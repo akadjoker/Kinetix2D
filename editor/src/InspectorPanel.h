@@ -60,7 +60,7 @@ private:
     ZenScriptComponent* script(ComponentType type, std::size_t index) const;
     void addScript(ComponentType type, std::size_t index);
     void addScriptProperty(ig::retained::Widget* parent, ComponentType type, std::size_t index,
-                           const ZenScriptProperty& declared);
+                           const ZenScriptProperty& declared, const char* source);
 
     ig::retained::BoxLayout* mColumn = nullptr;
     GameObject* mObject = nullptr;
