@@ -20,8 +20,9 @@ public:
 
     ig::retained::Signal<float, float> panned;
     ig::retained::Signal<float, float, float> zoomed;
-    // The left button, at points in the view: down, moved while down, up.
-    ig::retained::Signal<float, float> pressed;
+    // The left button, at points in the view: down (with its click count and
+    // Ctrl), moved while down, up.
+    ig::retained::Signal<float, float, int, bool> pressed;
     ig::retained::Signal<float, float> dragged;
     ig::retained::Signal<float, float> released;
     // The pointer moved over the view with no button down.

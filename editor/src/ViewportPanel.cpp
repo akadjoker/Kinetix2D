@@ -55,7 +55,7 @@ void ViewportPanel::onMousePress(rt::MouseEvent& e)
     mPanning = e.button != 0;
     mDragging = e.button == 0;
     if (mDragging)
-        pressed.emit(e.localX, e.localY);
+        pressed.emit(e.localX, e.localY, e.clickCount, e.ctrl);
     e.consumed = true;
 }
 

@@ -1,11 +1,16 @@
 #include "SceneGizmo.h"
 
+#include "SceneShapes.h"
 #include "Theme.hpp"
 
 #include <k2d/CameraComponent.h>
+#include <k2d/Collider2D.h>
 #include <k2d/GameObject.h>
+#include <k2d/Light2D.h>
+#include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 
+#include <cfloat>
 #include <cmath>
 
 namespace rt = ig::retained;
@@ -21,6 +26,8 @@ constexpr float kAxisLength = 60.0f;
 constexpr float kHitRadius = 6.0f;
 constexpr float kCenterRadius = 7.0f;
 constexpr float kRingRadius = 50.0f;
+constexpr float kPointHalfSize = 4.5f;
+constexpr float kPointHitRadius = 8.0f;
 constexpr float kGridStep = 64.0f;
 constexpr float kSnapStep = 16.0f;
 constexpr float kSnapDegrees = 15.0f;
@@ -30,15 +37,28 @@ const rt::Color kAxisXColor(230, 70, 70, 255);
 const rt::Color kAxisYColor(80, 210, 100, 255);
 const rt::Color kActiveColor(255, 235, 120, 255);
 const rt::Color kRingColor(120, 170, 230, 255);
+const rt::Color kSelectedColor(255, 205, 65, 255);
+const rt::Color kOutlineColor(255, 205, 65, 150);
+const rt::Color kSolidColor(110, 225, 140, 220);
+const rt::Color kSensorColor(90, 180, 255, 220);
+const rt::Color kNoBodyColor(240, 150, 60, 200);
+const rt::Color kLightColor(255, 220, 120, 140);
 
-float distanceToSegment(float px, float py, float ax, float ay, float bx, float by)
+float distanceToSegment(float px, float py, float ax, float ay, float bx, float by, float* along = nullptr)
 {
     const float dx = bx - ax, dy = by - ay;
     const float length = dx * dx + dy * dy;
     float t = length > 0.0f ? ((px - ax) * dx + (py - ay) * dy) / length : 0.0f;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    if (along)
+        *along = t;
     const float cx = ax + t * dx - px, cy = ay + t * dy - py;
     return std::sqrt(cx * cx + cy * cy);
+}
+
+float cross(const Math::Vec2& o, const Math::Vec2& a, const Math::Vec2& b)
+{
+    return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
 }
 
 float snapped(float value, float step)
@@ -58,11 +78,12 @@ void SceneGizmo::setView(const Camera2D& camera, float width, float height)
     mCamera = camera;
     mWidth = width > 1.0f ? width : 1.0f;
     mHeight = height > 1.0f ? height : 1.0f;
+    mView = mCamera.CameraXform(mWidth, mHeight).AffineInverse();
 }
 
 Math::Vec2 SceneGizmo::toScreen(const Math::Vec2& world) const
 {
-    return mCamera.CameraXform(mWidth, mHeight).AffineInverse().Transform(world);
+    return mView.Transform(world);
 }
 
 Math::Vec2 SceneGizmo::toWorld(float x, float y) const
@@ -70,32 +91,94 @@ Math::Vec2 SceneGizmo::toWorld(float x, float y) const
     return mCamera.ScreenToWorld(x, y, mWidth, mHeight);
 }
 
-GameObject* SceneGizmo::pick(Scene& scene, float x, float y) const
+void SceneGizmo::refresh(Scene& scene)
 {
-    GameObject* best = nullptr;
-    float bestDistance = kPickRadius;
-    ct::Vector<GameObject*> stack;
+    if (mScene == &scene && mTopology == scene.topologyVersion())
+        return;
+    mScene = &scene;
+    mTopology = scene.topologyVersion();
+    mEntries.clear();
+    mColliderEntries.clear();
     GameObject& root = scene.root();
     for (std::size_t i = 0; i < root.childCount(); ++i)
-        stack.push_back(root.child(i));
-    while (!stack.empty())
+        mEntries.push_back(Entry{root.child(i), -1});
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
     {
-        GameObject* object = stack.back();
-        stack.pop_back();
-        if (!object->visible())
-            continue;
-        if (pickable(*object))
+        GameObject* object = mEntries[i].object;
+        for (std::size_t c = 0; c < object->childCount(); ++c)
+            mEntries.push_back(Entry{object->child(c), static_cast<int>(i)});
+        const std::size_t colliders = object->componentCount<Collider2D>();
+        for (std::size_t c = 0; c < colliders; ++c)
         {
-            const Math::Vec2 point = toScreen(object->globalPosition());
-            const float distance = std::sqrt((point.x - x) * (point.x - x) + (point.y - y) * (point.y - y));
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                best = object;
-            }
+            Collider2D* collider = object->getComponentAt<Collider2D>(c);
+            if (collider && colliderPointCount(*collider) > 0)
+                mColliderEntries.push_back(ColliderEntry{collider, static_cast<int>(i)});
         }
-        for (std::size_t i = 0; i < object->childCount(); ++i)
-            stack.push_back(object->child(i));
+    }
+}
+
+void SceneGizmo::updateShown()
+{
+    mShown.resize(mEntries.size());
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
+    {
+        const Entry& entry = mEntries[i];
+        const bool parentShown = entry.parent < 0 || mShown[static_cast<std::size_t>(entry.parent)];
+        mShown[i] = parentShown && entry.object->visible() ? 1 : 0;
+    }
+}
+
+GameObject* SceneGizmo::pick(Scene& scene, float x, float y)
+{
+    refresh(scene);
+    updateShown();
+    GameObject* best = nullptr;
+    float bestDistance = kPickRadius;
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
+    {
+        GameObject* object = mEntries[i].object;
+        if (!mShown[i] || !pickable(*object))
+            continue;
+        const Math::Vec2 point = toScreen(object->globalPosition());
+        const float distance = std::sqrt((point.x - x) * (point.x - x) + (point.y - y) * (point.y - y));
+        if (distance < bestDistance)
+        {
+            bestDistance = distance;
+            best = object;
+        }
+    }
+    if (best)
+        return best;
+
+    const Math::Vec2 p(x, y);
+    float bestArea = FLT_MAX;
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
+    {
+        GameObject* object = mEntries[i].object;
+        Math::Vec4 r;
+        if (!mShown[i] || !pickable(*object) || !objectBounds(*object, r))
+            continue;
+        const Matrix2D& xform = object->globalTransform();
+        const Math::Vec2 q[4] = {toScreen(xform.Transform(r.x, r.y)), toScreen(xform.Transform(r.x + r.z, r.y)),
+                                 toScreen(xform.Transform(r.x + r.z, r.y + r.w)),
+                                 toScreen(xform.Transform(r.x, r.y + r.w))};
+        bool inside = true, near = false;
+        const float winding = cross(q[0], q[1], q[2]) < 0.0f ? -1.0f : 1.0f;
+        for (int k = 0; k < 4; ++k)
+        {
+            const Math::Vec2& a = q[k];
+            const Math::Vec2& b = q[(k + 1) % 4];
+            inside = inside && cross(a, b, p) * winding >= 0.0f;
+            near = near || distanceToSegment(x, y, a.x, a.y, b.x, b.y) <= kHitRadius;
+        }
+        if (!inside && !near)
+            continue;
+        const float area = std::fabs(cross(q[0], q[1], q[3]));
+        if (area < bestArea)
+        {
+            bestArea = area;
+            best = object;
+        }
     }
     return best;
 }
@@ -122,22 +205,114 @@ SceneGizmo::Handle SceneGizmo::hit(GameObject& selected, float x, float y) const
     return Handle::None;
 }
 
-bool SceneGizmo::press(GameObject* selected, float x, float y)
+bool SceneGizmo::hitPoint(GameObject& selected, float x, float y, Collider2D*& collider, int& index) const
+{
+    const Matrix2D frame = bodyFrame(selected);
+    const Math::Vec2 scale = bodyScale(selected);
+    float best = kPointHitRadius;
+    collider = nullptr;
+    const std::size_t count = selected.componentCount<Collider2D>();
+    for (std::size_t c = 0; c < count; ++c)
+    {
+        Collider2D* candidate = selected.getComponentAt<Collider2D>(c);
+        if (!candidate || !candidate->active())
+            continue;
+        for (int i = 0, points = colliderPointCount(*candidate); i < points; ++i)
+        {
+            const Math::Vec2 s = toScreen(frame.Transform(colliderPoint(*candidate, scale, i)));
+            const float distance = std::sqrt((s.x - x) * (s.x - x) + (s.y - y) * (s.y - y));
+            if (distance <= best)
+            {
+                best = distance;
+                collider = candidate;
+                index = i;
+            }
+        }
+    }
+    return collider != nullptr;
+}
+
+bool SceneGizmo::hitSegment(GameObject& selected, float x, float y, Collider2D*& collider, int& after,
+                            Math::Vec2& point) const
+{
+    const Matrix2D frame = bodyFrame(selected);
+    const Math::Vec2 scale = bodyScale(selected);
+    float best = kPointHitRadius;
+    collider = nullptr;
+    const std::size_t count = selected.componentCount<Collider2D>();
+    for (std::size_t c = 0; c < count; ++c)
+    {
+        Collider2D* candidate = selected.getComponentAt<Collider2D>(c);
+        if (!candidate || !candidate->active() || !colliderEditable(*candidate))
+            continue;
+        const int points = colliderPointCount(*candidate);
+        const int segments = colliderClosed(*candidate) ? points : points - 1;
+        for (int i = 0; i < segments; ++i)
+        {
+            const Math::Vec2 a = toScreen(frame.Transform(colliderPoint(*candidate, scale, i)));
+            const Math::Vec2 b = toScreen(frame.Transform(colliderPoint(*candidate, scale, (i + 1) % points)));
+            float t = 0.0f;
+            const float distance = distanceToSegment(x, y, a.x, a.y, b.x, b.y, &t);
+            if (distance <= best)
+            {
+                best = distance;
+                collider = candidate;
+                after = i;
+                // Where the outline was clicked, so the shape does not shift when the point goes in.
+                const Math::Vec2 world = toWorld(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+                point = frame.AffineInverse().Transform(world);
+            }
+        }
+    }
+    return collider != nullptr;
+}
+
+SceneGizmo::Press SceneGizmo::press(GameObject* selected, float x, float y, int clicks, bool ctrl)
 {
     mHandle = Handle::None;
     if (!selected || selected->locked() || !selected->parent())
-        return false;
-    mHandle = hit(*selected, x, y);
-    if (mHandle == Handle::None)
-        return false;
+        return Press::Miss;
     mTarget = selected;
     mChanged = false;
+    if (mTool == SceneTool::Select)
+    {
+        Collider2D* collider = nullptr;
+        int index = -1;
+        if (hitPoint(*selected, x, y, collider, index))
+        {
+            if (ctrl)
+            {
+                mEditName = "Remove collider point";
+                return removeColliderPoint(*collider, index, mScratch) ? Press::Edited : Press::Shape;
+            }
+            mHandle = Handle::Point;
+            mPointCollider = collider;
+            mPointIndex = index;
+            mEditName = "Edit collider";
+            return Press::Drag;
+        }
+        Math::Vec2 point;
+        if (!hitSegment(*selected, x, y, collider, index, point))
+            return Press::Miss;
+        if (clicks < 2 || !insertColliderPoint(*collider, bodyScale(*selected), index, point, mScratch))
+            return Press::Shape;
+        mHandle = Handle::Point;
+        mPointCollider = collider;
+        mPointIndex = index + 1;
+        mChanged = true;
+        mEditName = "Add collider point";
+        return Press::Drag;
+    }
+    mHandle = hit(*selected, x, y);
+    if (mHandle == Handle::None)
+        return Press::Miss;
     mStartX = x;
     mStartY = y;
     mStartWorld = selected->globalPosition();
     mStartScale = selected->scale();
     mStartRotation = selected->rotationDegrees();
-    return true;
+    mEditName = mTool == SceneTool::Move ? "Move" : (mTool == SceneTool::Rotate ? "Rotate" : "Scale");
+    return Press::Drag;
 }
 
 bool SceneGizmo::drag(float x, float y)
@@ -147,7 +322,15 @@ bool SceneGizmo::drag(float x, float y)
     GameObject& object = *mTarget;
     const Math::Vec2 c = toScreen(mStartWorld);
 
-    if (mTool == SceneTool::Move)
+    if (mHandle == Handle::Point)
+    {
+        Math::Vec2 world = toWorld(x, y);
+        if (mSnap)
+            world = Math::Vec2(snapped(world.x, kSnapStep), snapped(world.y, kSnapStep));
+        setColliderPoint(*mPointCollider, bodyScale(object), mPointIndex, bodyFrame(object).AffineInverse().Transform(world),
+                         mScratch);
+    }
+    else if (mTool == SceneTool::Move)
     {
         const Math::Vec2 from = toWorld(mStartX, mStartY);
         const Math::Vec2 to = toWorld(mHandle == Handle::AxisY ? mStartX : x, mHandle == Handle::AxisX ? mStartY : y);
@@ -200,28 +383,16 @@ bool SceneGizmo::release()
     const bool changed = mHandle != Handle::None && mChanged;
     mHandle = Handle::None;
     mTarget = nullptr;
+    mPointCollider = nullptr;
+    mPointIndex = -1;
     mChanged = false;
     return changed;
 }
 
-const char* SceneGizmo::editName() const
+void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene, GameObject* selected)
 {
-    switch (mTool)
-    {
-    case SceneTool::Move:
-        return "Move";
-    case SceneTool::Rotate:
-        return "Rotate";
-    case SceneTool::Scale:
-        return "Scale";
-    case SceneTool::Select:
-        break;
-    }
-    return "Edit";
-}
-
-void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene, GameObject* selected) const
-{
+    refresh(scene);
+    updateShown();
     if (mGrid)
         paintGrid(ctx, area);
 
@@ -237,10 +408,30 @@ void SceneGizmo::paint(rt::PaintContext& ctx, const rt::Rect& area, Scene& scene
         ctx.lineRect(area.x + a.x, area.y + a.y, b.x - a.x, b.y - a.y);
     }
 
-    GameObject& root = scene.root();
-    for (std::size_t i = 0; i < root.childCount(); ++i)
-        paintMarkers(ctx, area, *root.child(i), selected);
-    if (selected && selected->parent())
+    const bool editable = selected && selected->parent();
+    if (mColliders)
+    {
+        for (const ColliderEntry& entry : mColliderEntries)
+            if (mShown[static_cast<std::size_t>(entry.entry)] && entry.collider->active())
+                paintCollider(ctx, area, *mEntries[static_cast<std::size_t>(entry.entry)].object, *entry.collider);
+    }
+    else if (editable)
+    {
+        const std::size_t count = selected->componentCount<Collider2D>();
+        for (std::size_t c = 0; c < count; ++c)
+            if (Collider2D* collider = selected->getComponentAt<Collider2D>(c))
+                if (collider->active() && colliderPointCount(*collider) > 0)
+                    paintCollider(ctx, area, *selected, *collider);
+    }
+
+    paintMarkers(ctx, area, selected);
+    if (!editable)
+        return;
+    paintOutline(ctx, area, *selected);
+    paintLight(ctx, area, *selected);
+    if (mTool == SceneTool::Select)
+        paintPoints(ctx, area, *selected);
+    else
         paintHandles(ctx, area, *selected);
 }
 
@@ -264,26 +455,124 @@ void SceneGizmo::paintGrid(rt::PaintContext& ctx, const rt::Rect& area) const
     ctx.fillRect(area.x + origin.x, area.y, 1.0f, area.h);
 }
 
-void SceneGizmo::paintMarkers(rt::PaintContext& ctx, const rt::Rect& area, GameObject& object,
-                              GameObject* selected) const
+void SceneGizmo::paintMarkers(rt::PaintContext& ctx, const rt::Rect& area, GameObject* selected) const
 {
-    if (!object.visible())
-        return;
-    const Math::Vec2 p = toScreen(object.globalPosition());
-    const bool isSelected = &object == selected;
-    ctx.fill.SetColor(isSelected ? rt::Color(255, 205, 65, 255) : rt::Color(70, 180, 235, 220));
-    ctx.fill.Circle(area.x + p.x, area.y + p.y, isSelected ? 5.0f : 3.0f, true);
-    if (isSelected)
+    for (std::size_t i = 0; i < mEntries.size(); ++i)
     {
-        const auto& theme = rt::Theme::instance();
-        ctx.font.SetFontSize(theme.fontSize);
-        ctx.font.SetBatch(&ctx.text);
-        ctx.font.SetColor(rt::Color(220, 225, 235, 230));
-        ctx.font.Print(object.name().empty() ? "GameObject" : object.name().c_str(), area.x + p.x + 8.0f,
-                       area.y + p.y - 6.0f);
+        if (!mShown[i])
+            continue;
+        GameObject& object = *mEntries[i].object;
+        const Math::Vec2 p = toScreen(object.globalPosition());
+        const bool isSelected = &object == selected;
+        ctx.fill.SetColor(isSelected ? kSelectedColor : rt::Color(70, 180, 235, 220));
+        ctx.fill.Circle(area.x + p.x, area.y + p.y, isSelected ? 5.0f : 3.0f, true);
+        if (isSelected)
+        {
+            const auto& theme = rt::Theme::instance();
+            ctx.font.SetFontSize(theme.fontSize);
+            ctx.font.SetBatch(&ctx.text);
+            ctx.font.SetColor(rt::Color(220, 225, 235, 230));
+            ctx.font.Print(object.name().empty() ? "GameObject" : object.name().c_str(), area.x + p.x + 8.0f,
+                           area.y + p.y - 6.0f);
+        }
     }
-    for (std::size_t i = 0; i < object.childCount(); ++i)
-        paintMarkers(ctx, area, *object.child(i), selected);
+}
+
+void SceneGizmo::paintOutline(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const
+{
+    Math::Vec4 r;
+    if (!objectBounds(selected, r))
+        return;
+    const Matrix2D& xform = selected.globalTransform();
+    const Math::Vec2 q[4] = {toScreen(xform.Transform(r.x, r.y)), toScreen(xform.Transform(r.x + r.z, r.y)),
+                             toScreen(xform.Transform(r.x + r.z, r.y + r.w)), toScreen(xform.Transform(r.x, r.y + r.w))};
+    ctx.line.SetColor(kOutlineColor);
+    for (int k = 0; k < 4; ++k)
+        ctx.line.Line2D(area.x + q[k].x, area.y + q[k].y, area.x + q[(k + 1) % 4].x, area.y + q[(k + 1) % 4].y);
+}
+
+void SceneGizmo::paintCollider(rt::PaintContext& ctx, const rt::Rect& area, GameObject& object,
+                               const Collider2D& collider) const
+{
+    const Matrix2D frame = bodyFrame(object);
+    const Math::Vec2 scale = bodyScale(object);
+    // A collider without a body on its object is never simulated.
+    ctx.line.SetColor(!object.getComponent<RigidBody2D>() ? kNoBodyColor
+                                                         : (collider.isSensor() ? kSensorColor : kSolidColor));
+    const auto screen = [&](const Math::Vec2& body)
+    {
+        const Math::Vec2 s = toScreen(frame.Transform(body));
+        return Math::Vec2(area.x + s.x, area.y + s.y);
+    };
+    const auto segment = [&](const Math::Vec2& a, const Math::Vec2& b)
+    {
+        const Math::Vec2 sa = screen(a), sb = screen(b);
+        ctx.line.Line2D(sa.x, sa.y, sb.x, sb.y);
+    };
+    const Math::Vec2 o = collider.offset();
+    switch (collider.componentClass())
+    {
+    case ComponentClass::BoxCollider2D:
+    {
+        const Math::Vec2 corner = colliderPoint(collider, scale, 0);
+        const float hw = corner.x - o.x, hh = corner.y - o.y;
+        const Math::Vec2 q[4] = {Math::Vec2(o.x - hw, o.y - hh), Math::Vec2(o.x + hw, o.y - hh),
+                                 Math::Vec2(o.x + hw, o.y + hh), Math::Vec2(o.x - hw, o.y + hh)};
+        for (int k = 0; k < 4; ++k)
+            segment(q[k], q[(k + 1) % 4]);
+        break;
+    }
+    case ComponentClass::CircleCollider2D:
+    {
+        const Math::Vec2 rim = colliderPoint(collider, scale, 0);
+        const Math::Vec2 c = screen(o), e = screen(rim);
+        ctx.line.Circle(c.x, c.y, std::sqrt((e.x - c.x) * (e.x - c.x) + (e.y - c.y) * (e.y - c.y)), false);
+        ctx.line.Line2D(c.x, c.y, e.x, e.y);
+        break;
+    }
+    default:
+    {
+        const int points = colliderPointCount(collider);
+        const int segments = colliderClosed(collider) ? points : points - 1;
+        for (int i = 0; i < segments; ++i)
+            segment(colliderPoint(collider, scale, i), colliderPoint(collider, scale, (i + 1) % points));
+        break;
+    }
+    }
+}
+
+void SceneGizmo::paintPoints(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const
+{
+    const Matrix2D frame = bodyFrame(selected);
+    const Math::Vec2 scale = bodyScale(selected);
+    const std::size_t count = selected.componentCount<Collider2D>();
+    for (std::size_t c = 0; c < count; ++c)
+    {
+        const Collider2D* collider = selected.getComponentAt<Collider2D>(c);
+        if (!collider || !collider->active())
+            continue;
+        for (int i = 0, points = colliderPointCount(*collider); i < points; ++i)
+        {
+            const Math::Vec2 s = toScreen(frame.Transform(colliderPoint(*collider, scale, i)));
+            const bool active = collider == mPointCollider && i == mPointIndex;
+            ctx.fill.SetColor(active ? kActiveColor : kSelectedColor);
+            ctx.fillRect(area.x + s.x - kPointHalfSize, area.y + s.y - kPointHalfSize, kPointHalfSize * 2.0f,
+                         kPointHalfSize * 2.0f);
+        }
+    }
+}
+
+void SceneGizmo::paintLight(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const
+{
+    const Light2D* light = selected.getComponent<Light2D>();
+    if (!light || !light->active())
+        return;
+    const Math::Vec2 world = selected.globalPosition();
+    const Math::Vec2 c = toScreen(world);
+    const Math::Vec2 e = toScreen(Math::Vec2(world.x + light->radius(), world.y));
+    ctx.line.SetColor(kLightColor);
+    ctx.line.Circle(area.x + c.x, area.y + c.y, std::sqrt((e.x - c.x) * (e.x - c.x) + (e.y - c.y) * (e.y - c.y)),
+                    false);
 }
 
 void SceneGizmo::paintHandles(rt::PaintContext& ctx, const rt::Rect& area, GameObject& selected) const

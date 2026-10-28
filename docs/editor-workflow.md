@@ -15,6 +15,17 @@ description; opening a component shows the same reminder above its properties.
 `*Shape` components are visual, while `*Collider2D` components belong to
 physics.
 
+## Scene view
+
+Click an object's sprite, shape or collider to select it (an origin marker
+under the pointer wins, then the smallest outline). With the **Select** tool
+(Q) the selected object's colliders show their points: drag one to move it,
+double-click a polygon or chain edge to add a point there, Ctrl+click a point
+to remove it. A box has a corner to resize it, a circle a point on its rim.
+The collider button in the toolbar shows every object's colliders: green
+solid, blue sensor, orange when the object has no RigidBody2D and the collider
+does nothing.
+
 ## Example scenes
 
 Choose **File → New Example Scene → Shapes** or **Physics**. These examples

@@ -168,12 +168,14 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::MenuAction* resetLayout = view->addAction("Reset Layout");
     resetLayout->triggered.connect([this]() { this->resetLayout(); });
 
-    // The tools on the left and the run bar centred between two fillers.
+    // The tools and a filler share the row equally, so the run bar between them
+    // sits in the middle of the window.
     rt::BoxLayout* toolRow = outer->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
     toolRow->setPadding(0.0f);
     toolRow->setSpacing(0.0f);
     mTools = toolRow->createChild<rt::ToolBar>();
     mTools->setDraggable(false);
+    mTools->setStretch(1.0f);
     const int newItem = mTools->addButton(Icons::get("New"), "New scene");
     const int openItem = mTools->addButton(Icons::get("Open"), "Open scene");
     const int saveItem = mTools->addButton(Icons::get("Save"), "Save scene");
@@ -206,6 +208,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
                                      "Live preview: particles and animations move while editing", true);
     mGridItem = mTools->addToggle(Icons::get("Grid"), "Grid", true);
     mSnapItem = mTools->addToggle(Icons::get("Snap"), "Snap");
+    mCollidersItem = mTools->addToggle(Icons::get("PolygonCollider2D"),
+                                       "Colliders: every object's (the selected one's always show)", true);
     mTools->toggleChanged.connect([this](int item, bool on)
     {
         if (item == mPreviewItem)
@@ -217,6 +221,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mGizmo.setGrid(on);
         else if (item == mSnapItem)
             mGizmo.setSnap(on);
+        else if (item == mCollidersItem)
+            mGizmo.setColliders(on);
         // The four tools are one choice: the one pressed stays on.
         for (int i = 0; i < 4; ++i)
             if (item == mToolItems[i])
@@ -224,7 +230,6 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         for (int i = 0; i < 4; ++i)
             mTools->setItemChecked(mToolItems[i], static_cast<int>(mGizmo.tool()) == i);
     });
-    toolRow->createChild<rt::Panel>()->setStretch(1.0f);
     mRunBar = toolRow->createChild<rt::ToolBar>();
     mRunBar->setDraggable(false);
     mPlayItem = mRunBar->addToggle(Icons::get("Play"), "Play");
@@ -246,7 +251,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         else if (item == mWindowItem)
             runInWindow();
     });
-    toolRow->createChild<rt::Panel>()->setStretch(1.0f);
+    rt::ToolBar* toolFill = toolRow->createChild<rt::ToolBar>();
+    toolFill->setDraggable(false);
+    toolFill->setStretch(1.0f);
     updateRunBar();
     updateUndoButtons();
 
@@ -410,7 +417,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mTilePainter->hover(x, y);
         }
     });
-    mViewport->pressed.connect([this](float x, float y)
+    mViewport->pressed.connect([this](float x, float y, int clicks, bool ctrl)
     {
         const rt::Rect area = mViewport->absoluteRect();
         mGizmo.setView(mCamera, area.w, area.h);
@@ -422,9 +429,19 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             mTilePainter->press(x, y);
             return;
         }
-        if (mGizmo.press(mSelected, x, y))
-            return;
-        select(mGizmo.pick(mScene, x, y));
+        switch (mGizmo.press(mSelected, x, y, clicks, ctrl))
+        {
+        case SceneGizmo::Press::Miss:
+            select(mGizmo.pick(mScene, x, y));
+            break;
+        case SceneGizmo::Press::Edited:
+            commit(mGizmo.editName());
+            showObject(mSelected);
+            break;
+        case SceneGizmo::Press::Drag:
+        case SceneGizmo::Press::Shape:
+            break;
+        }
     });
     mViewport->acceptDrop = [this](const rt::DragPayload& payload)
     {

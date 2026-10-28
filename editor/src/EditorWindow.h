@@ -135,6 +135,7 @@ private:
     int mToolItems[4] = {-1, -1, -1, -1};
     int mGridItem = -1;
     int mSnapItem = -1;
+    int mCollidersItem = -1;
     SceneGizmo mGizmo;
     int mUndoItem = -1;
     int mRedoItem = -1;

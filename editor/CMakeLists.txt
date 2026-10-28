@@ -27,6 +27,7 @@ add_executable(k2d_editor
     src/InspectorPanel.cpp
     src/ViewportPanel.cpp
     src/SceneGizmo.cpp
+    src/SceneShapes.cpp
     src/AssetsPanel.cpp
     src/SpriteCanvas.cpp
     src/SpriteEditorPanel.cpp
