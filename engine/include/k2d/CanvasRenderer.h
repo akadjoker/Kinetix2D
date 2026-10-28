@@ -148,7 +148,8 @@ class CanvasRenderer
     void SetupShadowAtlas();
     void ShutdownShadowAtlas();
     void RenderShadowAtlas();
-    void UploadShadowEdges();
+    bool UploadShadowEdges();
+    bool ShadowLightsChanged();
     void EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId, unsigned int customProgram,
                   const WaterEffect& water, const Matrix2D& matrix, float width, float height, int texWidth,
                   int texHeight, float pivotX, float pivotY, float srcX, float srcY, float srcW, float srcH, bool flipX,
@@ -242,6 +243,8 @@ class CanvasRenderer
     ct::Vector<Math::Vec4> mShadowVertices;
     size_t mShadowVertexCapacity;
     ct::Vector<PointLight> mVisibleLights;
+    ct::Vector<Math::Vec4> mShadowKeys;
+    ct::Vector<Math::Vec4> mShadowKeysScratch;
     bool mCulling;
     float mCullMinX;
     float mCullMinY;

@@ -1334,7 +1334,7 @@ void CanvasRenderer::ShutdownShadowAtlas()
     mShadowVertexCapacity = 0;
 }
 
-void CanvasRenderer::UploadShadowEdges()
+bool CanvasRenderer::UploadShadowEdges()
 {
     const size_t count = mOccluderEdges.size() * 2;
     bool changed = mShadowVertices.size() != count;
@@ -1345,7 +1345,7 @@ void CanvasRenderer::UploadShadowEdges()
         changed = edge.x != stored.x || edge.y != stored.y || edge.z != stored.z || edge.w != stored.w;
     }
     if (!changed)
-        return;
+        return false;
     mShadowVertices.resize(count);
     for (size_t e = 0; e < mOccluderEdges.size(); ++e)
     {
@@ -1361,11 +1361,52 @@ void CanvasRenderer::UploadShadowEdges()
                      GL_DYNAMIC_DRAW);
     }
     glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, mShadowVertices.data());
+    return true;
+}
+
+// What each row of the atlas was drawn for: point lights by position and
+// radius, directional ones by direction and the canvas they span.
+bool CanvasRenderer::ShadowLightsChanged()
+{
+    mShadowKeysScratch.clear();
+    for (int i = 0; i < mLightCount; ++i)
+    {
+        const PointLight& light = mLights[i];
+        mShadowKeysScratch.push_back(Math::Vec4(light.position.x, light.position.y,
+                                                light.useShadow ? light.radius : 0.0f, 0.0f));
+    }
+    for (int i = 0; i < mDirectionalLightCount; ++i)
+    {
+        const DirectionalLight& light = mDirectionalLights[i];
+        mShadowKeysScratch.push_back(Math::Vec4(light.direction.x, light.direction.y, light.useShadow ? 1.0f : 0.0f,
+                                                1.0f));
+    }
+    mShadowKeysScratch.push_back(Math::Vec4(mOrthoWidth, mOrthoHeight, (float)mLightCount,
+                                            (float)mDirectionalLightCount));
+    bool changed = mShadowKeysScratch.size() != mShadowKeys.size();
+    for (size_t i = 0; !changed && i < mShadowKeys.size(); ++i)
+    {
+        const Math::Vec4& a = mShadowKeysScratch[i];
+        const Math::Vec4& b = mShadowKeys[i];
+        changed = a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w;
+    }
+    if (changed)
+    {
+        mShadowKeys.resize(mShadowKeysScratch.size());
+        for (size_t i = 0; i < mShadowKeysScratch.size(); ++i)
+            mShadowKeys[i] = mShadowKeysScratch[i];
+    }
+    return changed;
 }
 
 void CanvasRenderer::RenderShadowAtlas()
 {
-    if (!mShadowFramebuffer || !mShadowProgram || mOccluderEdges.empty())
+    if (!mShadowFramebuffer || !mShadowProgram)
+        return;
+    glBindBuffer(GL_ARRAY_BUFFER, mShadowVBO);
+    const bool edgesChanged = UploadShadowEdges();
+    const bool lightsChanged = ShadowLightsChanged();
+    if (!edgesChanged && !lightsChanged)
         return;
 
     GLint previousViewport[4] = {0, 0, 0, 0};
@@ -1381,8 +1422,6 @@ void CanvasRenderer::RenderShadowAtlas()
     glBindFramebuffer(GL_FRAMEBUFFER, mShadowFramebuffer);
     glUseProgram(mShadowProgram);
     glBindVertexArray(mShadowVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, mShadowVBO);
-    UploadShadowEdges();
     const GLsizei vertexCount = (GLsizei)mShadowVertices.size();
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
