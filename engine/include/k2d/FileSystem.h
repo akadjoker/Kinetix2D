@@ -22,7 +22,8 @@ class FileSystem
     void Init();
     void Shutdown();
 
-    void AddSearchPath(const char* path);
+    // first: searched before the others (a project before the engine's assets).
+    void AddSearchPath(const char* path, bool first = false);
     void ResetSearchPaths();
 
     // Mounted KPAKs override loose files with the same logical name.

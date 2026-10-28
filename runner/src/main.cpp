@@ -400,8 +400,8 @@ int main(int argc, char** argv)
 
     int result = 0;
     {
-        k2d::FileSystem::Instance().AddSearchPath(projectRoot.c_str());
-        k2d::FileSystem::Instance().AddSearchPath(joinPath(projectRoot, "assets").c_str());
+        k2d::FileSystem::Instance().AddSearchPath(joinPath(projectRoot, "assets").c_str(), true);
+        k2d::FileSystem::Instance().AddSearchPath(projectRoot.c_str(), true);
         k2d::FileSystem::Instance().AddSearchPath(directoryOf(scenePath.c_str()).c_str());
 
         ct::Json sceneJson;

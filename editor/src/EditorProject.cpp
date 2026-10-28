@@ -91,8 +91,8 @@ void EditorWindow::setProjectRoot(const ct::String& root)
     mProjectRoot = absolutePath(root);
     FileSystem& files = FileSystem::Instance();
     files.ResetSearchPaths();
-    files.AddSearchPath(mProjectRoot.c_str());
-    files.AddSearchPath(EditorFileSystem::join(mProjectRoot, "assets").c_str());
+    files.AddSearchPath(EditorFileSystem::join(mProjectRoot, "assets").c_str(), true);
+    files.AddSearchPath(mProjectRoot.c_str(), true);
     mAssetsPanel->setRoot(mProjectRoot);
     mSpriteEditor->setRoot(mProjectRoot);
     mScriptEditor->setRoot(mProjectRoot);

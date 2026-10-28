@@ -42,7 +42,7 @@ void FileSystem::Shutdown()
     mBasePath.clear();
 }
 
-void FileSystem::AddSearchPath(const char* path)
+void FileSystem::AddSearchPath(const char* path, bool first)
 {
     if (!path || !path[0])
         return;
@@ -50,7 +50,11 @@ void FileSystem::AddSearchPath(const char* path)
     ct::String p(path);
     while (HasTrailingSeparator(p))
         p.pop_back();
-    if (!p.empty())
+    if (p.empty())
+        return;
+    if (first)
+        mSearchPaths.insert(mSearchPaths.begin(), p);
+    else
         mSearchPaths.push_back(p);
 }
 
@@ -95,14 +99,17 @@ bool FileSystem::Resolve(const char* rel, ct::String& out) const
     if (!rel || !rel[0])
         return false;
 
-    // 1) The path exactly as given (absolute or cwd-relative).
-    if (Exists(rel))
+    // 1) An absolute path is only itself.
+    if (path_is_absolute(rel))
     {
+        if (!Exists(rel))
+            return false;
         out = rel;
         return true;
     }
 
-    // 2) Each search root, resolved against the current directory.
+    // 2) Each search root first: a project's "assets/x.png" is its own, not
+    //    the one that happens to sit under the current directory.
     for (size_t i = 0; i < mSearchPaths.size(); ++i)
     {
         ct::String candidate = mSearchPaths[i];
@@ -115,7 +122,14 @@ bool FileSystem::Resolve(const char* rel, ct::String& out) const
         }
     }
 
-    // 3) Each search root, resolved against the executable directory.
+    // 3) The path as given, from the current directory.
+    if (Exists(rel))
+    {
+        out = rel;
+        return true;
+    }
+
+    // 4) Each search root, resolved against the executable directory.
     if (!mBasePath.empty())
     {
         for (size_t i = 0; i < mSearchPaths.size(); ++i)
