@@ -18,6 +18,46 @@ namespace
 static const int FONT_COLS = 16;
 static const int FONT_ATLAS_W = 128;
 static const int FONT_ATLAS_H = 48;
+static const int SHADOW_ATLAS_WIDTH = 2048;
+static const int SHADOW_ATLAS_ROWS = kMaxPointLights + kMaxDirectionalLights;
+static const GLuint LIGHTS_BINDING = 0;
+
+struct PointLightData
+{
+    float position[2];
+    float radius;
+    float height;
+    float color[4];
+    float shadowColor[4];
+    float falloff;
+    float shadowBias;
+    float shadowSmooth;
+    unsigned int cullMask;
+    int shadowFlags;
+    int shadowFilter;
+    int pad[2];
+};
+
+struct DirectionalLightData
+{
+    float direction[2];
+    float height;
+    unsigned int cullMask;
+    float color[4];
+    float shadowColor[4];
+    float shadowBias;
+    float shadowSmooth;
+    int shadowFlags;
+    int shadowFilter;
+};
+
+struct LightsBlock
+{
+    PointLightData points[kMaxPointLights];
+    DirectionalLightData suns[kMaxDirectionalLights];
+};
+
+static_assert(sizeof(PointLightData) == 80 && sizeof(DirectionalLightData) == 64, "std140 layout of Lights");
 
 static const char* VERTEX_SHADER_SOURCE = R"(#version 300 es
 layout(location = 0) in vec3 a_position;
@@ -104,7 +144,7 @@ void main()
 }
 )";
 
-static const char* FRAGMENT_SHADER_SOURCE = R"(#version 300 es
+static const char* FRAGMENT_SHADER_SOURCE = R"(
 // highp, not mediump: light math runs on world-space distances. mediump is
 // fp16 on real mobile/AMD GLES drivers, and length() squares its input --
 // fp16 overflows to Inf at sqrt(65504) = 255.9, silently killing every light
@@ -128,24 +168,41 @@ uniform vec2 u_canvasSize;
 uniform vec4 u_canvasModulate;
 
 uniform int u_lightCount;
-uniform vec2 u_lightPos[8];
-uniform vec4 u_lightColor[8];
-uniform float u_lightRadius[8];
-uniform uint u_lightCullMask[8];
-uniform float u_lightHeight[8];
 uniform int u_directionalLightCount;
-uniform vec2 u_directionalLightDirection[8];
-uniform vec4 u_directionalLightColor[8];
-uniform int u_directionalLightShadowFlags[8];
-uniform vec4 u_directionalLightShadowColor[8];
-uniform uint u_directionalCullMask[8];
-uniform float u_directionalHeight[8];
-uniform int u_lightShadowFlags[8];
-uniform int u_lightShadowFilter[8];
-uniform vec4 u_lightShadowColor[8];
-uniform int u_directionalShadowFilter[8];
-uniform vec4 u_lightParams[8];
-uniform vec4 u_directionalParams[8];
+
+struct PointLightData
+{
+    vec2 position;
+    float radius;
+    float height;
+    vec4 color;
+    vec4 shadowColor;
+    float falloff;
+    float shadowBias;
+    float shadowSmooth;
+    uint cullMask;
+    int shadowFlags;
+    int shadowFilter;
+};
+
+struct DirectionalLightData
+{
+    vec2 direction;
+    float height;
+    uint cullMask;
+    vec4 color;
+    vec4 shadowColor;
+    float shadowBias;
+    float shadowSmooth;
+    int shadowFlags;
+    int shadowFilter;
+};
+
+layout(std140) uniform Lights
+{
+    PointLightData u_points[MAX_POINT_LIGHTS];
+    DirectionalLightData u_suns[MAX_DIRECTIONAL_LIGHTS];
+};
 
 out vec4 FragColor;
 
@@ -157,9 +214,9 @@ float shadowLit(vec2 uv, float depth, int filterMode, float smoothness, bool wra
     float lit = 0.0;
     for (int x = -taps; x <= taps; ++x)
     {
-        float u = uv.x + float(x) * smoothness * (2.0 / 2048.0);
+        float u = uv.x + float(x) * smoothness * (2.0 / SHADOW_ATLAS_WIDTH);
         if (!wrap)
-            u = clamp(u, 0.5 / 2048.0, 1.0 - 0.5 / 2048.0);
+            u = clamp(u, 0.5 / SHADOW_ATLAS_WIDTH, 1.0 - 0.5 / SHADOW_ATLAS_WIDTH);
         lit += texture(u_shadowAtlas, vec3(u, uv.y, depth));
     }
     return lit / float(2 * taps + 1);
@@ -192,17 +249,18 @@ void main()
     }
     if (u_lightCount > 0)
     {
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < MAX_POINT_LIGHTS; ++i)
         {
             if (i >= u_lightCount)
                 break;
+            PointLightData light = u_points[i];
             // Godot's CanvasItem light_mask / Light2D range_item_cull_mask:
             // this light only affects items sharing at least one bit.
-            if ((v_lightMask & u_lightCullMask[i]) == 0u)
+            if ((v_lightMask & light.cullMask) == 0u)
                 continue;
-            vec2 toLight = u_lightPos[i] - v_world;
+            vec2 toLight = light.position - v_world;
             float dist = length(toLight);
-            float radialCut = 1.0 - dist / u_lightRadius[i];
+            float radialCut = 1.0 - dist / light.radius;
             if (radialCut <= 0.0)
                 continue;
             // Godot's Light2D "texture" (canvas.glsl:793 light_color =
@@ -215,25 +273,24 @@ void main()
             // cookies into a hard-edged uniform disc. light_color is then
             // cookie x light tint (rgb) / cookie alpha x energy (a), so the
             // shadow mix below and the final ADD work unchanged.
-            vec4 light_color = u_lightColor[i];
+            vec4 light_color = light.color;
             if (u_hasLightTexture != 0)
             {
-                vec4 cookie = texture(u_lightTexture, -toLight / u_lightRadius[i] * 0.5 + 0.5);
-                light_color = vec4(cookie.rgb * u_lightColor[i].rgb,
-                                   cookie.a * u_lightColor[i].a);
+                vec4 cookie = texture(u_lightTexture, -toLight / light.radius * 0.5 + 0.5);
+                light_color = vec4(cookie.rgb * light.color.rgb, cookie.a * light.color.a);
             }
             else
             {
-                light_color.a *= pow(radialCut, u_lightParams[i].x);
+                light_color.a *= pow(radialCut, light.falloff);
             }
-            if ((u_lightShadowFlags[i] & 1) != 0)
+            if ((light.shadowFlags & 1) != 0)
             {
-                vec2 lightRay = v_world - u_lightPos[i];
+                vec2 lightRay = v_world - light.position;
                 float atlasU = atan(lightRay.y, lightRay.x) / 6.28318530718 + 0.5;
-                float atlasV = (float(i * 2) + 0.5) / 16.0;
-                float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), dist / u_lightRadius[i] - u_lightParams[i].y,
-                                               u_lightShadowFilter[i], u_lightParams[i].z, true);
-                vec4 shadow_color = u_lightShadowColor[i];
+                float atlasV = (float(i) + 0.5) / float(SHADOW_ATLAS_ROWS);
+                float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), dist / light.radius - light.shadowBias,
+                                               light.shadowFilter, light.shadowSmooth, true);
+                vec4 shadow_color = light.shadowColor;
                 shadow_color.a *= light_color.a;
                 light_color = mix(light_color, shadow_color, shadow);
             }
@@ -246,35 +303,36 @@ void main()
                 // canvas.glsl:799/809/420: light_vec points from the surface
                 // to the light, height is the light's Z offset above the
                 // plane -- toLight is already (light - surface) in-plane.
-                vec3 lightVec = normalize(vec3(toLight, u_lightHeight[i]));
+                vec3 lightVec = normalize(vec3(toLight, light.height));
                 cNdotL = max(0.0, dot(normal, lightVec));
             }
             FragColor.rgb += light_color.rgb * light_color.a * base.rgb * cNdotL;
         }
     }
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
     {
         if (i >= u_directionalLightCount)
             break;
-        if ((v_lightMask & u_directionalCullMask[i]) == 0u)
+        DirectionalLightData sun = u_suns[i];
+        if ((v_lightMask & sun.cullMask) == 0u)
             continue;
-        vec4 light_color = u_directionalLightColor[i];
-        if ((u_directionalLightShadowFlags[i] & 1) != 0)
+        vec4 light_color = sun.color;
+        if ((sun.shadowFlags & 1) != 0)
         {
             vec2 center = u_canvasSize * 0.5;
             float halfSize = length(u_canvasSize) * 0.5;
             float shadowDistance = length(u_canvasSize) * 2.0;
-            vec2 rayDir = u_directionalLightDirection[i];
+            vec2 rayDir = sun.direction;
             vec2 perpendicular = vec2(-rayDir.y, rayDir.x);
             vec2 relative = v_world - center;
             float lateral = dot(relative, perpendicular);
             float along = dot(relative, rayDir);
             float atlasU = (lateral / halfSize + 1.0) * 0.5;
-            float atlasV = (8.0 + float(i * 2) + 0.5) / 16.0;
+            float atlasV = (float(MAX_POINT_LIGHTS + i) + 0.5) / float(SHADOW_ATLAS_ROWS);
             float fragmentDepth = (along + shadowDistance * 0.5) / shadowDistance;
-            float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), fragmentDepth - u_directionalParams[i].x,
-                                           u_directionalShadowFilter[i], u_directionalParams[i].y, false);
-            vec4 shadow_color = u_directionalLightShadowColor[i];
+            float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), fragmentDepth - sun.shadowBias,
+                                           sun.shadowFilter, sun.shadowSmooth, false);
+            vec4 shadow_color = sun.shadowColor;
             shadow_color.a *= light_color.a;
             light_color = mix(light_color, shadow_color, shadow);
         }
@@ -286,8 +344,7 @@ void main()
             // a Z offset like point lights. rayDir/direction here already
             // points FROM the light TOWARD the scene (see the shadow raycast
             // above), so the vector TO the light is its negation.
-            vec2 rayDir = u_directionalLightDirection[i];
-            vec3 lightVec = normalize(mix(vec3(-rayDir, 0.0), vec3(0.0, 0.0, 1.0), u_directionalHeight[i]));
+            vec3 lightVec = normalize(mix(vec3(-sun.direction, 0.0), vec3(0.0, 0.0, 1.0), sun.height));
             cNdotL = max(0.0, dot(normal, lightVec));
         }
         FragColor.rgb += light_color.rgb * light_color.a * base.rgb * cNdotL;
@@ -362,10 +419,10 @@ void main()
 }
 )";
 
-static GLuint CompileShader(GLenum type, const char* src)
+static GLuint CompileShader(GLenum type, const char* const* sources, int count)
 {
     GLuint s = glCreateShader(type);
-    glShaderSource(s, 1, &src, nullptr);
+    glShaderSource(s, count, sources, nullptr);
     glCompileShader(s);
     GLint ok = 0;
     glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
@@ -378,6 +435,11 @@ static GLuint CompileShader(GLenum type, const char* src)
         return 0;
     }
     return s;
+}
+
+static GLuint CompileShader(GLenum type, const char* source)
+{
+    return CompileShader(type, &source, 1);
 }
 
 static GLuint CreateProgram(const char* vertexSource, const char* fragmentSource)
@@ -453,14 +515,10 @@ CanvasRenderer::CanvasRenderer()
       mFontTexture(0), mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
       mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1), mNormalMapLoc(-1), mHasNormalMapLoc(-1),
       mWaterMvpLoc(-1), mWaterNormalMapLoc(-1), mWaterPhaseALoc(-1), mWaterPhaseBLoc(-1), mWaterStrengthLoc(-1), mWaterNormalScaleLoc(-1),
-      mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1), mLightParamsLoc(-1), mDirectionalParamsLoc(-1),
-      mDirectionalHeightLoc(-1), mShadowAtlas(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
-      mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1), mLightColorLoc(-1), mLightRadiusLoc(-1),
-      mLightCullMaskLoc(-1), mDirectionalLightCountLoc(-1), mDirectionalLightDirectionLoc(-1),
-      mDirectionalLightColorLoc(-1), mDirectionalCullMaskLoc(-1), mDirectionalLightShadowFlagsLoc(-1),
-      mDirectionalLightShadowColorLoc(-1), mDirectionalShadowFilterLoc(-1), mLights(nullptr), mLightCount(0),
-      mDirectionalLights(nullptr), mDirectionalLightCount(0), mShadowFlagsLoc(-1), mShadowColorLoc(-1),
-      mShadowFilterLoc(-1), mShadowAtlasLoc(-1), mCanvasSizeLoc(-1), mOccluders(nullptr), mOccluderCount(0),
+      mWaterTintLoc(-1), mWaterHighlightLoc(-1), mShadowAtlas(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
+      mLightBuffer(0),
+      mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mDirectionalLightCountLoc(-1),
+      mLights(nullptr), mLightCount(0), mDirectionalLights(nullptr), mDirectionalLightCount(0), mShadowAtlasLoc(-1), mCanvasSizeLoc(-1), mOccluders(nullptr), mOccluderCount(0),
       mOrthoWidth(1280.0f), mOrthoHeight(720.0f), mShadowLightLoc(-1), mShadowOffsetLoc(-1),
       mShadowDirectionalLoc(-1), mShadowFrameLoc(-1), mShadowCenterLoc(-1), mShadowVertexCapacity(0),
       mCulling(false), mCullMinX(0.0f), mCullMinY(0.0f), mCullMaxX(0.0f), mCullMaxY(0.0f)
@@ -500,6 +558,11 @@ bool CanvasRenderer::Init(const Config& config)
 
 void CanvasRenderer::Shutdown()
 {
+    if (mLightBuffer)
+    {
+        glDeleteBuffers(1, &mLightBuffer);
+        mLightBuffer = 0;
+    }
     if (mVBO)
     {
         glDeleteBuffers(1, &mVBO);
@@ -942,113 +1005,44 @@ void CanvasRenderer::ApplyDrawCalls()
     glUniform4fv(mCanvasModulateLoc, 1, &mCanvasModulate.r);
     glUniform2f(mCanvasSizeLoc, mOrthoWidth, mOrthoHeight);
     glUniform1i(mLightCountLoc, mLightCount);
-    if (mLightCount > 0)
-    {
-        float pos[16];
-        float col[32];
-        float rad[8];
-        unsigned int cullMask[8];
-        float height[8];
-        float params[32];
-        for (int i = 0; i < mLightCount; ++i)
-        {
-            params[i * 4 + 0] = mLights[i].falloff;
-            params[i * 4 + 1] = mLights[i].shadowBias;
-            params[i * 4 + 2] = mLights[i].shadowSmooth;
-            params[i * 4 + 3] = 0.0f;
-            pos[i * 2 + 0] = mLights[i].position.x;
-            pos[i * 2 + 1] = mLights[i].position.y;
-            col[i * 4 + 0] = mLights[i].color.r;
-            col[i * 4 + 1] = mLights[i].color.g;
-            col[i * 4 + 2] = mLights[i].color.b;
-            col[i * 4 + 3] = mLights[i].color.a;
-            rad[i] = mLights[i].radius;
-            cullMask[i] = mLights[i].cullMask;
-            height[i] = mLights[i].height;
-        }
-        glUniform2fv(mLightPosLoc, mLightCount, pos);
-        glUniform4fv(mLightColorLoc, mLightCount, col);
-        glUniform1fv(mLightRadiusLoc, mLightCount, rad);
-        glUniform1uiv(mLightCullMaskLoc, mLightCount, cullMask);
-        glUniform1fv(mLightHeightLoc, mLightCount, height);
-        glUniform4fv(mLightParamsLoc, mLightCount, params);
-    }
-
     glUniform1i(mDirectionalLightCountLoc, mDirectionalLightCount);
-    if (mDirectionalLightCount > 0)
+    LightsBlock block;
+    std::memset(&block, 0, sizeof(block));
+    for (int i = 0; i < mLightCount; ++i)
     {
-        float direction[16];
-        float color[32];
-        unsigned int dirCullMask[8];
-        float dirHeight[8];
-        float dirParams[32];
-        for (int i = 0; i < mDirectionalLightCount; ++i)
-        {
-            dirParams[i * 4 + 0] = mDirectionalLights[i].shadowBias;
-            dirParams[i * 4 + 1] = mDirectionalLights[i].shadowSmooth;
-            dirParams[i * 4 + 2] = 0.0f;
-            dirParams[i * 4 + 3] = 0.0f;
-            direction[i * 2 + 0] = mDirectionalLights[i].direction.x;
-            direction[i * 2 + 1] = mDirectionalLights[i].direction.y;
-            color[i * 4 + 0] = mDirectionalLights[i].color.r;
-            color[i * 4 + 1] = mDirectionalLights[i].color.g;
-            color[i * 4 + 2] = mDirectionalLights[i].color.b;
-            color[i * 4 + 3] = mDirectionalLights[i].color.a;
-            dirCullMask[i] = mDirectionalLights[i].cullMask;
-            dirHeight[i] = mDirectionalLights[i].height;
-        }
-        glUniform2fv(mDirectionalLightDirectionLoc, mDirectionalLightCount, direction);
-        glUniform4fv(mDirectionalLightColorLoc, mDirectionalLightCount, color);
-        glUniform1uiv(mDirectionalCullMaskLoc, mDirectionalLightCount, dirCullMask);
-        glUniform1fv(mDirectionalHeightLoc, mDirectionalLightCount, dirHeight);
-        glUniform4fv(mDirectionalParamsLoc, mDirectionalLightCount, dirParams);
-    }
-    int directionalFlags[8];
-    int directionalFilters[8];
-    float directionalShadowColor[32];
-    for (int i = 0; i < 8; ++i)
-    {
-        directionalFlags[i] = 0;
-        directionalFilters[i] = 0;
-        for (int j = 0; j < 4; ++j)
-            directionalShadowColor[i * 4 + j] = 0.0f;
+        const PointLight& light = mLights[i];
+        PointLightData& data = block.points[i];
+        data.position[0] = light.position.x;
+        data.position[1] = light.position.y;
+        data.radius = light.radius;
+        data.height = light.height;
+        std::memcpy(data.color, &light.color.r, sizeof(data.color));
+        std::memcpy(data.shadowColor, &light.shadowColor.r, sizeof(data.shadowColor));
+        data.falloff = light.falloff;
+        data.shadowBias = light.shadowBias;
+        data.shadowSmooth = light.shadowSmooth;
+        data.cullMask = light.cullMask;
+        data.shadowFlags = light.useShadow ? 1 : 0;
+        data.shadowFilter = (int)light.shadowFilter;
     }
     for (int i = 0; i < mDirectionalLightCount; ++i)
     {
-        directionalFlags[i] = mDirectionalLights[i].useShadow ? 1 : 0;
-        directionalFilters[i] = (int)mDirectionalLights[i].shadowFilter;
-        directionalShadowColor[i * 4 + 0] = mDirectionalLights[i].shadowColor.r;
-        directionalShadowColor[i * 4 + 1] = mDirectionalLights[i].shadowColor.g;
-        directionalShadowColor[i * 4 + 2] = mDirectionalLights[i].shadowColor.b;
-        directionalShadowColor[i * 4 + 3] = mDirectionalLights[i].shadowColor.a;
+        const DirectionalLight& light = mDirectionalLights[i];
+        DirectionalLightData& data = block.suns[i];
+        data.direction[0] = light.direction.x;
+        data.direction[1] = light.direction.y;
+        data.height = light.height;
+        data.cullMask = light.cullMask;
+        std::memcpy(data.color, &light.color.r, sizeof(data.color));
+        std::memcpy(data.shadowColor, &light.shadowColor.r, sizeof(data.shadowColor));
+        data.shadowBias = light.shadowBias;
+        data.shadowSmooth = light.shadowSmooth;
+        data.shadowFlags = light.useShadow ? 1 : 0;
+        data.shadowFilter = (int)light.shadowFilter;
     }
-    glUniform1iv(mDirectionalLightShadowFlagsLoc, 8, directionalFlags);
-    glUniform1iv(mDirectionalShadowFilterLoc, 8, directionalFilters);
-    glUniform4fv(mDirectionalLightShadowColorLoc, 8, directionalShadowColor);
-
-    int flags[8];
-    int filters[8];
-    float scolor[32];
-    for (int i = 0; i < 8; ++i)
-    {
-        flags[i] = 0;
-        filters[i] = 0;
-        for (int j = 0; j < 4; ++j)
-            scolor[i * 4 + j] = 0.0f;
-    }
-    for (int i = 0; i < mLightCount; ++i)
-    {
-        if (mLights[i].useShadow)
-            flags[i] = 1;
-        filters[i] = (int)mLights[i].shadowFilter;
-        scolor[i * 4 + 0] = mLights[i].shadowColor.r;
-        scolor[i * 4 + 1] = mLights[i].shadowColor.g;
-        scolor[i * 4 + 2] = mLights[i].shadowColor.b;
-        scolor[i * 4 + 3] = mLights[i].shadowColor.a;
-    }
-    glUniform1iv(mShadowFlagsLoc, 8, flags);
-    glUniform1iv(mShadowFilterLoc, 8, filters);
-    glUniform4fv(mShadowColorLoc, 8, scolor);
+    glBindBuffer(GL_UNIFORM_BUFFER, mLightBuffer);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(block), &block);
+    glBindBufferBase(GL_UNIFORM_BUFFER, LIGHTS_BINDING, mLightBuffer);
     mState.BindVertexArray(mVAO);
     mState.BindTexture2D(1, mShadowAtlas);
     if (mDefaultLightTexture != 0)
@@ -1114,7 +1108,13 @@ void CanvasRenderer::ApplyDrawCalls()
 bool CanvasRenderer::SetupShaders()
 {
     GLuint vs = CompileShader(GL_VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-    GLuint fs = CompileShader(GL_FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
+    char header[192];
+    std::snprintf(header, sizeof(header),
+                  "#version 300 es\n#define MAX_POINT_LIGHTS %d\n#define MAX_DIRECTIONAL_LIGHTS %d\n"
+                  "#define SHADOW_ATLAS_ROWS %d\n#define SHADOW_ATLAS_WIDTH %d.0\n",
+                  kMaxPointLights, kMaxDirectionalLights, SHADOW_ATLAS_ROWS, SHADOW_ATLAS_WIDTH);
+    const char* fragmentSources[2] = {header, FRAGMENT_SHADER_SOURCE};
+    GLuint fs = CompileShader(GL_FRAGMENT_SHADER, fragmentSources, 2);
     if (!vs || !fs)
         return false;
 
@@ -1140,24 +1140,7 @@ bool CanvasRenderer::SetupShaders()
     mMvpLoc = glGetUniformLocation(mProgram, "u_mvp");
     mTexLoc = glGetUniformLocation(mProgram, "u_texture");
     mLightCountLoc = glGetUniformLocation(mProgram, "u_lightCount");
-    mLightPosLoc = glGetUniformLocation(mProgram, "u_lightPos");
-    mLightColorLoc = glGetUniformLocation(mProgram, "u_lightColor");
-    mLightRadiusLoc = glGetUniformLocation(mProgram, "u_lightRadius");
-    mLightCullMaskLoc = glGetUniformLocation(mProgram, "u_lightCullMask");
-    mLightHeightLoc = glGetUniformLocation(mProgram, "u_lightHeight");
-    mLightParamsLoc = glGetUniformLocation(mProgram, "u_lightParams");
-    mDirectionalParamsLoc = glGetUniformLocation(mProgram, "u_directionalParams");
-    mDirectionalCullMaskLoc = glGetUniformLocation(mProgram, "u_directionalCullMask");
-    mDirectionalHeightLoc = glGetUniformLocation(mProgram, "u_directionalHeight");
     mDirectionalLightCountLoc = glGetUniformLocation(mProgram, "u_directionalLightCount");
-    mDirectionalLightDirectionLoc = glGetUniformLocation(mProgram, "u_directionalLightDirection");
-    mDirectionalLightColorLoc = glGetUniformLocation(mProgram, "u_directionalLightColor");
-    mDirectionalLightShadowFlagsLoc = glGetUniformLocation(mProgram, "u_directionalLightShadowFlags");
-    mDirectionalLightShadowColorLoc = glGetUniformLocation(mProgram, "u_directionalLightShadowColor");
-    mDirectionalShadowFilterLoc = glGetUniformLocation(mProgram, "u_directionalShadowFilter");
-    mShadowFlagsLoc = glGetUniformLocation(mProgram, "u_lightShadowFlags");
-    mShadowColorLoc = glGetUniformLocation(mProgram, "u_lightShadowColor");
-    mShadowFilterLoc = glGetUniformLocation(mProgram, "u_lightShadowFilter");
     mShadowAtlasLoc = glGetUniformLocation(mProgram, "u_shadowAtlas");
     mCanvasSizeLoc = glGetUniformLocation(mProgram, "u_canvasSize");
     mLightTextureLoc = glGetUniformLocation(mProgram, "u_lightTexture");
@@ -1171,6 +1154,9 @@ bool CanvasRenderer::SetupShaders()
     glUniform1i(mLightTextureLoc, 2);
     glUniform1i(mNormalMapLoc, 3);
     glUseProgram(0);
+    const GLuint lightsIndex = glGetUniformBlockIndex(mProgram, "Lights");
+    if (lightsIndex != GL_INVALID_INDEX)
+        glUniformBlockBinding(mProgram, lightsIndex, LIGHTS_BINDING);
 
     mWaterProgram = CreateProgram(VERTEX_SHADER_SOURCE, WATER_FRAGMENT_SHADER_SOURCE);
     if (!mWaterProgram)
@@ -1199,6 +1185,11 @@ bool CanvasRenderer::SetupShaders()
 
 void CanvasRenderer::SetupBuffers()
 {
+    glGenBuffers(1, &mLightBuffer);
+    glBindBuffer(GL_UNIFORM_BUFFER, mLightBuffer);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(LightsBlock), nullptr, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     glGenBuffers(1, &mVBO);
     glGenBuffers(1, &mIBO);
     glGenVertexArrays(1, &mVAO);
@@ -1272,16 +1263,13 @@ void CanvasRenderer::SetupFontTexture()
 
 void CanvasRenderer::SetupShadowAtlas()
 {
-    static const int textureSize = 2048;
-    static const int rows = 16;
-
     mShadowProgram = CreateProgram(SHADOW_VERTEX_SHADER_SOURCE, SHADOW_FRAGMENT_SHADER_SOURCE);
     if (!mShadowProgram)
         return;
 
     glGenTextures(1, &mShadowAtlas);
     glBindTexture(GL_TEXTURE_2D, mShadowAtlas);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, textureSize, rows, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SHADOW_ATLAS_WIDTH, SHADOW_ATLAS_ROWS, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
                  nullptr);
     // Linear with comparison: each lookup tests two neighbouring angles in
     // hardware, so a PCF kernel needs half the taps.
@@ -1304,7 +1292,7 @@ void CanvasRenderer::SetupShadowAtlas()
         ShutdownShadowAtlas();
         return;
     }
-    glViewport(0, 0, textureSize, rows);
+    glViewport(0, 0, SHADOW_ATLAS_WIDTH, SHADOW_ATLAS_ROWS);
     glClearDepthf(1.0f);
     glClear(GL_DEPTH_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1433,8 +1421,6 @@ void CanvasRenderer::RenderShadowAtlas()
     glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
     const GLboolean previousScissorTest = glIsEnabled(GL_SCISSOR_TEST);
 
-    static const int textureSize = 2048;
-
     glBindFramebuffer(GL_FRAMEBUFFER, mShadowFramebuffer);
     glUseProgram(mShadowProgram);
     glBindVertexArray(mShadowVAO);
@@ -1453,8 +1439,8 @@ void CanvasRenderer::RenderShadowAtlas()
         if (!light.useShadow || light.radius <= 0.0f)
             continue;
 
-        glViewport(0, lightIndex * 2, textureSize, 1);
-        glScissor(0, lightIndex * 2, textureSize, 1);
+        glViewport(0, lightIndex, SHADOW_ATLAS_WIDTH, 1);
+        glScissor(0, lightIndex, SHADOW_ATLAS_WIDTH, 1);
         glClear(GL_DEPTH_BUFFER_BIT);
         glUniform3f(mShadowLightLoc, light.position.x, light.position.y, light.radius);
         // An edge across the angle seam at +-pi runs off one end of the row;
@@ -1476,9 +1462,9 @@ void CanvasRenderer::RenderShadowAtlas()
         if (!light.useShadow)
             continue;
 
-        int row = 8 + lightIndex * 2;
-        glViewport(0, row, textureSize, 1);
-        glScissor(0, row, textureSize, 1);
+        const int row = kMaxPointLights + lightIndex;
+        glViewport(0, row, SHADOW_ATLAS_WIDTH, 1);
+        glScissor(0, row, SHADOW_ATLAS_WIDTH, 1);
         glClear(GL_DEPTH_BUFFER_BIT);
         glUniform4f(mShadowFrameLoc, light.direction.x, light.direction.y, directionalHalfSize, directionalDistance);
         glDrawArrays(GL_LINES, 0, vertexCount);
