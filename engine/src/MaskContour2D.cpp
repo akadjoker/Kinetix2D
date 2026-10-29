@@ -160,15 +160,15 @@ int TraceMaskContours(const unsigned char *pixels, int width, int height, int bp
         // Chamfer 3-4 distance from every walkable cell to the nearest solid
         // one, in thirds of a pixel, then close everything the body cannot fit
         // in. Two sweeps, no allocation per cell.
-        const int far = 0x3FFFFFFF;
+        const int unreached = 0x3FFFFFFF;
         ct::Vector<int> distance((std::size_t)width * (std::size_t)height, 0);
         for (std::size_t i = 0; i < distance.size(); ++i)
-            distance[i] = solidBuffer[i] ? 0 : far;
+            distance[i] = solidBuffer[i] ? 0 : unreached;
 
         auto at = [&](int x, int y) -> int
         {
             if (x < 0 || y < 0 || x >= width || y >= height)
-                return options.outsideIsSolid ? 0 : far;
+                return options.outsideIsSolid ? 0 : unreached;
             return distance[(std::size_t)y * (std::size_t)width + (std::size_t)x];
         };
         auto relax = [&](int x, int y, int candidate)
