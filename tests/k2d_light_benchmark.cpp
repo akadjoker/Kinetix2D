@@ -5,6 +5,7 @@
 #include <k2d/Camera2D.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/Device.h>
+#include <k2d/DirectionalLight2D.h>
 #include <k2d/GameObject.h>
 #include <k2d/Image.h>
 #include <k2d/Light2D.h>
@@ -36,6 +37,7 @@ struct Case
     int occluders;
     k2d::ShadowFilter filter;
     float spread = 1.0f;
+    int directional = 0;
 };
 
 void build(k2d::Scene& scene, const Case& c)
@@ -67,6 +69,24 @@ void build(k2d::Scene& scene, const Case& c)
         light->setCastShadow(c.shadows);
         light->setShadowFilter(c.filter);
     }
+    for (int i = 0; i < c.directional; ++i)
+    {
+        k2d::GameObject* object = scene.createObject("sun");
+        object->setRotationDegrees(30.0f + 60.0f * (float)i);
+        k2d::DirectionalLight2D* light = object->addComponent<k2d::DirectionalLight2D>();
+        light->setEnergy(0.3f);
+        light->setCastShadow(c.shadows);
+        light->setShadowFilter(c.filter);
+    }
+}
+
+uint64_t counter(const char* name)
+{
+    const k2d::Profiler& profiler = k2d::Profiler::Get();
+    for (uint32_t i = 0; i < profiler.counterCount(); ++i)
+        if (std::strcmp(profiler.counters()[i].name, name) == 0)
+            return profiler.counters()[i].value;
+    return 0;
 }
 
 void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& target, const Case& c, int dump)
@@ -78,6 +98,7 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
     ct::Vector<double> times;
     std::size_t drawCalls = 0;
     std::size_t culled = 0;
+    uint64_t lights = 0;
     // Into a framebuffer of its own and never presented while measured, so the
     // display's refresh does not pace the frames.
     for (int frame = 0; frame < 360 && device.PollEvents(); ++frame)
@@ -93,6 +114,7 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
         scene.setRenderCamera(&camera, kWidth, kHeight);
         scene.render(canvas);
         glFinish();
+        lights = counter("lights");
         k2d::Profiler::Get().endFrame();
         const double ms = (k2d::Device::TimeSeconds() - start) * 1000.0;
         drawCalls = canvas.GetStats().drawCalls;
@@ -123,10 +145,9 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
     for (double t : times)
         total += t;
     ct::sort(times.begin(), times.end());
-    const int shadowDraws = c.shadows ? c.lights * 3 : 0;
-    std::printf("%-34s avg %7.3f ms  p95 %7.3f ms  batch draws %4zu  shadow draws %3d  culled %5zu\n", c.name,
-                total / static_cast<double>(times.size()), times[times.size() * 95 / 100], drawCalls, shadowDraws,
-                culled);
+    std::printf("%-36s avg %7.3f ms  p95 %7.3f ms  batch draws %4zu  lights %2u  culled %5zu\n", c.name,
+                total / static_cast<double>(times.size()), times[times.size() * 95 / 100], drawCalls,
+                (unsigned)lights, culled);
     const k2d::Profiler& profiler = k2d::Profiler::Get();
     std::printf("   ");
     for (uint32_t i = 0; i < profiler.sampleCount(); ++i)
@@ -155,10 +176,21 @@ int main(int argc, char** argv)
         {"8 shadow lights, 200 occluders", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF5},
         {"8 shadow lights, 200 occl., PCF13", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF13},
         {"8000 rects, 16 lights over 3x3 view", 8000, 16, false, 0, k2d::SHADOW_FILTER_PCF5, 3.0f},
+        {"2000 rects, 16 lights", 2000, 16, false, 0, k2d::SHADOW_FILTER_PCF5},
+        {"16 shadow lights, 200 occluders", 2000, 16, true, 200, k2d::SHADOW_FILTER_PCF5},
+        {"16 shadow lights, 200 occl., PCF13", 2000, 16, true, 200, k2d::SHADOW_FILTER_PCF13},
+        {"8 shadow lights + 2 suns, 200 occl.", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF5, 1.0f, 2},
     };
     k2d::Profiler::Get().SetEnabled(true);
     std::printf("GL: %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                 reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+    GLint fragmentVectors = 0, blockSize = 0, fragmentBlocks = 0, textureSize = 0;
+    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &fragmentVectors);
+    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &blockSize);
+    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &fragmentBlocks);
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
+    std::printf("limits: fragment uniform vectors %d, uniform block %d bytes, fragment blocks %d, texture %d\n",
+                fragmentVectors, blockSize, fragmentBlocks, textureSize);
     int index = 0;
     for (const Case& c : cases)
         run(device, canvas, target, c, dump ? index++ : -1);
