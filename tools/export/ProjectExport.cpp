@@ -19,7 +19,8 @@ namespace
 const char* const kPackedExtensions[] = {".png",  ".jpg",  ".jpeg", ".bmp",  ".tga",       ".gif",       ".webp",
                                          ".wav",  ".ogg",  ".mp3",  ".flac", ".ttf",       ".otf",       ".fnt",
                                          ".json", ".txt",  ".csv",  ".xml",  ".tmx",       ".tsx",       ".atlas",
-                                         ".glsl", ".vert", ".frag", ".k2dproj", ".k2dscene", ".k2dprefab"};
+                                         ".glsl", ".vert", ".frag", ".k2dproj", ".k2dscene", ".k2dprefab",
+                                         ".k2dtileset"};
 const char* const kScriptExtensions[] = {".py", ".zen", ".zs"};
 const char* const kBundlePath = ".k2d/web/scripts.zbc";
 const char* const kManifestPath = ".k2d/web/scripts.json";
@@ -283,7 +284,8 @@ int FixPathsInFiles(const char* root)
     int changed = 0;
     for (const ct::String& relative : collector.files)
     {
-        if (!path_has_extension(relative.c_str(), ".k2dscene") && !path_has_extension(relative.c_str(), ".k2dprefab"))
+        if (!path_has_extension(relative.c_str(), ".k2dscene") && !path_has_extension(relative.c_str(), ".k2dprefab") &&
+            !path_has_extension(relative.c_str(), ".k2dtileset"))
             continue;
         const ct::String path = join(collector.root, relative.c_str());
         char* text = file_read_text(path.c_str());
@@ -348,7 +350,8 @@ bool WriteProjectPack(const char* projectRoot, const char* packPath, ct::String&
         if (!hasExtension(relative.c_str(), kPackedExtensions))
             continue;
         const ct::String path = join(collector.root, relative.c_str());
-        if (path_has_extension(path.c_str(), ".k2dscene") || path_has_extension(path.c_str(), ".k2dprefab"))
+        if (path_has_extension(path.c_str(), ".k2dscene") || path_has_extension(path.c_str(), ".k2dprefab") ||
+            path_has_extension(path.c_str(), ".k2dtileset"))
         {
             char* text = file_read_text(path.c_str());
             if (!text)
