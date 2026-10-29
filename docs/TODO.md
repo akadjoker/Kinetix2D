@@ -17,6 +17,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Caixas num array contíguo na Scene, actualizado quando um objecto se mexe ou muda de tamanho, para o culling não tocar na memória de cada componente (os ~0.2 ms que sobram; arriscado: um setter esquecido e o objecto some)
 - [ ] Vértices de objectos parados: `render.expand` refaz tudo todos os frames (0.23 ms por 2000); guardar e refazer só quando o transform muda
   - [x] Comandos movidos para a fila em vez de copiados: `render_queue` de 2000 rects 0.32 → 0.26 ms, 8000 em nove ecrãs 0.73 → 0.51 (`187b7ef`)
+  - [x] Comparação da água no batching só quando ligada: era 6.6 % do frame no `perf`; `expand` 0.222 → 0.209 ms (`acb23e9`)
+  - `perf` (2000 rects): `EmitPolygon` 17 %, `RectShape::onRender` 11 %, `DrawItems` 8 %, `AddItem` 6 %. O tempo do `onRender` está na primeira leitura do componente (falha de cache), não no código: o que sobra é memória espalhada. O passo seguinte a sério é o modo retido (itens guardados por componente, refeitos só quando mudam), com o risco de um setter esquecido
   - tentado e desfeito: saltar no canvas o culling dos itens que a cena já testou, e tirar as multiplicações de matrizes; o `expand` ficou 0.03 ms pior sem explicação. Voltar a isto com `perf` (`sudo sysctl kernel.perf_event_paranoid=1`)
 - [x] Sombras paradas: o atlas só se redesenha quando muda uma aresta ou a linha de uma luz — 8 luzes 2.4 → 2.1 ms; sem occluders as linhas limpam-se (antes ficavam as sombras antigas) (`c3d2c03`)
 - [ ] Não achatar occluders longe de luzes visíveis (hoje todas as arestas são transformadas todos os frames para detectar mudanças)
