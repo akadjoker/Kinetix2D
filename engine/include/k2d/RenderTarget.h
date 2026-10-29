@@ -16,6 +16,7 @@ class RenderTarget
     void destroy();
     void bind() const;
     unsigned int texture() const { return mTexture; }
+    unsigned int framebuffer() const { return mFramebuffer; }
     int width() const { return mWidth; }
     int height() const { return mHeight; }
 

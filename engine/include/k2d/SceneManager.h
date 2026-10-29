@@ -1,5 +1,7 @@
 #pragma once
 
+#include "k2d/SceneTransition.h"
+
 #include <ct/string.hpp>
 
 namespace k2d
@@ -14,8 +16,12 @@ namespace k2d
     {
     public:
         GameObject *Load(Scene &scene, Assets &assets, const char *path);
-        void Request(const char *path);
+        // With a transition the frame that asked keeps the old scene on screen
+        // and is captured; the new scene comes in at the next frame.
+        void Request(const char *path, SceneTransitionKind transition = SceneTransitionKind::None,
+                     float seconds = 0.5f);
         bool HasRequest() const { return !mRequestedPath.empty(); }
+        bool WantsCapture() const { return HasRequest() && mRequestedTransition != SceneTransitionKind::None; }
         GameObject *ApplyRequest(Scene &scene, Assets &assets);
         void ClearRequest() { mRequestedPath.clear(); }
         const char *CurrentPath() const { return mCurrentPath.c_str(); }
@@ -29,6 +35,8 @@ namespace k2d
     private:
         ct::String mCurrentPath;
         ct::String mRequestedPath;
+        SceneTransitionKind mRequestedTransition = SceneTransitionKind::None;
+        float mRequestedSeconds = 0.5f;
     };
 
     SceneManager &GetSceneManager();

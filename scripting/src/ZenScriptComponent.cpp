@@ -4922,8 +4922,13 @@ int natFadeProgress(zen::VM* vm, zen::Value* args, int)
 int natLoadScene(zen::VM* vm, zen::Value* args, int nargs)
 {
     const char* path = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const char* name = nargs >= 2 ? zen::safe_string_chars(args[1]) : "";
+    const SceneTransitionKind transition = SceneTransition::KindFromName(name);
+    if (name[0] && transition == SceneTransitionKind::None)
+        log_warn("load_scene: no transition called \"%s\"", name);
+    const float seconds = nargs >= 3 ? static_cast<float>(zen::to_number(args[2])) : 0.5f;
     if (path[0])
-        GetSceneManager().Request(path);
+        GetSceneManager().Request(path, transition, seconds);
     return 0;
 }
 
@@ -6302,7 +6307,7 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("fade_out", &natFadeOut, 1);
     vm.def_native("is_fading", &natIsFading, 0);
     vm.def_native("fade_progress", &natFadeProgress, 0);
-    vm.def_native("load_scene", &natLoadScene, 1);
+    vm.def_native("load_scene", &natLoadScene, -1);
     vm.def_native("audio_load", &natAudioLoad, 1);
     vm.def_native("audio_load_music", &natAudioLoadMusic, 1);
     vm.def_native("audio_play", &natAudioPlay, -1);

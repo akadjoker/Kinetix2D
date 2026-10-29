@@ -526,11 +526,32 @@ Viewport and camera
 Scene and transitions
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. py:function:: load_scene(path)
+.. py:function:: load_scene(path, transition="", seconds=0.5)
 
-   Schedules a scene replacement after the current frame. The scene is loaded
-   through the normal asset paths and its physics world is rebuilt before the
-   next update.
+   Schedules a scene replacement: the new scene comes in at the start of the
+   next frame. The scene is loaded through the normal asset paths and its
+   physics world is rebuilt before its first update.
+
+   With a ``transition`` the last frame of the old scene is kept as an image
+   and animated away over the new one for ``seconds``, while the new scene
+   already runs underneath:
+
+   ``fade``
+      the old frame fades out;
+   ``slide_left``, ``slide_right``, ``slide_up``, ``slide_down``
+      it slides off the screen that way;
+   ``zoom_in``
+      it grows and fades;
+   ``zoom_out``
+      it shrinks to the centre;
+   ``wipe_left``, ``wipe_right``
+      it is wiped away in that direction.
+
+   An unknown name logs a warning and the scene changes at once.
+
+   .. code-block:: python
+
+      load_scene("scenes/level2.k2dscene", "slide_left", 0.6)
 
 .. py:function:: fade_in(seconds)
 

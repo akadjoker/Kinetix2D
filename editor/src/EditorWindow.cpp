@@ -980,11 +980,13 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     if (mPlaying && !mPaused)
     {
         SetZenScriptFrameStats(deltaTime, mFpsTime > 0.0f ? mFpsFrames / mFpsTime : 0.0f);
+        GetScreenFade().Update(deltaTime);
+        GetSceneTransition().Update(deltaTime);
+        if (GetSceneManager().HasRequest() && GetSceneManager().ApplyRequest(mScene, mAssets))
+            mScene.setSimulationEnabled(true);
         mScene.update(deltaTime);
         DispatchZenScriptEvents(mScene.root());
         ZenRuntime::instance().submitProfilerSamples();
-        if (GetSceneManager().HasRequest() && GetSceneManager().ApplyRequest(mScene, mAssets))
-            mScene.setSimulationEnabled(true);
     }
     // Scripts spawn and destroy objects while playing: the tree follows, and the
     // inspector lets go of an object that may be gone.
@@ -1163,6 +1165,9 @@ void EditorWindow::renderGame(const rt::Rect& area, float pixelScale)
         mScene.setRenderCamera(&mGameCamera, viewport.virtualWidth, viewport.virtualHeight);
     }
     mScene.render(mCanvas);
+    if (GetSceneManager().WantsCapture())
+        GetSceneTransition().Capture();
+    GetSceneTransition().Draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
     GetScreenFade().Draw(mCanvas, viewport.virtualWidth, viewport.virtualHeight);
     glDisable(GL_SCISSOR_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1955,6 +1960,8 @@ void EditorWindow::stopPlay()
         return;
     SetZenScriptsEnabled(false);
     GetSceneManager().ClearRequest();
+    GetSceneTransition().Clear();
+    GetScreenFade().SetClear();
     select(nullptr);
     mScene.clear();
     mScene.setSimulationEnabled(false);
@@ -2228,6 +2235,7 @@ void EditorWindow::shutdown()
     stopPlay();
     mTarget.destroy();
     mGameTarget.destroy();
+    GetSceneTransition().Release();
     if (mCanvasReady)
         mCanvas.Shutdown();
     mCanvasReady = false;

@@ -557,6 +557,14 @@ int main(int argc, char** argv)
                     }
                     const float deltaTime = device.DeltaTime();
                     k2d::GetScreenFade().Update(deltaTime);
+                    k2d::GetSceneTransition().Update(deltaTime);
+                    if (k2d::GetSceneManager().HasRequest())
+                    {
+                        if (k2d::GetSceneManager().ApplyRequest(scene, assets))
+                            scene.setSimulationEnabled(true);
+                        else
+                            log_error("Could not load requested scene\n");
+                    }
                     k2d::GetAudio().Update();
                     const float windowWidth = static_cast<float>(device.Width());
                     const float windowHeight = static_cast<float>(device.Height());
@@ -584,13 +592,6 @@ int main(int argc, char** argv)
                     k2d::SetZenScriptFrameStats(deltaTime, device.FPS());
                     scene.update(deltaTime);
                     k2d::DispatchZenScriptEvents(scene.root());
-                    if (k2d::GetSceneManager().HasRequest())
-                    {
-                        if (k2d::GetSceneManager().ApplyRequest(scene, assets))
-                            scene.setSimulationEnabled(true);
-                        else
-                            log_error("Could not load requested scene\n");
-                    }
 
                     camera = scene.activeCamera();
                     renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight);
@@ -623,6 +624,9 @@ int main(int argc, char** argv)
                         scene.setRenderCamera(&defaultCamera, virtualWidth, virtualHeight);
                     }
                     scene.render(canvas);
+                    if (k2d::GetSceneManager().WantsCapture())
+                        k2d::GetSceneTransition().Capture();
+                    k2d::GetSceneTransition().Draw(canvas, virtualWidth, virtualHeight);
                     k2d::ZenRuntime::instance().submitProfilerSamples();
                     if (profilerVisible)
                         drawProfilerOverlay(canvas, virtualWidth, virtualHeight);
@@ -649,6 +653,7 @@ int main(int argc, char** argv)
 #endif
                 scene.clear();
                 assets.Clear();
+                k2d::GetSceneTransition().Release();
                 canvas.Shutdown();
                 k2d::GetAudio().SaveSettings(userData);
                 k2d::GetAudio().Shutdown();

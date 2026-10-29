@@ -81,9 +81,11 @@ GameObject *SceneManager::Load(Scene &scene, Assets &assets, const char *path)
     return &sceneRoot;
 }
 
-void SceneManager::Request(const char *path)
+void SceneManager::Request(const char *path, SceneTransitionKind transition, float seconds)
 {
     mRequestedPath = path ? path : "";
+    mRequestedTransition = transition;
+    mRequestedSeconds = seconds;
 }
 
 GameObject *SceneManager::ApplyRequest(Scene &scene, Assets &assets)
@@ -91,8 +93,15 @@ GameObject *SceneManager::ApplyRequest(Scene &scene, Assets &assets)
     if (mRequestedPath.empty())
         return nullptr;
     const ct::String path = mRequestedPath;
+    const SceneTransitionKind transition = mRequestedTransition;
     mRequestedPath.clear();
-    return Load(scene, assets, path.c_str());
+    mRequestedTransition = SceneTransitionKind::None;
+    GameObject *root = Load(scene, assets, path.c_str());
+    if (root)
+        GetSceneTransition().Start(transition, mRequestedSeconds);
+    else
+        GetSceneTransition().Clear();
+    return root;
 }
 
 SceneManager &GetSceneManager()

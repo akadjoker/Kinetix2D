@@ -140,6 +140,8 @@ Shortcuts
      - Play or stop / play in a window
    * - F7 / F8
      - Run Web / Run Desktop
+   * - F1
+     - The editor manual, in the browser (**Help** menu)
    * - Ctrl+Q
      - Quit
 
