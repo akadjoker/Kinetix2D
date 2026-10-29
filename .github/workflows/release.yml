@@ -115,9 +115,6 @@ jobs:
         shell: pwsh
         run: |
           $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
-          # -static in K2D_STATIC_MINGW_RUNTIME should leave nothing to copy; this is a
-          # fallback for a toolchain that still links winpthread dynamically.| Copy-Item -Destination $bin
-          }
           # x64-mingw-static plus -static in K2D_STATIC_MINGW_RUNTIME should leave nothing
           # to copy; this is a fallback for a toolchain that still links winpthread dynamically.
           $winpthread = Join-Path $env:MINGW_BIN "libwinpthread-1.dll"
