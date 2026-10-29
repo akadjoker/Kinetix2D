@@ -2159,6 +2159,30 @@ static bool testInput()
     return ok;
 }
 
+// Two scripts, each with its own top-level variable of the same name.
+static bool testScriptGlobalsApart()
+{
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::ZenScriptComponent* a = scene.createObject("a")->addComponent<k2d::ZenScriptComponent>();
+    k2d::ZenScriptComponent* b = scene.createObject("b")->addComponent<k2d::ZenScriptComponent>();
+    bool ok = a->loadSource("count = 1\n"
+                            "class A(ScriptComponent):\n"
+                            "    def on_start(self):\n"
+                            "        set_number(\"a\", count)\n",
+                            "scripts/a.py");
+    ok = b->loadSource("count = 2\n"
+                       "class B(ScriptComponent):\n"
+                       "    def on_start(self):\n"
+                       "        set_number(\"b\", count)\n",
+                       "scripts/b.py") && ok;
+    scene.update(0.016f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("a", -1.0), 1.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("b", -1.0), 2.0f);
+    k2d::ZenBlackboard::clear();
+    return ok;
+}
+
 static bool testCollisionLayers()
 {
     k2d::ClearCollisionLayerNames();
@@ -2887,6 +2911,8 @@ int main()
     const bool nodeApi = testNodeApi();
     const bool activeCamera = testActiveCamera();
     const bool inputOk = testInput() && testCollisionLayers();
+    const bool globalsApart = testScriptGlobalsApart();
+    std::printf("script_globals_apart=%s\n", globalsApart ? "pass" : "fail");
     const bool fadeVirtualInput = testFadeAndVirtualInput();
     const bool audioApi = testAudioApi();
     const bool sceneManager = testSceneManager();

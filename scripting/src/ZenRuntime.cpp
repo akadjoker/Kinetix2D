@@ -262,7 +262,9 @@ namespace k2d
             return false;
         }
 
+        // Each script's top-level variables its own; classes and functions shared.
         zen::Compiler compiler;
+        compiler.set_private_globals(true);
         zen::ObjFunc *script = compiler.compile(&mImpl->vm.get_gc(), &mImpl->vm, source,
                                                 sourceName && sourceName[0] ? sourceName : "script");
         if (!script)
@@ -452,6 +454,7 @@ namespace k2d
             snapshot.push_back(vm.get_global(i));
 
         zen::Compiler compiler;
+        compiler.set_private_globals(true);
         zen::ObjFunc *script = compiler.compile(&vm.get_gc(), &vm, source, path ? path : "script");
         if (!script)
         {
