@@ -48,7 +48,7 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Inspector: campos de ficheiro com o nome e pré-visualização no tooltip; imagem largada numa linha da Hierarchy vai para o Sprite/TileMap do objecto (`80471d6`)
 - [x] Add Component por categorias (`5702065`)
 - [x] Camadas de colisão com nome: Settings, `category`/`mask` por nomes, `collision_layer()` (`b96fef8`)
-- [ ] Tileset como recurso partilhado: textura, tamanho, terrenos, colisão e animação por tile, usado por vários TileMaps
+- [x] Tileset partilhado (`.k2dtileset`): textura, corte, terrenos, tiles sólidos e animados, usado por vários mapas; editar num mapa grava o ficheiro; empacotado no export (`82d51d5`, `55dffe5`). Falta: mudar tiles sólidos em Play não refaz as formas da física
 - [ ] Debugger de scripts: breakpoints, variáveis, passo a passo (precisa de hooks na VM do zenpy)
 - [ ] Timeline genérica: animar qualquer propriedade de qualquer objecto, com eventos
 - [ ] Assets: criar, renomear, mover e apagar, com as referências a acompanhar
