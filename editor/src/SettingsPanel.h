@@ -25,6 +25,7 @@ struct SceneSettings
     Color ambient;
     int displayWidth = 1280;    // the window the game opens
     int displayHeight = 720;
+    bool displayShowFps = false;   // a frame counter in the corner of the game
     ct::String layerNames[kCollisionLayers];   // the project's collision layers
 
     Math::Vec2 effectiveGravity() const { return sceneGravity ? sceneGravityValue : gravity; }

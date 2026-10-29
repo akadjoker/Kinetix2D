@@ -60,6 +60,9 @@ void SettingsPanel::rebuild()
     row(display, PropertyInfo::range(PropertyType::Int, "height", 64.0f, 4320.0f, 1.0f),
         [this]() { return PropertyValue::from(mSettings.displayHeight); },
         [this](const PropertyValue& v) { mSettings.displayHeight = v.asInt() >= 64 ? v.asInt() : 64; }, true);
+    row(display, PropertyInfo(PropertyType::Bool, "show FPS"),
+        [this]() { return PropertyValue::from(mSettings.displayShowFps); },
+        [this](const PropertyValue& v) { mSettings.displayShowFps = v.asBool(); }, true);
 
     auto* project = mFields->createChild<rt::Collapsible>("Project physics");
     row(project, PropertyInfo(PropertyType::Vec2, "gravity"), [this]() { return PropertyValue::from(mSettings.gravity); },

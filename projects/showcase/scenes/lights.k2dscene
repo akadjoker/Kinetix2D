@@ -976,6 +976,12 @@
               "cullMask": 1,
               "height": 0.0
             }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/follow_touch.py"
+            }
           }
         ],
         "children": []

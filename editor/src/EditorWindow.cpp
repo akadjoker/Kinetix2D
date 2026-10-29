@@ -2321,6 +2321,7 @@ void EditorWindow::loadSettings()
     {
         mSceneSettings.displayWidth = static_cast<int>(display["width"].as_int(mSceneSettings.displayWidth));
         mSceneSettings.displayHeight = static_cast<int>(display["height"].as_int(mSceneSettings.displayHeight));
+        mSceneSettings.displayShowFps = display["showFps"].as_bool(mSceneSettings.displayShowFps);
     }
     const ct::Json& scenePhysics = mSceneDocument["physics"];
     mSceneSettings.sceneGravity = scenePhysics.is_object() && scenePhysics["gravity"].is_array();
@@ -2371,6 +2372,7 @@ void EditorWindow::settingsChanged(const SceneSettings& settings, bool project)
         ct::Json display = ct::Json::object();
         display.set("width", ct::Json(mSceneSettings.displayWidth));
         display.set("height", ct::Json(mSceneSettings.displayHeight));
+        display.set("showFps", ct::Json(mSceneSettings.displayShowFps));
         mProjectDocument.set("display", display);
         const ct::String projectFile = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
         if (FileSystem::Instance().SaveTextFile(projectFile.c_str(), mProjectDocument.dump(2)))

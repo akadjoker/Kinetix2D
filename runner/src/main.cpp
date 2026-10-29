@@ -15,6 +15,7 @@
 #include <k2d/MouseCursor.h>
 #include <k2d/Profiler.h>
 #include <k2d/RenderQueue.h>
+#include <k2d/RenderTarget.h>
 #include <k2d/Scene.h>
 #include <k2d/ScreenFade.h>
 #include <k2d/SceneManager.h>
@@ -309,7 +310,7 @@ PhysicsConfig loadPhysics(const char* projectPath)
 }
 
 // The window the project asks for; 1280 x 720 without one.
-void loadDisplay(const char* projectPath, int& width, int& height)
+void loadDisplay(const char* projectPath, int& width, int& height, bool& showFps)
 {
     ct::Json project;
     if (!projectPath || !projectPath[0] || !loadJson(projectPath, project))
@@ -319,6 +320,29 @@ void loadDisplay(const char* projectPath, int& width, int& height)
         return;
     width = static_cast<int>(display["width"].as_int(width));
     height = static_cast<int>(display["height"].as_int(height));
+    showFps = display["showFps"].as_bool(showFps);
+}
+
+// The project's "show FPS": frames per second and the frame time, top right.
+void drawFpsCounter(k2d::CanvasRenderer& canvas, float width, float height, float fps)
+{
+    char text[48];
+    std::snprintf(text, sizeof text, "%.0f FPS  %.1f ms", fps, fps > 0.0f ? 1000.0f / fps : 0.0f);
+    k2d::RenderQueue overlay;
+    k2d::RenderItem& item = overlay.AddItem(0);
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        k2d::RenderCommand command;
+        command.type = k2d::RenderCommand::kText;
+        command.x = width - 240.0f + (pass ? 0.0f : 1.5f);
+        command.y = 10.0f + (pass ? 0.0f : 1.5f);
+        command.width = 16.0f;
+        command.color = pass ? k2d::Color::White() : k2d::Color(0.0f, 0.0f, 0.0f, 0.8f);
+        command.text = text;
+        item.commands.push_back(command);
+    }
+    canvas.SetOrtho(width, height);
+    overlay.Flush(canvas);
 }
 
 void configureVirtualPad(const ct::Json& sceneJson, k2d::VirtualPad& pad)
@@ -461,7 +485,8 @@ static int run(int argc, char** argv)
     static k2d::Device device;
     static int displayWidth = 1280;
     static int displayHeight = 720;
-    loadDisplay(projectPath.c_str(), displayWidth, displayHeight);
+    static bool showFps = false;
+    loadDisplay(projectPath.c_str(), displayWidth, displayHeight, showFps);
     if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), displayWidth, displayHeight, true))
         return 1;
     static k2d::UserData userData;
@@ -491,6 +516,7 @@ static int run(int argc, char** argv)
         static k2d::Assets assets;
         static k2d::Scene scene;
         static k2d::CanvasRenderer canvas;
+        static k2d::RenderTarget gameTarget;
         // Held here, not per frame: Scene::setRenderCamera keeps the pointer
         // for the whole render pass, so it must outlive the frame body.
         static k2d::Camera2D defaultCamera;
@@ -654,9 +680,27 @@ static int run(int argc, char** argv)
                     glViewport(0, 0, device.DrawableWidth(), device.DrawableHeight());
                     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    setGlViewport(renderViewport);
                     const float virtualWidth = renderViewport.virtualWidth;
                     const float virtualHeight = renderViewport.virtualHeight;
+                    // On Android the screen has several times the game's pixels and the
+                    // lights pay per pixel: the frame is drawn at the game's resolution and
+                    // scaled up to the screen.
+                    const int targetWidth = static_cast<int>(std::lround(virtualWidth));
+                    const int targetHeight = static_cast<int>(std::lround(virtualHeight));
+#if defined(__ANDROID__)
+                    const bool scaled = renderViewport.width > virtualWidth + 0.5f &&
+                                        gameTarget.resize(targetWidth, targetHeight);
+#else
+                    const bool scaled = false;
+#endif
+                    if (scaled)
+                    {
+                        gameTarget.bind();
+                        glViewport(0, 0, targetWidth, targetHeight);
+                        glClear(GL_COLOR_BUFFER_BIT);
+                    }
+                    else
+                        setGlViewport(renderViewport);
                     if (camera)
                     {
                         k2d::GetAudio().SetListenerPosition(camera->camera().position);
@@ -677,6 +721,8 @@ static int run(int argc, char** argv)
                     k2d::ZenRuntime::instance().submitProfilerSamples();
                     if (profilerVisible)
                         drawProfilerOverlay(canvas, virtualWidth, virtualHeight);
+                    else if (showFps)
+                        drawFpsCounter(canvas, virtualWidth, virtualHeight, device.FPS());
                     virtualPad.Draw(canvas, virtualWidth, virtualHeight);
                     k2d::GetScreenFade().Draw(canvas, virtualWidth, virtualHeight);
                     k2d::MouseCursor& cursor = k2d::GetMouseCursor();
@@ -685,6 +731,19 @@ static int run(int argc, char** argv)
                         cursor.setPosition(Math::Vec2(inputViewport.toVirtualX(device.GetInput().MouseX()),
                                                      inputViewport.toVirtualY(device.GetInput().MouseY())));
                         cursor.draw(canvas, virtualWidth, virtualHeight);
+                    }
+                    if (scaled)
+                    {
+                        const int x = static_cast<int>(std::lround(renderViewport.x));
+                        const int y = static_cast<int>(std::lround(renderViewport.y));
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, gameTarget.framebuffer());
+                        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+                        glBlitFramebuffer(0, 0, targetWidth, targetHeight, x, y,
+                                          x + static_cast<int>(std::lround(renderViewport.width)),
+                                          y + static_cast<int>(std::lround(renderViewport.height)),
+                                          GL_COLOR_BUFFER_BIT,
+                                          camera && camera->integerScale() ? GL_NEAREST : GL_LINEAR);
+                        glBindFramebuffer(GL_FRAMEBUFFER, 0);
                     }
                     device.Swap();
                     k2d::Profiler::Get().endFrame();
@@ -701,6 +760,7 @@ static int run(int argc, char** argv)
                 scene.clear();
                 assets.Clear();
                 k2d::GetSceneTransition().Release();
+                gameTarget.destroy();
                 canvas.Shutdown();
                 k2d::GetAudio().SaveSettings(userData);
                 k2d::GetAudio().Shutdown();

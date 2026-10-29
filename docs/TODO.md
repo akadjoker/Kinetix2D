@@ -28,7 +28,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
   - 2000 rects sem luzes 7.8 ms (1.3); com 8 luzes 16.5 (1.9); 8 com sombra e 200 occluders 19.6 (2.6); 16 com sombra, 12 visíveis, 27.2 (2.8); PCF13 29.6 (3.5)
   - o custo é o fragment shader: cada luz ~1.1 ms a 720p, as sombras ~3 ms no total. Limites: 4096 vectores de uniform no fragment, texturas de 16383
   - CPU (`k2d_performance_benchmark`): física 1000 caixas 20.2 ms (9.6 no desktop); `scene.update` de 2000 objectos 0.60 ms (0.018), provavelmente num núcleo pequeno
-- [ ] Android: desenhar o jogo à resolução do projecto e escalar para o ecrã (2560x1600 são 4,4 vezes os píxeis de 720p, e as luzes pagam por píxel)
+- [x] Android: o jogo desenhado à resolução do projecto e escalado para o ecrã (linear, ou nearest com escala inteira): a cena das luzes do showcase de 51 para 90 FPS (o limite do ecrã de 90 Hz) no Redmi Pad 2
+- [x] "show FPS" no Project display: FPS e tempo do frame no canto do jogo
 - [ ] Android: não desenhar com a app em segundo plano (hoje chama o GL sem superfície)
 - [ ] Export: texturas comprimidas (Basis/ASTC) e carregamento de níveis em fundo
 
