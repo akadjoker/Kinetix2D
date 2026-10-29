@@ -25,8 +25,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 
 - [x] Cena de teste `bin/scenes/lights.k2dscene`
 - [x] Ambiente da cena (Settings › Scene › ambient); a UI desenha sem luzes nem ambiente (`ad81ea5`)
-- [ ] Falloff por luz (hoje a curva é quadrática fixa)
-- [ ] Bias e suavidade da sombra por luz (hoje: nenhum / PCF5 / PCF13)
+- [x] Falloff por luz: expoente da curva radial, 2 por omissão (a quadrática de antes) (`053af71`)
+- [x] Bias e suavidade da sombra por luz, pontuais e direccionais: bias em profundidade normalizada (0.002 por omissão), suavidade multiplica o espaçamento do PCF (`053af71`)
 - [ ] Mais de 8 luzes por frame (o Doriax tem 16)
 
 ## Editor
