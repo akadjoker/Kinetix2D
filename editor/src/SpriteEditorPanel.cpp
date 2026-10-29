@@ -245,7 +245,7 @@ SpriteEditorPanel::SpriteEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutD
     mCanvas->setAtlas(&mAtlas);
     mCanvas->selectionChanged.connect([this](int) { syncFields(); });
     mCanvas->edited.connect([this]() { markEdited(); });
-    mCanvas->imageDropped.connect([this](const ct::String& path) { open(path); });
+    mCanvas->imageDropped.connect([this](const ct::String& path) { openRequested.emit(path); });
 }
 
 bool SpriteEditorPanel::currentRegion(SpriteRegionDrag& out) const
@@ -278,8 +278,6 @@ bool SpriteEditorPanel::allRegions(ct::Vector<SpriteRegionDrag>& out) const
 
 bool SpriteEditorPanel::open(const ct::String& path)
 {
-    if (mDirty)
-        save();
     const ct::String absolute = EditorFileSystem::resolve(mRoot, path);
     Texture* texture = mAssets.GetTexture(path.c_str());
     if (!texture)

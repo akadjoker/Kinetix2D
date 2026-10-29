@@ -55,10 +55,14 @@ public:
     bool open(const ct::String& path);
     bool save();
     void revert();
+    // An image dropped on the canvas: the editor asks about unsaved pixels
+    // before opening it.
+    ig::retained::Signal<const ct::String&> openRequested;
     void undo();
     void redo();
     bool owns(const ig::retained::Widget* focused) const;
     bool dirty() const { return mDirty; }
+    const ct::String& path() const { return mPath; }
 
     // For the canvas.
     PixelTool tool() const { return mTool; }

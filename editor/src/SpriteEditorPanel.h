@@ -52,9 +52,13 @@ public:
 
     void setRoot(const ct::String& root) { mRoot = root; }
     // Opens a texture by its project path; unsaved regions of the one open are
-    // saved first.
+    // dropped, so the editor asks first.
     bool open(const ct::String& path);
     bool save();
+    bool dirty() const { return mDirty; }
+    const ct::String& path() const { return mPath; }
+    // An image dropped on the canvas.
+    ig::retained::Signal<const ct::String&> openRequested;
 
     // "Add to scene" on the selected region.
     ig::retained::Signal<const SpriteRegionDrag&> addToScene;

@@ -217,7 +217,7 @@ void EditorWindow::showNewProjectDialog()
     dialog->accepted.connect([this](const rt::String& path)
     {
         const ct::String folder = path;
-        askToSave([this, folder]() { createProject(folder); });
+        askToSaveAll([this, folder]() { createProject(folder); });
     });
 }
 
@@ -231,7 +231,7 @@ void EditorWindow::showOpenProjectDialog()
     dialog->accepted.connect([this](const rt::String& path)
     {
         const ct::String file = path;
-        askToSave([this, file]() { openProject(file); });
+        askToSaveAll([this, file]() { openProject(file); });
     });
 }
 

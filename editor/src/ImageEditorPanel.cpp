@@ -511,7 +511,7 @@ ImageEditorPanel::ImageEditorPanel(Assets& assets) : rt::BoxLayout(rt::LayoutDir
 
     mCanvas = createChild<ImageCanvas>(*this);
     mCanvas->setStretch(1.0f);
-    mCanvas->imageDropped.connect([this](const ct::String& path) { open(path); });
+    mCanvas->imageDropped.connect([this](const ct::String& path) { openRequested.emit(path); });
 }
 
 bool ImageEditorPanel::owns(const rt::Widget* focused) const
@@ -553,8 +553,6 @@ void ImageEditorPanel::selectTool(PixelTool tool)
 
 bool ImageEditorPanel::open(const ct::String& path)
 {
-    if (mDirty && !mPath.empty() && path != mPath)
-        save();
     const ct::String absolute = EditorFileSystem::resolve(mRoot, path);
     Pixmap image;
     if (!image.Load(absolute.c_str()))

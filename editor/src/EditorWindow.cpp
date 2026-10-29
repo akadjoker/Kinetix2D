@@ -372,16 +372,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mAtlas->built.connect([this](const ct::String& path)
     {
         mAssetsPanel->refresh();
-        if (mSpriteEditor->open(path))
-            mDock->showPanel(kSpritePanel);
+        openInSpriteEditor(path);
     });
     mScriptEditor = mDock->addPanel<ScriptEditorPanel>(kScriptPanel);
     mImageEditor = mDock->addPanel<ImageEditorPanel>(kImagePanel, mAssets);
-    mSpriteEditor->editPixels.connect([this](const ct::String& path)
-    {
-        if (mImageEditor->open(path))
-            mDock->showPanel(kImagePanel);
-    });
+    mSpriteEditor->editPixels.connect([this](const ct::String& path) { openInImageEditor(path); });
+    mSpriteEditor->openRequested.connect([this](const ct::String& path) { openInSpriteEditor(path); });
+    mImageEditor->openRequested.connect([this](const ct::String& path) { openInImageEditor(path); });
     mSpriteEditor->addToScene.connect([this](const SpriteRegionDrag& region)
     {
         const rt::Rect area = mViewport->absoluteRect();
@@ -462,9 +459,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         const ct::String ext = EditorFileSystem::extension(path);
         if (ext == "k2dscene" && !mPlaying)
             requestOpenScene(EditorFileSystem::resolve(mProjectRoot, path));
-        else if ((ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga") &&
-                 mSpriteEditor->open(path))
-            mDock->showPanel(kSpritePanel);
+        else if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga")
+            openInSpriteEditor(path);
         else if ((ext == "py" || ext == "zen" || ext == "zs") && mScriptEditor->open(path))
             mDock->showPanel(kScriptPanel);
         else if (isPrefabPath(path) && !mPlaying)
@@ -623,6 +619,12 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
 // (feedGameMouse), so the game never misses them.
 void EditorWindow::onPlatformEvent(const Event& event)
 {
+    if (event.type == EVENT_WINDOW_CLOSE && !mQuitting)
+    {
+        window_set_should_close(mWindow, false);
+        requestQuit();
+        return;
+    }
     if (!mPlaying)
         return;
     const bool gameShown = mGame && mGame->isVisible();
@@ -1532,6 +1534,76 @@ void EditorWindow::askToSave(ct::Function<void()> proceed)
     });
 }
 
+void EditorWindow::askToSaveDocument(const ct::String& name, ct::Function<bool()> save,
+                                     ct::Function<void()> proceed)
+{
+    auto* ask = mApp->addFloat<rt::ChoiceDialog>("Unsaved changes", ct::String("Save the changes to ") + name + "?");
+    const int keep = ask->addChoice("Save", Icons::get("Save"), rt::ChoiceDialog::Role::Default);
+    const int discard = ask->addChoice("Don't save", rt::IconId::Trash, rt::ChoiceDialog::Role::Destructive);
+    ask->addChoice("Cancel", rt::IconId::Cross, rt::ChoiceDialog::Role::Cancel);
+    ask->chosen.connect([keep, discard, save, proceed](int choice)
+    {
+        if (choice == discard || (choice == keep && save()))
+            proceed();
+    });
+}
+
+void EditorWindow::askToSaveAll(ct::Function<void()> proceed)
+{
+    askToSave([this, proceed]()
+    {
+        auto scripts = [this, proceed]()
+        {
+            if (!mScriptEditor->hasUnsaved())
+                return proceed();
+            askToSaveDocument(mScriptEditor->unsavedNames(), [this]() { return mScriptEditor->saveAll(); }, proceed);
+        };
+        auto regions = [this, scripts]()
+        {
+            if (!mSpriteEditor->dirty())
+                return scripts();
+            askToSaveDocument("the regions of " + EditorFileSystem::fileName(mSpriteEditor->path()),
+                              [this]() { return mSpriteEditor->save(); }, scripts);
+        };
+        if (!mImageEditor->dirty())
+            return regions();
+        askToSaveDocument(EditorFileSystem::fileName(mImageEditor->path()), [this]() { return mImageEditor->save(); },
+                          regions);
+    });
+}
+
+void EditorWindow::openInImageEditor(const ct::String& path)
+{
+    auto open = [this, path]()
+    {
+        if (mImageEditor->open(path))
+            mDock->showPanel(kImagePanel);
+    };
+    if (!mImageEditor->dirty() || path == mImageEditor->path())
+    {
+        if (path == mImageEditor->path())
+            mDock->showPanel(kImagePanel);
+        else
+            open();
+        return;
+    }
+    askToSaveDocument(EditorFileSystem::fileName(mImageEditor->path()), [this]() { return mImageEditor->save(); },
+                      open);
+}
+
+void EditorWindow::openInSpriteEditor(const ct::String& path)
+{
+    auto open = [this, path]()
+    {
+        if (mSpriteEditor->open(path))
+            mDock->showPanel(kSpritePanel);
+    };
+    if (!mSpriteEditor->dirty())
+        return open();
+    askToSaveDocument("the regions of " + EditorFileSystem::fileName(mSpriteEditor->path()),
+                      [this]() { return mSpriteEditor->save(); }, open);
+}
+
 void EditorWindow::requestNewScene()
 {
     if (mPrefabMode.active)
@@ -1554,7 +1626,11 @@ void EditorWindow::requestOpenScene(const ct::String& path)
 
 void EditorWindow::requestQuit()
 {
-    askToSave([this]() { window_set_should_close(mWindow, true); });
+    askToSaveAll([this]()
+    {
+        mQuitting = true;
+        window_set_should_close(mWindow, true);
+    });
 }
 
 void EditorWindow::restoreFromPrefab()

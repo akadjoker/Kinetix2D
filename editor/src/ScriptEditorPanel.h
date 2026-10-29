@@ -41,6 +41,9 @@ public:
     bool acceptsDrop(const ig::retained::DragPayload& payload) override;
     void onDropReceive(const ig::retained::DragPayload& payload) override;
     bool hasUnsaved() const;
+    // The file names of the unsaved scripts, comma separated.
+    ct::String unsavedNames() const;
+    bool saveAll();
 
     bool playing = false;
 

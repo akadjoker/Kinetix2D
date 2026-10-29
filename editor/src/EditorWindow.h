@@ -66,6 +66,13 @@ public:
     void leavePrefab();
     // Runs proceed once unsaved changes are saved or let go; asks which first.
     void askToSave(ct::Function<void()> proceed);
+    // The same for the scene, the Image Editor's pixels, the Sprite Editor's
+    // regions and the scripts, one after the other: before quitting or
+    // changing project.
+    void askToSaveAll(ct::Function<void()> proceed);
+    void openInImageEditor(const ct::String& path);
+    void openInSpriteEditor(const ct::String& path);
+    void askToSaveDocument(const ct::String& name, ct::Function<bool()> save, ct::Function<void()> proceed);
     void requestNewScene();
     void requestOpenScene(const ct::String& path);
     void requestQuit();
@@ -239,6 +246,7 @@ private:
     ct::String mScenePath;
     ct::Json mSceneDocument;
     bool mDirty = false;
+    bool mQuitting = false;
     Scene mScene;
     CanvasRenderer mCanvas;
     RenderTarget mTarget;

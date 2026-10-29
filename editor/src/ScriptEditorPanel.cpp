@@ -96,6 +96,44 @@ bool ScriptEditorPanel::hasUnsaved() const
     return false;
 }
 
+ct::String ScriptEditorPanel::unsavedNames() const
+{
+    ct::String names;
+    for (const Document& document : mDocuments)
+        if (document.dirty)
+        {
+            if (!names.empty())
+                names += ", ";
+            names += EditorFileSystem::fileName(document.path);
+        }
+    return names;
+}
+
+bool ScriptEditorPanel::saveAll()
+{
+    keepText();
+    bool ok = true;
+    for (std::size_t i = 0; i < mDocuments.size(); ++i)
+    {
+        Document& document = mDocuments[i];
+        if (!document.dirty)
+            continue;
+        if (!FileSystem::Instance().SaveTextFile(EditorFileSystem::resolve(mRoot, document.path).c_str(),
+                                                 document.text))
+        {
+            log_error("Could not save %s", document.path.c_str());
+            ok = false;
+            continue;
+        }
+        document.dirty = false;
+        mFiles->setItemText(static_cast<int>(i), EditorFileSystem::fileName(document.path));
+        log_info("Saved %s", document.path.c_str());
+        saved.emit(document.path);
+    }
+    syncTitle();
+    return ok;
+}
+
 bool ScriptEditorPanel::open(const ct::String& path)
 {
     for (std::size_t i = 0; i < mDocuments.size(); ++i)
