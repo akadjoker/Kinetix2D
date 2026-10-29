@@ -59,7 +59,10 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Assets: criar pastas e scripts, renomear, mover (arrastar para uma pasta ou `..`) e apagar; cenas, prefabs, tilesets, sprites, o projecto, a cena aberta e o seu undo acompanham, a imagem leva o `.sprite.json`/`.atlas.json`; scripts só avisados; MCP `move_asset` e `asset_references`
 - [ ] Gamepad na web (Gamepad API no backend web do zen_plataform)
 - [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
-- [ ] Android: no fim
+- [ ] Android
+  - [x] Runner como NativeActivity (`libk2d_runner.so`, arm64-v8a, API 26): o backend Android do zen_plataform, o `data.kpak` lido do APK; `tools/android/build-apk.sh` faz o APK sem Gradle nem Java (aapt2, zipalign, apksigner)
+  - [ ] Correr num dispositivo: ecrã, toque, pausa e retoma, áudio
+  - [ ] Export Android no editor e no `k2d_export`; ícone e orientação por projecto; armeabi-v7a e x86_64
 
 - [x] Molduras da câmara, do ecrã e dos limites na vista da cena (`021950c`)
 - [x] Settings › Project display: tamanho da janela do runner (`021950c`)

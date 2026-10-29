@@ -1,6 +1,9 @@
-add_executable(k2d_runner
-    src/main.cpp
-)
+# On Android the game is a library the NativeActivity loads (libk2d_runner.so).
+if(ANDROID)
+    add_library(k2d_runner SHARED src/main.cpp)
+else()
+    add_executable(k2d_runner src/main.cpp)
+endif()
 
 target_link_libraries(k2d_runner PRIVATE k2d k2d_zen k2d_physics2d)
 

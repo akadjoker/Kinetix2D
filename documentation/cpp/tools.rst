@@ -53,6 +53,24 @@ frame with its function, file, line and locals) and ``running``.
 ``k2d_runner`` logs an error for ``--debug`` and runs the game without it: its
 VM has no hook.
 
+Android
+-------
+
+``tools/android/build-apk.sh`` turns an exported game into an APK: it builds the
+runner with the NDK as the library of a NativeActivity and puts the game's
+``data.kpak`` (from Export Web or Export Desktop) in the APK's assets.
+
+.. code-block:: text
+
+   tools/android/build-apk.sh <project>/export/web/data.kpak [name] [package] [run]
+
+It needs the Android SDK (build-tools 35, platform 35) and NDK r30, by default in
+``~/android/android-sdk`` and ``~/android/android-ndk-r30`` (``ANDROID_HOME`` and
+``ANDROID_NDK_HOME`` override them). The APK is signed with the debug key and
+written to ``build-android/``; ``run`` installs it with ``adb`` and starts it.
+On the device the runner copies ``data.kpak`` to the app's cache and unpacks it
+there, as the desktop runner does with the one beside it.
+
 The packer (``k2d_pack``)
 -------------------------
 

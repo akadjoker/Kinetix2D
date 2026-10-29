@@ -43,7 +43,7 @@ add_custom_target(k2d_default_virtual_pad_asset DEPENDS "${K2D_DEFAULT_VIRTUAL_P
 add_library(k2d_miniaudio STATIC src/audio/miniaudio_impl.c)
 target_include_directories(k2d_miniaudio PRIVATE src/audio)
 set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES LANGUAGE C COMPILE_OPTIONS "-w")
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
     target_link_libraries(k2d_miniaudio PUBLIC pthread dl m)
 endif()
 if(APPLE)

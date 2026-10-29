@@ -190,6 +190,19 @@ bool unpackGame(ct::String& scenePath, ct::String& projectPath, ct::String& titl
 {
 #if defined(__EMSCRIPTEN__)
     const ct::String pack("/data.kpak");
+#elif defined(__ANDROID__)
+    // Inside the APK: copied out to the app's cache so KPak reads it as a file.
+    char cache[4096];
+    const ct::String pack = fs_get_temp_path(cache, sizeof cache) ? joinPath(cache, "data.kpak") : ct::String();
+    std::size_t packSize = 0;
+    std::uint8_t* packed = asset_read("data.kpak", &packSize);
+    const bool copied = packed && !pack.empty() && file_write(pack.c_str(), packed, packSize);
+    fs_free(packed);
+    if (!copied)
+    {
+        log_error("The APK has no data.kpak\n");
+        return false;
+    }
 #else
     char base[4096];
     const ct::String pack = fs_get_base_path(base, sizeof base) ? joinPath(base, "data.kpak") : ct::String("data.kpak");
@@ -403,7 +416,7 @@ void drawProfilerOverlay(k2d::CanvasRenderer& canvas, float width, float height)
 }
 } // namespace
 
-int main(int argc, char** argv)
+static int run(int argc, char** argv)
 {
     // k2d_runner scene.k2dscene [project.k2dproj] [--debug=port]
     ct::Vector<ct::String> positional;
@@ -687,3 +700,19 @@ int main(int argc, char** argv)
     device.Shutdown();
     return result;
 }
+
+#if defined(__ANDROID__)
+// The platform's android_main calls main() with no arguments: the game is the
+// data.kpak in the APK.
+int main()
+{
+    char name[] = "k2d_runner";
+    char* argv[] = {name, nullptr};
+    return run(1, argv);
+}
+#else
+int main(int argc, char** argv)
+{
+    return run(argc, argv);
+}
+#endif
