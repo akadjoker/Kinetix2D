@@ -18,7 +18,9 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Vértices de objectos parados: `render.expand` refaz tudo todos os frames (0.23 ms por 2000); guardar e refazer só quando o transform muda
 - [x] Sombras paradas: o atlas só se redesenha quando muda uma aresta ou a linha de uma luz — 8 luzes 2.4 → 2.1 ms; sem occluders as linhas limpam-se (antes ficavam as sombras antigas) (`c3d2c03`)
 - [ ] Não achatar occluders longe de luzes visíveis (hoje todas as arestas são transformadas todos os frames para detectar mudanças)
-- [ ] Medir na web (WebGL2): o runner nunca foi medido no browser
+- [ ] Medir na web (WebGL2): o benchmark de luzes já corre no Chrome (`cmake --build build-web --target k2d_light_benchmark`, página em `build-web/bench/`); o `glFinish` do WebGL não espera pela GPU, mede-se com a leitura de um pixel. Falta o runner com um jogo a sério
+  - limites no Chrome/ANGLE: 1024 vectores de uniform no fragment, blocos de 64 KB, textura 16384; o mínimo de GLES3/WebGL2 é 224 vectores e 16 KB
+- [ ] Medir em Android: não há build Android nem dispositivo ligado; ver os limites reais (Mali/Adreno) e o custo do loop de 16 luzes
 - [ ] Export: texturas comprimidas (Basis/ASTC) e carregamento de níveis em fundo
 
 ## Luzes 2D
@@ -27,7 +29,10 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Ambiente da cena (Settings › Scene › ambient); a UI desenha sem luzes nem ambiente (`ad81ea5`)
 - [x] Falloff por luz: expoente da curva radial, 2 por omissão (a quadrática de antes) (`053af71`)
 - [x] Bias e suavidade da sombra por luz, pontuais e direccionais: bias em profundidade normalizada (0.002 por omissão), suavidade multiplica o espaçamento do PCF (`053af71`)
-- [ ] Mais de 8 luzes por frame (o Doriax tem 16)
+- [x] 16 luzes pontuais por frame: luzes num uniform block, atlas com uma linha por luz (24), o que corrigiu as luzes 4–7 e os sóis a desenharem nas mesmas linhas; até 8 luzes os frames são iguais ao pixel. Para voltar a 8: `kMaxPointLights` ou `git revert` (`a08c054`)
+  - desktop (Radeon, GLES 3.2): 8 luzes com sombra 2.2 → 2.3 ms (ruído); 16 com sombra, 12 visíveis, 2.6 ms
+  - Chrome (WebGL2, mediana de 3): 8 com sombra 2.7 → 3.0 ms (ruído; vai nos dois sentidos); 16 com sombra, 12 visíveis, 3.1 → 3.9 ms
+- [ ] Mais de 16 luzes visíveis: hoje passam as primeiras 16 da fila, não as mais próximas da câmara
 
 ## Editor
 
