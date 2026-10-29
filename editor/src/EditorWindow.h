@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DebuggerPanel.h"
+#include "DebuggerSession.h"
 #include "AnimatorPanel.h"
 #include "AtlasPanel.h"
 #include "AssetsPanel.h"
@@ -162,7 +164,12 @@ private:
     void setPaused(bool paused);
     void updateRunBar();
     // The saved scene in the runner, in a window of its own.
-    void runInWindow();
+    // The saved scene in the runner; with debug, k2d_runner_debug connected to
+    // the editor's debugger.
+    void runInWindow(bool debug = false);
+    void debugInWindow();
+    void stopDebugging();
+    void sendBreakpoints(const ct::String& path);
 
     PlatformWindow* mWindow = nullptr;
     ig::retained::DockPanel* mDock = nullptr;
@@ -181,6 +188,10 @@ private:
     int mPauseItem = -1;
     int mStopItem = -1;
     int mWindowItem = -1;
+    int mDebugItem = -1;
+    DebuggerSession mDebugger;
+    DebuggerPanel* mDebuggerPanel = nullptr;
+    ct::Json mLastStop;   // the debugger's last "stopped", for MCP
     int64_t mRunnerId = 0;
     int64_t mWebServerId = 0;
     ig::retained::StatusBar* mStatus = nullptr;

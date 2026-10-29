@@ -70,6 +70,14 @@ ScriptEditorPanel::ScriptEditorPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mEditor->setShowBracketMatch(true);
     mEditor->setHighlightCurrentLine(true);
     mEditor->setShowMinimap(true);
+    mEditor->setShowBreakpoints(true);
+    mEditor->breakpointToggled.connect([this](int, bool)
+    {
+        if (mCurrent < 0)
+            return;
+        mDocuments[mCurrent].breakpoints = mEditor->breakpoints();
+        breakpointsChanged.emit(mDocuments[mCurrent].path);
+    });
     mEditor->textChanged.connect([this]()
     {
         if (mLoading || mCurrent < 0 || mDocuments[mCurrent].dirty)
@@ -162,7 +170,61 @@ bool ScriptEditorPanel::open(const ct::String& path)
 void ScriptEditorPanel::keepText()
 {
     if (mCurrent >= 0)
+    {
         mDocuments[mCurrent].text = mEditor->text();
+        mDocuments[mCurrent].breakpoints = mEditor->breakpoints();
+    }
+}
+
+ct::Vector<int> ScriptEditorPanel::breakpointLines(const ct::String& path) const
+{
+    ct::Vector<int> lines;
+    for (std::size_t i = 0; i < mDocuments.size(); ++i)
+        if (mDocuments[i].path == path)
+            for (int line : static_cast<int>(i) == mCurrent ? mEditor->breakpoints() : mDocuments[i].breakpoints)
+                lines.push_back(line + 1);
+    return lines;
+}
+
+ct::Vector<ct::String> ScriptEditorPanel::breakpointFiles() const
+{
+    ct::Vector<ct::String> files;
+    for (std::size_t i = 0; i < mDocuments.size(); ++i)
+        if (!(static_cast<int>(i) == mCurrent ? mEditor->breakpoints() : mDocuments[i].breakpoints).empty())
+            files.push_back(mDocuments[i].path);
+    return files;
+}
+
+bool ScriptEditorPanel::setBreakpoint(const ct::String& path, int line, bool on)
+{
+    if (line < 1 || !open(path) || mCurrent < 0)
+        return false;
+    mEditor->setBreakpoint(line - 1, on);
+    mDocuments[mCurrent].breakpoints = mEditor->breakpoints();
+    breakpointsChanged.emit(mDocuments[mCurrent].path);
+    return true;
+}
+
+void ScriptEditorPanel::showExecution(const ct::String& path, int line)
+{
+    ct::String project = path;
+    const ct::String root = mRoot + "/";
+    if (!mRoot.empty() && project.size() > root.size() && project.substr(0, root.size()) == root)
+        project = project.substr(root.size());
+    mExecutionPath = project;
+    mExecutionLine = line - 1;
+    if (!open(project))
+        return;
+    mEditor->setExecutionLine(mExecutionLine);
+    mEditor->setCursorPos(mExecutionLine > 0 ? mExecutionLine : 0, 0);
+    mEditor->scrollToLine(mExecutionLine > 3 ? mExecutionLine - 3 : 0);
+}
+
+void ScriptEditorPanel::clearExecution()
+{
+    mExecutionPath.clear();
+    mExecutionLine = -1;
+    mEditor->setExecutionLine(-1);
 }
 
 void ScriptEditorPanel::show(int index)
@@ -177,6 +239,10 @@ void ScriptEditorPanel::show(int index)
     mEditor->setHighlighterForFile(EditorFileSystem::withoutExtension(mDocuments[index].path) + ".py");
     mEditor->setText(mDocuments[index].text);
     mEditor->clearUndoHistory();
+    mEditor->clearBreakpoints();
+    for (int line : mDocuments[index].breakpoints)
+        mEditor->setBreakpoint(line, true);
+    mEditor->setExecutionLine(mDocuments[index].path == mExecutionPath ? mExecutionLine : -1);
     mFiles->setSelectedIndex(index);
     mLoading = false;
     syncTitle();

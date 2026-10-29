@@ -56,6 +56,8 @@ const char* const kTools = R"JSON([
  {"name":"set_startup_scene","description":"Make the open scene the one the exported game starts with.","inputSchema":{"type":"object","properties":{}}},
  {"name":"skeleton","description":"The Skeleton2D on object or above it: without clips, its speed, autoplay and clips (each with name, duration, loop and tracks: bone name, property x|y|rotation|scaleX|scaleY, keys as [time, value, easing 0 linear|1 step|2 in|3 out|4 in-out]; values are offsets from the bone's rest pose, scales are factors). Given clips (and autoplay), they replace the skeleton's. One undo step.","inputSchema":{"type":"object","properties":{"object":{"type":"string"},"clips":{"type":"array"},"autoplay":{"type":"string"}},"required":["object"]}},
  {"name":"build_atlas","description":"Pack images of the project into one texture: images are project paths of images or of folders of them; output is the project path of the .png to write. Each image becomes a region named after it, kept in output's .sprite.json as the Sprite Editor keeps them, and the list in output's .atlas.json. maxSize (512..4096) caps the page; more pages are numbered _1, _2...","inputSchema":{"type":"object","properties":{"images":{"type":"array","items":{"type":"string"}},"output":{"type":"string"},"maxSize":{"type":"integer"},"padding":{"type":"integer"},"trim":{"type":"boolean"}},"required":["images","output"]}},
+ {"name":"breakpoint","description":"Set (on, the default) or clear a breakpoint on a line (from 1) of a script, a project path; opens it in the Script Editor. A game being debugged gets it at once.","inputSchema":{"type":"object","properties":{"file":{"type":"string"},"line":{"type":"integer"},"on":{"type":"boolean"}},"required":["file","line"]}},
+ {"name":"debug","description":"The script debugger. start: the saved scene in k2d_runner_debug, stopping at breakpoints. continue, step_over, step_in, step_out, pause: while it runs or is stopped. stop: closes the game. state: whether a game is connected and stopped, and where it last stopped (frames with their file, line and locals).","inputSchema":{"type":"object","properties":{"action":{"type":"string"}},"required":["action"]}},
  {"name":"export_desktop","description":"Export the saved project as a game for this system in <project>/export/desktop: the runner named after the project and data.kpak beside it; run also starts it. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}},
  {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
@@ -403,6 +405,8 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "set_startup_scene") return setStartupScene(isError);
     if (name == "export_web") return exportWeb(arguments, isError);
     if (name == "export_desktop") return exportDesktop(arguments, isError);
+    if (name == "breakpoint") return breakpoint(arguments, isError);
+    if (name == "debug") return debug(arguments, isError);
     if (name == "build_atlas") return buildAtlas(arguments, isError);
     if (name == "skeleton") return skeleton(arguments, isError);
     return fail(ct::String("No tool named ") + name, isError);
@@ -873,6 +877,60 @@ ct::Json McpServer::exportDesktop(const ct::Json& arguments, bool& isError)
     if (!mEditor.buildDesktop(arguments["run"].as_bool(false), message))
         return fail(message.c_str(), isError);
     return text(message);
+}
+
+ct::Json McpServer::breakpoint(const ct::Json& arguments, bool& isError)
+{
+    const ct::String file = arguments["file"].as_cstr("");
+    const int line = static_cast<int>(arguments["line"].as_int(0));
+    if (!mEditor.mScriptEditor->setBreakpoint(file, line, arguments["on"].as_bool(true)))
+        return fail("No such script or line", isError);
+    ct::Json lines = ct::Json::array();
+    for (int at : mEditor.mScriptEditor->breakpointLines(file))
+        lines.push_back(ct::Json(at));
+    ct::Json result = ct::Json::object();
+    result.set("file", ct::Json(file.c_str()));
+    result.set("lines", lines);
+    return text(result.dump(2));
+}
+
+ct::Json McpServer::debug(const ct::Json& arguments, bool& isError)
+{
+    const ct::String action = arguments["action"].as_cstr("");
+    DebuggerSession& session = mEditor.mDebugger;
+    if (action == "start")
+    {
+        if (mEditor.mScenePath.empty())
+            return fail("Save the scene first", isError);
+        mEditor.debugInWindow();
+        return text(session.listening() ? "Debugging: the game starts and connects" : "Could not start the debugger");
+    }
+    if (action == "stop")
+    {
+        mEditor.stopDebugging();
+        return text("Stopped");
+    }
+    if (action == "state")
+    {
+        ct::Json state = ct::Json::object();
+        state.set("listening", ct::Json(session.listening()));
+        state.set("connected", ct::Json(session.connected()));
+        state.set("stopped", ct::Json(session.stopped()));
+        if (session.stopped())
+            state.set("stop", mEditor.mLastStop);
+        return text(state.dump(2));
+    }
+    if (action == "continue" || action == "step_over" || action == "step_in" || action == "step_out" ||
+        action == "pause")
+    {
+        if (!session.connected())
+            return fail("No game is being debugged: debug start first", isError);
+        if (action != "pause" && !session.stopped())
+            return fail("The game is running: pause it or wait for a breakpoint", isError);
+        session.command(action.c_str());
+        return text(ct::String("Sent ") + action);
+    }
+    return fail("action is start, continue, step_over, step_in, step_out, pause, stop or state", isError);
 }
 
 ct::Json McpServer::exportWeb(const ct::Json& arguments, bool& isError)

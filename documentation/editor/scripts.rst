@@ -58,8 +58,52 @@ and marks the changed ones with ``*``.
 Saving while the game plays reloads the changed script in the running game.
 
 Scripts run only in **Play**. Their ``print`` goes to the **Console**, and so
-do their errors, logged as errors.
+do their errors, logged as errors. Quitting, or opening another project, asks
+about the unsaved scripts first.
 
-.. warning::
+The debugger
+------------
 
-   Quitting the editor does not ask about unsaved scripts: save them first.
+Click in the Script Editor's margin, between the line numbers and the fold
+arrows, to put a breakpoint (a red dot) on a line; click again to take it off.
+Breakpoints move with their lines as you type, and each open script keeps its
+own.
+
+**Debug in a window** (F9, on the run bar beside *Play in a window*) saves the
+scene and runs it in ``k2d_runner_debug``, a runner built with the VM's debug
+hook. The game waits for the breakpoints before its first frame, so one in
+``on_start`` stops too. When a script reaches a breakpoint the game freezes:
+
+* the Script Editor opens the file with the line marked by an arrow;
+* the **Debugger** tab shows the call stack, innermost first, and the locals
+  of the selected frame with their values. Click a frame to see its line and
+  its locals. A local appears once it has a value.
+
+Then, from the Debugger tab's toolbar or the keys:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Keys
+     - Action
+   * - F9
+     - Continue: run until the next breakpoint
+   * - F10
+     - Step over: the next line in this function, running calls whole
+   * - F11
+     - Step in: into the function this line calls
+   * - Shift+F11
+     - Step out: run to the line that called this function
+   * - (toolbar)
+     - Pause: stop at the next line any script runs, even one stuck in a
+       loop; Stop: close the game
+
+Breakpoints set or cleared while the game runs take effect at once. Closing
+the game window ends the session.
+
+.. note::
+
+   Only ``k2d_runner_debug`` has the hook. *Play*, *Play in a window* and every
+   export run the VM without it, at full speed: a breakpoint costs nothing
+   outside a debug session.

@@ -74,6 +74,8 @@ const char* const kSettingsPanel = "Settings";
 const char* const kProfilerPanel = "Profiler";
 const char* const kImagePanel = "Image Editor";
 const char* const kAtlasPanel = "Atlas";
+const char* const kDebuggerPanel = "Debugger";
+const std::uint16_t kDebuggerPort = 7790;
 
 ct::String directoryOf(const char* path)
 {
@@ -281,6 +283,9 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mStopItem = mRunBar->addButton(Icons::get("Stop"), "Stop");
     mRunBar->addSeparator();
     mWindowItem = mRunBar->addButton(Icons::get("Export"), "Play in a window: the saved scene in the runner (F6)");
+    mDebugItem = mRunBar->addButton(rt::IconId::StepForward,
+                                    "Debug in a window: the saved scene in the runner, stopping at the scripts' "
+                                    "breakpoints (F9)");
     mRunBar->toggleChanged.connect([this](int item, bool on)
     {
         if (item == mPlayItem)
@@ -294,6 +299,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             stopPlay();
         else if (item == mWindowItem)
             runInWindow();
+        else if (item == mDebugItem)
+            debugInWindow();
     });
     auto* toolRight = toolRow->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
     toolRight->setPadding(0.0f);
@@ -463,6 +470,39 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
             commit(mPendingEdit.c_str());
     });
     mProfiler = mDock->addPanel<ProfilerPanel>(kProfilerPanel);
+    mDebuggerPanel = mDock->addPanel<DebuggerPanel>(kDebuggerPanel);
+    mDebuggerPanel->commandRequested.connect([this](const char* command) { mDebugger.command(command); });
+    mDebuggerPanel->stopRequested.connect([this]() { stopDebugging(); });
+    mDebuggerPanel->frameSelected.connect([this](const ct::String& file, int line)
+    {
+        mScriptEditor->showExecution(file, line);
+        mDock->showPanel(kScriptPanel);
+    });
+    mDebugger.connectedToGame.connect([this]()
+    {
+        for (const ct::String& path : mScriptEditor->breakpointFiles())
+            sendBreakpoints(path);
+        mDebugger.command("start");
+        mDebuggerPanel->showRunning();
+    });
+    mDebugger.stoppedAt.connect([this](const ct::Json& stop)
+    {
+        mLastStop = stop;
+        mDock->showPanel(kDebuggerPanel);
+        mDebuggerPanel->showStopped(stop);
+    });
+    mDebugger.resumed.connect([this]()
+    {
+        mScriptEditor->clearExecution();
+        mDebuggerPanel->showRunning();
+    });
+    mDebugger.ended.connect([this]()
+    {
+        mScriptEditor->clearExecution();
+        mDebuggerPanel->showIdle("The game ended");
+    });
+    mScriptEditor->breakpointsChanged.connect([this](const ct::String& path) { sendBreakpoints(path); });
+    mScriptEditor->saved.connect([this](const ct::String& path) { sendBreakpoints(path); });
     mTilePainter = mDock->addPanel<TilePainterPanel>(kTilePanel);
     mTilePainter->addComponentRequested.connect([this](const char* type) { addComponent(type); });
     mTilePainter->edited.connect([this](const char* label)
@@ -494,6 +534,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     mDock->moveTabToLeaf(kAnimatorPanel, kConsolePanel);
     mDock->moveTabToLeaf(kSkeletonPanel, kConsolePanel);
     mDock->moveTabToLeaf(kProfilerPanel, kConsolePanel);
+    mDock->moveTabToLeaf(kDebuggerPanel, kConsolePanel);
     mDock->moveTabToLeaf(kTilePanel, kConsolePanel);
     mDock->showPanel(kConsolePanel);
     mDock->showPanel(kScenePanel);
@@ -750,6 +791,21 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     if (key == rt::Key::F1 + 5)   // F6
     {
         runInWindow();
+        e.consumed = true;
+        return;
+    }
+    if (key == rt::Key::F1 + 8)   // F9: debug, or go on from a stop
+    {
+        if (mDebugger.stopped())
+            mDebugger.command("continue");
+        else if (!mDebugger.listening())
+            debugInWindow();
+        e.consumed = true;
+        return;
+    }
+    if ((key == rt::Key::F1 + 9 || key == rt::Key::F1 + 10) && mDebugger.stopped())   // F10, F11
+    {
+        mDebugger.command(key == rt::Key::F1 + 9 ? "step_over" : (e.shift ? "step_out" : "step_in"));
         e.consumed = true;
         return;
     }
@@ -1113,6 +1169,15 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
     mPendingReleases.clear();
     Profiler::Get().endFrame();
     mProfiler->tick();
+    if (mDebugger.listening())
+    {
+        mDebugger.poll();
+        if (!(mRunnerId > 0 && process_is_running(mRunnerId)))
+        {
+            mDebugger.close();
+            mDebuggerPanel->showIdle("The game ended");
+        }
+    }
 }
 
 bool EditorWindow::ensureCanvas()
@@ -2076,7 +2141,37 @@ void EditorWindow::stopPlay()
     updateUndoButtons();
 }
 
-void EditorWindow::runInWindow()
+void EditorWindow::stopDebugging()
+{
+    if (mRunnerId > 0 && process_is_running(mRunnerId))
+    {
+        process_kill(mRunnerId);
+        log_info("The game window closed");
+    }
+    mRunnerId = 0;
+    mDebugger.close();
+}
+
+void EditorWindow::debugInWindow()
+{
+    runInWindow(true);
+}
+
+void EditorWindow::sendBreakpoints(const ct::String& path)
+{
+    if (!mDebugger.connected())
+        return;
+    ct::Json message = ct::Json::object();
+    message.set("cmd", ct::Json("breakpoints"));
+    message.set("file", ct::Json(path.c_str()));
+    ct::Json lines = ct::Json::array();
+    for (int line : mScriptEditor->breakpointLines(path))
+        lines.push_back(ct::Json(line));
+    message.set("lines", lines);
+    mDebugger.send(message);
+}
+
+void EditorWindow::runInWindow(bool debug)
 {
     if (mScenePath.empty())
     {
@@ -2092,23 +2187,38 @@ void EditorWindow::runInWindow()
     char base[1024];
     if (!fs_get_base_path(base, sizeof base))
         base[0] = '\0';
+    const char* const name = debug ? "k2d_runner_debug" : "k2d_runner";
 #if defined(_WIN32)
-    const ct::String runner = ct::String(base) + "k2d_runner.exe";
+    const ct::String runner = ct::String(base) + name + ".exe";
 #else
-    const ct::String runner = ct::String(base) + "k2d_runner";
+    const ct::String runner = ct::String(base) + name;
 #endif
     if (!EditorFileSystem::exists(runner))
     {
         log_error("No runner at %s: build k2d_runner", runner.c_str());
         return;
     }
+    mDebugger.close();
+    if (debug && !mDebugger.listen(kDebuggerPort))
+        return;
     const ct::String project = EditorFileSystem::join(mProjectRoot, "project.k2dproj");
-    const char* args[2] = {mScenePath.c_str(), project.c_str()};
-    mRunnerId = process_spawn(runner.c_str(), args, EditorFileSystem::exists(project) ? 2 : 1, false);
+    char debugArgument[32];
+    std::snprintf(debugArgument, sizeof debugArgument, "--debug=%u", (unsigned)kDebuggerPort);
+    const bool hasProject = EditorFileSystem::exists(project);
+    const char* args[3] = {mScenePath.c_str(), hasProject ? project.c_str() : debugArgument, debugArgument};
+    const int argCount = (hasProject ? 2 : 1) + (debug ? 1 : 0);
+    mRunnerId = process_spawn(runner.c_str(), args, argCount, false);
     if (mRunnerId > 0)
-        log_info("Running %s in a window", EditorFileSystem::fileName(mScenePath).c_str());
+    {
+        log_info("%s %s in a window", debug ? "Debugging" : "Running", EditorFileSystem::fileName(mScenePath).c_str());
+        if (debug)
+            mDebuggerPanel->showIdle("Waiting for the game");
+    }
     else
+    {
         log_error("Could not start the runner");
+        mDebugger.close();
+    }
 }
 
 void EditorWindow::setPaused(bool paused)

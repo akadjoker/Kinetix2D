@@ -43,6 +43,16 @@ profiler overlay on F5. Touch controls are disabled by default, including in a
 Web export. Enable them only for scenes that need them with, for example,
 ``"virtualPad": { "enabled": true }`` in the scene JSON.
 
+``k2d_runner_debug`` is the same runner on the VM built with the debug hook.
+``--debug=port`` connects it to the editor's debugger on ``127.0.0.1:port``
+(the editor listens on 7790) and the scripts stop at its breakpoints. The two
+talk in JSON lines: the editor sends ``breakpoints`` (a file and its lines),
+``start``, ``continue``, ``pause``, ``step_over``, ``step_in`` and
+``step_out``; the runner answers ``hello``, ``stopped`` (the reason and every
+frame with its function, file, line and locals) and ``running``.
+``k2d_runner`` logs an error for ``--debug`` and runs the game without it: its
+VM has no hook.
+
 The packer (``k2d_pack``)
 -------------------------
 

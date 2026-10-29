@@ -41,6 +41,17 @@ public:
     bool acceptsDrop(const ig::retained::DragPayload& payload) override;
     void onDropReceive(const ig::retained::DragPayload& payload) override;
     bool hasUnsaved() const;
+
+    // Breakpoints, toggled in the gutter, kept per open script; lines from 1,
+    // as the VM counts them.
+    ct::Vector<int> breakpointLines(const ct::String& path) const;
+    ct::Vector<ct::String> breakpointFiles() const;
+    // Opens the script and sets or clears the breakpoint on line (from 1).
+    bool setBreakpoint(const ct::String& path, int line, bool on);
+    ig::retained::Signal<const ct::String&> breakpointsChanged;
+    // Where the debugger stopped: the script opened there, the line marked.
+    void showExecution(const ct::String& path, int line);
+    void clearExecution();
     // The file names of the unsaved scripts, comma separated.
     ct::String unsavedNames() const;
     bool saveAll();
@@ -53,6 +64,7 @@ private:
         ct::String path;   // project path
         ct::String text;   // as last shown, for the documents not on screen
         bool dirty = false;
+        ct::Vector<int> breakpoints;   // lines from 0, as the editor counts them
     };
 
     void show(int index);
@@ -62,6 +74,8 @@ private:
     ct::String mRoot;
     ct::Vector<Document> mDocuments;
     int mCurrent = -1;
+    ct::String mExecutionPath;
+    int mExecutionLine = -1;
     bool mLoading = false;
 
     ig::retained::ComboBox* mFiles = nullptr;

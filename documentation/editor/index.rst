@@ -144,6 +144,9 @@ Shortcuts
      - Play or stop / play in a window
    * - F7 / F8
      - Run Web / Run Desktop
+   * - F9
+     - Debug in a window, or continue from a breakpoint. F10, F11 and
+       Shift+F11 step (see :doc:`scripts`)
    * - F1
      - The editor manual, in the browser (**Help** menu)
    * - Ctrl+Q
@@ -164,4 +167,6 @@ serves the open scene to an MCP client on ``http://127.0.0.1:7777/mcp``:
 
 Its tools read and change the scene, run it, take screenshots and work on the
 project's files. Every change is an undo step in the editor, and nothing is
-saved until you save.
+saved until you save. ``breakpoint`` and ``debug`` drive the script debugger:
+set breakpoints, start a debug session, step, and read where the game stopped
+with its locals.
