@@ -46,6 +46,27 @@ int TilePalette::tilesY() const
     return static_cast<int>((mMap->texture()->Height() - mMap->atlasPadding().y + mMap->atlasGap().y) / step);
 }
 
+void TilePalette::setTerrainEditing(int terrain)
+{
+    mTerrain = terrain;
+    markDirty();
+}
+
+bool TilePalette::tilePart(float localX, float localY, int& tx, int& ty, int& part) const
+{
+    if (!tileAt(localX, localY, tx, ty))
+        return false;
+    const float stepX = mMap->cellWidth() + mMap->atlasGap().x, stepY = mMap->cellHeight() + mMap->atlasGap().y;
+    const float px = (localX - mPanX) / mZoom - mMap->atlasPadding().x - tx * stepX;
+    const float py = (localY - mPanY) / mZoom - mMap->atlasPadding().y - ty * stepY;
+    if (px < 0.0f || py < 0.0f || px >= mMap->cellWidth() || py >= mMap->cellHeight())
+        return false;
+    const int sx = static_cast<int>(px * 3.0f / mMap->cellWidth());
+    const int sy = static_cast<int>(py * 3.0f / mMap->cellHeight());
+    part = (sy > 2 ? 2 : sy) * 3 + (sx > 2 ? 2 : sx);
+    return true;
+}
+
 void TilePalette::pick(int tileX, int tileY)
 {
     mX0 = mX1 = tileX;
@@ -124,8 +145,30 @@ void TilePalette::paint(rt::PaintContext& ctx)
             ctx.fillRect(ox, oy + r * (ch + gy) - (r == rows ? gy : 0.0f), columns * (cw + gx) - gx, 1.0f);
     }
 
+    // The terrain's tiles: their middle, and the neighbours each joins.
+    if (mTerrain >= 0 && columns > 0)
+    {
+        static const unsigned char kParts[9] = {TERRAIN_NW, TERRAIN_N, TERRAIN_NE, TERRAIN_W, 0,
+                                                TERRAIN_E,  TERRAIN_SW, TERRAIN_S, TERRAIN_SE};
+        const float pw = cw / 3.0f, ph = ch / 3.0f;
+        for (const TerrainTile& entry : mMap->terrainTiles())
+        {
+            if (entry.terrain != mTerrain || entry.tile <= 0)
+                continue;
+            const int tx = (entry.tile - 1) % columns, ty = (entry.tile - 1) / columns;
+            const float tileX = ox + tx * (cw + gx), tileY = oy + ty * (ch + gy);
+            for (int part = 0; part < 9; ++part)
+                if (part == 4 || (entry.bits & kParts[part]))
+                {
+                    ctx.fill.SetColor(part == 4 ? rt::Color(80, 220, 120, 170) : rt::Color(80, 160, 255, 150));
+                    ctx.fillRect(tileX + (part % 3) * pw + 1.0f, tileY + (part / 3) * ph + 1.0f, pw - 2.0f,
+                                 ph - 2.0f);
+                }
+        }
+    }
+
     // The picked block.
-    if (columns > 0 && rows > 0)
+    if (mTerrain < 0 && columns > 0 && rows > 0)
     {
         const float bx = ox + blockX() * (cw + gx), by = oy + blockY() * (ch + gy);
         const float bw = blockWidth() * (cw + gx) - gx, bh = blockHeight() * (ch + gy) - gy;
@@ -150,6 +193,13 @@ void TilePalette::onMousePress(rt::MouseEvent& e)
         return;
     }
     int tx = 0, ty = 0;
+    if (mTerrain >= 0)
+    {
+        int part = 0;
+        if (tilePart(e.localX, e.localY, tx, ty, part))
+            terrainClicked.emit(ty * tilesX() + tx + 1, part % 3, part / 3);
+        return;
+    }
     if (!tileAt(e.localX, e.localY, tx, ty))
         return;
     mPicking = true;

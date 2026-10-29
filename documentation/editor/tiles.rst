@@ -56,7 +56,7 @@ The palette shows the tileset:
 * picking a tile while the Eraser or the Picker is active switches back to
   the Brush.
 
-The toolbar holds five tools; one is active at a time:
+The toolbar holds six tools; one is active at a time:
 
 .. list-table::
    :header-rows: 1
@@ -78,6 +78,9 @@ The toolbar holds five tools; one is active at a time:
    * - **Picker**
      - Picks the tile under the pointer into the palette and goes back to
        the Brush. An empty cell picks nothing.
+   * - **Terrain**
+     - Paints the terrain chosen below the toolbar; the tiles fit
+       themselves to their neighbours (see `Autotile`_).
 
 In the scene view the map is outlined in green. Under the pointer the Brush
 shows the tiles it will lay down, and every tool outlines the cells it will
@@ -85,9 +88,44 @@ touch: red for the Eraser, yellow for the others. The status line reads
 ``columns x rows cells of w x h   brush w x h``.
 
 Each stroke is one undo step (*Paint tiles*), recorded only when it changed
-something. Cells outside the map are ignored. There are no layers (one grid
-per component: put two objects for a background and a foreground) and no
-auto-tiling.
+something. Cells outside the map are ignored. There are no layers: one grid
+per component, so put two objects for a background and a foreground.
+
+Autotile
+--------
+
+A *terrain* is a set of tiles that join each other: a path, a wall, water's
+edge. Each tile of the terrain is told which of its eight neighbours it joins;
+painting the terrain then picks, for every cell and the eight around it, the
+tile whose neighbours match. Any tileset layout works.
+
+1. Press **+** in the Terrain row of the Tile Painter (*New terrain*) and name
+   it in the field beside the list.
+2. Turn on *Edit the terrain's tiles* (the gear). The palette now splits each
+   tile into nine parts:
+
+   * click a tile's **middle** to put it in the terrain (green), or take it
+     out;
+   * click a **side** or a **corner** to mark that the tile joins a
+     neighbour there (blue).
+
+   Mark each tile as it is drawn: a straight horizontal path joins east and
+   west, a corner piece joins two sides, an end joins one.
+3. Turn the gear off, pick the **Terrain** tool and paint in the scene view.
+   The **Eraser** on a terrain cell clears it, and its neighbours fit again.
+
+Two common sets:
+
+**16 tiles, sides only**
+   Every combination of north, east, south and west. Good for paths, pipes,
+   simple walls. Leave the corners unmarked: they are then ignored.
+**47 tiles, the blob**
+   Sides and corners. A corner counts only where both sides beside it are of
+   the terrain too, which is why 47 tiles cover all the cases. Good for
+   ground with inner corners, platforms, cliffs.
+
+Where no tile matches exactly, the closest one is used, so a set with a few
+tiles missing still draws.
 
 Collision
 ---------
@@ -124,7 +162,9 @@ From a script
            self.map.set_tile(x, y, 0)
            self.map.set_collision(x, y, False)
 
-``get_tile(x, y)``, ``set_tile(x, y, id)``, ``has_collision(x, y)``,
+``get_tile(x, y)``, ``set_tile(x, y, id)``, ``set_terrain(x, y, terrain)``
+(the terrain's index or name; -1 clears the cell, and the neighbours fit
+again), ``get_terrain(x, y)`` (the index, or -1), ``has_collision(x, y)``,
 ``set_collision(x, y, solid)``, ``get_columns()``, ``get_rows()``,
 ``get_cell_size()`` → ``(w, h)``, ``world_to_cell(wx, wy)`` → ``(cx, cy)`` and
 ``cell_to_world(cx, cy)`` → the cell's top-left ``(wx, wy)``.
@@ -145,7 +185,8 @@ In the scene file
 
 A TileMap is saved inside the scene (``.k2dscene``): ``texture``,
 ``cellWidth``, ``cellHeight``, ``columns``, ``rows``, ``atlasTilesX``,
-``atlasPadding``, ``atlasGap``, ``blendMode``, and ``cells`` and ``collision``
-as flat arrays row by row. ``atlasPadding`` (the margin around the tileset)
+``atlasPadding``, ``atlasGap``, ``blendMode``, ``cells`` and ``collision`` as
+flat arrays row by row, and ``terrains``: each a ``name`` and its ``tiles`` as
+``[tile, bits]`` pairs (N 1, NE 2, E 4, SE 8, S 16, SW 32, W 64, NW 128). ``atlasPadding`` (the margin around the tileset)
 and ``atlasGap`` (the space between its tiles) have no field in the Inspector;
 edit them in the scene file for tilesets that need them.

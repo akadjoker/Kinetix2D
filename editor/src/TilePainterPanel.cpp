@@ -4,6 +4,8 @@
 #include "TilePalette.h"
 
 #include "BasicWidgets.hpp"
+#include "ComboBox.hpp"
+#include "TextInputWidgets.hpp"
 #include "ToolBar.hpp"
 
 #include <k2d/GameObject.h>
@@ -53,9 +55,14 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mToolItems[2] = mTools->addToggle(rt::IconId::PaintBucket, "Fill: the cells like the one clicked, touching it");
     mToolItems[3] = mTools->addToggle(rt::IconId::SelectRect, "Rectangle: drag a rectangle to fill");
     mToolItems[4] = mTools->addToggle(rt::IconId::Eyedropper, "Picker: pick the tile under the pointer");
+    mToolItems[5] = mTools->addToggle(Icons::get("TileMap"),
+                                      "Terrain: paint the terrain below; the tiles around fit themselves to it");
     mTools->addSeparator();
     mCollisionItem = mTools->addToggle(Icons::get("TileMapCollider2D"),
                                        "Collision: the tools mark cells solid, the eraser clears them");
+    mEditTerrainItem = mTools->addToggle(Icons::get("Settings"),
+                                         "Edit the terrain's tiles: in the palette a tile's middle puts it in the "
+                                         "terrain or takes it out, its sides and corners mark the neighbours it joins");
     mTools->addSeparator();
     const int columnsItem = mTools->addButton(rt::IconId::ViewGrid, "Atlas columns from the texture");
     mTools->buttonClicked.connect([this, columnsItem](int item)
@@ -73,10 +80,15 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     {
         if (item == mCollisionItem)
             mCollision = on;
-        for (int i = 0; i < 5; ++i)
+        if (item == mEditTerrainItem)
+        {
+            syncTerrains();
+            return;
+        }
+        for (int i = 0; i < 6; ++i)
             if (item == mToolItems[i])
                 mTool = static_cast<TileTool>(i);
-        for (int i = 0; i < 5; ++i)
+        for (int i = 0; i < 6; ++i)
             mTools->setItemChecked(mToolItems[i], static_cast<int>(mTool) == i);
         syncInfo();
     });
@@ -84,8 +96,59 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mInfo->setStretch(1.0f);
     mInfo->setLayoutAlign(rt::Align::Center);
 
+    auto* terrainRow = mContent->createChild<rt::BoxLayout>(rt::LayoutDir::Horizontal);
+    terrainRow->setPadding(0.0f);
+    terrainRow->setSpacing(6.0f);
+    terrainRow->createChild<rt::Label>("Terrain");
+    mTerrains = terrainRow->createChild<rt::ComboBox>();
+    mTerrains->selectionChanged.connect([this](int index)
+    {
+        if (mSyncingTerrains)
+            return;
+        mTerrain = index;
+        syncTerrains();
+    });
+    mTerrainName = terrainRow->createChild<rt::TextInput>("");
+    mTerrainName->setPlaceholder("Terrain name");
+    mTerrainName->submitted.connect([this](const rt::String& name)
+    {
+        TileMapComponent* tiles = map();
+        if (!tiles || mTerrain < 0 || mTerrain >= tiles->terrainCount() || name.empty() ||
+            tiles->terrainName(mTerrain) == name)
+            return;
+        tiles->setTerrainName(mTerrain, name);
+        syncTerrains();
+        edited.emit("Rename terrain");
+    });
+    mTerrainTools = terrainRow->createChild<rt::ToolBar>();
+    mTerrainTools->setDraggable(false);
+    const int addItem = mTerrainTools->addButton(rt::IconId::Plus, "New terrain");
+    const int removeItem = mTerrainTools->addButton(rt::IconId::Trash, "Delete the terrain, and what its tiles say");
+    mTerrainTools->buttonClicked.connect([this, addItem, removeItem](int item)
+    {
+        TileMapComponent* tiles = map();
+        if (!tiles)
+            return;
+        if (item == addItem)
+        {
+            char name[32];
+            std::snprintf(name, sizeof name, "terrain_%d", tiles->terrainCount() + 1);
+            mTerrain = tiles->addTerrain(name);
+            syncTerrains();
+            edited.emit("New terrain");
+        }
+        else if (item == removeItem && mTerrain >= 0 && mTerrain < tiles->terrainCount())
+        {
+            tiles->removeTerrain(mTerrain);
+            mTerrain = mTerrain > 0 ? mTerrain - 1 : 0;
+            syncTerrains();
+            edited.emit("Delete terrain");
+        }
+    });
+
     mPalette = mContent->createChild<TilePalette>();
     mPalette->setStretch(1.0f);
+    mPalette->terrainClicked.connect([this](int tile, int across, int down) { markTerrainTile(tile, across, down); });
     mPalette->picked.connect([this]()
     {
         // Picking tiles means painting them.
@@ -117,7 +180,49 @@ void TilePainterPanel::show(GameObject* object)
     mContent->setVisible(tiles != nullptr);
     mPalette->setMap(tiles);
     mStroke = false;
+    syncTerrains();
     syncInfo();
+}
+
+void TilePainterPanel::syncTerrains()
+{
+    TileMapComponent* tiles = map();
+    const int count = tiles ? tiles->terrainCount() : 0;
+    if (mTerrain >= count)
+        mTerrain = count - 1;
+    if (mTerrain < 0 && count > 0)
+        mTerrain = 0;
+    mSyncingTerrains = true;
+    mTerrains->clear();
+    for (int t = 0; t < count; ++t)
+        mTerrains->addItem(tiles->terrainName(t));
+    mTerrains->setSelectedIndex(mTerrain);
+    mSyncingTerrains = false;
+    mTerrainName->setText(count > 0 ? tiles->terrainName(mTerrain) : ct::String());
+    mTerrainName->setEnabled(count > 0);
+    const bool editing = count > 0 && mTools->isItemChecked(mEditTerrainItem);
+    mPalette->setTerrainEditing(editing ? mTerrain : -1);
+}
+
+// The middle puts the tile in the terrain or takes it out; a side or a corner
+// turns that neighbour on or off.
+void TilePainterPanel::markTerrainTile(int tile, int across, int down)
+{
+    TileMapComponent* tiles = map();
+    if (!tiles || mTerrain < 0 || mTerrain >= tiles->terrainCount() || tile <= 0)
+        return;
+    static const unsigned char kParts[3][3] = {{TERRAIN_NW, TERRAIN_N, TERRAIN_NE},
+                                               {TERRAIN_W, 0, TERRAIN_E},
+                                               {TERRAIN_SW, TERRAIN_S, TERRAIN_SE}};
+    int terrain = -1;
+    unsigned char bits = 0;
+    const bool member = tiles->tileTerrain(tile, terrain, bits) && terrain == mTerrain;
+    if (across == 1 && down == 1)
+        tiles->setTileTerrain(tile, member ? -1 : mTerrain, 0);
+    else
+        tiles->setTileTerrain(tile, mTerrain, static_cast<unsigned char>((member ? bits : 0) ^ kParts[down][across]));
+    mPalette->markDirty();
+    edited.emit("Edit terrain");
 }
 
 int TilePainterPanel::textureColumns() const
@@ -193,6 +298,18 @@ void TilePainterPanel::apply(int cx, int cy, int originX, int originY)
         if (tiles->hasCollision(cx, cy) != solid)
         {
             tiles->setCollision(cx, cy, solid);
+            mChanged = true;
+        }
+        return;
+    }
+    if (mTool == TileTool::Terrain || (mTool == TileTool::Eraser && tiles->terrainAt(cx, cy) >= 0))
+    {
+        const int terrain = mTool == TileTool::Terrain ? mTerrain : -1;
+        if (mTool == TileTool::Terrain && (terrain < 0 || terrain >= tiles->terrainCount()))
+            return;
+        if (tiles->terrainAt(cx, cy) != terrain)
+        {
+            tiles->paintTerrain(cx, cy, terrain);
             mChanged = true;
         }
         return;
@@ -280,6 +397,7 @@ void TilePainterPanel::press(float x, float y)
     {
     case TileTool::Brush:
     case TileTool::Eraser:
+    case TileTool::Terrain:
         stamp(cx, cy, cx, cy);
         break;
     case TileTool::Fill:
@@ -310,7 +428,7 @@ void TilePainterPanel::drag(float x, float y)
     mHoverX = cx;
     mHoverY = cy;
     // A brush stroke lays the stamp on every cell it crosses, keeping its pattern.
-    if (moved && (mTool == TileTool::Brush || mTool == TileTool::Eraser))
+    if (moved && (mTool == TileTool::Brush || mTool == TileTool::Eraser || mTool == TileTool::Terrain))
         stamp(cx, cy, mStartX, mStartY);
 }
 
