@@ -186,6 +186,8 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     file->addAction("Run Web", [this]() { exportWeb(true); })->setShortcut("F7");
     file->addAction("Export Desktop", [this]() { exportDesktop(false); });
     file->addAction("Run Desktop", [this]() { exportDesktop(true); })->setShortcut("F8");
+    file->addAction("Export Android", [this]() { exportAndroid(false); });
+    file->addAction("Run Android", [this]() { exportAndroid(true); });
     file->addSeparator();
     rt::MenuAction* quit = file->addAction("Quit");
     quit->setShortcut("Ctrl+Q");
@@ -1096,6 +1098,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
             log_info("The game window closed");
         mRunnerId = 0;
     }
+    followAndroidInstall();
     drainLog();
     mAnimator->tick(deltaTime);
     mSkeleton->tick(deltaTime);

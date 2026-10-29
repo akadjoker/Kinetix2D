@@ -46,6 +46,11 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/lib/$ABI" "$STAGE/assets"
 LIB=$(find "$OUT" -name "lib$TARGET.so" -not -path "$STAGE/*" | head -1)
 "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" -o "$STAGE/lib/$ABI/lib$TARGET.so" "$LIB"
+# The runner where k2d_export --android and the editor's Export Android look for it.
+if [ "$TARGET" = k2d_runner ]; then
+    mkdir -p "$ROOT/bin/android"
+    cp "$STAGE/lib/$ABI/lib$TARGET.so" "$ROOT/bin/android/libk2d_runner.so"
+fi
 ASSETS=()
 if [ "$PACK" != - ]; then
     cp "$PACK" "$STAGE/assets/data.kpak"

@@ -63,6 +63,7 @@ const char* const kTools = R"JSON([
  {"name":"build_atlas","description":"Pack images of the project into one texture: images are project paths of images or of folders of them; output is the project path of the .png to write. Each image becomes a region named after it, kept in output's .sprite.json as the Sprite Editor keeps them, and the list in output's .atlas.json. maxSize (512..4096) caps the page; more pages are numbered _1, _2...","inputSchema":{"type":"object","properties":{"images":{"type":"array","items":{"type":"string"}},"output":{"type":"string"},"maxSize":{"type":"integer"},"padding":{"type":"integer"},"trim":{"type":"boolean"}},"required":["images","output"]}},
  {"name":"breakpoint","description":"Set (on, the default) or clear a breakpoint on a line (from 1) of a script, a project path; opens it in the Script Editor. A game being debugged gets it at once.","inputSchema":{"type":"object","properties":{"file":{"type":"string"},"line":{"type":"integer"},"on":{"type":"boolean"}},"required":["file","line"]}},
  {"name":"debug","description":"The script debugger. start: the saved scene in k2d_runner_debug, stopping at breakpoints. continue, step_over, step_in, step_out, pause: while it runs or is stopped. stop: closes the game. state: whether a game is connected and stopped, and where it last stopped (frames with their file, line and locals).","inputSchema":{"type":"object","properties":{"action":{"type":"string"}},"required":["action"]}},
+ {"name":"export_android","description":"Export the saved project as an Android APK in <project>/export/android (the Android SDK from ANDROID_HOME, the runner from android/ beside the editor); run also installs it on the device adb sees and starts it. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}},
  {"name":"export_desktop","description":"Export the saved project as a game for this system in <project>/export/desktop: the runner named after the project and data.kpak beside it; run also starts it. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}},
  {"name":"export_web","description":"Export the saved project as a web game in <project>/export/web (the web runner, data.kpak, index.html); run also serves it on 127.0.0.1 and opens the browser. Save the scene first.","inputSchema":{"type":"object","properties":{"run":{"type":"boolean"}}}}
 ])JSON";
@@ -414,6 +415,7 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "set_startup_scene") return setStartupScene(isError);
     if (name == "export_web") return exportWeb(arguments, isError);
     if (name == "export_desktop") return exportDesktop(arguments, isError);
+    if (name == "export_android") return exportAndroid(arguments, isError);
     if (name == "breakpoint") return breakpoint(arguments, isError);
     if (name == "debug") return debug(arguments, isError);
     if (name == "build_atlas") return buildAtlas(arguments, isError);
@@ -884,6 +886,18 @@ ct::Json McpServer::exportDesktop(const ct::Json& arguments, bool& isError)
         return fail("The scene has unsaved changes: save_scene first", isError);
     ct::String message;
     if (!mEditor.buildDesktop(arguments["run"].as_bool(false), message))
+        return fail(message.c_str(), isError);
+    return text(message);
+}
+
+ct::Json McpServer::exportAndroid(const ct::Json& arguments, bool& isError)
+{
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (mEditor.mDirty)
+        return fail("The scene has unsaved changes: save_scene first", isError);
+    ct::String message;
+    if (!mEditor.buildAndroid(arguments["run"].as_bool(false), message))
         return fail(message.c_str(), isError);
     return text(message);
 }

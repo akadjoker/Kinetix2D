@@ -113,6 +113,11 @@ private:
     bool buildWeb(bool run, ct::String& message);
     void exportDesktop(bool run);
     bool buildDesktop(bool run, ct::String& message);
+    // An APK in <project>/export/android; run installs it on the device adb sees
+    // and starts it once the install is done (followed in the frame).
+    void exportAndroid(bool run);
+    bool buildAndroid(bool run, ct::String& message);
+    void followAndroidInstall();
     void resetLayout();
     void registerTypes();
     void drainLog();
@@ -206,6 +211,9 @@ private:
     ct::Json mLastStop;   // the debugger's last "stopped", for MCP
     int64_t mRunnerId = 0;
     int64_t mWebServerId = 0;
+    int64_t mAndroidInstallId = 0;
+    ct::String mAndroidAdb;
+    ct::String mAndroidPackage;
     ig::retained::StatusBar* mStatus = nullptr;
     ig::retained::Label* mSceneLabel = nullptr;
     ig::retained::Label* mFpsLabel = nullptr;

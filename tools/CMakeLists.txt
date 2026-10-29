@@ -7,7 +7,7 @@ target_compile_features(k2d_scriptc PRIVATE cxx_std_17)
 
 add_library(k2d_export_lib STATIC export/ProjectExport.cpp)
 target_include_directories(k2d_export_lib PUBLIC export)
-target_link_libraries(k2d_export_lib PUBLIC k2d k2d_zen)
+target_link_libraries(k2d_export_lib PUBLIC k2d k2d_zen PRIVATE miniz)
 target_compile_features(k2d_export_lib PRIVATE cxx_std_17)
 
 add_executable(k2d_export k2d_export.cpp)

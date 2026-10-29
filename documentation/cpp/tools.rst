@@ -56,9 +56,16 @@ VM has no hook.
 Android
 -------
 
-``tools/android/build-apk.sh`` turns an exported game into an APK: it builds the
-runner with the NDK as the library of a NativeActivity and puts the game's
-``data.kpak`` (from Export Web or Export Desktop) in the APK's assets.
+``k2d_export <project> --android`` writes an APK in ``<project>/export/android``,
+as the editor's Export Android does: the runner built for Android
+(``android/libk2d_runner.so`` beside the tool, or ``--runner``), the game's
+``data.kpak`` in the APK's assets, put together with the SDK's ``aapt2``,
+``zipalign`` and ``apksigner`` (``--sdk``, or ``ANDROID_HOME``) and signed with the
+debug key.
+
+``tools/android/build-apk.sh`` builds that runner with the NDK, as the library of
+a NativeActivity, copies it to ``bin/android/``, and makes an APK from an
+exported game's ``data.kpak``.
 
 .. code-block:: text
 

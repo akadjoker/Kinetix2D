@@ -69,7 +69,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
   - [x] Runner como NativeActivity (`libk2d_runner.so`, arm64-v8a, API 26): o backend Android do zen_plataform, o `data.kpak` lido do APK; `tools/android/build-apk.sh` faz o APK sem Gradle nem Java (aapt2, zipalign, apksigner)
   - [x] Correr num dispositivo: ecrã inteiro, modo imersivo (zen_plataform `7a8fcac`), toque como rato, pausa e retoma (`6f31b2e`)
   - [x] Áudio no dispositivo: AAudio a 48 kHz, efeitos e música (showcase: um bip por toque e um acorde em loop)
-  - [ ] Export Android no editor e no `k2d_export`; ícone e orientação por projecto; armeabi-v7a e x86_64
+  - [x] Export Android e Run Android no editor, `k2d_export --android` e MCP `export_android`: aapt2, zipalign e apksigner do SDK, a `.so` junta com o miniz, orientação pela proporção do Project display; modo imersivo desde o primeiro foco (zen_plataform `92081f5`)
+  - [ ] Ícone e versão por projecto; armeabi-v7a e x86_64; o runner Android no CI e nos pacotes (`bin/android/`)
 
 - [x] Molduras da câmara, do ecrã e dos limites na vista da cena (`021950c`)
 - [x] Settings › Project display: tamanho da janela do runner (`021950c`)

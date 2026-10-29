@@ -57,6 +57,7 @@ private:
     ct::Json setStartupScene(bool& isError);
     ct::Json exportWeb(const ct::Json& arguments, bool& isError);
     ct::Json exportDesktop(const ct::Json& arguments, bool& isError);
+    ct::Json exportAndroid(const ct::Json& arguments, bool& isError);
     ct::Json breakpoint(const ct::Json& arguments, bool& isError);
     ct::Json debug(const ct::Json& arguments, bool& isError);
     ct::Json buildAtlas(const ct::Json& arguments, bool& isError);

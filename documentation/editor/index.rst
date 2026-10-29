@@ -143,6 +143,14 @@ serves it on ``http://127.0.0.1:8090/`` and opens the browser. **Export
 Desktop** writes ``<project>/export/desktop``, the runner named after the
 project with ``data.kpak`` beside it; **Run Desktop** (F8) also starts it.
 
+**Export Android** writes ``<project>/export/android/<name>.apk``, signed with
+the debug key, for Android 8.0 and later on ARM64. It needs the Android SDK
+(``ANDROID_HOME``, or ``~/Android/Sdk``) with build-tools and a platform, and
+Java for the signing. **Run Android** also installs it with ``adb`` on the
+connected phone or tablet and starts it; a device may ask to allow the install
+the first time. On Android the game fills the screen at the project's
+resolution, and the first finger works as the mouse.
+
 Shortcuts
 ---------
 

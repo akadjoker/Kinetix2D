@@ -348,6 +348,82 @@ void EditorWindow::exportDesktop(bool run)
     });
 }
 
+void EditorWindow::exportAndroid(bool run)
+{
+    if (mPlaying)
+        return;
+    askToSave([this, run]()
+    {
+        ct::String message;
+        if (buildAndroid(run, message))
+            log_info("%s", message.c_str());
+        else
+            log_error("Android export failed: %s", message.c_str());
+    });
+}
+
+bool EditorWindow::buildAndroid(bool run, ct::String& message)
+{
+    if (mProjectRoot.empty() || !EditorFileSystem::exists(EditorFileSystem::join(mProjectRoot, kProjectFile)))
+    {
+        message = "Open or make a project first";
+        return false;
+    }
+    const ct::String sdk = FindAndroidSdk();
+    if (sdk.empty())
+    {
+        message = "No Android SDK: set ANDROID_HOME";
+        return false;
+    }
+    const ct::String out = EditorFileSystem::join(mProjectRoot, "export/android");
+    ct::String apk;
+    if (!ExportAndroid(mProjectRoot.c_str(), besideEditor("android/libk2d_runner.so").c_str(), sdk.c_str(),
+                       out.c_str(), apk, message))
+        return false;
+    message = "Exported to " + apk;
+    if (!run)
+        return true;
+    if (mAndroidInstallId > 0 && process_is_running(mAndroidInstallId))
+    {
+        message = "An install to the device is still running";
+        return false;
+    }
+#if defined(_WIN32)
+    mAndroidAdb = EditorFileSystem::join(sdk, "platform-tools/adb.exe");
+#else
+    mAndroidAdb = EditorFileSystem::join(sdk, "platform-tools/adb");
+#endif
+    mAndroidPackage = AndroidPackage(mProjectRoot.c_str());
+    const char* args[] = {"install", "-r", apk.c_str()};
+    mAndroidInstallId = process_spawn(mAndroidAdb.c_str(), args, 3, false);
+    if (mAndroidInstallId <= 0)
+    {
+        message = "Could not run " + mAndroidAdb;
+        return false;
+    }
+    message = "Installing " + EditorFileSystem::fileName(apk) + " on the device (accept it there if it asks)";
+    return true;
+}
+
+void EditorWindow::followAndroidInstall()
+{
+    if (mAndroidInstallId <= 0 || process_is_running(mAndroidInstallId))
+        return;
+    const int code = process_exit_code(mAndroidInstallId);
+    mAndroidInstallId = 0;
+    if (code != 0)
+    {
+        log_error("The install failed (adb exit code %d): is the device connected, and only one?", code);
+        return;
+    }
+    const ct::String activity = mAndroidPackage + "/android.app.NativeActivity";
+    const char* args[] = {"shell", "am", "start", "-n", activity.c_str()};
+    if (process_spawn(mAndroidAdb.c_str(), args, 5, false) > 0)
+        log_info("Started %s on the device", mAndroidPackage.c_str());
+    else
+        log_error("Could not start %s", mAndroidPackage.c_str());
+}
+
 // The saved project as a game for this system in <project>/export/desktop:
 // the runner named after it and data.kpak beside it; run starts it.
 bool EditorWindow::buildDesktop(bool run, ct::String& message)
