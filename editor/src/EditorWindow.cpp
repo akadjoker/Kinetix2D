@@ -25,6 +25,7 @@
 #include <k2d/Physics2DSerializer.h>
 #include <k2d/SceneManager.h>
 #include <k2d/SpriteComponent.h>
+#include <k2d/InputActionMap.h>
 #include <k2d/Texture.h>
 #include "core/EditorFileSystem.h"
 #include <k2d/ScreenFade.h>
@@ -807,6 +808,7 @@ void EditorWindow::registerTypes()
     RegisterPhysics2DSerializers();
     RegisterCoreClasses();
     ClassDB::setAssets(&mAssets);
+    GetInputActions().BindDefaults();
     SetZenScriptOutput(scriptOutput, nullptr);
     SetZenScriptInput(&mGameInput);
     SetUiInput(&mGameInput);
@@ -1063,6 +1065,7 @@ void EditorWindow::frame(float deltaTime, float pixelScale)
         renderGame(mGame->absoluteRect(), pixelScale);
     // Pressed and released last one frame: the scene has read them by now.
     mGameInput.NewFrame();
+    mGameInput.PollGamepads();
     for (int key : mPendingReleases)
         mGameInput.OnKey(key, false, false);
     mPendingReleases.clear();

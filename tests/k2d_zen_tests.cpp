@@ -2110,6 +2110,50 @@ static bool testInput()
     scene.update(0.016f);
 
     ok = ok && nearEqual(object->position().x, 120.0f) && nearEqual(object->position().y, 240.0f);
+
+    // A pad given by hand: the dead zone, the defaults on buttons and axes,
+    // pressed and released as the binding comes on and off.
+    k2d::Input pad;
+    bool buttons[k2d::Input::PAD_BUTTONS] = {};
+    float axes[k2d::Input::PAD_AXES] = {};
+    buttons[(int)k2d::PadButton::A] = true;
+    axes[(int)k2d::PadAxis::LeftX] = 0.1f;
+    axes[(int)k2d::PadAxis::LeftY] = -1.0f;
+    pad.SetGamepad(1, true, buttons, axes);
+    ok = ok && pad.GamepadConnected(-1) && pad.GamepadConnected(1) && !pad.GamepadConnected(0);
+    ok = ok && pad.PadDown((int)k2d::PadButton::A) && pad.PadPressed((int)k2d::PadButton::A, 1) &&
+         !pad.PadDown((int)k2d::PadButton::A, 0);
+    ok = ok && nearEqual(pad.PadAxisValue((int)k2d::PadAxis::LeftX), 0.0f) &&
+         nearEqual(pad.PadAxisValue((int)k2d::PadAxis::LeftY), -1.0f);
+    k2d::InputActionMap actions;
+    actions.BindDefaults();
+    ok = ok && actions.Pressed(pad, "primary") && actions.Down(pad, "move_forward") &&
+         nearEqual(actions.Strength(pad, "move_forward"), 1.0f) && !actions.Down(pad, "move_backward");
+    buttons[(int)k2d::PadButton::A] = false;
+    axes[(int)k2d::PadAxis::LeftY] = -0.5f;
+    pad.SetGamepad(1, true, buttons, axes);
+    ok = ok && actions.Released(pad, "primary") && !actions.Down(pad, "move_forward") &&
+         nearEqual(actions.Strength(pad, "move_forward"), 0.35f / 0.85f);
+
+    buttons[(int)k2d::PadButton::B] = true;
+    axes[(int)k2d::PadAxis::RightX] = 1.0f;
+    input.SetGamepad(0, true, buttons, axes);
+    k2d::ZenBlackboard::clear();
+    k2d::GameObject* player = scene.createObject("player");
+    k2d::ZenScriptComponent* padScript = player->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && padScript->loadSource("class Pad(ScriptComponent):\n"
+                                     "    def on_start(self):\n"
+                                     "        action_bind_button(\"dash\", PAD_B)\n"
+                                     "        set_flag(\"connected\", gamepad_connected())\n"
+                                     "        set_flag(\"b\", gamepad_down(PAD_B))\n"
+                                     "        set_flag(\"dash\", action_down(\"dash\"))\n"
+                                     "        set_number(\"rx\", gamepad_axis(AXIS_RIGHT_X))\n",
+                                     "pad");
+    scene.update(0.016f);
+    ok = ok && k2d::ZenBlackboard::getBool("connected", false) && k2d::ZenBlackboard::getBool("b", false) &&
+         k2d::ZenBlackboard::getBool("dash", false) && nearEqual((float)k2d::ZenBlackboard::getNumber("rx"), 1.0f);
+    k2d::GetInputActions().Clear("dash");
+    k2d::ZenBlackboard::clear();
     k2d::SetZenScriptInput(nullptr);
     return ok;
 }

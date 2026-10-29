@@ -4926,6 +4926,99 @@ int natActionReleased(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
+int padArgument(zen::Value* args, int nargs, int index)
+{
+    return nargs > index ? (int)zen::to_number(args[index]) : 0;
+}
+
+int natActionStrength(zen::VM*, zen::Value* args, int nargs)
+{
+    const char* action = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    args[0] = zen::val_float(gZenInput ? GetInputActions().Strength(*gZenInput, action) : 0.0f);
+    return 1;
+}
+
+int natActionBind(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 2)
+        GetInputActions().Bind(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]));
+    return 0;
+}
+
+int natActionBindButton(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 2)
+        GetInputActions().BindPadButton(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]));
+    return 0;
+}
+
+int natActionBindAxis(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 3)
+        GetInputActions().BindPadAxis(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]),
+                                      (int)zen::to_number(args[2]));
+    return 0;
+}
+
+int natActionClear(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 1)
+        GetInputActions().Clear(zen::safe_string_chars(args[0]));
+    return 0;
+}
+
+int natGamepadConnected(zen::VM*, zen::Value* args, int nargs)
+{
+    args[0] = zen::val_bool(gZenInput && gZenInput->GamepadConnected(padArgument(args, nargs, 0)));
+    return 1;
+}
+
+int natGamepadName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    const int pad = padArgument(args, nargs, 0);
+    const char* name = gZenInput && gZenInput->GamepadConnected(pad) ? gamepad_name(pad) : nullptr;
+    args[0] = name ? zen::val_obj((zen::Obj*)vm->make_string(name)) : zen::val_nil();
+    return 1;
+}
+
+int natGamepadDown(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadDown(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadPressed(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadPressed(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadReleased(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadReleased(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadAxis(zen::VM*, zen::Value* args, int nargs)
+{
+    const int axis = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_float(gZenInput ? gZenInput->PadAxisValue(axis, padArgument(args, nargs, 1)) : 0.0f);
+    return 1;
+}
+
+int natGamepadRumble(zen::VM*, zen::Value* args, int nargs)
+{
+    const float strong = nargs >= 1 ? (float)zen::to_number(args[0]) : 0.0f;
+    const float weak = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    const float seconds = nargs >= 3 ? (float)zen::to_number(args[2]) : 0.2f;
+    const int pad = padArgument(args, nargs, 3);
+    args[0] = zen::val_bool(gamepad_rumble(pad, strong, weak, (uint32_t)(seconds > 0.0f ? seconds * 1000.0f : 0.0f)));
+    return 1;
+}
+
 int natFadeIn(zen::VM*, zen::Value* args, int nargs)
 {
     FadeIn(nargs >= 1 ? static_cast<float>(zen::to_number(args[0])) : 0.0f);
@@ -5602,6 +5695,18 @@ void ZenRuntime::Impl::initialize()
     };
     for (const KeyConstant& entry : keyConstants)
         vm.def_global(entry.name, zen::val_int(static_cast<int>(entry.key)));
+    static const char* const padButtons[] = {"PAD_A",          "PAD_B",           "PAD_X",          "PAD_Y",
+                                             "PAD_BACK",       "PAD_GUIDE",       "PAD_START",      "PAD_LEFT_STICK",
+                                             "PAD_RIGHT_STICK", "PAD_LEFT_SHOULDER", "PAD_RIGHT_SHOULDER", "PAD_UP",
+                                             "PAD_DOWN",       "PAD_LEFT",        "PAD_RIGHT"};
+    static_assert(sizeof(padButtons) / sizeof(padButtons[0]) == Input::PAD_BUTTONS, "a name for every pad button");
+    for (int i = 0; i < Input::PAD_BUTTONS; ++i)
+        vm.def_global(padButtons[i], zen::val_int(i));
+    static const char* const padAxes[] = {"AXIS_LEFT_X",  "AXIS_LEFT_Y",       "AXIS_RIGHT_X",
+                                          "AXIS_RIGHT_Y", "AXIS_TRIGGER_LEFT", "AXIS_TRIGGER_RIGHT"};
+    static_assert(sizeof(padAxes) / sizeof(padAxes[0]) == Input::PAD_AXES, "a name for every pad axis");
+    for (int i = 0; i < Input::PAD_AXES; ++i)
+        vm.def_global(padAxes[i], zen::val_int(i));
 
     auto component = vm.def_class("Component");
     component.method("is_active", &natComponentIsActive, 0);
@@ -6336,6 +6441,18 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("action_down", &natActionDown, 1);
     vm.def_native("action_pressed", &natActionPressed, 1);
     vm.def_native("action_released", &natActionReleased, 1);
+    vm.def_native("action_strength", &natActionStrength, 1);
+    vm.def_native("action_bind", &natActionBind, 2);
+    vm.def_native("action_bind_button", &natActionBindButton, 2);
+    vm.def_native("action_bind_axis", &natActionBindAxis, 3);
+    vm.def_native("action_clear", &natActionClear, 1);
+    vm.def_native("gamepad_connected", &natGamepadConnected, -1);
+    vm.def_native("gamepad_name", &natGamepadName, -1);
+    vm.def_native("gamepad_down", &natGamepadDown, -1);
+    vm.def_native("gamepad_pressed", &natGamepadPressed, -1);
+    vm.def_native("gamepad_released", &natGamepadReleased, -1);
+    vm.def_native("gamepad_axis", &natGamepadAxis, -1);
+    vm.def_native("gamepad_rumble", &natGamepadRumble, -1);
     vm.def_native("fade_in", &natFadeIn, 1);
     vm.def_native("fade_out", &natFadeOut, 1);
     vm.def_native("is_fading", &natIsFading, 0);

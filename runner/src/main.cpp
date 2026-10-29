@@ -298,18 +298,7 @@ void configureVirtualPad(const ct::Json& sceneJson, k2d::VirtualPad& pad)
 
 void configureDefaultInputActions()
 {
-    k2d::InputActionMap& actions = k2d::GetInputActions();
-    actions.Clear();
-    actions.Bind("move_forward", (int)k2d::Key::W);
-    actions.Bind("move_forward", (int)k2d::Key::Up);
-    actions.Bind("move_backward", (int)k2d::Key::S);
-    actions.Bind("move_backward", (int)k2d::Key::Down);
-    actions.Bind("turn_left", (int)k2d::Key::A);
-    actions.Bind("turn_left", (int)k2d::Key::Left);
-    actions.Bind("turn_right", (int)k2d::Key::D);
-    actions.Bind("turn_right", (int)k2d::Key::Right);
-    actions.Bind("primary", (int)k2d::Key::Space);
-    actions.Bind("secondary", (int)k2d::Key::LeftCtrl);
+    k2d::GetInputActions().BindDefaults();
 }
 
 void scriptOutput(const char* text, bool error, void*)

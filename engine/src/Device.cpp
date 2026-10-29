@@ -289,6 +289,7 @@ bool Device::PollEvents()
     }
     if (window_should_close(mWindow))
         return false;
+    mInput.PollGamepads();
 
     UpdateSizes();
     glViewport(0, 0, mDrawableWidth, mDrawableHeight);

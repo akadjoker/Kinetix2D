@@ -73,12 +73,48 @@ enum class Key : int
     RightShift = 229,
 };
 
+// The standard gamepad layout, in the platform's order.
+enum class PadButton : int
+{
+    A,
+    B,
+    X,
+    Y,
+    Back,
+    Guide,
+    Start,
+    LeftStick,
+    RightStick,
+    LeftShoulder,
+    RightShoulder,
+    DpadUp,
+    DpadDown,
+    DpadLeft,
+    DpadRight,
+    Count
+};
+
+// Sticks -1..1 (y down is positive), triggers 0..1.
+enum class PadAxis : int
+{
+    LeftX,
+    LeftY,
+    RightX,
+    RightY,
+    TriggerLeft,
+    TriggerRight,
+    Count
+};
+
 class Input
 {
   public:
     static const int MAX_KEYS = 512;
     static const int MAX_BUTTONS = 4;
     static const int MAX_TOUCH = 8;
+    static const int MAX_GAMEPADS = 4;
+    static const int PAD_BUTTONS = static_cast<int>(PadButton::Count);
+    static const int PAD_AXES = static_cast<int>(PadAxis::Count);
 
     struct Touch
     {
@@ -99,6 +135,20 @@ class Input
     // Synthesized input is kept independent from physical keyboard state,
     // allowing touch controls to share the same game actions safely.
     void SetVirtualKey(int scancode, bool down);
+
+    // Reads the connected gamepads; once a frame, after NewFrame.
+    void PollGamepads();
+    // What PollGamepads reads, given by hand.
+    void SetGamepad(int pad, bool connected, const bool *buttons, const float *axes);
+    // A pad of -1 is any connected one.
+    bool GamepadConnected(int pad) const;
+    bool PadDown(int button, int pad = -1) const;
+    bool PadPressed(int button, int pad = -1) const;
+    bool PadReleased(int button, int pad = -1) const;
+    // Past a dead zone of 0.15, rescaled so a full push is still 1; with any
+    // pad, the one pushed furthest.
+    float PadAxisValue(int axis, int pad = -1) const;
+    float PadAxisPrevious(int axis, int pad = -1) const;
 
     bool KeyDown(int scancode) const;
     bool KeyPressed(int scancode) const;
@@ -214,6 +264,18 @@ class Input
     float mMouseY;
     float mWheelY;
     Touch mTouch[MAX_TOUCH];
+
+    struct Pad
+    {
+        bool connected = false;
+        bool buttons[PAD_BUTTONS] = {};
+        bool previous[PAD_BUTTONS] = {};
+        float axes[PAD_AXES] = {};
+        float previousAxes[PAD_AXES] = {};
+    };
+    Pad mPads[MAX_GAMEPADS];
+
+    float padAxis(const float *axes, int axis) const;
 };
 
 } // namespace k2d

@@ -1,5 +1,9 @@
 #include "k2d/Input.h"
 
+#include <platform.h>
+
+#include <cmath>
+
 namespace k2d
 {
 
@@ -201,6 +205,120 @@ namespace k2d
         if (button < 0 || button >= MAX_BUTTONS)
             return false;
         return mButtonsReleased[button];
+    }
+
+    void Input::PollGamepads()
+    {
+        for (int pad = 0; pad < MAX_GAMEPADS; ++pad)
+        {
+            bool buttons[PAD_BUTTONS];
+            float axes[PAD_AXES];
+            const bool connected = gamepad_connected(pad);
+            for (int b = 0; b < PAD_BUTTONS; ++b)
+                buttons[b] = connected && gamepad_button_down(pad, b);
+            for (int a = 0; a < PAD_AXES; ++a)
+                axes[a] = connected ? gamepad_axis(pad, a) : 0.0f;
+            SetGamepad(pad, connected, buttons, axes);
+        }
+    }
+
+    void Input::SetGamepad(int pad, bool connected, const bool *buttons, const float *axes)
+    {
+        if (pad < 0 || pad >= MAX_GAMEPADS)
+            return;
+        Pad &state = mPads[pad];
+        state.connected = connected;
+        for (int b = 0; b < PAD_BUTTONS; ++b)
+        {
+            state.previous[b] = state.buttons[b];
+            state.buttons[b] = connected && buttons && buttons[b];
+        }
+        for (int a = 0; a < PAD_AXES; ++a)
+        {
+            state.previousAxes[a] = state.axes[a];
+            state.axes[a] = connected && axes ? axes[a] : 0.0f;
+        }
+    }
+
+    bool Input::GamepadConnected(int pad) const
+    {
+        if (pad >= 0)
+            return pad < MAX_GAMEPADS && mPads[pad].connected;
+        for (const Pad &state : mPads)
+            if (state.connected)
+                return true;
+        return false;
+    }
+
+    bool Input::PadDown(int button, int pad) const
+    {
+        if (button < 0 || button >= PAD_BUTTONS)
+            return false;
+        for (int i = 0; i < MAX_GAMEPADS; ++i)
+            if ((pad < 0 || pad == i) && mPads[i].buttons[button])
+                return true;
+        return false;
+    }
+
+    bool Input::PadPressed(int button, int pad) const
+    {
+        if (button < 0 || button >= PAD_BUTTONS)
+            return false;
+        for (int i = 0; i < MAX_GAMEPADS; ++i)
+            if ((pad < 0 || pad == i) && mPads[i].buttons[button] && !mPads[i].previous[button])
+                return true;
+        return false;
+    }
+
+    bool Input::PadReleased(int button, int pad) const
+    {
+        if (button < 0 || button >= PAD_BUTTONS)
+            return false;
+        for (int i = 0; i < MAX_GAMEPADS; ++i)
+            if ((pad < 0 || pad == i) && !mPads[i].buttons[button] && mPads[i].previous[button])
+                return true;
+        return false;
+    }
+
+    float Input::padAxis(const float *axes, int axis) const
+    {
+        const float deadZone = 0.15f;
+        const float v = axes[axis];
+        const float magnitude = std::fabs(v);
+        if (magnitude <= deadZone)
+            return 0.0f;
+        const float scaled = ((magnitude > 1.0f ? 1.0f : magnitude) - deadZone) / (1.0f - deadZone);
+        return v < 0.0f ? -scaled : scaled;
+    }
+
+    float Input::PadAxisValue(int axis, int pad) const
+    {
+        if (axis < 0 || axis >= PAD_AXES)
+            return 0.0f;
+        float best = 0.0f;
+        for (int i = 0; i < MAX_GAMEPADS; ++i)
+            if (pad < 0 || pad == i)
+            {
+                const float v = padAxis(mPads[i].axes, axis);
+                if (std::fabs(v) > std::fabs(best))
+                    best = v;
+            }
+        return best;
+    }
+
+    float Input::PadAxisPrevious(int axis, int pad) const
+    {
+        if (axis < 0 || axis >= PAD_AXES)
+            return 0.0f;
+        float best = 0.0f;
+        for (int i = 0; i < MAX_GAMEPADS; ++i)
+            if (pad < 0 || pad == i)
+            {
+                const float v = padAxis(mPads[i].previousAxes, axis);
+                if (std::fabs(v) > std::fabs(best))
+                    best = v;
+            }
+        return best;
     }
 
     int Input::TouchCount() const

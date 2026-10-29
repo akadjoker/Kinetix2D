@@ -473,7 +473,68 @@ Input
 
 .. py:function:: action_released(name)
 
-   Query a remappable input action by name.
+   Query a remappable input action by name. An action is held while any of
+   its keys, pad buttons or pad axes is; pressed the frame the first comes on,
+   released the frame the last goes off. The runner and the editor's Play
+   start with ``move_forward``, ``move_backward``, ``turn_left``,
+   ``turn_right`` (WASD, the arrows, the D-pad and the left stick),
+   ``primary`` (Space, pad A) and ``secondary`` (left Ctrl, pad B).
+
+.. py:function:: action_strength(name)
+
+   0 to 1: 1 while a key or button of the action is held, how far a stick is
+   pushed its way otherwise. For analog movement:
+
+   .. code-block:: python
+
+      dx = action_strength("turn_right") - action_strength("turn_left")
+
+.. py:function:: action_bind(name, key)
+
+.. py:function:: action_bind_button(name, button)
+
+.. py:function:: action_bind_axis(name, axis, direction)
+
+   Add a key (``KEY_*``), a pad button (``PAD_*``) or a pad axis pushed one
+   way (``direction`` 1 or -1, past half its travel) to an action.
+
+.. py:function:: action_clear(name)
+
+   Take every binding off an action.
+
+Gamepads
+~~~~~~~~
+
+Up to four pads in the standard layout. ``pad`` is the slot, 0 by default.
+The actions above listen to every pad.
+
+.. py:function:: gamepad_connected(pad=0)
+
+.. py:function:: gamepad_name(pad=0)
+
+   The pad's name, or None.
+
+.. py:function:: gamepad_down(button, pad=0)
+
+.. py:function:: gamepad_pressed(button, pad=0)
+
+.. py:function:: gamepad_released(button, pad=0)
+
+   ``PAD_A``, ``PAD_B``, ``PAD_X``, ``PAD_Y``, ``PAD_BACK``, ``PAD_GUIDE``,
+   ``PAD_START``, ``PAD_LEFT_STICK``, ``PAD_RIGHT_STICK``,
+   ``PAD_LEFT_SHOULDER``, ``PAD_RIGHT_SHOULDER``, ``PAD_UP``, ``PAD_DOWN``,
+   ``PAD_LEFT``, ``PAD_RIGHT``.
+
+.. py:function:: gamepad_axis(axis, pad=0)
+
+   ``AXIS_LEFT_X``, ``AXIS_LEFT_Y``, ``AXIS_RIGHT_X``, ``AXIS_RIGHT_Y``
+   (-1 to 1, down is positive) and ``AXIS_TRIGGER_LEFT``,
+   ``AXIS_TRIGGER_RIGHT`` (0 to 1), past a dead zone of 0.15.
+
+.. py:function:: gamepad_rumble(strong, weak, seconds=0.2, pad=0)
+
+   Shakes the pad; False where the pad or the system cannot. Gamepads work
+   on desktop; the web runner does not read them yet.
 
 .. py:function:: mouse_down(button)
 
