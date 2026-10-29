@@ -74,6 +74,13 @@ public:
     void askToSaveAll(ct::Function<void()> proceed);
     void openInImageEditor(const ct::String& path);
     void openInSpriteEditor(const ct::String& path);
+    // A file or folder moved or renamed in Assets (project paths), with its
+    // .sprite.json and .atlas.json; the scenes, prefabs, tilesets, the project,
+    // the open scene, its undo and the open editors follow it.
+    bool moveAsset(const ct::String& from, const ct::String& to);
+    // Asks first, naming what still uses it.
+    void requestDeleteAsset(const ct::String& path);
+    void followAssetMove(const AssetMove& move);
     void askToSaveDocument(const ct::String& name, ct::Function<bool()> save, ct::Function<void()> proceed);
     void requestNewScene();
     void requestOpenScene(const ct::String& path);

@@ -678,6 +678,15 @@ void ImageEditorPanel::normalMap()
     delete normals;
 }
 
+void ImageEditorPanel::assetMoved(const AssetMove& move)
+{
+    ct::String moved;
+    if (!move.apply(mRoot, mPath, moved))
+        return;
+    mPath = moved;
+    syncTitle();
+}
+
 void ImageEditorPanel::syncTitle()
 {
     if (!mTexture)

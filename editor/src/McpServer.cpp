@@ -1,6 +1,7 @@
 #include "McpServer.h"
 
 #include "EditorWindow.h"
+#include "core/AssetPaths.h"
 #include "core/EditorFileSystem.h"
 
 #include <k2d/ClassDB.h>
@@ -41,6 +42,8 @@ const char* const kTools = R"JSON([
  {"name":"console","description":"Lines of the editor console (engine log, script output and errors). Each has a number; pass since to get only newer ones.","inputSchema":{"type":"object","properties":{"since":{"type":"integer"},"limit":{"type":"integer"}}}},
  {"name":"screenshot","description":"A PNG of the scene view (the editor camera) or the game view (the game camera), as last drawn.","inputSchema":{"type":"object","properties":{"view":{"type":"string","enum":["scene","game"]}}}},
  {"name":"save_scene","description":"Save the open scene to its file.","inputSchema":{"type":"object","properties":{}}},
+ {"name":"move_asset","description":"Move or rename a file or folder of the project (project paths, to its full new path); an image takes its .sprite.json and .atlas.json along. Scenes, prefabs, tilesets, the project, the open scene and its undo follow it; scripts that quote the old path are named in the console, not edited. Not undoable: move it back.","inputSchema":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"}},"required":["from","to"]}},
+ {"name":"asset_references","description":"What names a file or folder of the project: the data files (scenes, prefabs, tilesets, sprites) and the scripts that quote its path.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
  {"name":"list_assets","description":"Files and folders in a folder of the project (project paths).","inputSchema":{"type":"object","properties":{"folder":{"type":"string","description":"Project path; the project root when left out."}}}},
  {"name":"read_file","description":"A text file of the project, such as a script.","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
  {"name":"write_file","description":"Write a text file of the project (a script, say). While the game plays, changed scripts reload.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"text":{"type":"string"}},"required":["path","text"]}},
@@ -391,6 +394,8 @@ ct::Json McpServer::callTool(const ct::String& name, const ct::Json& arguments, 
     if (name == "screenshot") return screenshot(arguments, isError);
     if (name == "save_scene") return saveScene(isError);
     if (name == "list_assets") return listAssets(arguments, isError);
+    if (name == "move_asset") return moveAsset(arguments, isError);
+    if (name == "asset_references") return assetReferences(arguments, isError);
     if (name == "read_file") return readFile(arguments, isError);
     if (name == "write_file") return writeFile(arguments, isError);
     if (name == "undo") return undo();
@@ -1016,6 +1021,43 @@ bool McpServer::projectPath(const ct::String& relative, ct::String& absolute) co
         return false;
     absolute = relative.empty() ? mEditor.mProjectRoot : EditorFileSystem::join(mEditor.mProjectRoot, relative.c_str());
     return true;
+}
+
+ct::Json McpServer::moveAsset(const ct::Json& arguments, bool& isError)
+{
+    const ct::String from = arguments["from"].as_cstr("");
+    const ct::String to = arguments["to"].as_cstr("");
+    ct::String source;
+    ct::String target;
+    if (!projectPath(from, source) || !projectPath(to, target) || from.empty() || to.empty())
+        return fail("Give project paths inside the project", isError);
+    if (mEditor.mPlaying)
+        return fail("Stop the game first", isError);
+    if (!mEditor.moveAsset(from, to))
+        return fail("Could not move it: see console", isError);
+    return text(ct::String("Moved ") + from + " to " + to);
+}
+
+ct::Json McpServer::assetReferences(const ct::Json& arguments, bool& isError)
+{
+    const ct::String path = arguments["path"].as_cstr("");
+    ct::String absolute;
+    if (!projectPath(path, absolute) || path.empty() || !EditorFileSystem::exists(absolute))
+        return fail("Give the project path of a file or folder", isError);
+    const AssetMove asset{path, ct::String(), EditorFileSystem::isDirectory(absolute)};
+    ct::Vector<ct::String> files;
+    ct::Vector<ct::String> scripts;
+    findReferences(mEditor.mProjectRoot, asset, files, scripts);
+    ct::Json result = ct::Json::object();
+    ct::Json fileList = ct::Json::array();
+    for (const ct::String& file : files)
+        fileList.push_back(ct::Json(file.c_str()));
+    ct::Json scriptList = ct::Json::array();
+    for (const ct::String& script : scripts)
+        scriptList.push_back(ct::Json(script.c_str()));
+    result.set("files", fileList);
+    result.set("scripts", scriptList);
+    return text(result.dump(2));
 }
 
 ct::Json McpServer::listAssets(const ct::Json& arguments, bool& isError)

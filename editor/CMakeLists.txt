@@ -43,12 +43,14 @@ add_executable(k2d_editor
     src/DebuggerSession.cpp
     src/ParticlesPanel.cpp
     src/McpServer.cpp
+    src/EditorAssets.cpp
     src/SettingsPanel.cpp
     src/ProfilerPanel.cpp
     src/ImageEditorPanel.cpp
     src/PropertyFields.cpp
     src/core/EditorFileSystem.cpp
     src/core/CommandStack.cpp
+    src/core/AssetPaths.cpp
 )
 target_include_directories(k2d_editor PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d k2d_export_lib igui::zen)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LayoutWidgets.hpp"
+#include "core/AssetPaths.h"
 #include "Signal.hpp"
 
 #include <k2d/SpriteAtlas.h>
@@ -57,6 +58,8 @@ public:
     bool save();
     bool dirty() const { return mDirty; }
     const ct::String& path() const { return mPath; }
+    // The image, or its regions file, moved in Assets.
+    void assetMoved(const AssetMove& move);
     // An image dropped on the canvas.
     ig::retained::Signal<const ct::String&> openRequested;
 

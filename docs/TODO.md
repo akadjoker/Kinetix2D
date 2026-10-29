@@ -56,7 +56,7 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
   - [x] Editor: breakpoints no Script Editor, painel Debugger (pilha, locais, Continue/Pause/Over/In/Out/Stop), F9/F10/F11/Shift+F11, ferramentas MCP `breakpoint` e `debug`
   - [ ] Ver e mudar o valor de uma variável; breakpoints com condição; guardar os breakpoints no projecto
 - [ ] Timeline genérica: animar qualquer propriedade de qualquer objecto, com eventos
-- [ ] Assets: criar, renomear, mover e apagar, com as referências a acompanhar
+- [x] Assets: criar pastas e scripts, renomear, mover (arrastar para uma pasta ou `..`) e apagar; cenas, prefabs, tilesets, sprites, o projecto, a cena aberta e o seu undo acompanham, a imagem leva o `.sprite.json`/`.atlas.json`; scripts só avisados; MCP `move_asset` e `asset_references`
 - [ ] Gamepad na web (Gamepad API no backend web do zen_plataform)
 - [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
 - [ ] Android: no fim
@@ -70,13 +70,13 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 
 ### Lacunas encontradas ao escrever o manual (`documentation/editor/`)
 
-- [ ] Trabalho perdido sem aviso: o Image Editor e o Sprite Editor gravam sozinhos ao abrir outra imagem; sair do editor não pergunta por pixels, regiões nem scripts (`ScriptEditorPanel::hasUnsaved` nunca é chamado)
+- [x] Trabalho perdido sem aviso (`f91f216`)
 - [ ] Regiões do Sprite Editor sem undo
 - [ ] Image Editor grava sempre PNG, mesmo num `.jpg`/`.bmp`/`.tga`
 - [ ] `set_collision` de um TileMap em Play não chega à física (as formas só se fazem quando o corpo nasce)
 - [ ] Componentes Ui* adicionam-se mas não têm secção no Inspector; MotionTween2D e MotionStreak2D estão no ClassDB mas não no Add Component
 - [ ] Add Component sem descrições (o ClassDB não tem campo para elas)
-- [ ] Assets sem criar pasta, renomear ou apagar
+- [x] Assets sem criar pasta, renomear ou apagar
 - [ ] Animator: sem UI para eventos, offsets e pontos dos frames; marcar para arrancar um clip ainda sem frames deixa-o parado
 - [ ] Skeleton: duplo clique, mute/lock e Delete na timeline não mexem no clip; apagar o clip do `autoplay` deixa o nome; renomear um osso deixa as pistas órfãs
 - [ ] Atlas: imagens com o mesmo nome em pastas diferentes perdem a região em silêncio

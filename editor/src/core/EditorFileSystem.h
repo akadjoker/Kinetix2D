@@ -26,6 +26,8 @@ public:
 
     static bool exists(const ct::String &path);
     static bool isDirectory(const ct::String &path);
+    // A symbolic link (a junction on Windows), not what it points at.
+    static bool isLink(const ct::String &path);
     static bool makeDirectory(const ct::String &path);
 
     static ct::String join(const ct::String &left, const char *right);

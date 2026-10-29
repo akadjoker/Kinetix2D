@@ -248,6 +248,56 @@ void ScriptEditorPanel::show(int index)
     syncTitle();
 }
 
+void ScriptEditorPanel::close(int index)
+{
+    const bool shown = index == mCurrent;
+    mDocuments.erase(mDocuments.begin() + index);
+    mLoading = true;
+    mFiles->removeItem(index);
+    if (!shown)
+    {
+        if (index < mCurrent)
+            --mCurrent;
+        mFiles->setSelectedIndex(mCurrent);
+        mLoading = false;
+        return;
+    }
+    mLoading = false;
+    mCurrent = -1;
+    if (!mDocuments.empty())
+        return show(index < static_cast<int>(mDocuments.size()) ? index : index - 1);
+    mLoading = true;
+    mEditor->setText("");
+    mEditor->clearBreakpoints();
+    mEditor->setExecutionLine(-1);
+    mLoading = false;
+    mEditor->setEnabled(false);
+    mTitle->setText("Double-click a script in Assets to edit it here");
+}
+
+void ScriptEditorPanel::assetMoved(const AssetMove& move)
+{
+    ct::String path;
+    for (std::size_t i = 0; i < mDocuments.size(); ++i)
+        if (move.apply(mRoot, mDocuments[i].path, path))
+        {
+            mDocuments[i].path = path;
+            mFiles->setItemText(static_cast<int>(i), EditorFileSystem::fileName(path) +
+                                                         (mDocuments[i].dirty ? " *" : ""));
+        }
+    if (move.apply(mRoot, mExecutionPath, path))
+        mExecutionPath = path;
+    syncTitle();
+}
+
+void ScriptEditorPanel::assetDeleted(const AssetMove& asset)
+{
+    ct::String unused;
+    for (int i = static_cast<int>(mDocuments.size()) - 1; i >= 0; --i)
+        if (asset.apply(mRoot, mDocuments[static_cast<std::size_t>(i)].path, unused))
+            close(i);
+}
+
 void ScriptEditorPanel::syncTitle()
 {
     if (mCurrent < 0)
@@ -337,41 +387,46 @@ void ScriptEditorPanel::showNewDialog()
         ct::String path = chosen;
         if (EditorFileSystem::extension(path) != "py")
             path += ".py";
-        if (!EditorFileSystem::exists(path))
-        {
-            // new_script -> NewScript
-            ct::String name;
-            bool upper = true;
-            for (char c : EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)))
-            {
-                if (!std::isalnum(static_cast<unsigned char>(c)))
-                {
-                    upper = true;
-                    continue;
-                }
-                name += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(c))) : c;
-                upper = false;
-            }
-            if (name.empty() || std::isdigit(static_cast<unsigned char>(name[0])))
-                name = ct::String("Script") + name;
-            const ct::String source = ct::String("class ") + name +
-                                      "(ScriptComponent):\n"
-                                      "    speed = 100\n"
-                                      "\n"
-                                      "    def on_start(self):\n"
-                                      "        pass\n"
-                                      "\n"
-                                      "    def on_update(self, dt):\n"
-                                      "        pass\n";
-            if (!FileSystem::Instance().SaveTextFile(path.c_str(), source))
-            {
-                log_error("Could not create %s", path.c_str());
-                return;
-            }
-            log_info("Created %s", path.c_str());
-        }
-        open(EditorFileSystem::relativeTo(mRoot, path));
+        create(path);
     });
+}
+
+bool ScriptEditorPanel::create(const ct::String& path)
+{
+    if (!EditorFileSystem::exists(path))
+    {
+        // new_script -> NewScript
+        ct::String name;
+        bool upper = true;
+        for (char c : EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)))
+        {
+            if (!std::isalnum(static_cast<unsigned char>(c)))
+            {
+                upper = true;
+                continue;
+            }
+            name += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(c))) : c;
+            upper = false;
+        }
+        if (name.empty() || std::isdigit(static_cast<unsigned char>(name[0])))
+            name = ct::String("Script") + name;
+        const ct::String source = ct::String("class ") + name +
+                                  "(ScriptComponent):\n"
+                                  "    speed = 100\n"
+                                  "\n"
+                                  "    def on_start(self):\n"
+                                  "        pass\n"
+                                  "\n"
+                                  "    def on_update(self, dt):\n"
+                                  "        pass\n";
+        if (!FileSystem::Instance().SaveTextFile(path.c_str(), source))
+        {
+            log_error("Could not create %s", path.c_str());
+            return false;
+        }
+        log_info("Created %s", path.c_str());
+    }
+    return open(EditorFileSystem::relativeTo(mRoot, path));
 }
 
 } // namespace k2d::editor

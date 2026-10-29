@@ -4,6 +4,7 @@
 #include "k2d/FileSystem.h"
 
 #include <ct/json.hpp>
+#include <ct/vector.hpp>
 
 namespace k2d
 {
@@ -189,6 +190,37 @@ int Assets::SaveTileSets()
             ++saved;
         }
     return saved;
+}
+
+namespace
+{
+
+template <class T>
+int renameKeys(ct::HashMap<ct::String, T*>& map, const ct::Function<bool(const ct::String&, ct::String&)>& rename)
+{
+    ct::Vector<ct::String> from;
+    ct::Vector<ct::String> to;
+    ct::String renamed;
+    for (const auto& entry : map)
+        if (rename(entry.key, renamed) && renamed != entry.key)
+        {
+            from.push_back(entry.key);
+            to.push_back(renamed);
+        }
+    for (std::size_t i = 0; i < from.size(); ++i)
+    {
+        T* value = nullptr;
+        if (map.erase(from[i], value))
+            map.put(to[i], value);
+    }
+    return static_cast<int>(from.size());
+}
+
+} // namespace
+
+int Assets::RenameKeys(const ct::Function<bool(const ct::String&, ct::String&)>& rename)
+{
+    return renameKeys(mTextures, rename) + renameKeys(mTileSets, rename);
 }
 
 void Assets::Clear()

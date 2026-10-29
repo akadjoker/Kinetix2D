@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LayoutWidgets.hpp"
+#include "core/AssetPaths.h"
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -37,6 +38,9 @@ public:
     bool owns(const ig::retained::Widget* focused) const;
     void showOpenDialog();
     void showNewDialog();
+    // A new script at an absolute path, from the template, opened; an existing
+    // one is only opened.
+    bool create(const ct::String& path);
 
     bool acceptsDrop(const ig::retained::DragPayload& payload) override;
     void onDropReceive(const ig::retained::DragPayload& payload) override;
@@ -55,6 +59,9 @@ public:
     // The file names of the unsaved scripts, comma separated.
     ct::String unsavedNames() const;
     bool saveAll();
+    // Files moved or deleted in Assets: the open scripts follow them, or close.
+    void assetMoved(const AssetMove& move);
+    void assetDeleted(const AssetMove& asset);
 
     bool playing = false;
 
@@ -68,6 +75,7 @@ private:
     };
 
     void show(int index);
+    void close(int index);
     void keepText();
     void syncTitle();
 

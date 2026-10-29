@@ -327,6 +327,18 @@ void SpriteEditorPanel::markEdited()
     updateTitle();
 }
 
+void SpriteEditorPanel::assetMoved(const AssetMove& move)
+{
+    ct::String moved;
+    if (move.apply(mRoot, mMetadata, moved))
+        mMetadata = moved;
+    if (!move.apply(mRoot, mPath, moved))
+        return;
+    mPath = moved;
+    mAtlas.setTexturePath(mPath.c_str());
+    updateTitle();
+}
+
 void SpriteEditorPanel::updateTitle()
 {
     if (!mTexture)

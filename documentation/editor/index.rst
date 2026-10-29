@@ -62,12 +62,41 @@ The window
      - **Scene**, **Game**, **Sprite Editor**, **Atlas**, **Script Editor**
        and **Image Editor**.
    * - Bottom
-     - **Console**, **Animator**, **Skeleton**, **Profiler** and **Tile
-       Painter**.
+     - **Console**, **Animator**, **Skeleton**, **Profiler**, **Debugger**
+       and **Tile Painter**.
 
 **View → Reset Layout** puts the panels back where they started. The status
 bar shows the scene's name (``*`` when it has unsaved changes) and the frame
 rate.
+
+Assets
+------
+
+The **Assets** tab shows a folder of the project as thumbnails: images as
+themselves, everything else by its icon. A double click opens a folder, or
+the file in its editor (a scene, a script, an image in the Sprite Editor, a
+prefab, an atlas); ``..`` goes up. Drag a file out onto the scene, the
+Hierarchy, an Inspector field or an editor to use it.
+
+The right button gives **Open**, **Rename** (F2), **Delete** (Delete),
+**New Folder**, **New Script** (in this folder, from the template), **Show
+in Files** and **Refresh**.
+
+To move a file or a folder, drag it onto a folder, or onto ``..``. Moving
+and renaming keep the project working:
+
+* the scenes, prefabs, tilesets, sprite and atlas files, and the project
+  (its scene list and startup scene) that name it are rewritten to the new
+  place, and so is the open scene, with its undo history;
+* an image takes its ``.sprite.json`` (regions) and ``.atlas.json`` along;
+* the Script Editor, Sprite Editor and Image Editor keep it open under its
+  new name;
+* scripts are not edited: the Console names those that quote the old path
+  (in ``load_scene("...")``, say), to change by hand.
+
+**Delete** asks first and names the files that still use what it deletes; it
+cannot be undone. The open scene cannot be deleted. Nothing is moved or
+deleted while the game plays.
 
 Play
 ----
@@ -167,6 +196,8 @@ serves the open scene to an MCP client on ``http://127.0.0.1:7777/mcp``:
 
 Its tools read and change the scene, run it, take screenshots and work on the
 project's files. Every change is an undo step in the editor, and nothing is
-saved until you save. ``breakpoint`` and ``debug`` drive the script debugger:
+saved until you save. ``move_asset`` moves or renames files as the Assets
+tab does and ``asset_references`` says what names one; deleting is left to
+you. ``breakpoint`` and ``debug`` drive the script debugger:
 set breakpoints, start a debug session, step, and read where the game stopped
 with its locals.

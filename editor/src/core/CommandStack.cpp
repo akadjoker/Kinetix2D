@@ -23,6 +23,18 @@ bool CommandStack::unpack(std::size_t index, ct::Json& state) const
     return true;
 }
 
+void CommandStack::rewrite(const ct::Function<bool(ct::Json&)>& edit)
+{
+    for (std::size_t i = 0; i < mStates.size(); ++i)
+    {
+        ct::Json state;
+        State changed;
+        changed.label = mStates[i].label;
+        if (unpack(i, state) && edit(state) && pack(state, changed))
+            mStates[i] = ct::detail::move(changed);
+    }
+}
+
 void CommandStack::reset(const ct::Json& state)
 {
     clear();

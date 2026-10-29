@@ -66,6 +66,12 @@ target_link_libraries(k2d_navigation_tests PRIVATE k2d)
 add_executable(k2d_serializer_tests k2d_serializer_tests.cpp)
 target_link_libraries(k2d_serializer_tests PRIVATE k2d)
 
+add_executable(k2d_asset_paths_tests k2d_asset_paths_tests.cpp
+    ${CMAKE_SOURCE_DIR}/editor/src/core/AssetPaths.cpp
+    ${CMAKE_SOURCE_DIR}/editor/src/core/EditorFileSystem.cpp)
+target_include_directories(k2d_asset_paths_tests PRIVATE ${CMAKE_SOURCE_DIR}/editor/src)
+target_link_libraries(k2d_asset_paths_tests PRIVATE k2d)
+
 add_executable(k2d_multicomponent_tests k2d_multicomponent_tests.cpp)
 target_link_libraries(k2d_multicomponent_tests PRIVATE k2d)
 
@@ -122,6 +128,7 @@ set(K2D_TEST_TARGETS
     k2d_astar_tests
     k2d_navigation_tests
     k2d_serializer_tests
+    k2d_asset_paths_tests
     k2d_multicomponent_tests
     k2d_prefab_tests
     k2d_physics2d_tests

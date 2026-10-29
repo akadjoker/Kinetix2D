@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LayoutWidgets.hpp"
+#include "core/AssetPaths.h"
 #include "Signal.hpp"
 
 #include <k2d/Pixmap.h>
@@ -63,6 +64,7 @@ public:
     bool owns(const ig::retained::Widget* focused) const;
     bool dirty() const { return mDirty; }
     const ct::String& path() const { return mPath; }
+    void assetMoved(const AssetMove& move);
 
     // For the canvas.
     PixelTool tool() const { return mTool; }

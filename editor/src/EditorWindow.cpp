@@ -516,6 +516,13 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     {
         settingsChanged(settings, project);
     });
+    mAssetsPanel->moveRequested.connect([this](const ct::String& from, const ct::String& to) { moveAsset(from, to); });
+    mAssetsPanel->deleteRequested.connect([this](const ct::String& path) { requestDeleteAsset(path); });
+    mAssetsPanel->scriptRequested.connect([this](const ct::String& path)
+    {
+        if (mScriptEditor->create(path))
+            mDock->showPanel(kScriptPanel);
+    });
     mAssetsPanel->fileOpened.connect([this](const ct::String& path)
     {
         const ct::String ext = EditorFileSystem::extension(path);

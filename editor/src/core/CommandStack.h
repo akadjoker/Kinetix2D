@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ct/function.hpp>
 #include <ct/json.hpp>
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -24,6 +25,9 @@ public:
     bool undo(ct::Json& state);
     bool redo(ct::Json& state);
     void clear();
+    // Changes every state kept, as files moving on disk need: edit returns
+    // whether it changed the one it was given.
+    void rewrite(const ct::Function<bool(ct::Json&)>& edit);
     bool canUndo() const { return mCursor > 0; }
     bool canRedo() const { return mCursor + 1 < mStates.size(); }
     const char* undoName() const;

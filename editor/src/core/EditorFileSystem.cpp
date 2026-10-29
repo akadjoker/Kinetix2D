@@ -213,6 +213,17 @@ bool EditorFileSystem::isDirectory(const ct::String &path)
 #endif
 }
 
+bool EditorFileSystem::isLink(const ct::String &path)
+{
+#if defined(_WIN32)
+    const DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+#else
+    struct stat info;
+    return lstat(path.c_str(), &info) == 0 && S_ISLNK(info.st_mode);
+#endif
+}
+
 bool EditorFileSystem::makeDirectorySingle(const ct::String &path)
 {
     if (path.empty() || isDirectory(path))

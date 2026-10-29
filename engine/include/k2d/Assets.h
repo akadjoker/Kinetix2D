@@ -4,6 +4,7 @@
 #include "k2d/Texture.h"
 #include "k2d/TileSet.h"
 
+#include <ct/function.hpp>
 #include <ct/hashmap.hpp>
 #include <ct/string.hpp>
 
@@ -40,6 +41,10 @@ namespace k2d
         const char *FindTileSetPath(const TileSet *tileSet) const;
         // Writes the shared tilesets changed since they were read; how many.
         int SaveTileSets();
+        // Files moved on disk: each texture and tileset whose name rename
+        // changes (true, with the new one) is known by that name from now on,
+        // which is what scenes and tilesets write for it. How many changed.
+        int RenameKeys(const ct::Function<bool(const ct::String &, ct::String &)> &rename);
 
         void Clear();
 

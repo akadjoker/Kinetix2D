@@ -62,6 +62,8 @@ private:
     ct::Json buildAtlas(const ct::Json& arguments, bool& isError);
     ct::Json skeleton(const ct::Json& arguments, bool& isError);
     ct::Json listAssets(const ct::Json& arguments, bool& isError);
+    ct::Json moveAsset(const ct::Json& arguments, bool& isError);
+    ct::Json assetReferences(const ct::Json& arguments, bool& isError);
     ct::Json readFile(const ct::Json& arguments, bool& isError);
     ct::Json writeFile(const ct::Json& arguments, bool& isError);
     ct::Json undo();
