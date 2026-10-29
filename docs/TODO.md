@@ -16,6 +16,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Custo de visitar objectos: caixa do culling pelo centro e extensões do transform, sem 4 cantos — 8000 objectos 0.70 → 0.56 ms (`1d22520`, `c5bddb0`). Medido: percorrer 8000 custa 0.06 ms, ler caixa + transform 0.21 ms (falhas de cache)
 - [ ] Caixas num array contíguo na Scene, actualizado quando um objecto se mexe ou muda de tamanho, para o culling não tocar na memória de cada componente (os ~0.2 ms que sobram; arriscado: um setter esquecido e o objecto some)
 - [ ] Vértices de objectos parados: `render.expand` refaz tudo todos os frames (0.23 ms por 2000); guardar e refazer só quando o transform muda
+  - [x] Comandos movidos para a fila em vez de copiados: `render_queue` de 2000 rects 0.32 → 0.26 ms, 8000 em nove ecrãs 0.73 → 0.51 (`187b7ef`)
+  - tentado e desfeito: saltar no canvas o culling dos itens que a cena já testou, e tirar as multiplicações de matrizes; o `expand` ficou 0.03 ms pior sem explicação. Voltar a isto com `perf` (`sudo sysctl kernel.perf_event_paranoid=1`)
 - [x] Sombras paradas: o atlas só se redesenha quando muda uma aresta ou a linha de uma luz — 8 luzes 2.4 → 2.1 ms; sem occluders as linhas limpam-se (antes ficavam as sombras antigas) (`c3d2c03`)
 - [ ] Não achatar occluders longe de luzes visíveis (hoje todas as arestas são transformadas todos os frames para detectar mudanças)
 - [ ] Medir na web (WebGL2): o benchmark de luzes já corre no Chrome (`cmake --build build-web --target k2d_light_benchmark`, página em `build-web/bench/`); o `glFinish` do WebGL não espera pela GPU, mede-se com a leitura de um pixel. Falta o runner com um jogo a sério
@@ -36,6 +38,14 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 
 ## Editor
 
+- [x] Nada se perde sem perguntar: Image Editor e Sprite Editor perguntam antes de trocar de imagem; sair (menu, Ctrl+Q, X da janela) e mudar de projecto perguntam pela cena, imagem, regiões e scripts; zen_plataform `efec44c` (o fecho recusado fica recusado) (`f91f216`)
+- [x] Menu Help: manual (F1), referência de scripting e C++ no browser; os pacotes levam o manual em `bin/docs` (`7234a65`)
+- [ ] Transições de cena com animação, como no prisma3d
+- [ ] Autotile nos TileMaps
+- [ ] Gamepad
+- [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
+- [ ] Android: no fim
+
 - [x] Molduras da câmara, do ecrã e dos limites na vista da cena (`021950c`)
 - [x] Settings › Project display: tamanho da janela do runner (`021950c`)
 - [x] Game view: pré-visualizar o ecrã do projecto, o painel ou um preset (`021950c`)
@@ -55,7 +65,6 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Animator: sem UI para eventos, offsets e pontos dos frames; marcar para arrancar um clip ainda sem frames deixa-o parado
 - [ ] Skeleton: duplo clique, mute/lock e Delete na timeline não mexem no clip; apagar o clip do `autoplay` deixa o nome; renomear um osso deixa as pistas órfãs
 - [ ] Atlas: imagens com o mesmo nome em pastas diferentes perdem a região em silêncio
-- [ ] Menu Help no editor a abrir o manual
 - [ ] `docs/editor-workflow.md` é do editor ImGui e contradiz o actual em 10 pontos: substituir por um apontador para o manual
 
 ## Decisões em aberto
