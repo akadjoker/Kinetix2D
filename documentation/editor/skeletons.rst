@@ -13,7 +13,7 @@ Build the skeleton
 1. Make an object for the character (**New object**) and select it.
 2. Open the **Skeleton** tab (at the bottom, with the Console). It says
    *Neither this object nor one above it has a Skeleton2D*: press the button
-   beside it, or pick **Skeleton2D** in **Add Component...**.
+   beside it, or pick **Skeleton2D** in **Add Component**.
 3. With the character selected, press *Add a bone at the tip of the selected
    one*: the first bone appears at the origin, 50 long. With that bone
    selected, press it again for the next one, at its tip and as long as it.

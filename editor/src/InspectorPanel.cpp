@@ -4,7 +4,9 @@
 #include "PropertyFields.h"
 #include "core/EditorFileSystem.h"
 
+#include "BasicWidgets.hpp"
 #include "ComboBox.hpp"
+#include "MenuWidgets.hpp"
 #include "WidgetApp.hpp"
 
 #include <k2d/ClassDB.h>
@@ -24,6 +26,29 @@ namespace k2d::editor
 
 namespace
 {
+// A button whose menu opens on the press, as a menu bar's does: opened on the
+// release, the release itself would close it again.
+class MenuButton : public rt::Button
+{
+public:
+    IG_WIDGET_CLASS(MenuButton, rt::Button);
+
+    using rt::Button::Button;
+
+    ct::Function<void()> pressed;
+
+    void onMousePress(rt::MouseEvent& e) override
+    {
+        if (e.button == 0 && pressed)
+        {
+            pressed();
+            e.consumed = true;
+            return;
+        }
+        rt::Button::onMousePress(e);
+    }
+};
+
 ct::String editName(const char* property)
 {
     return ct::String("Edit ") + property;
@@ -81,6 +106,98 @@ InspectorPanel::InspectorPanel()
     mColumn = setContent<rt::BoxLayout>(rt::LayoutDir::Vertical);
     mColumn->setPadding(6.0f);
     mColumn->setSpacing(4.0f);
+    mAddMenu = new rt::Menu();
+}
+
+InspectorPanel::~InspectorPanel()
+{
+    for (rt::Menu* category : mAddCategories)
+        delete category;
+    delete mAddMenu;
+}
+
+// Components by what they are for; a type that is in no row lands in Other.
+void InspectorPanel::buildAddMenu()
+{
+    struct Category
+    {
+        const char* name;
+        const char* types;
+    };
+    static const Category kCategories[] = {
+        {"Rendering", "Sprite,NinePatch,SpriteBatch,TileMap,ParallaxLayer,Polygon2D,Line2D"},
+        {"Shapes", "RectShape,CircleShape,CapsuleShape"},
+        {"Animation", "Animation2D,Skeleton2D,Bone2D"},
+        {"Effects", "Particle"},
+        {"Lights", "Light2D,DirectionalLight2D,LightOccluder2D"},
+        {"Camera & Audio", "Camera,AudioPlayer"},
+        {"Physics", "RigidBody2D,CharacterBody2D"},
+        {"Colliders", "BoxCollider2D,CircleCollider2D,PolygonCollider2D,EdgeCollider2D,ChainCollider2D,TileMapCollider2D"},
+        {"Joints", "DistanceJoint2D,RevoluteJoint2D,WheelJoint2D,MotorJoint2D,MouseJoint2D,GearJoint2D"},
+        {"Movement", "PathMotion2D,ActionSequence2D"},
+        {"AI & Navigation", "NavigationRegion2D,NavigationAgent2D,Steering2D,Formation2D"},
+        {"UI", "UiCanvas,UiPanel,UiLabel,UiButton,UiCheckBox,UiSlider"},
+        {"Script", "ZenScript"},
+    };
+    auto listed = [](const char* types, const char* name)
+    {
+        const std::size_t length = std::strlen(name);
+        for (const char* p = types; *p;)
+        {
+            const char* end = std::strchr(p, ',');
+            const std::size_t size = end ? static_cast<std::size_t>(end - p) : std::strlen(p);
+            if (size == length && std::strncmp(p, name, length) == 0)
+                return true;
+            if (!end)
+                break;
+            p = end + 1;
+        }
+        return false;
+    };
+
+    mAddMenu->clearActions();
+    for (rt::Menu* category : mAddCategories)
+        delete category;
+    mAddCategories.clear();
+    auto add = [this](rt::Menu* menu, const char* type)
+    {
+        const ct::String name = type;
+        menu->addAction(name, [this, name]() { addComponentRequested.emit(name.c_str()); });
+    };
+    for (const Category& category : kCategories)
+    {
+        rt::Menu* submenu = nullptr;
+        for (std::size_t i = 0; i < Serializer::TypeCount(); ++i)
+        {
+            const char* type = Serializer::TypeName(i);
+            if (!listed(category.types, type))
+                continue;
+            if (!submenu)
+            {
+                submenu = new rt::Menu();
+                mAddCategories.push_back(submenu);
+                mAddMenu->addAction(category.name)->setSubmenu(submenu);
+            }
+            add(submenu, type);
+        }
+    }
+    rt::Menu* other = nullptr;
+    for (std::size_t i = 0; i < Serializer::TypeCount(); ++i)
+    {
+        const char* type = Serializer::TypeName(i);
+        bool known = false;
+        for (const Category& category : kCategories)
+            known = known || listed(category.types, type);
+        if (known)
+            continue;
+        if (!other)
+        {
+            other = new rt::Menu();
+            mAddCategories.push_back(other);
+            mAddMenu->addAction("Other")->setSubmenu(other);
+        }
+        add(other, type);
+    }
 }
 
 Component* InspectorPanel::component(ComponentType type, std::size_t index) const
@@ -266,18 +383,13 @@ void InspectorPanel::addComponent(ComponentType type, std::size_t index)
 
 void InspectorPanel::addComponentPicker()
 {
-    auto* picker = mColumn->createChild<rt::ComboBox>();
-    picker->addItem("Add Component...");
-    for (std::size_t i = 0; i < Serializer::TypeCount(); ++i)
-        picker->addItem(Serializer::TypeName(i));
-    picker->setSelectedIndex(0);
-    picker->setMaxVisible(16);
-    picker->selectionChanged.connect([this, picker](int index) {
-        if (index <= 0)
-            return;
-        addComponentRequested.emit(Serializer::TypeName(static_cast<std::size_t>(index - 1)));
-        picker->setSelectedIndex(0);
-    });
+    auto* picker = mColumn->createChild<MenuButton>("Add Component");
+    picker->setIconId(rt::IconId::Plus);
+    picker->pressed = [this, picker]() {
+        buildAddMenu();
+        const rt::Rect area = picker->absoluteRect();
+        mAddMenu->exec(area.x, area.y + area.h, picker);
+    };
 }
 
 void InspectorPanel::addProperty(rt::Widget* parent, ComponentType type, std::size_t index,

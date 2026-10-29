@@ -56,8 +56,10 @@ Give it components
 ------------------
 
 Select the object; the Inspector shows its **Name**, its **Transform** and one
-section per component. At the bottom, **Add Component...** lists every
-component; picking one adds it at once (one undo step). Each section has a
+section per component. At the bottom, **Add Component** opens a menu of
+the components by what they are for (Rendering, Shapes, Animation, Effects,
+Lights, Camera & Audio, Physics, Colliders, Joints, Movement, AI & Navigation,
+UI, Script); picking one adds it at once (one undo step). Each section has a
 *Remove this component* button. Sections are shown in a fixed order by kind,
 not in the order they were added.
 

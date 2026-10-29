@@ -11,7 +11,7 @@ Make an emitter
 1. Make an object (**New object** in the Hierarchy) and place it where the
    effect comes from.
 2. Open the **Particles** tab. It says *This object has no particle emitter*:
-   press the button beside it, or pick **Particle** in **Add Component...**.
+   press the button beside it, or pick **Particle** in **Add Component**.
 3. Pick a **Preset...**: *Fire*, *Smoke*, *Sparks*, *Magic*, *Rain* or
    *Explosion*. A preset sets every value, so start with one and adjust.
 4. Give it a ``texture`` (drag an image from Assets): **without a texture

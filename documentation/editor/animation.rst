@@ -13,7 +13,7 @@ Make an animated object
    draws through this Sprite; without one nothing shows.
 2. Open the **Animator** tab (at the bottom, with the Console). With the
    object selected it says *This object has no Animation2D*: press the
-   button beside it, or pick **Animation2D** in **Add Component...**.
+   button beside it, or pick **Animation2D** in **Add Component**.
 3. Press **New clip**. The clip is named ``clip_N``, at 8 fps, looping, with
    no frames.
 4. Add frames (below).

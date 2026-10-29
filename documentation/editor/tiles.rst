@@ -12,7 +12,7 @@ Make a tile map
 1. In the **Hierarchy**, press **New object** (or right-click → **New Object**).
    The new object is an empty ``GameObject``.
 2. Give it a TileMap. Either pick **TileMap** in the Inspector's
-   **Add Component...**, or open the **Tile Painter** tab with the object
+   **Add Component**, or open the **Tile Painter** tab with the object
    selected: it says *This object has no TileMap* and offers a **TileMap**
    button.
 3. Set the component's properties in the Inspector:

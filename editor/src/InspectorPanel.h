@@ -20,6 +20,7 @@ struct ZenScriptProperty;
 
 namespace ig::retained
 {
+class Menu;
 class SpinSlider;
 }
 
@@ -35,6 +36,7 @@ public:
     IG_WIDGET_CLASS(InspectorPanel, ig::retained::ScrollView);
 
     InspectorPanel();
+    ~InspectorPanel() override;
 
     void show(GameObject* object);
     // The same object shown again with its values now, at the same scroll.
@@ -62,8 +64,13 @@ private:
     void addScriptProperty(ig::retained::Widget* parent, ComponentType type, std::size_t index,
                            const ZenScriptProperty& declared, const char* source);
 
+    void buildAddMenu();
+
     ig::retained::BoxLayout* mColumn = nullptr;
     GameObject* mObject = nullptr;
+    // Add Component's menu and its category submenus, kept across rebuilds.
+    ig::retained::Menu* mAddMenu = nullptr;
+    ct::Vector<ig::retained::Menu*> mAddCategories;
 };
 
 } // namespace k2d::editor
