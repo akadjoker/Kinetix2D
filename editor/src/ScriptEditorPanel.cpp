@@ -142,8 +142,10 @@ bool ScriptEditorPanel::saveAll()
     return ok;
 }
 
-bool ScriptEditorPanel::open(const ct::String& path)
+bool ScriptEditorPanel::open(const ct::String& requested)
 {
+    // One document per file, however it is named.
+    const ct::String path = EditorFileSystem::relativeTo(mRoot, requested);
     for (std::size_t i = 0; i < mDocuments.size(); ++i)
         if (mDocuments[i].path == path)
         {
@@ -179,8 +181,9 @@ void ScriptEditorPanel::keepText()
 ct::Vector<int> ScriptEditorPanel::breakpointLines(const ct::String& path) const
 {
     ct::Vector<int> lines;
+    const ct::String project = EditorFileSystem::relativeTo(mRoot, path);
     for (std::size_t i = 0; i < mDocuments.size(); ++i)
-        if (mDocuments[i].path == path)
+        if (mDocuments[i].path == project)
             for (int line : static_cast<int>(i) == mCurrent ? mEditor->breakpoints() : mDocuments[i].breakpoints)
                 lines.push_back(line + 1);
     return lines;
@@ -207,10 +210,7 @@ bool ScriptEditorPanel::setBreakpoint(const ct::String& path, int line, bool on)
 
 void ScriptEditorPanel::showExecution(const ct::String& path, int line)
 {
-    ct::String project = path;
-    const ct::String root = mRoot + "/";
-    if (!mRoot.empty() && project.size() > root.size() && project.substr(0, root.size()) == root)
-        project = project.substr(root.size());
+    const ct::String project = EditorFileSystem::relativeTo(mRoot, path);
     mExecutionPath = project;
     mExecutionLine = line - 1;
     if (!open(project))
