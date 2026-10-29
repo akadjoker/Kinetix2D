@@ -52,6 +52,12 @@ void TilePalette::setTerrainEditing(int terrain)
     markDirty();
 }
 
+void TilePalette::setSolidEditing(bool editing)
+{
+    mSolid = editing;
+    markDirty();
+}
+
 bool TilePalette::tilePart(float localX, float localY, int& tx, int& ty, int& part) const
 {
     if (!tileAt(localX, localY, tx, ty))
@@ -167,8 +173,30 @@ void TilePalette::paint(rt::PaintContext& ctx)
         }
     }
 
+    // Solid tiles in red; animated ones marked in a corner.
+    if (columns > 0)
+    {
+        const TileSet& tiles = mMap->tileSet();
+        if (mSolid)
+            for (int tile : tiles.solidTiles)
+            {
+                const int tx = (tile - 1) % columns, ty = (tile - 1) / columns;
+                ctx.fill.SetColor(rt::Color(230, 60, 60, 120));
+                ctx.fillRect(ox + tx * (cw + gx), oy + ty * (ch + gy), cw, ch);
+            }
+        for (const TileAnimation& animation : tiles.animations)
+        {
+            const int tx = (animation.tile - 1) % columns, ty = (animation.tile - 1) / columns;
+            const float size = cw < 12.0f ? cw * 0.5f : 6.0f;
+            ctx.fill.SetColor(rt::Color(80, 200, 255, 230));
+            ctx.fillTriangle(ox + tx * (cw + gx) + 2.0f, oy + ty * (ch + gy) + 2.0f, ox + tx * (cw + gx) + 2.0f,
+                             oy + ty * (ch + gy) + 2.0f + size * 2.0f, ox + tx * (cw + gx) + 2.0f + size * 1.6f,
+                             oy + ty * (ch + gy) + 2.0f + size);
+        }
+    }
+
     // The picked block.
-    if (mTerrain < 0 && columns > 0 && rows > 0)
+    if (mTerrain < 0 && !mSolid && columns > 0 && rows > 0)
     {
         const float bx = ox + blockX() * (cw + gx), by = oy + blockY() * (ch + gy);
         const float bw = blockWidth() * (cw + gx) - gx, bh = blockHeight() * (ch + gy) - gy;
@@ -193,6 +221,12 @@ void TilePalette::onMousePress(rt::MouseEvent& e)
         return;
     }
     int tx = 0, ty = 0;
+    if (mSolid)
+    {
+        if (tileAt(e.localX, e.localY, tx, ty))
+            solidClicked.emit(ty * tilesX() + tx + 1);
+        return;
+    }
     if (mTerrain >= 0)
     {
         int part = 0;

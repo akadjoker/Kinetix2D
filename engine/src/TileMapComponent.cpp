@@ -8,6 +8,8 @@
 #include "k2d/FileSystem.h"
 #include "k2d/AStarGrid2D.h"
 
+#include <platform.h>
+
 #include <ct/string.hpp>
 
 #include <cmath>
@@ -42,21 +44,20 @@ namespace k2d
 {
 
 TileMapComponent::TileMapComponent()
-    : Component(Type, ComponentEventRender), mTexture(nullptr), mCellW(32.0f), mCellH(32.0f), mColumns(0), mRows(0),
-      mAtlasTilesX(1), mAtlasPaddingX(0.0f), mAtlasPaddingY(0.0f), mAtlasGapX(0.0f), mAtlasGapY(0.0f), mCullX(0.0f),
+    : Component(Type, ComponentEventRender), mColumns(0), mRows(0), mCullX(0.0f),
       mCullY(0.0f), mCullW(0.0f), mCullH(0.0f), mCullEnabled(false), mBlendMode(BLEND_MIX)
 {
 }
 
 void TileMapComponent::setTexture(Texture* texture)
 {
-    mTexture = texture;
+    editTileSet().texture = texture;
 }
 
 void TileMapComponent::setCellSize(float width, float height)
 {
-    mCellW = width;
-    mCellH = height;
+    editTileSet().cellWidth = width;
+    editTileSet().cellHeight = height;
 }
 
 void TileMapComponent::setMapSize(int columns, int rows)
@@ -83,19 +84,19 @@ void TileMapComponent::setMapSize(int columns, int rows)
 
 void TileMapComponent::setAtlasTilesX(int tilesX)
 {
-    mAtlasTilesX = tilesX > 0 ? tilesX : 1;
+    editTileSet().atlasTilesX = tilesX > 0 ? tilesX : 1;
 }
 
 void TileMapComponent::setAtlasPadding(float x, float y)
 {
-    mAtlasPaddingX = x > 0.0f ? x : 0.0f;
-    mAtlasPaddingY = y > 0.0f ? y : 0.0f;
+    editTileSet().paddingX = x > 0.0f ? x : 0.0f;
+    editTileSet().paddingY = y > 0.0f ? y : 0.0f;
 }
 
 void TileMapComponent::setAtlasGap(float x, float y)
 {
-    mAtlasGapX = x > 0.0f ? x : 0.0f;
-    mAtlasGapY = y > 0.0f ? y : 0.0f;
+    editTileSet().gapX = x > 0.0f ? x : 0.0f;
+    editTileSet().gapY = y > 0.0f ? y : 0.0f;
 }
 
 void TileMapComponent::setTile(int x, int y, int atlasTileId)
@@ -114,24 +115,25 @@ void TileMapComponent::setCollision(int x, int y, bool solid)
 
 int TileMapComponent::addTerrain(const ct::String& name)
 {
-    mTerrainNames.push_back(name);
-    return static_cast<int>(mTerrainNames.size()) - 1;
+    editTileSet().terrainNames.push_back(name);
+    return terrainCount() - 1;
 }
 
 void TileMapComponent::removeTerrain(int terrain)
 {
     if (terrain < 0 || terrain >= terrainCount())
         return;
-    mTerrainNames.erase(mTerrainNames.begin() + terrain);
-    for (std::size_t i = 0; i < mTerrainTiles.size();)
+    TileSet& tiles = editTileSet();
+    tiles.terrainNames.erase(tiles.terrainNames.begin() + terrain);
+    for (std::size_t i = 0; i < tiles.terrainTiles.size();)
     {
-        if (mTerrainTiles[i].terrain == terrain)
+        if (tiles.terrainTiles[i].terrain == terrain)
         {
-            mTerrainTiles.erase(mTerrainTiles.begin() + i);
+            tiles.terrainTiles.erase(tiles.terrainTiles.begin() + i);
             continue;
         }
-        if (mTerrainTiles[i].terrain > terrain)
-            --mTerrainTiles[i].terrain;
+        if (tiles.terrainTiles[i].terrain > terrain)
+            --tiles.terrainTiles[i].terrain;
         ++i;
     }
 }
@@ -139,36 +141,37 @@ void TileMapComponent::removeTerrain(int terrain)
 const ct::String& TileMapComponent::terrainName(int terrain) const
 {
     static const ct::String none;
-    return terrain >= 0 && terrain < terrainCount() ? mTerrainNames[terrain] : none;
+    return terrain >= 0 && terrain < terrainCount() ? set().terrainNames[terrain] : none;
 }
 
 void TileMapComponent::setTerrainName(int terrain, const ct::String& name)
 {
     if (terrain >= 0 && terrain < terrainCount())
-        mTerrainNames[terrain] = name;
+        editTileSet().terrainNames[terrain] = name;
 }
 
 void TileMapComponent::setTileTerrain(int tile, int terrain, unsigned char bits)
 {
-    for (std::size_t i = 0; i < mTerrainTiles.size(); ++i)
-        if (mTerrainTiles[i].tile == tile)
+    ct::Vector<TerrainTile>& entries = editTileSet().terrainTiles;
+    for (std::size_t i = 0; i < entries.size(); ++i)
+        if (entries[i].tile == tile)
         {
             if (terrain < 0 || terrain >= terrainCount())
-                mTerrainTiles.erase(mTerrainTiles.begin() + i);
+                entries.erase(entries.begin() + i);
             else
             {
-                mTerrainTiles[i].terrain = terrain;
-                mTerrainTiles[i].bits = bits;
+                entries[i].terrain = terrain;
+                entries[i].bits = bits;
             }
             return;
         }
     if (tile > 0 && terrain >= 0 && terrain < terrainCount())
-        mTerrainTiles.push_back(TerrainTile{tile, terrain, bits});
+        entries.push_back(TerrainTile{tile, terrain, bits});
 }
 
 bool TileMapComponent::tileTerrain(int tile, int& terrain, unsigned char& bits) const
 {
-    for (const TerrainTile& entry : mTerrainTiles)
+    for (const TerrainTile& entry : set().terrainTiles)
         if (entry.tile == tile)
         {
             terrain = entry.terrain;
@@ -190,7 +193,7 @@ void TileMapComponent::paintTerrain(int x, int y, int terrain)
     if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
         return;
     int tile = 0;
-    for (const TerrainTile& entry : mTerrainTiles)
+    for (const TerrainTile& entry : set().terrainTiles)
         if (entry.terrain == terrain)
         {
             tile = entry.tile;
@@ -213,7 +216,7 @@ void TileMapComponent::fitTerrainCell(int x, int y)
     const bool n = same(x, y - 1), e = same(x + 1, y), s = same(x, y + 1), w = same(x - 1, y);
     unsigned char want = (n ? TERRAIN_N : 0) | (e ? TERRAIN_E : 0) | (s ? TERRAIN_S : 0) | (w ? TERRAIN_W : 0);
     bool corners = false;
-    for (const TerrainTile& entry : mTerrainTiles)
+    for (const TerrainTile& entry : set().terrainTiles)
         if (entry.terrain == terrain && (entry.bits & (TERRAIN_NE | TERRAIN_SE | TERRAIN_SW | TERRAIN_NW)))
             corners = true;
     if (corners)
@@ -229,7 +232,7 @@ void TileMapComponent::fitTerrainCell(int x, int y)
     }
     int best = 0;
     int bestDistance = 9;
-    for (const TerrainTile& entry : mTerrainTiles)
+    for (const TerrainTile& entry : set().terrainTiles)
     {
         if (entry.terrain != terrain)
             continue;
@@ -338,7 +341,37 @@ bool TileMapComponent::hasCollision(int x, int y) const
 {
     if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
         return false;
+    const int index = y * mColumns + x;
+    return mCollision[index] != 0 || (!set().solidTiles.empty() && set().tileSolid(mCells[index]));
+}
+
+bool TileMapComponent::cellCollision(int x, int y) const
+{
+    if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
+        return false;
     return mCollision[y * mColumns + x] != 0;
+}
+
+TileSet& TileMapComponent::editTileSet()
+{
+    if (!mSharedSet)
+        return mOwnSet;
+    mSharedSet->dirty = true;
+    return *mSharedSet;
+}
+
+void TileMapComponent::setSharedTileSet(TileSet* shared)
+{
+    if (shared == mSharedSet)
+        return;
+    if (mSharedSet)
+        mOwnSet = *mSharedSet;
+    mSharedSet = shared;
+}
+
+void TileMapComponent::setTileSolid(int tile, bool solid)
+{
+    editTileSet().setTileSolid(tile, solid);
 }
 
 void TileMapComponent::clearCollision()
@@ -364,7 +397,7 @@ void TileMapComponent::clearCullRect()
 void TileMapComponent::buildPathfindingGrid(AStarGrid2D& grid, const int* solidTileIds, int solidTileIdCount) const
 {
     grid.SetSize(mColumns, mRows);
-    grid.SetCellSize(mCellW, mCellH);
+    grid.SetCellSize(cellWidth(), cellHeight());
 
     for (int y = 0; y < mRows; ++y)
     {
@@ -388,7 +421,8 @@ void TileMapComponent::buildPathfindingGrid(AStarGrid2D& grid, const int* solidT
 
 void TileMapComponent::onRender(RenderQueue& queue)
 {
-    if (!mTexture || mCells.empty())
+    const TileSet& tiles = set();
+    if (!tiles.texture || mCells.empty())
         return;
 
     RenderItem& item = queue.AddItem(owner()->zIndex());
@@ -402,10 +436,10 @@ void TileMapComponent::onRender(RenderQueue& queue)
 
     if (mCullEnabled)
     {
-        minX = (int)floorf(mCullX / mCellW);
-        minY = (int)floorf(mCullY / mCellH);
-        maxX = (int)floorf((mCullX + mCullW) / mCellW);
-        maxY = (int)floorf((mCullY + mCullH) / mCellH);
+        minX = (int)floorf(mCullX / tiles.cellWidth);
+        minY = (int)floorf(mCullY / tiles.cellHeight);
+        maxX = (int)floorf((mCullX + mCullW) / tiles.cellWidth);
+        maxY = (int)floorf((mCullY + mCullH) / tiles.cellHeight);
         if (minX < 0)
             minX = 0;
         if (minY < 0)
@@ -416,8 +450,9 @@ void TileMapComponent::onRender(RenderQueue& queue)
             maxY = mRows - 1;
     }
 
-    const int atlasW = mTexture->Width();
-    const int atlasH = mTexture->Height();
+    const int atlasW = tiles.texture->Width();
+    const int atlasH = tiles.texture->Height();
+    const double seconds = tiles.animations.empty() ? 0.0 : time_seconds();
 
     for (int y = minY; y <= maxY; ++y)
     {
@@ -427,15 +462,16 @@ void TileMapComponent::onRender(RenderQueue& queue)
             if (cell == 0)
                 continue;
 
-            int atlasIndex = cell - 1;
-            int tx = atlasIndex % mAtlasTilesX;
-            int ty = atlasIndex / mAtlasTilesX;
+            const int atlasIndex = tiles.frameAt(cell, seconds) - 1;
+            const int tx = atlasIndex % tiles.atlasTilesX;
+            const int ty = atlasIndex / tiles.atlasTilesX;
 
-            RenderCommand rect = RenderCommand::MakeRect(mTexture->Id(), x * mCellW, y * mCellH, mCellW, mCellH);
-            rect.srcX = mAtlasPaddingX + tx * (mCellW + mAtlasGapX);
-            rect.srcY = mAtlasPaddingY + ty * (mCellH + mAtlasGapY);
-            rect.srcW = mCellW;
-            rect.srcH = mCellH;
+            RenderCommand rect = RenderCommand::MakeRect(tiles.texture->Id(), x * tiles.cellWidth, y * tiles.cellHeight,
+                                                         tiles.cellWidth, tiles.cellHeight);
+            rect.srcX = tiles.paddingX + tx * (tiles.cellWidth + tiles.gapX);
+            rect.srcY = tiles.paddingY + ty * (tiles.cellHeight + tiles.gapY);
+            rect.srcW = tiles.cellWidth;
+            rect.srcH = tiles.cellHeight;
             rect.texWidth = atlasW;
             rect.texHeight = atlasH;
             rect.pivotX = 0.0f;

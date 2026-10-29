@@ -751,6 +751,25 @@ void RegisterCoreClasses()
     }
     {
     ClassInfo& c = ClassDB::add("TileMapComponent", ComponentType::TileMap, ComponentClass::None);
+    ClassDB::addProperty(
+        c, PropertyInfo::file("tileset", "k2dtileset"),
+        [](const Component& component)
+        {
+            Assets* assets = ClassDB::assets();
+            const TileSet* shared = static_cast<const TileMapComponent&>(component).sharedTileSet();
+            const char* path = assets && shared ? assets->FindTileSetPath(shared) : nullptr;
+            return PropertyValue::resourcePath(path ? path : "");
+        },
+        [](Component& component, const PropertyValue& value)
+        {
+            TileMapComponent& map = static_cast<TileMapComponent&>(component);
+            Assets* assets = ClassDB::assets();
+            const ct::String& path = value.asString();
+            if (path.empty())
+                map.setSharedTileSet(nullptr);
+            else if (TileSet* shared = assets ? assets->LoadTileSet(path.c_str()) : nullptr)
+                map.setSharedTileSet(shared);
+        });
     addTexture<TileMapComponent>(c, "texture", &TileMapComponent::texture, &TileMapComponent::setTexture);
     ClassDB::addProperty<TileMapComponent>(c, PropertyInfo(PropertyType::Int, "atlasTilesX"), &TileMapComponent::atlasTilesX, &TileMapComponent::setAtlasTilesX);
     ClassDB::addProperty<TileMapComponent>(c, PropertyInfo::enumeration("blendMode", "Alpha,Additive,Multiplied,AddColors,SubtractColors"), &TileMapComponent::blendMode, &TileMapComponent::setBlendMode);

@@ -127,6 +127,35 @@ Two common sets:
 Where no tile matches exactly, the closest one is used, so a set with a few
 tiles missing still draws.
 
+Tilesets
+--------
+
+What a map's tiles *are* (the image, ``cellSize``, ``atlasTilesX``, the
+padding and gap, the terrains, the solid and the animated tiles) is its
+**tileset**. A map starts with one of its own. To use the same tiles in many
+maps, share it:
+
+1. On the map that has them, press *Save as tileset* (the disk in the Terrain
+   row) and choose where the ``.k2dtileset`` goes. The map now shares it.
+2. On every other map, drag the ``.k2dtileset`` from Assets onto the
+   TileMap's ``tileset`` field.
+
+From then on an edit made on any of those maps (a terrain, a solid tile, an
+animation, the texture or the cell size) is an edit of the tileset: every map
+sharing it changes, and the file is saved with the edit. Undo does not take
+it back. Clear the ``tileset`` field to give a map its own copy again.
+
+Solid tiles
+   Turn on *Solid tiles* in the toolbar: a click on a tile in the palette
+   makes it solid (red) wherever it is painted, the wall tile in every
+   room. The **Collision** mode still marks single cells on top of that.
+Animated tiles
+   Pick a block of tiles in the palette (water, torches: the frames side by
+   side), set ``fps`` in the Terrain row and press *Animate* (the play
+   button). Cells that hold the first tile play the block in turn. Pick
+   the first tile alone and press it again to stop. A small blue mark in the
+   palette shows the tiles that animate.
+
 Collision
 ---------
 
@@ -187,6 +216,10 @@ A TileMap is saved inside the scene (``.k2dscene``): ``texture``,
 ``cellWidth``, ``cellHeight``, ``columns``, ``rows``, ``atlasTilesX``,
 ``atlasPadding``, ``atlasGap``, ``blendMode``, ``cells`` and ``collision`` as
 flat arrays row by row, and ``terrains``: each a ``name`` and its ``tiles`` as
-``[tile, bits]`` pairs (N 1, NE 2, E 4, SE 8, S 16, SW 32, W 64, NW 128). ``atlasPadding`` (the margin around the tileset)
+``[tile, bits]`` pairs (N 1, NE 2, E 4, SE 8, S 16, SW 32, W 64, NW 128),
+``solid`` (tile ids) and ``animations`` (``tile``, ``frames``, ``fps``). A map
+that shares a tileset keeps only ``tileset`` (its path), ``columns``, ``rows``,
+``cells``, ``collision``, ``cullRect`` and ``blendMode``; the rest is in the
+``.k2dtileset``, which holds the same keys. ``atlasPadding`` (the margin around the tileset)
 and ``atlasGap`` (the space between its tiles) have no field in the Inspector;
 edit them in the scene file for tilesets that need them.

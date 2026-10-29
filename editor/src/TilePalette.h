@@ -33,10 +33,13 @@ public:
     // While a terrain is edited a click does not pick: it lands on one of the
     // nine parts of a tile, the middle or a neighbour.
     void setTerrainEditing(int terrain);
+    // While solid tiles are edited a click turns a tile solid or not.
+    void setSolidEditing(bool editing);
 
     ig::retained::Signal<> picked;
     // The tile id, and the part clicked: 0..2 across and down.
     ig::retained::Signal<int, int, int> terrainClicked;
+    ig::retained::Signal<int> solidClicked;
 
     Vec2f sizeHint() const override { return {300.0f, 200.0f}; }
     void paint(ig::retained::PaintContext& ctx) override;
@@ -59,6 +62,7 @@ private:
     bool mPicking = false;
     int mX0 = 0, mY0 = 0, mX1 = 0, mY1 = 0;
     int mTerrain = -1;
+    bool mSolid = false;
 };
 
 } // namespace k2d::editor

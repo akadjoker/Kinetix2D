@@ -359,6 +359,62 @@ bool TestTileMapAutotile()
     return ok;
 }
 
+// A tileset shared by two maps through a file: solid and animated tiles, the
+// map saved as the path alone, an edit through one map dirtying the file.
+bool TestSharedTileSet()
+{
+    using namespace k2d;
+    const char* path = "serializer_test.k2dtileset";
+    TileSet source;
+    source.cellWidth = 16.0f;
+    source.cellHeight = 16.0f;
+    source.atlasTilesX = 4;
+    source.terrainNames.push_back("grass");
+    source.terrainTiles.push_back(TerrainTile{3, 0, TERRAIN_E});
+    source.setTileSolid(5, true);
+    ct::Vector<int> frames;
+    frames.push_back(7);
+    frames.push_back(8);
+    source.setAnimation(7, frames, 4.0f);
+    bool ok = source.tileSolid(5) && !source.tileSolid(6) && source.frameAt(7, 0.1) == 7 &&
+              source.frameAt(7, 0.3) == 8 && source.frameAt(7, 0.6) == 7 && source.frameAt(9, 0.3) == 9;
+    ok = ok && source.save(path, nullptr);
+
+    Assets assets;
+    TileSet* shared = assets.LoadTileSet(path);
+    ok = ok && shared && shared == assets.LoadTileSet(path) && assets.FindTileSetPath(shared) &&
+         Near(shared->cellWidth, 16.0f) && shared->atlasTilesX == 4 && shared->terrainNames.size() == 1 &&
+         shared->tileSolid(5) && shared->animation(7) && Near(shared->animation(7)->fps, 4.0f) && !shared->dirty;
+
+    Scene scene;
+    TileMapComponent* a = scene.createObject("A")->addComponent<TileMapComponent>();
+    TileMapComponent* b = scene.createObject("B")->addComponent<TileMapComponent>();
+    a->setSharedTileSet(shared);
+    b->setSharedTileSet(shared);
+    a->setMapSize(3, 1);
+    a->setTile(1, 0, 5);
+    ok = ok && a->hasCollision(1, 0) && !a->cellCollision(1, 0) && !a->hasCollision(0, 0) &&
+         a->terrainCount() == 1 && Near(b->cellWidth(), 16.0f);
+
+    ct::Json written = Serializer::WriteObject(*a->owner(), &assets);
+    ok = ok && written.dump().find("\"tileset\"") != ct::String::npos &&
+         written.dump().find("\"cellWidth\"") == ct::String::npos;
+    Scene copyScene;
+    GameObject* copy = Serializer::ReadObject(copyScene, written, nullptr, &assets);
+    TileMapComponent* copyMap = copy ? copy->getComponent<TileMapComponent>() : nullptr;
+    ok = ok && copyMap && copyMap->sharedTileSet() == shared && copyMap->getTile(1, 0) == 5;
+
+    b->setTileSolid(6, true);
+    ok = ok && shared->dirty && a->tileSolid(6) && assets.SaveTileSets() == 1 && !shared->dirty;
+
+    a->setSharedTileSet(nullptr);
+    ok = ok && !a->sharedTileSet() && Near(a->cellWidth(), 16.0f) && a->tileSolid(6);
+    a->setTileSolid(5, false);
+    ok = ok && !a->tileSolid(5) && shared->tileSolid(5) && !shared->dirty;
+    std::remove(path);
+    return ok;
+}
+
 bool TestPolygonAndLineRoundTrip()
 {
     k2d::Scene srcScene;
@@ -835,6 +891,7 @@ int main()
     bool spriteBatch = TestSpriteBatchRoundTrip();
     bool animation = TestAnimationRoundTrip();
     bool autotile = TestTileMapAutotile();
+    bool sharedTileSet = TestSharedTileSet();
     bool lightDisambiguation = TestLightDisambiguation();
     bool occluder = TestOccluderRoundTrip();
     bool camera = TestCameraRoundTrip();
@@ -854,13 +911,14 @@ int main()
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
     std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
-    std::printf("Serializer tilemap: autotile=%s\n", autotile ? "pass" : "fail");
+    std::printf("Serializer tilemap: autotile=%s shared_tileset=%s\n", autotile ? "pass" : "fail",
+                sharedTileSet ? "pass" : "fail");
     std::printf("Serializer types: create_by_name=%s unit_float_colour=%s\n", createByName ? "pass" : "fail",
                 unitColour ? "pass" : "fail");
 
     return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
             ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
-            doubleRoundTrip && createByName && unitColour && autotile)
+            doubleRoundTrip && createByName && unitColour && autotile && sharedTileSet)
                ? 0
                : 1;
 }

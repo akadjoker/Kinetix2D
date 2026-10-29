@@ -1,6 +1,7 @@
 #include "TilePainterPanel.h"
 
 #include "Icons.h"
+#include "PropertyFields.h"
 #include "TilePalette.h"
 
 #include "BasicWidgets.hpp"
@@ -60,6 +61,8 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mTools->addSeparator();
     mCollisionItem = mTools->addToggle(Icons::get("TileMapCollider2D"),
                                        "Collision: the tools mark cells solid, the eraser clears them");
+    mSolidItem = mTools->addToggle(Icons::get("BoxCollider2D"),
+                                   "Solid tiles: in the palette a click makes a tile solid, in every cell that holds it");
     mEditTerrainItem = mTools->addToggle(Icons::get("Settings"),
                                          "Edit the terrain's tiles: in the palette a tile's middle puts it in the "
                                          "terrain or takes it out, its sides and corners mark the neighbours it joins");
@@ -80,8 +83,11 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     {
         if (item == mCollisionItem)
             mCollision = on;
-        if (item == mEditTerrainItem)
+        if (item == mEditTerrainItem || item == mSolidItem)
         {
+            // One palette mode at a time.
+            if (on)
+                mTools->setItemChecked(item == mEditTerrainItem ? mSolidItem : mEditTerrainItem, false);
             syncTerrains();
             return;
         }
@@ -124,6 +130,26 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mTerrainTools->setDraggable(false);
     const int addItem = mTerrainTools->addButton(rt::IconId::Plus, "New terrain");
     const int removeItem = mTerrainTools->addButton(rt::IconId::Trash, "Delete the terrain, and what its tiles say");
+    mTerrainTools->addSeparator();
+    const int animateItem = mTerrainTools->addButton(
+        rt::IconId::Play, "Animate: the first picked tile plays the picked tiles in turn (again to stop it)");
+    const int saveItem = mTerrainTools->addButton(
+        Icons::get("Save"), "Save as tileset: the texture, terrains, solid and animated tiles into a .k2dtileset "
+                            "this map then shares, and other maps can take");
+    NumberSpec fps;
+    fps.integer = true;
+    fps.step = 1.0;
+    fps.minimum = 1.0;
+    fps.maximum = 60.0;
+    fps.width = 64.0f;
+    addNumberField(terrainRow, "fps", mFps, fps, [this](double value, bool) { mFps = static_cast<float>(value); });
+    mTerrainTools->buttonClicked.connect([this, animateItem, saveItem](int item)
+    {
+        if (item == animateItem)
+            animatePicked();
+        else if (item == saveItem)
+            saveTileSetRequested.emit();
+    });
     mTerrainTools->buttonClicked.connect([this, addItem, removeItem](int item)
     {
         TileMapComponent* tiles = map();
@@ -149,6 +175,7 @@ TilePainterPanel::TilePainterPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mPalette = mContent->createChild<TilePalette>();
     mPalette->setStretch(1.0f);
     mPalette->terrainClicked.connect([this](int tile, int across, int down) { markTerrainTile(tile, across, down); });
+    mPalette->solidClicked.connect([this](int tile) { markSolidTile(tile); });
     mPalette->picked.connect([this]()
     {
         // Picking tiles means painting them.
@@ -202,6 +229,37 @@ void TilePainterPanel::syncTerrains()
     mTerrainName->setEnabled(count > 0);
     const bool editing = count > 0 && mTools->isItemChecked(mEditTerrainItem);
     mPalette->setTerrainEditing(editing ? mTerrain : -1);
+    mPalette->setSolidEditing(mTools->isItemChecked(mSolidItem));
+}
+
+void TilePainterPanel::markSolidTile(int tile)
+{
+    TileMapComponent* tiles = map();
+    if (!tiles || tile <= 0)
+        return;
+    tiles->setTileSolid(tile, !tiles->tileSolid(tile));
+    mPalette->markDirty();
+    edited.emit("Solid tile");
+}
+
+// The picked block, row by row, as the frames of its first tile.
+void TilePainterPanel::animatePicked()
+{
+    TileMapComponent* tiles = map();
+    const int columns = mPalette->tilesX();
+    if (!tiles || columns <= 0)
+        return;
+    const int first = mPalette->blockY() * columns + mPalette->blockX() + 1;
+    ct::Vector<int> frames;
+    if (mPalette->blockWidth() * mPalette->blockHeight() > 1 || !tiles->tileSet().animation(first))
+        for (int y = 0; y < mPalette->blockHeight(); ++y)
+            for (int x = 0; x < mPalette->blockWidth(); ++x)
+                frames.push_back((mPalette->blockY() + y) * columns + mPalette->blockX() + x + 1);
+    if (frames.size() == 1)
+        return;
+    tiles->editTileSet().setAnimation(first, frames, mFps);
+    mPalette->markDirty();
+    edited.emit(frames.empty() ? "Stop tile animation" : "Animate tile");
 }
 
 // The middle puts the tile in the terrain or takes it out; a side or a corner

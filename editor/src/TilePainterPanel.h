@@ -64,6 +64,8 @@ public:
     ig::retained::Signal<const char*> addComponentRequested;
     // The panel changed the map itself (the atlas columns).
     ig::retained::Signal<const char*> edited;
+    // Save as tileset: the map's tiles into a .k2dtileset it then shares.
+    ig::retained::Signal<> saveTileSetRequested;
 
 private:
     TileMapComponent* map() const;
@@ -76,6 +78,8 @@ private:
     void syncInfo();
     void syncTerrains();
     void markTerrainTile(int tile, int across, int down);
+    void markSolidTile(int tile);
+    void animatePicked();
     // Atlas columns as the texture holds them, or 0 when it cannot tell.
     int textureColumns() const;
 
@@ -102,6 +106,8 @@ private:
     ig::retained::TextInput* mTerrainName = nullptr;
     ig::retained::ToolBar* mTerrainTools = nullptr;
     int mEditTerrainItem = -1;
+    int mSolidItem = -1;
+    float mFps = 8.0f;
     int mCollisionItem = -1;
     ig::retained::Label* mInfo = nullptr;
     TilePalette* mPalette = nullptr;

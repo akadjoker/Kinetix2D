@@ -233,17 +233,13 @@ void WriteTileMap(const Component& component, ct::Json& data, Assets* assets)
 {
     const TileMapComponent& tileMap = static_cast<const TileMapComponent&>(component);
 
-    if (assets)
-        if (const char* texName = assets->FindTextureName(tileMap.texture()))
-            data.set("texture", ct::Json(texName));
-
-    data.set("cellWidth", ct::Json((double)tileMap.cellWidth()));
-    data.set("cellHeight", ct::Json((double)tileMap.cellHeight()));
+    const char* shared = assets && tileMap.sharedTileSet() ? assets->FindTileSetPath(tileMap.sharedTileSet()) : nullptr;
+    if (shared)
+        data.set("tileset", ct::Json(shared));
+    else
+        tileMap.tileSet().write(data, assets);
     data.set("columns", ct::Json(tileMap.columns()));
     data.set("rows", ct::Json(tileMap.rows()));
-    data.set("atlasTilesX", ct::Json(tileMap.atlasTilesX()));
-    data.set("atlasPadding", WriteVec2(tileMap.atlasPadding()));
-    data.set("atlasGap", WriteVec2(tileMap.atlasGap()));
 
     ct::Json cells = ct::Json::array();
     cells.reserve((size_t)(tileMap.columns() * tileMap.rows()));
@@ -252,56 +248,33 @@ void WriteTileMap(const Component& component, ct::Json& data, Assets* assets)
             cells.push_back(ct::Json(tileMap.getTile(x, y)));
     data.set("cells", cells);
 
+    // The cells marked solid by hand; the tileset's solid tiles are its own.
     ct::Json collision = ct::Json::array();
     for (int y = 0; y < tileMap.rows(); ++y)
         for (int x = 0; x < tileMap.columns(); ++x)
-            collision.push_back(ct::Json(tileMap.hasCollision(x, y)));
+            collision.push_back(ct::Json(tileMap.cellCollision(x, y)));
     data.set("collision", collision);
 
     if (tileMap.hasCullRect())
         data.set("cullRect", WriteVec4(tileMap.cullRect()));
     data.set("blendMode", ct::Json((int)tileMap.blendMode()));
-
-    if (tileMap.terrainCount() > 0)
-    {
-        ct::Json terrains = ct::Json::array();
-        for (int t = 0; t < tileMap.terrainCount(); ++t)
-        {
-            ct::Json terrain = ct::Json::object();
-            terrain.set("name", ct::Json(tileMap.terrainName(t).c_str()));
-            ct::Json tiles = ct::Json::array();
-            for (const TerrainTile& entry : tileMap.terrainTiles())
-                if (entry.terrain == t)
-                {
-                    ct::Json pair = ct::Json::array();
-                    pair.push_back(ct::Json(entry.tile));
-                    pair.push_back(ct::Json((int)entry.bits));
-                    tiles.push_back(pair);
-                }
-            terrain.set("tiles", tiles);
-            terrains.push_back(terrain);
-        }
-        data.set("terrains", terrains);
-    }
 }
 
 void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
 {
     TileMapComponent& tileMap = static_cast<TileMapComponent&>(component);
 
-    if (assets)
-        if (const ct::Json* tex = data.find("texture"))
-            tileMap.setTexture(assets->GetTexture(tex->as_cstr()));
+    TileSet* shared = nullptr;
+    if (const ct::Json* path = data.find("tileset"))
+        shared = assets ? assets->LoadTileSet(path->as_cstr("")) : nullptr;
+    if (shared)
+        tileMap.setSharedTileSet(shared);
+    else
+        tileMap.editTileSet().read(data, assets);
 
-    tileMap.setCellSize((float)data["cellWidth"].as_double(32.0), (float)data["cellHeight"].as_double(32.0));
     const int columns = (int)data["columns"].as_int(0);
     const int rows = (int)data["rows"].as_int(0);
     tileMap.setMapSize(columns, rows);
-    tileMap.setAtlasTilesX((int)data["atlasTilesX"].as_int(1));
-    const Math::Vec2 atlasPadding = ReadVec2(data["atlasPadding"]);
-    const Math::Vec2 atlasGap = ReadVec2(data["atlasGap"]);
-    tileMap.setAtlasPadding(atlasPadding.x, atlasPadding.y);
-    tileMap.setAtlasGap(atlasGap.x, atlasGap.y);
 
     const ct::Json& cells = data["cells"];
     if (cells.is_array())
@@ -327,15 +300,6 @@ void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
         tileMap.setCullRect(r.x, r.y, r.z, r.w);
     }
     tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
-
-    const ct::Json& terrains = data["terrains"];
-    for (size_t t = 0; terrains.is_array() && t < terrains.size(); ++t)
-    {
-        const int terrain = tileMap.addTerrain(terrains[t]["name"].as_cstr(""));
-        const ct::Json& tiles = terrains[t]["tiles"];
-        for (size_t i = 0; tiles.is_array() && i < tiles.size(); ++i)
-            tileMap.setTileTerrain((int)tiles[i][0].as_int(0), terrain, (unsigned char)tiles[i][1].as_int(0));
-    }
 }
 
 Component* CreateParallaxLayer(GameObject& owner)

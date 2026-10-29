@@ -3,6 +3,8 @@
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 
+#include <ct/json.hpp>
+
 namespace k2d
 {
 
@@ -149,8 +151,52 @@ const char* Assets::FindTextureName(const Texture* texture) const
     return nullptr;
 }
 
+TileSet* Assets::LoadTileSet(const char* path)
+{
+    if (!path || !path[0])
+        return nullptr;
+    const ct::String key(path);
+    if (TileSet** found = mTileSets.find(key))
+        return *found;
+    FileBuffer file;
+    if (!FileSystem::Instance().LoadFile(path, file, true))
+        return nullptr;
+    ct::Json::Error error;
+    const ct::Json data = ct::Json::parse(file.Text(), &error);
+    if (error || !data.is_object())
+        return nullptr;
+    TileSet* tileSet = new TileSet();
+    tileSet->read(data, this);
+    mTileSets.put(key, tileSet);
+    return tileSet;
+}
+
+const char* Assets::FindTileSetPath(const TileSet* tileSet) const
+{
+    for (const auto& entry : mTileSets)
+        if (entry.value == tileSet)
+            return entry.key.c_str();
+    return nullptr;
+}
+
+int Assets::SaveTileSets()
+{
+    int saved = 0;
+    for (auto& entry : mTileSets)
+        if (entry.value->dirty && entry.value->save(entry.key.c_str(), this))
+        {
+            entry.value->dirty = false;
+            ++saved;
+        }
+    return saved;
+}
+
 void Assets::Clear()
 {
+    for (auto& entry : mTileSets)
+        delete entry.value;
+    mTileSets.clear();
+
     for (auto& entry : mShaders)
     {
         delete entry.value;

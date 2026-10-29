@@ -2,6 +2,7 @@
 
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
+#include "k2d/TileSet.h"
 
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
@@ -14,27 +15,6 @@ namespace k2d
     class Assets;
     class AStarGrid2D;
 
-    // The neighbours a terrain tile joins, as Godot's peering bits: a corner
-    // counts only where both sides beside it are of the terrain too.
-    enum TerrainBits : unsigned char
-    {
-        TERRAIN_N = 1,
-        TERRAIN_NE = 2,
-        TERRAIN_E = 4,
-        TERRAIN_SE = 8,
-        TERRAIN_S = 16,
-        TERRAIN_SW = 32,
-        TERRAIN_W = 64,
-        TERRAIN_NW = 128
-    };
-
-    struct TerrainTile
-    {
-        int tile;
-        int terrain;
-        unsigned char bits;
-    };
-
     class TileMapComponent : public Component
     {
     public:
@@ -43,22 +23,25 @@ namespace k2d
         TileMapComponent();
 
         void setTexture(Texture *texture);
-        Texture *texture() const { return mTexture; }
+        Texture *texture() const { return set().texture; }
         void setCellSize(float width, float height);
-        float cellWidth() const { return mCellW; }
-        float cellHeight() const { return mCellH; }
+        float cellWidth() const { return set().cellWidth; }
+        float cellHeight() const { return set().cellHeight; }
         void setMapSize(int columns, int rows);
         void setAtlasTilesX(int tilesX);
-        int atlasTilesX() const { return mAtlasTilesX; }
+        int atlasTilesX() const { return set().atlasTilesX; }
         void setAtlasPadding(float x, float y);
-        Math::Vec2 atlasPadding() const { return Math::Vec2(mAtlasPaddingX, mAtlasPaddingY); }
+        Math::Vec2 atlasPadding() const { return Math::Vec2(set().paddingX, set().paddingY); }
         void setAtlasGap(float x, float y);
-        Math::Vec2 atlasGap() const { return Math::Vec2(mAtlasGapX, mAtlasGapY); }
+        Math::Vec2 atlasGap() const { return Math::Vec2(set().gapX, set().gapY); }
         void setTile(int x, int y, int atlasTileId);
         void setCollision(int x, int y, bool solid);
         bool loadTMX(Assets &assets, const char *tmxPath, const char *textureName = "tmx_tiles");
         int getTile(int x, int y) const;
+        // Solid by the cell's own flag or by its tile's.
         bool hasCollision(int x, int y) const;
+        // The cell's own flag only, as painted.
+        bool cellCollision(int x, int y) const;
         void clearCollision();
         void setCullRect(float x, float y, float width, float height);
         void clearCullRect();
@@ -79,32 +62,38 @@ namespace k2d
         // eight around it, the tile whose neighbours match.
         int addTerrain(const ct::String &name);
         void removeTerrain(int terrain);
-        int terrainCount() const { return static_cast<int>(mTerrainNames.size()); }
+        int terrainCount() const { return static_cast<int>(set().terrainNames.size()); }
         const ct::String &terrainName(int terrain) const;
         void setTerrainName(int terrain, const ct::String &name);
         // A terrain below 0 takes the tile out of every terrain.
         void setTileTerrain(int tile, int terrain, unsigned char bits);
         bool tileTerrain(int tile, int &terrain, unsigned char &bits) const;
-        const ct::Vector<TerrainTile> &terrainTiles() const { return mTerrainTiles; }
+        const ct::Vector<TerrainTile> &terrainTiles() const { return set().terrainTiles; }
         // The terrain of the cell's tile, or -1.
         int terrainAt(int x, int y) const;
         // Below 0 clears the cell; the neighbours follow either way.
         void paintTerrain(int x, int y, int terrain);
 
+        // The texture, the cutting, the terrains, the solid and the animated
+        // tiles: the map's own, or a .k2dtileset shared with other maps. Every
+        // setter above writes to the one in use. Leaving a shared set keeps a
+        // copy of it as the map's own.
+        const TileSet &tileSet() const { return set(); }
+        TileSet &editTileSet();
+        void setSharedTileSet(TileSet *shared);
+        TileSet *sharedTileSet() const { return mSharedSet; }
+        // A tile of the tileset that every cell holding it makes solid.
+        void setTileSolid(int tile, bool solid);
+        bool tileSolid(int tile) const { return set().tileSolid(tile); }
+
     protected:
         void onRender(RenderQueue &queue) override;
 
     private:
-        Texture *mTexture;
-        float mCellW;
-        float mCellH;
+        const TileSet &set() const { return mSharedSet ? *mSharedSet : mOwnSet; }
+
         int mColumns;
         int mRows;
-        int mAtlasTilesX;
-        float mAtlasPaddingX;
-        float mAtlasPaddingY;
-        float mAtlasGapX;
-        float mAtlasGapY;
         ct::Vector<int> mCells;
         ct::Vector<unsigned char> mCollision;
         float mCullX;
@@ -113,8 +102,8 @@ namespace k2d
         float mCullH;
         bool mCullEnabled;
         BlendMode mBlendMode;
-        ct::Vector<ct::String> mTerrainNames;
-        ct::Vector<TerrainTile> mTerrainTiles;
+        TileSet mOwnSet;
+        TileSet *mSharedSet = nullptr;
 
         void fitTerrainCell(int x, int y);
     };

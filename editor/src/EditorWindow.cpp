@@ -470,6 +470,7 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         commit(label);
         mInspectorStale = true;
     });
+    mTilePainter->saveTileSetRequested.connect([this]() { showSaveTileSetDialog(); });
     mSettings = mRightBar->addPage<SettingsPanel>(Icons::get("Settings"), kSettingsPanel);
     mSettings->changed.connect([this](const SceneSettings& settings, bool project)
     {
@@ -962,6 +963,47 @@ void EditorWindow::showSaveDialog()
     });
 }
 
+// The selected map's tiles into a .k2dtileset, which the map then shares.
+void EditorWindow::showSaveTileSetDialog()
+{
+    TileMapComponent* map = mSelected ? mSelected->getComponent<TileMapComponent>() : nullptr;
+    if (!map || mPlaying)
+        return;
+    auto* dialog = mApp->addFloat<rt::FileDialog>("Save tileset");
+    dialog->setMode(rt::FileDialog::Mode::Save);
+    dialog->setFilter("*.k2dtileset");
+    dialog->setPath(mProjectRoot.empty() ? EditorFileSystem::currentDirectory() : mProjectRoot);
+    const char* texture = mAssets.FindTextureName(map->texture());
+    dialog->setFileName(texture ? EditorFileSystem::withoutExtension(EditorFileSystem::fileName(texture)) + ".k2dtileset"
+                                : ct::String("tiles.k2dtileset"));
+    dialog->setRect({160.0f, 80.0f, 900.0f, 540.0f});
+    const std::uint32_t id = mSelected->id();
+    dialog->accepted.connect([this, id](const rt::String& chosen)
+    {
+        GameObject* object = mSelected && mSelected->id() == id ? mSelected : nullptr;
+        TileMapComponent* tiles = object ? object->getComponent<TileMapComponent>() : nullptr;
+        if (!tiles)
+            return;
+        ct::String path = chosen;
+        if (EditorFileSystem::extension(path) != "k2dtileset")
+            path += ".k2dtileset";
+        if (!tiles->tileSet().save(path.c_str(), &mAssets))
+        {
+            log_error("Could not save %s", path.c_str());
+            return;
+        }
+        const ct::String name = mProjectRoot.empty() ? path : EditorFileSystem::relativeTo(mProjectRoot, path);
+        TileSet* shared = mAssets.LoadTileSet(name.c_str());
+        if (!shared)
+            return;
+        tiles->setSharedTileSet(shared);
+        log_info("Saved %s; the map now shares it", name.c_str());
+        mAssetsPanel->refresh();
+        showObject(object);
+        commit("Use tileset");
+    });
+}
+
 void EditorWindow::frame(float deltaTime, float pixelScale)
 {
     Profiler::Get().beginFrame();
@@ -1344,6 +1386,9 @@ void EditorWindow::commit(const char* label)
     mCommands.push(label, snapshot());
     updateUndoButtons();
     markDirty(true);
+    // A shared tileset is the file's: what the edit changed in it goes there now.
+    if (mAssets.SaveTileSets() > 0)
+        mAssetsPanel->refresh();
 }
 
 void EditorWindow::undo()
