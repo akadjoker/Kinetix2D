@@ -38,10 +38,14 @@ struct WaterEffect
     Color tint = Color(0.78f, 0.92f, 1.0f, 1.0f);
     float highlight = 0.24f;
 
+    // Two effects that are off draw alike whatever their settings, so a batch
+    // of plain sprites never compares them.
     bool operator==(const WaterEffect& other) const
     {
-        return enabled == other.enabled && strength == other.strength && normalScale == other.normalScale &&
-               flowA == other.flowA && flowB == other.flowB && tint == other.tint && highlight == other.highlight;
+        if (enabled != other.enabled)
+            return false;
+        return !enabled || (strength == other.strength && normalScale == other.normalScale && flowA == other.flowA &&
+                            flowB == other.flowB && tint == other.tint && highlight == other.highlight);
     }
     bool operator!=(const WaterEffect& other) const
     {
