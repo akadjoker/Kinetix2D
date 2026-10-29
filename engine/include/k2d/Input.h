@@ -132,6 +132,9 @@ class Input
     void OnMouseMove(float x, float y);
     void OnWheel(float y);
     void OnTouch(long long id, float x, float y, bool down, bool up);
+    // Where there is no mouse (Android), the first finger down is the mouse and
+    // its left button until it lifts, so mouse-driven games work by touch.
+    void SetTouchAsMouse(bool on) { mTouchAsMouse = on; }
     // Synthesized input is kept independent from physical keyboard state,
     // allowing touch controls to share the same game actions safely.
     void SetVirtualKey(int scancode, bool down);
@@ -264,6 +267,9 @@ class Input
     float mMouseY;
     float mWheelY;
     Touch mTouch[MAX_TOUCH];
+    bool mTouchAsMouse = false;
+    bool mMouseTouchActive = false;
+    long long mMouseTouch = 0;
 
     struct Pad
     {

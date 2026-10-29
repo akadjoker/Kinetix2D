@@ -123,6 +123,9 @@ Device::~Device()
 
 bool Device::Init(const char* title, int width, int height, bool vsync)
 {
+#if defined(__ANDROID__)
+    mInput.SetTouchAsMouse(true);
+#endif
     if (!platform_init())
     {
         log_error("platform_init failed: %s", platform_get_error());

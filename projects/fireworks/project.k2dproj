@@ -1,7 +1,9 @@
 {
-  "name": "projects",
-  "startupScene": "",
-  "scenes": [],
+  "name": "fireworks",
+  "startupScene": "scenes/scene.k2dscene",
+  "scenes": [
+    "scenes/scene.k2dscene"
+  ],
   "physics": {
     "gravity": [
       0.0,

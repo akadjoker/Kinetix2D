@@ -104,6 +104,14 @@ namespace k2d
 
     void Input::OnTouch(long long id, float x, float y, bool down, bool up)
     {
+        if (mTouchAsMouse && (mMouseTouchActive ? id == mMouseTouch : down))
+        {
+            OnMouseMove(x, y);
+            if (down || up)
+                OnMouseButton(0, down);
+            mMouseTouchActive = down || (!up && mMouseTouchActive);
+            mMouseTouch = id;
+        }
         if (down)
         {
             int freeSlot = -1;

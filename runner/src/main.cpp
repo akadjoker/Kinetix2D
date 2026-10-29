@@ -52,12 +52,29 @@ struct PhysicsConfig
     bool treeBroadphase = true;
 };
 
-k2d::GameViewport gameViewportFor(const k2d::CameraComponent* camera, float outputWidth, float outputHeight)
+// On Android the window is the whole screen in physical pixels, not the size the
+// project asked for, so a camera that follows the window (resolution 0) gets the
+// project's screen as its resolution, scaled to fill the display.
+k2d::GameViewport gameViewportFor(const k2d::CameraComponent* camera, float outputWidth, float outputHeight,
+                                  float displayWidth, float displayHeight)
 {
+    float width = camera ? camera->viewportWidth() : 0.0f;
+    float height = camera ? camera->viewportHeight() : 0.0f;
+#if defined(__ANDROID__)
+    if (width <= 0.0f || height <= 0.0f)
+    {
+        width = displayWidth;
+        height = displayHeight;
+    }
+#else
+    (void)displayWidth;
+    (void)displayHeight;
+#endif
     if (!camera)
-        return k2d::CalculateGameViewport(outputWidth, outputHeight, outputWidth, outputHeight);
-    return k2d::CalculateGameViewport(outputWidth, outputHeight, camera->viewportWidth(), camera->viewportHeight(),
-                                      camera->viewportScaleMode(), camera->integerScale());
+        return k2d::CalculateGameViewport(outputWidth, outputHeight, width > 0.0f ? width : outputWidth,
+                                          height > 0.0f ? height : outputHeight);
+    return k2d::CalculateGameViewport(outputWidth, outputHeight, width, height, camera->viewportScaleMode(),
+                                      camera->integerScale());
 }
 
 void setGlViewport(const k2d::GameViewport& viewport)
@@ -442,10 +459,10 @@ static int run(int argc, char** argv)
     // The game lives in statics: on the web the browser calls the frame after
     // main has given its stack back.
     static k2d::Device device;
-    int windowWidth = 1280;
-    int windowHeight = 720;
-    loadDisplay(projectPath.c_str(), windowWidth, windowHeight);
-    if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), windowWidth, windowHeight, true))
+    static int displayWidth = 1280;
+    static int displayHeight = 720;
+    loadDisplay(projectPath.c_str(), displayWidth, displayHeight);
+    if (!device.Init(title.empty() ? "Kinetix2D Game" : title.c_str(), displayWidth, displayHeight, true))
         return 1;
     static k2d::UserData userData;
     const ct::String projectName(path_filename(projectRoot.c_str()));
@@ -562,7 +579,12 @@ static int run(int argc, char** argv)
                         return false;
                     k2d::Profiler::Get().beginFrame();
                     k2d::GetZenDebugger().Poll();
-                    if (device.GetInput().KeyPressed((int)k2d::Key::F5))
+                    // F5, or three fingers on a screen with no keyboard.
+                    static int lastTouches = 0;
+                    const int touches = device.GetInput().TouchCount();
+                    const bool threeFingers = touches >= 3 && lastTouches < 3;
+                    lastTouches = touches;
+                    if (device.GetInput().KeyPressed((int)k2d::Key::F5) || threeFingers)
                     {
                         profilerVisible = !profilerVisible;
                         k2d::SetZenScriptProfilerVisible(profilerVisible);
@@ -592,7 +614,9 @@ static int run(int argc, char** argv)
                     const float drawableWidth = static_cast<float>(device.DrawableWidth());
                     const float drawableHeight = static_cast<float>(device.DrawableHeight());
                     k2d::CameraComponent* camera = scene.activeCamera();
-                    k2d::GameViewport renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight);
+                    k2d::GameViewport renderViewport =
+                        gameViewportFor(camera, drawableWidth, drawableHeight, static_cast<float>(displayWidth),
+                                        static_cast<float>(displayHeight));
                     k2d::GameViewport inputViewport =
                         inputViewportFor(renderViewport, windowWidth, windowHeight, drawableWidth, drawableHeight);
                     if (camera)
@@ -615,7 +639,9 @@ static int run(int argc, char** argv)
                     k2d::DispatchZenScriptEvents(scene.root());
 
                     camera = scene.activeCamera();
-                    renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight);
+                    renderViewport = gameViewportFor(camera, drawableWidth, drawableHeight,
+                                                     static_cast<float>(displayWidth),
+                                                     static_cast<float>(displayHeight));
                     inputViewport =
                         inputViewportFor(renderViewport, windowWidth, windowHeight, drawableWidth, drawableHeight);
                     if (camera)
