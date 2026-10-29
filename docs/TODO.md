@@ -43,6 +43,21 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Molduras de todas as câmaras (a activa mais forte, com ecrã e limites), resolução 0 = tamanho da janela, posição do objecto em edição, ecrã sem câmara à volta da origem — visto no ecrã com `import -window` (`981cc28`)
 - [x] Rótulos das molduras com fundo escuro, legíveis sobre cenas iluminadas (`6284bda`)
 
+### Lacunas encontradas ao escrever o manual (`documentation/editor/`)
+
+- [ ] Trabalho perdido sem aviso: o Image Editor e o Sprite Editor gravam sozinhos ao abrir outra imagem; sair do editor não pergunta por pixels, regiões nem scripts (`ScriptEditorPanel::hasUnsaved` nunca é chamado)
+- [ ] Regiões do Sprite Editor sem undo
+- [ ] Image Editor grava sempre PNG, mesmo num `.jpg`/`.bmp`/`.tga`
+- [ ] `set_collision` de um TileMap em Play não chega à física (as formas só se fazem quando o corpo nasce)
+- [ ] Componentes Ui* adicionam-se mas não têm secção no Inspector; MotionTween2D e MotionStreak2D estão no ClassDB mas não no Add Component
+- [ ] Add Component sem descrições (o ClassDB não tem campo para elas)
+- [ ] Assets sem criar pasta, renomear ou apagar
+- [ ] Animator: sem UI para eventos, offsets e pontos dos frames; marcar para arrancar um clip ainda sem frames deixa-o parado
+- [ ] Skeleton: duplo clique, mute/lock e Delete na timeline não mexem no clip; apagar o clip do `autoplay` deixa o nome; renomear um osso deixa as pistas órfãs
+- [ ] Atlas: imagens com o mesmo nome em pastas diferentes perdem a região em silêncio
+- [ ] Menu Help no editor a abrir o manual
+- [ ] `docs/editor-workflow.md` é do editor ImGui e contradiz o actual em 10 pontos: substituir por um apontador para o manual
+
 ## Decisões em aberto
 
 - [ ] `demo/` (ainda ImGui/SDL, fora do build): portar ou apagar
