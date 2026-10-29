@@ -95,6 +95,15 @@ jobs:
       - name: Install release tree
         run: cmake --install build --config Release --prefix "stage/Kinetix2D-${{ matrix.name }}"
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Add the manual
+        run: |
+          python -m pip install -r documentation/requirements.txt
+          python -m sphinx -q -b html documentation "stage/Kinetix2D-${{ matrix.name }}/bin/docs"
+
       - name: Add the web runner
         uses: actions/download-artifact@v4
         with:

@@ -76,6 +76,9 @@ public:
     void requestNewScene();
     void requestOpenScene(const ct::String& path);
     void requestQuit();
+    // A page of the manual in the browser: docs/ beside the editor (a release)
+    // or the Sphinx build of documentation/ (a source tree).
+    void openManual(const char* page);
     bool editingPrefab() const { return mPrefabMode.active; }
     void frame(float deltaTime, float pixelScale);
     void shutdown();

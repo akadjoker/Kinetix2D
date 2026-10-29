@@ -205,6 +205,10 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
     rt::Menu* view = menuBar->addMenu("View");
     rt::MenuAction* resetLayout = view->addAction("Reset Layout");
     resetLayout->triggered.connect([this]() { this->resetLayout(); });
+    rt::Menu* help = menuBar->addMenu("Help");
+    help->addAction("Editor Manual", [this]() { openManual("editor/index.html"); })->setShortcut("F1");
+    help->addAction("Scripting Reference", [this]() { openManual("scripting/reference.html"); });
+    help->addAction("C++ API", [this]() { openManual("cpp/index.html"); });
 
     // The tools and a filler share the row equally, so the run bar between them
     // sits in the middle of the window.
@@ -728,6 +732,12 @@ void EditorWindow::onShortcut(rt::KeyEvent& e)
     if (key == rt::Key::F1 + 5)   // F6
     {
         runInWindow();
+        e.consumed = true;
+        return;
+    }
+    if (key == rt::Key::F1)
+    {
+        openManual("editor/index.html");
         e.consumed = true;
         return;
     }

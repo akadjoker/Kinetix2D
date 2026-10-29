@@ -235,6 +235,22 @@ void EditorWindow::showOpenProjectDialog()
     });
 }
 
+void EditorWindow::openManual(const char* page)
+{
+    const ct::String roots[2] = {besideEditor("docs"), besideEditor("../documentation/_build/html")};
+    for (const ct::String& root : roots)
+    {
+        const ct::String path = EditorFileSystem::join(root, page);
+        if (!EditorFileSystem::exists(path))
+            continue;
+        if (!open_url(path.c_str()))
+            log_warn("Open %s in a browser", path.c_str());
+        return;
+    }
+    log_warn("The manual is not built: sphinx-build -b html documentation documentation/_build/html "
+             "(pip install -r documentation/requirements.txt first)");
+}
+
 bool EditorWindow::setStartupScene()
 {
     const ct::String projectFile = EditorFileSystem::join(mProjectRoot, kProjectFile);
