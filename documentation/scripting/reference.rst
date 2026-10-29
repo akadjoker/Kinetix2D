@@ -312,7 +312,7 @@ offset.
    Returns True while a shake is active.
 
 The ``RigidBody`` class
-----------------------
+-----------------------
 
 ``RigidBody`` wraps a RigidBody2D. Impulses divide by mass, so the numbers are not
 velocities: a 40x40 box at density 1 has mass 1600 and

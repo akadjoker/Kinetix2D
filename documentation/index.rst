@@ -16,6 +16,12 @@ here exists in the source.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Editor
+
+   editor/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: Scripting
 
    scripting/index
