@@ -7,11 +7,16 @@
 # name defaults to the project folder of <project>/export/<target>/data.kpak,
 # package to org.kinetix2d.<name>;
 # "run" installs the APK on the connected device and starts it.
+# K2D_APK_TARGET=k2d_light_benchmark (or k2d_performance_benchmark) packs that
+# library instead of the runner; data.kpak is then "-", and the results go to
+# logcat (adb logcat -s zen_platform).
 # ANDROID_HOME and ANDROID_NDK_HOME default to ~/android/android-sdk and
 # ~/android/android-ndk-r30.
 set -euo pipefail
 
-PACK=$(realpath "${1:?usage: build-apk.sh data.kpak [name] [package] [run]}")
+PACK=${1:?usage: build-apk.sh data.kpak [name] [package] [run]}
+[ "$PACK" = - ] || PACK=$(realpath "$PACK")
+TARGET=${K2D_APK_TARGET:-k2d_runner}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SDK=${ANDROID_HOME:-$HOME/android/android-sdk}
 NDK=${ANDROID_NDK_HOME:-$HOME/android/android-ndk-r30}
@@ -35,12 +40,17 @@ cmake -S "$ROOT" -B "$OUT" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=$ABI -DANDROID_PLATFORM=android-26 \
     -DCMAKE_BUILD_TYPE=Release -DK2D_RUNTIME_OUTPUT_DIRECTORY="$OUT/bin" > /dev/null
-ninja -C "$OUT" k2d_runner
+ninja -C "$OUT" "$TARGET"
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/lib/$ABI" "$STAGE/assets"
-"$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" -o "$STAGE/lib/$ABI/libk2d_runner.so" "$OUT/runner/libk2d_runner.so"
-cp "$PACK" "$STAGE/assets/data.kpak"
+LIB=$(find "$OUT" -name "lib$TARGET.so" -not -path "$STAGE/*" | head -1)
+"$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" -o "$STAGE/lib/$ABI/lib$TARGET.so" "$LIB"
+ASSETS=()
+if [ "$PACK" != - ]; then
+    cp "$PACK" "$STAGE/assets/data.kpak"
+    ASSETS=(-A "$STAGE/assets")
+fi
 
 cat > "$STAGE/AndroidManifest.xml" <<XML
 <?xml version="1.0" encoding="utf-8"?>
@@ -54,7 +64,7 @@ cat > "$STAGE/AndroidManifest.xml" <<XML
         <activity android:name="android.app.NativeActivity" android:exported="true"
             android:screenOrientation="sensorLandscape" android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode">
-            <meta-data android:name="android.app.lib_name" android:value="k2d_runner" />
+            <meta-data android:name="android.app.lib_name" android:value="$TARGET" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,7 +76,7 @@ XML
 
 # The pack is compressed already: stored as it is, so the asset is read without inflating.
 "$BUILD_TOOLS/aapt2" link -o "$OUT/unsigned.apk" --manifest "$STAGE/AndroidManifest.xml" \
-    -I "$PLATFORM" -A "$STAGE/assets" -0 kpak --min-sdk-version 26 --target-sdk-version 35
+    -I "$PLATFORM" "${ASSETS[@]}" -0 kpak --min-sdk-version 26 --target-sdk-version 35
 (cd "$STAGE" && zip -q -0 -r "$OUT/unsigned.apk" lib)
 "$BUILD_TOOLS/zipalign" -p -f 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
 if [ ! -f "$KEYSTORE" ]; then

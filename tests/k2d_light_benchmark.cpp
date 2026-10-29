@@ -17,6 +17,8 @@
 #include <k2d/RenderTarget.h>
 #include <k2d/Scene.h>
 
+#include "k2d_bench_report.h"
+
 #include <ct/sort.hpp>
 #include <ct/vector.hpp>
 
@@ -147,20 +149,21 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
     for (double t : times)
         total += t;
     ct::sort(times.begin(), times.end());
-    std::printf("%-36s avg %7.3f ms  p95 %7.3f ms  batch draws %4zu  lights %2u  culled %5zu\n", c.name,
-                total / static_cast<double>(times.size()), times[times.size() * 95 / 100], drawCalls,
-                (unsigned)lights, culled);
+    k2d_tests::report("%-36s avg %7.3f ms  p95 %7.3f ms  batch draws %4zu  lights %2u  culled %5zu", c.name,
+                      total / static_cast<double>(times.size()), times[times.size() * 95 / 100], drawCalls,
+                      (unsigned)lights, culled);
     const k2d::Profiler& profiler = k2d::Profiler::Get();
-    std::printf("   ");
-    for (uint32_t i = 0; i < profiler.sampleCount(); ++i)
+    char samples[768] = "   ";
+    std::size_t used = std::strlen(samples);
+    for (uint32_t i = 0; i < profiler.sampleCount() && used < sizeof samples; ++i)
         if (profiler.samples()[i].average > 0.0f)
-            std::printf(" %s %.3f", profiler.samples()[i].name, profiler.samples()[i].average);
-    std::printf("\n");
+            used += static_cast<std::size_t>(std::snprintf(samples + used, sizeof samples - used, " %s %.3f",
+                                                           profiler.samples()[i].name,
+                                                           profiler.samples()[i].average));
+    k2d_tests::report("%s", samples);
 }
 
-} // namespace
-
-int main(int argc, char** argv)
+int benchmark(int argc, char** argv)
 {
     const bool dump = argc > 1 && std::strcmp(argv[1], "--dump") == 0;
     k2d::Device device;
@@ -184,20 +187,38 @@ int main(int argc, char** argv)
         {"8 shadow lights + 2 suns, 200 occl.", 2000, 8, true, 200, k2d::SHADOW_FILTER_PCF5, 1.0f, 2},
     };
     k2d::Profiler::Get().SetEnabled(true);
-    std::printf("GL: %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+    k2d_tests::report("GL: %s | %s", reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                 reinterpret_cast<const char*>(glGetString(GL_VERSION)));
     GLint fragmentVectors = 0, blockSize = 0, fragmentBlocks = 0, textureSize = 0;
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &fragmentVectors);
     glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &blockSize);
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &fragmentBlocks);
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
-    std::printf("limits: fragment uniform vectors %d, uniform block %d bytes, fragment blocks %d, texture %d\n",
-                fragmentVectors, blockSize, fragmentBlocks, textureSize);
+    k2d_tests::report("limits: fragment uniform vectors %d, uniform block %d bytes, fragment blocks %d, texture %d",
+                      fragmentVectors, blockSize, fragmentBlocks, textureSize);
     int index = 0;
     for (const Case& c : cases)
         run(device, canvas, target, c, dump ? index++ : -1);
+    k2d_tests::report("done");
     target.destroy();
     canvas.Shutdown();
     device.Shutdown();
     return 0;
 }
+
+} // namespace
+
+#if defined(__ANDROID__)
+// The platform's android_main calls main() with no arguments.
+int main()
+{
+    char name[] = "k2d_light_benchmark";
+    char* argv[] = {name, nullptr};
+    return benchmark(1, argv);
+}
+#else
+int main(int argc, char** argv)
+{
+    return benchmark(argc, argv);
+}
+#endif

@@ -4,6 +4,8 @@
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
 
+#include "k2d_bench_report.h"
+
 #include <chrono>
 #include <cstdio>
 #include <ct/sort.hpp>
@@ -53,7 +55,7 @@ void printStats(const char* name, ct::Vector<double>& samples)
     for (double sample : samples)
         total += sample;
     const size_t p95Index = (samples.size() * 95) / 100;
-    std::printf("%s_avg_ms=%.4f %s_p95_ms=%.4f\n", name, total / samples.size(), name,
+    k2d_tests::report("%s_avg_ms=%.4f %s_p95_ms=%.4f", name, total / samples.size(), name,
                 samples[p95Index < samples.size() ? p95Index : samples.size() - 1]);
 }
 
@@ -94,7 +96,7 @@ void benchmarkScene()
         renderSamples.push_back(elapsedMs(updateEnd, renderEnd));
     }
 
-    std::printf("scene_objects=%d scene_updates=%d render_items=%zu\n", objectCount, components[0]->updates(),
+    k2d_tests::report("scene_objects=%d scene_updates=%d render_items=%zu", objectCount, components[0]->updates(),
                 scene.renderItemCount());
     printStats("scene_update", updateSamples);
     printStats("scene_render_queue", renderSamples);
@@ -130,7 +132,7 @@ void benchmarkPhysics2D()
         samples.push_back(elapsedMs(start, Clock::now()));
     }
 
-    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", scene.bodyCount(), scene.contactCount());
+    k2d_tests::report("physics2d_bodies=%zu physics2d_contacts=%zu", scene.bodyCount(), scene.contactCount());
     printStats("physics2d_step", samples);
 }
 } // namespace
@@ -139,5 +141,6 @@ int main()
 {
     benchmarkScene();
     benchmarkPhysics2D();
+    k2d_tests::report("done");
     return 0;
 }

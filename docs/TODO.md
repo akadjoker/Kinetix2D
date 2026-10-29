@@ -24,7 +24,12 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Não achatar occluders longe de luzes visíveis (hoje todas as arestas são transformadas todos os frames para detectar mudanças)
 - [ ] Medir na web (WebGL2): o benchmark de luzes já corre no Chrome (`cmake --build build-web --target k2d_light_benchmark`, página em `build-web/bench/`); o `glFinish` do WebGL não espera pela GPU, mede-se com a leitura de um pixel. Falta o runner com um jogo a sério
   - limites no Chrome/ANGLE: 1024 vectores de uniform no fragment, blocos de 64 KB, textura 16384; o mínimo de GLES3/WebGL2 é 224 vectores e 16 KB
-- [ ] Medir em Android: não há build Android nem dispositivo ligado; ver os limites reais (Mali/Adreno) e o custo do loop de 16 luzes
+- [x] Medir em Android (Redmi Pad 2, Mali-G57 MC2, Android 16; `K2D_APK_TARGET=k2d_light_benchmark tools/android/build-apk.sh -`), alvo de 1280x720, contra o desktop (Radeon):
+  - 2000 rects sem luzes 7.8 ms (1.3); com 8 luzes 16.5 (1.9); 8 com sombra e 200 occluders 19.6 (2.6); 16 com sombra, 12 visíveis, 27.2 (2.8); PCF13 29.6 (3.5)
+  - o custo é o fragment shader: cada luz ~1.1 ms a 720p, as sombras ~3 ms no total. Limites: 4096 vectores de uniform no fragment, texturas de 16383
+  - CPU (`k2d_performance_benchmark`): física 1000 caixas 20.2 ms (9.6 no desktop); `scene.update` de 2000 objectos 0.60 ms (0.018), provavelmente num núcleo pequeno
+- [ ] Android: desenhar o jogo à resolução do projecto e escalar para o ecrã (2560x1600 são 4,4 vezes os píxeis de 720p, e as luzes pagam por píxel)
+- [ ] Android: não desenhar com a app em segundo plano (hoje chama o GL sem superfície)
 - [ ] Export: texturas comprimidas (Basis/ASTC) e carregamento de níveis em fundo
 
 ## Luzes 2D
@@ -61,7 +66,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
 - [ ] Android
   - [x] Runner como NativeActivity (`libk2d_runner.so`, arm64-v8a, API 26): o backend Android do zen_plataform, o `data.kpak` lido do APK; `tools/android/build-apk.sh` faz o APK sem Gradle nem Java (aapt2, zipalign, apksigner)
-  - [ ] Correr num dispositivo: ecrã, toque, pausa e retoma, áudio
+  - [x] Correr num dispositivo: ecrã inteiro, modo imersivo (zen_plataform `7a8fcac`), toque como rato, pausa e retoma (`6f31b2e`)
+  - [ ] Áudio no dispositivo
   - [ ] Export Android no editor e no `k2d_export`; ícone e orientação por projecto; armeabi-v7a e x86_64
 
 - [x] Molduras da câmara, do ecrã e dos limites na vista da cena (`021950c`)

@@ -86,7 +86,15 @@ add_executable(k2d_collider_points_tests k2d_collider_points_tests.cpp)
 target_link_libraries(k2d_collider_points_tests PRIVATE k2d_physics2d)
 target_compile_features(k2d_collider_points_tests PRIVATE cxx_std_17)
 
-add_executable(k2d_light_benchmark k2d_light_benchmark.cpp)
+# On Android the benchmarks are NativeActivity libraries (tools/android/build-apk.sh
+# packs them), their results in logcat.
+if(ANDROID)
+    add_library(k2d_light_benchmark SHARED k2d_light_benchmark.cpp)
+    add_library(k2d_performance_benchmark SHARED k2d_performance_benchmark.cpp)
+else()
+    add_executable(k2d_light_benchmark k2d_light_benchmark.cpp)
+    add_executable(k2d_performance_benchmark k2d_performance_benchmark.cpp)
+endif()
 target_link_libraries(k2d_light_benchmark PRIVATE k2d)
 if(EMSCRIPTEN)
     target_link_options(k2d_light_benchmark PRIVATE "-sALLOW_MEMORY_GROWTH=1" "-sMIN_WEBGL_VERSION=2"
@@ -95,7 +103,6 @@ if(EMSCRIPTEN)
                           RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bench)
 endif()
 
-add_executable(k2d_performance_benchmark k2d_performance_benchmark.cpp)
 target_link_libraries(k2d_performance_benchmark PRIVATE k2d k2d_physics2d)
 target_compile_features(k2d_performance_benchmark PRIVATE cxx_std_17)
 
