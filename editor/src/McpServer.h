@@ -63,6 +63,8 @@ private:
     ct::Json skeleton(const ct::Json& arguments, bool& isError);
     ct::Json listAssets(const ct::Json& arguments, bool& isError);
     ct::Json moveAsset(const ct::Json& arguments, bool& isError);
+    ct::Json openAsset(const ct::Json& arguments, bool& isError);
+    ct::Json showPanel(const ct::Json& arguments, bool& isError);
     ct::Json assetReferences(const ct::Json& arguments, bool& isError);
     ct::Json readFile(const ct::Json& arguments, bool& isError);
     ct::Json writeFile(const ct::Json& arguments, bool& isError);

@@ -198,6 +198,7 @@ Its tools read and change the scene, run it, take screenshots and work on the
 project's files. Every change is an undo step in the editor, and nothing is
 saved until you save. ``move_asset`` moves or renames files as the Assets
 tab does and ``asset_references`` says what names one; deleting is left to
-you. ``breakpoint`` and ``debug`` drive the script debugger:
+you. ``open_asset`` opens a file in its editor and ``show_panel`` brings a
+tab to the front. ``breakpoint`` and ``debug`` drive the script debugger:
 set breakpoints, start a debug session, step, and read where the game stopped
 with its locals.

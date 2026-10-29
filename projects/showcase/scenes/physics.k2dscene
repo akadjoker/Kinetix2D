@@ -1,0 +1,3924 @@
+{
+  "root": {
+    "name": "Physics Demo",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0,
+      0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Ground",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0,
+          320
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "static",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 8,
+              "mask": 65535,
+              "size": [
+                1240,
+                40
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                1240,
+                40
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                70,
+                78,
+                96,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ramp Left",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -420,
+          40
+        ],
+        "rotation": 18.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "static",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 8,
+              "mask": 65535,
+              "size": [
+                360,
+                24
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                360,
+                24
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                70,
+                78,
+                96,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ramp Right",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          430,
+          -60
+        ],
+        "rotation": -22.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "static",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 8,
+              "mask": 65535,
+              "size": [
+                320,
+                24
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                320,
+                24
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                70,
+                78,
+                96,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 0",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -90.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -40.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          10.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          60.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 4",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          110.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 5",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          160.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 6",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          210.0,
+          280
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 7",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -65.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 8",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -15.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 9",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          35.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 10",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          85.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 11",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          135.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 12",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          185.0,
+          230
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 13",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -40.0,
+          180
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 14",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          10.0,
+          180
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 15",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          60.0,
+          180
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 16",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          110.0,
+          180
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 17",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          160.0,
+          180
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 18",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -15.0,
+          130
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 19",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          35.0,
+          130
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 20",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          85.0,
+          130
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 21",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          135.0,
+          130
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 22",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          10.0,
+          80
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 23",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          60.0,
+          80
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 24",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          110.0,
+          80
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 25",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          35.0,
+          30
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 26",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          85.0,
+          30
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Box 27",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          60.0,
+          -20
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                46,
+                46
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                46,
+                46
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 0",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -197.30730338685817,
+          -374.74524782264945
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 21.113082622557954
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 21.113082622557954,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -478.8713589323521,
+          -259.2353987079932
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 17.119644836776196
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 17.119644836776196,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -495.0412042523284,
+          -267.7692800431739
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 12.524939218187788
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 12.524939218187788,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -74.31683429812784,
+          -399.0433729276143
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 13.269982186814111
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 13.269982186814111,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 4",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -84.53850816038437,
+          -171.94436259838858
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 13.733227456095038
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 13.733227456095038,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 5",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -309.97235964014374,
+          -231.7700332783232
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 25.26792519439808
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 25.26792519439808,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 6",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          86.3553024515985,
+          -300.99585760476594
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 25.66757147830088
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 25.66757147830088,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 7",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -507.827397708113,
+          -162.45946228539617
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 16.054530008643468
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 16.054530008643468,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 8",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -398.43430663966996,
+          -384.6623285764895
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 16.31874553742708
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 16.31874553742708,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 9",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          354.0615222144352,
+          -365.78208602281876
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 20.14240229127453
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 20.14240229127453,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 10",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          155.5830851973261,
+          -308.28073718228063
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 19.66842251993381
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 19.66842251993381,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 11",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -489.6763480298781,
+          -402.1196490101302
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 14.883421979470572
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 14.883421979470572,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 12",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          202.04796996360017,
+          -291.72230829917913
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 16.39806038527508
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 16.39806038527508,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 13",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          95.82928712855539,
+          -284.04468708876743
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 16.196737956091553
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 16.196737956091553,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 14",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          329.70501930519015,
+          -210.30166988112862
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 15.41735115011014
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 15.41735115011014,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 15",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          83.35455548971152,
+          -262.4410488565646
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 24.251924938028004
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 24.251924938028004,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 16",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          256.97872417192366,
+          -333.61867053294407
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 25.72244786489615
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 25.72244786489615,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 17",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -427.7663283544424,
+          -294.5631534644318
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 22.59997301391349
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 22.59997301391349,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 18",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -389.77732118023465,
+          -273.3110698572583
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 12.548901598664127
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 12.548901598664127,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 19",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          188.40175931852264,
+          -190.62874013615607
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 20.022363163883377
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 20.022363163883377,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 20",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          420.5351492505948,
+          -325.875746145571
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 21.73413512783123
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 21.73413512783123,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Ball 21",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          105.69426235762069,
+          -246.03143871525234
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "radius": 18.386874638219783
+            }
+          },
+          {
+            "type": "CircleShape",
+            "data": {
+              "radius": 18.386874638219783,
+              "segments": 32,
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 0",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -332.00644389749175,
+          -158.2978357338094
+        ],
+        "rotation": 21.334425183884,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -367.1695589050651,
+          -290.89958586041706
+        ],
+        "rotation": 31.567140958699074,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -370.5742290944662,
+          -151.0356090800049
+        ],
+        "rotation": 36.98661539743717,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                120,
+                220,
+                160,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -443.08089358117013,
+          -242.1312836329934
+        ],
+        "rotation": 30.08937221478847,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                245,
+                180,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 4",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -495.48741438888226,
+          -230.74570705503513
+        ],
+        "rotation": 7.562177050794505,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                255,
+                95,
+                162,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Crate 5",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          -476.5808411036536,
+          -291.15683710030345
+        ],
+        "rotation": 34.570484481263435,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RigidBody2D",
+            "data": {
+              "bodyType": "dynamic",
+              "density": 1.0,
+              "friction": 0.4,
+              "restitution": 0.1,
+              "linearDamping": 0.0,
+              "angularDamping": 0.0,
+              "gravityScale": 1.0,
+              "fixedRotation": false,
+              "bullet": false
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "data": {
+              "offset": [
+                0,
+                0
+              ],
+              "sensor": false,
+              "category": 16,
+              "mask": 65535,
+              "size": [
+                34,
+                34
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                34,
+                34
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                85,
+                175,
+                255,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  }
+}

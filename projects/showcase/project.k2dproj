@@ -1,0 +1,40 @@
+{
+  "name": "showcase",
+  "startupScene": "scenes/lights.k2dscene",
+  "scenes": [
+    "scenes/main.k2dscene",
+    "scenes/physics.k2dscene",
+    "scenes/lights.k2dscene"
+  ],
+  "physics": {
+    "gravity": [
+      0,
+      980
+    ],
+    "fixedTimeStep": 0.016666666666666666,
+    "velocityIterations": 8,
+    "treeBroadphase": true,
+    "layers": [
+      "default",
+      "player",
+      "enemy",
+      "ground",
+      "props",
+      "pickups",
+      "sensors",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "display": {
+    "width": 1280,
+    "height": 720
+  }
+}

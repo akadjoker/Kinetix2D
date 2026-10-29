@@ -719,18 +719,23 @@ void EditorWindow::feedGameMouse()
 {
     int mx = 0, my = 0;
     mouse_position(mWindow, &mx, &my);
-    mGameInput.OnMouseMove(static_cast<float>(mx), static_cast<float>(my));
+    if (mx != mRealMouseX || my != mRealMouseY)
+    {
+        mRealMouseX = mx;
+        mRealMouseY = my;
+        mGameInput.OnMouseMove(static_cast<float>(mx), static_cast<float>(my));
+    }
     const rt::Rect area = mGame->absoluteRect();
     const bool over = mGame->isVisible() && mx >= area.x && my >= area.y && mx < area.x + area.w &&
                       my < area.y + area.h;
     const int platformButtons[3] = {MOUSE_LEFT, MOUSE_RIGHT, MOUSE_MIDDLE};
-    for (int platformButton : platformButtons)
+    for (int i = 0; i < 3; ++i)
     {
-        const int button = InputButtonFromPlatform(platformButton);
-        const bool held = mGameInput.MouseDown(button);
-        const bool down = mouse_button_down(mWindow, platformButton) && (over || held);
-        if (down != held)
-            mGameInput.OnMouseButton(button, down);
+        const bool down = mouse_button_down(mWindow, platformButtons[i]) && (over || mRealButtons[i]);
+        if (down == mRealButtons[i])
+            continue;
+        mRealButtons[i] = down;
+        mGameInput.OnMouseButton(InputButtonFromPlatform(platformButtons[i]), down);
     }
 }
 

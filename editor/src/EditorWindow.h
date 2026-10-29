@@ -96,6 +96,11 @@ public:
     // A platform event, as the window reads it: during Play it reaches the game.
     void onPlatformEvent(const Event& event);
     void feedGameMouse();
+    // The real pointer as last fed to the game: only its changes are, so a
+    // press or position given through MCP holds until the mouse moves.
+    int mRealMouseX = -1;
+    int mRealMouseY = -1;
+    bool mRealButtons[3] = {false, false, false};
 
 private:
     ct::String findProjectRoot(const ct::String& sceneDirectory) const;
