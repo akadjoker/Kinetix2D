@@ -94,7 +94,7 @@ public:
             command.color = primitive.color;
             command.polygonPoints = &primitive.points;
             command.polygonPointCount = (unsigned int)primitive.points.size();
-            item.commands.push_back(command);
+            item.commands.push_back(ct::detail::move(command));
         }
     }
 

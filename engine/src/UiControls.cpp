@@ -163,7 +163,7 @@ namespace k2d
         command.pivotY = 0.0f;
         command.color = color;
         command.lightMask = kUnlitLightMask;
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::addThemeRect(RenderItem &item, float x, float y, float width, float height,
@@ -182,7 +182,7 @@ namespace k2d
         command.texHeight = gUiThemeTexture->Height();
         command.color = color;
         command.lightMask = kUnlitLightMask;
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::addText(RenderItem &item, float x, float y, float size, const ct::String &text, const Color &color) const
@@ -197,7 +197,7 @@ namespace k2d
         command.text = text;
         command.color = color;
         command.lightMask = kUnlitLightMask;
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::onUiInput(bool, bool, bool) {}

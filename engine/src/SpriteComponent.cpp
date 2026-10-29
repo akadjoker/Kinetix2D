@@ -116,7 +116,7 @@ void SpriteComponent::onRender(RenderQueue& queue)
     rect.customProgram = mMaterial.customShader();
     rect.water = mMaterial.water();
     item.blendMode = mMaterial.blendMode();
-    item.commands.push_back(rect);
+    item.commands.push_back(ct::detail::move(rect));
 }
 
 void SpriteComponent::setYSort(bool ySort)

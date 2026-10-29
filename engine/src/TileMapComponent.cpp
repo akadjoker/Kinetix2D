@@ -306,7 +306,7 @@ void TileMapComponent::onRender(RenderQueue& queue)
             rect.texHeight = atlasH;
             rect.pivotX = 0.0f;
             rect.pivotY = 0.0f;
-            item.commands.push_back(rect);
+            item.commands.push_back(ct::detail::move(rect));
         }
     }
 }

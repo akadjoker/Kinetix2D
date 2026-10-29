@@ -233,7 +233,7 @@ namespace k2d
                 command.pivotX = 0.5f;
                 command.pivotY = 0.5f;
                 command.color = colorAt(j);
-                item.commands.push_back(command);
+                item.commands.push_back(ct::detail::move(command));
             }
         }
     }

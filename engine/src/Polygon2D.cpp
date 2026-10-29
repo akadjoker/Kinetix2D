@@ -70,7 +70,7 @@ namespace k2d
         command.color = mColor;
         command.polygonPoints = &mTriangles;
         command.polygonPointCount = (unsigned int)mTriangles.size();
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
     }
 
 

@@ -35,7 +35,7 @@ namespace k2d
             command.texWidth = texture.Width();
             command.texHeight = texture.Height();
             command.color = color;
-            item.commands.push_back(command);
+            item.commands.push_back(ct::detail::move(command));
         }
     }
 
@@ -316,7 +316,7 @@ namespace k2d
                 command.pivotX = 0.0f;
                 command.pivotY = 0.0f;
                 command.color = key.down ? Color(1.0f, 0.55f, 0.2f, 0.78f) : Color(0.12f, 0.18f, 0.30f, 0.64f);
-                item.commands.push_back(command);
+                item.commands.push_back(ct::detail::move(command));
             }
         overlay.Flush(canvas);
     }

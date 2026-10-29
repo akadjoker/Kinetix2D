@@ -87,7 +87,7 @@ namespace k2d
         command.pivotY = 0.0f;
         command.color = Color::FromBytes(mColorR, mColorG, mColorB,
                                          static_cast<unsigned char>(mAlpha >= 1.0f ? 255.0f : mAlpha * 255.0f));
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
         overlay.Flush(canvas);
     }
 

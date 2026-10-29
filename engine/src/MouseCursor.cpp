@@ -39,7 +39,7 @@ namespace k2d
         command.texHeight = mTexture->Height();
         command.pivotX = 0.0f;
         command.pivotY = 0.0f;
-        item.commands.push_back(command);
+        item.commands.push_back(ct::detail::move(command));
         overlay.Flush(canvas);
     }
 

@@ -337,7 +337,7 @@ int natDrawLine(zen::VM*, zen::Value* args, int nargs)
                      (float)zen::to_number(args[2]), (float)zen::to_number(args[3]),
                      nargs >= 5 ? (float)zen::to_number(args[4]) : 1.0f);
     if (!command.ownedPolygonPoints.empty())
-        item->commands.push_back(command);
+        item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -372,7 +372,7 @@ int natDrawRect(zen::VM*, zen::Value* args, int nargs)
         addLineTriangles(command.ownedPolygonPoints, x + width, y + height, x, y + height, thickness);
         addLineTriangles(command.ownedPolygonPoints, x, y + height, x, y, thickness);
     }
-    item->commands.push_back(command);
+    item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -414,7 +414,7 @@ int natDrawCircle(zen::VM*, zen::Value* args, int nargs)
             addLineTriangles(command.ownedPolygonPoints, x0, y0, x1, y1, thickness);
         }
     }
-    item->commands.push_back(command);
+    item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -431,7 +431,7 @@ int natDrawText(zen::VM* vm, zen::Value* args, int nargs)
     command.color = gZenDrawContext->color;
     command.text = zen::safe_string_chars(args[2]);
     if (command.width > 0.0f && !command.text.empty())
-        item->commands.push_back(command);
+        item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 

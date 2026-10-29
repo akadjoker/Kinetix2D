@@ -130,7 +130,7 @@ void CapsuleShape::onRender(RenderQueue &queue)
     command.color = mColor;
     command.polygonPoints = &mTriangles;
     command.polygonPointCount = (unsigned int)mTriangles.size();
-    item.commands.push_back(command);
+    item.commands.push_back(ct::detail::move(command));
 }
 
 bool CapsuleShape::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const

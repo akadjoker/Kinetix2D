@@ -77,7 +77,7 @@ void MotionStreak2D::onRender(RenderQueue& queue)
         c.ownedPolygonPoints.push_back(a.position - n * h);
         c.ownedPolygonPoints.push_back(b.position + n * h);
         c.ownedPolygonPoints.push_back(b.position - n * h);
-        item.commands.push_back(c);
+        item.commands.push_back(ct::detail::move(c));
     }
 }
 } // namespace k2d

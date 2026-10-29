@@ -95,12 +95,11 @@ void RectShape::onRender(RenderQueue &queue)
     RenderItem &item = queue.AddItem(owner()->zIndex());
     item.xform = owner()->globalTransform();
     item.blendMode = mBlendMode;
-    RenderCommand command;
+    RenderCommand &command = item.commands.emplace_back();
     command.type = RenderCommand::kPolygon;
     command.color = mColor;
     command.polygonPoints = &mTriangles;
     command.polygonPointCount = (unsigned int)mTriangles.size();
-    item.commands.push_back(command);
 }
 
 
