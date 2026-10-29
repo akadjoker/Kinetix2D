@@ -5,6 +5,8 @@
 #include "BasicWidgets.hpp"
 #include "WidgetApp.hpp"
 
+#include <cstdio>
+
 namespace rt = ig::retained;
 
 namespace k2d::editor
@@ -72,6 +74,16 @@ void SettingsPanel::rebuild()
     row(project, PropertyInfo(PropertyType::Bool, "tree broadphase"),
         [this]() { return PropertyValue::from(mSettings.treeBroadphase); },
         [this](const PropertyValue& v) { mSettings.treeBroadphase = v.asBool(); }, true);
+
+    auto* layers = mFields->createChild<rt::Collapsible>("Collision layers");
+    for (int layer = 0; layer < kCollisionLayers; ++layer)
+    {
+        char label[8];
+        std::snprintf(label, sizeof label, "%d", layer + 1);
+        row(layers, PropertyInfo(PropertyType::String, label),
+            [this, layer]() { return PropertyValue::from(mSettings.layerNames[layer]); },
+            [this, layer](const PropertyValue& v) { mSettings.layerNames[layer] = v.asString(); }, true);
+    }
     rt::WidgetApp::instance().requestLayout();
 }
 

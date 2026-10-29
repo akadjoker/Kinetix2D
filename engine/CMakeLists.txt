@@ -107,6 +107,7 @@ add_library(k2d STATIC
     src/NinePatchComponent.cpp
     src/MouseCursor.cpp
     src/ScreenFade.cpp
+    src/CollisionLayers.cpp
     src/SceneTransition.cpp
     src/VirtualPad.cpp
     src/SceneDebug.cpp

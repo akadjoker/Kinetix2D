@@ -100,6 +100,10 @@ The **Settings** tab has three sections:
 **Project physics**
    ``gravity``, ``steps per s``, ``iterations``, ``tree broadphase``. Saved
    in ``project.k2dproj`` as soon as a value is changed.
+**Collision layers**
+   Names for the sixteen layers a collider belongs to and collides with
+   (``player``, ``enemy``, ``ground``...). Saved with the project; the
+   colliders' ``category`` and ``mask`` then show them by name.
 
 Export
 ------

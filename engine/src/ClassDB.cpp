@@ -47,6 +47,11 @@ PropertyInfo PropertyInfo::enumeration(const char* name, const char* names)
     return PropertyInfo(PropertyType::Int, name, PropertyHint::Enum, names);
 }
 
+PropertyInfo PropertyInfo::layers(const char* name)
+{
+    return PropertyInfo(PropertyType::Int, name, PropertyHint::Layers);
+}
+
 PropertyInfo PropertyInfo::file(const char* name, const char* extensions)
 {
     return PropertyInfo(PropertyType::ResourcePath, name, PropertyHint::File, extensions);

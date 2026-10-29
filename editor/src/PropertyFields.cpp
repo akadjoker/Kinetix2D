@@ -6,11 +6,15 @@
 
 #include "BasicWidgets.hpp"
 #include "ComboBox.hpp"
+#include "MenuWidgets.hpp"
 #include "SpinSlider.hpp"
 #include "TextInputWidgets.hpp"
 #include "TreePropertyColorWidgets.hpp"
 
+#include <k2d/CollisionLayers.h>
+
 #include <cmath>
+#include <cstdio>
 
 namespace rt = ig::retained;
 
@@ -125,6 +129,85 @@ private:
     ct::String mPath;
 };
 
+// The bits of a collider's category or mask, by the project's layer names:
+// the button says which are on, its menu turns one on or off. One menu serves
+// every field, so an edit that rebuilds the inspector never frees the menu
+// that is calling back.
+class LayersField : public rt::Button
+{
+public:
+    IG_WIDGET_CLASS(LayersField, rt::Button);
+
+    explicit LayersField(unsigned int bits) : rt::Button(""), mBits(bits) { sync(); }
+
+    ct::Function<void(unsigned int)> changed;
+
+    void onMousePress(rt::MouseEvent& e) override
+    {
+        if (e.button != 0)
+        {
+            rt::Button::onMousePress(e);
+            return;
+        }
+        e.consumed = true;
+        rt::Menu* menu = layersMenu();
+        menu->clearActions();
+        for (int layer = 0; layer < kCollisionLayers; ++layer)
+        {
+            const ct::String& name = CollisionLayerName(layer);
+            char label[64];
+            std::snprintf(label, sizeof label, "%2d   %s", layer + 1, name.c_str());
+            rt::MenuAction* action = menu->addCheckable(label, ((mBits >> layer) & 1u) != 0);
+            action->triggered.connect([this, layer]() {
+                mBits ^= 1u << layer;
+                sync();
+                if (changed)
+                    changed(mBits);
+            });
+        }
+        const rt::Rect area = absoluteRect();
+        menu->exec(area.x, area.y + area.h, this);
+    }
+
+private:
+    static rt::Menu* layersMenu()
+    {
+        static rt::Menu* menu = new rt::Menu();
+        return menu;
+    }
+
+    void sync()
+    {
+        const unsigned int all = (1u << kCollisionLayers) - 1u;
+        ct::String text;
+        if ((mBits & all) == 0)
+            text = "None";
+        else if ((mBits & all) == all)
+            text = "All";
+        else
+            for (int layer = 0; layer < kCollisionLayers; ++layer)
+            {
+                if (((mBits >> layer) & 1u) == 0)
+                    continue;
+                if (!text.empty())
+                    text += ", ";
+                const ct::String& name = CollisionLayerName(layer);
+                if (name.empty())
+                {
+                    char number[8];
+                    std::snprintf(number, sizeof number, "%d", layer + 1);
+                    text += number;
+                }
+                else
+                    text += name;
+            }
+        setText(text);
+        setTooltip(text);
+    }
+
+    unsigned int mBits;
+};
+
 unsigned char byte(float v)
 {
     return static_cast<unsigned char>(v <= 0.0f ? 0 : (v >= 1.0f ? 255 : static_cast<int>(v * 255.0f + 0.5f)));
@@ -216,6 +299,16 @@ rt::BoxLayout* addPropertyRow(rt::Widget* parent, const PropertyInfo& info, cons
                 set(PropertyValue::from(i));
                 edited(true);
             });
+            break;
+        }
+        if (info.hint == PropertyHint::Layers)
+        {
+            auto* layers = line->createChild<LayersField>(static_cast<unsigned int>(value.asInt()));
+            layers->setStretch(1.0f);
+            layers->changed = [set, edited](unsigned int bits) {
+                set(PropertyValue::from(static_cast<int>(bits)));
+                edited(true);
+            };
             break;
         }
         [[fallthrough]];

@@ -2,6 +2,7 @@
 #include <k2d/AudioPlayer.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/Assets.h>
+#include <k2d/CollisionLayers.h>
 #include <k2d/Bone2D.h>
 #include <k2d/Camera2D.h>
 #include <k2d/CameraComponent.h>
@@ -2158,6 +2159,31 @@ static bool testInput()
     return ok;
 }
 
+static bool testCollisionLayers()
+{
+    k2d::ClearCollisionLayerNames();
+    k2d::SetCollisionLayerName(0, "player");
+    k2d::SetCollisionLayerName(3, "enemy");
+    bool ok = k2d::CollisionLayerIndex("enemy") == 3 && k2d::CollisionLayerIndex("wall") == -1 &&
+              k2d::CollisionLayerName(0) == "player" && k2d::CollisionLayerName(16).empty();
+    k2d::ZenBlackboard::clear();
+    k2d::Scene scene;
+    k2d::ZenScriptComponent* script = scene.createObject("hero")->addComponent<k2d::ZenScriptComponent>();
+    ok = ok && script->loadSource("class Hero(ScriptComponent):\n"
+                                  "    def on_start(self):\n"
+                                  "        set_number(\"mask\", collision_layer(\"player\") | collision_layer(\"enemy\"))\n"
+                                  "        set_number(\"none\", collision_layer(\"wall\"))\n"
+                                  "        set_string(\"name\", collision_layer_name(4))\n",
+                                  "layers");
+    scene.update(0.016f);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("mask"), 9.0f) &&
+         nearEqual((float)k2d::ZenBlackboard::getNumber("none", -1.0), 0.0f) &&
+         k2d::ZenBlackboard::getString("name") == "enemy";
+    k2d::ZenBlackboard::clear();
+    k2d::ClearCollisionLayerNames();
+    return ok;
+}
+
 static bool testFadeAndVirtualInput()
 {
     k2d::Input input;
@@ -2860,7 +2886,7 @@ int main()
     const bool astarGridApi = testAStarGridApi();
     const bool nodeApi = testNodeApi();
     const bool activeCamera = testActiveCamera();
-    const bool inputOk = testInput();
+    const bool inputOk = testInput() && testCollisionLayers();
     const bool fadeVirtualInput = testFadeAndVirtualInput();
     const bool audioApi = testAudioApi();
     const bool sceneManager = testSceneManager();

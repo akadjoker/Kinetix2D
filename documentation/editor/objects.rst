@@ -141,6 +141,10 @@ Editing values
 * Numbers with a range are sliders; drag them, or type a value (some, such as
   rotation and scale, accept values past the slider's ends).
 * Two-number values (``x``, ``y``) are two fields.
+* A collider's ``category`` (the layers it is on) and ``mask`` (the layers it
+  collides with) are buttons naming the layers; click one for the sixteen
+  layers and tick or untick one. The names come from **Settings → Collision
+  layers**.
 * A file field (*Drop an asset here*) shows the file's name; hover it to see
   the whole path and, for an image, the image. It takes a file dragged from
   Assets, or a typed path; the cross clears it.

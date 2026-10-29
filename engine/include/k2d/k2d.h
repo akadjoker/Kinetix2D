@@ -41,6 +41,7 @@
 #include "k2d/UiControls.h"
 #include "k2d/UiTheme.h"
 #include "k2d/ScreenFade.h"
+#include "k2d/CollisionLayers.h"
 #include "k2d/SceneTransition.h"
 #include "k2d/VirtualPad.h"
 #include "k2d/SceneDebug.h"

@@ -502,6 +502,16 @@ Input
 
    Take every binding off an action.
 
+.. py:function:: collision_layer(name)
+
+   The bit of the project's collision layer with that name, ready for a
+   category or a mask (``collision_layer("player") | collision_layer("enemy")``);
+   0, with a warning, for a name the project does not have.
+
+.. py:function:: collision_layer_name(number)
+
+   The name of layer 1 to 16, empty when it has none.
+
 Gamepads
 ~~~~~~~~
 

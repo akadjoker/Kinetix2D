@@ -1,6 +1,7 @@
 #include <k2d/Assets.h>
 #include <k2d/AudioEngine.h>
 #include <k2d/CameraComponent.h>
+#include <k2d/CollisionLayers.h>
 #include <k2d/CanvasRenderer.h>
 #include <k2d/Device.h>
 #include <k2d/OpenGL.h>
@@ -269,6 +270,9 @@ PhysicsConfig loadPhysics(const char* projectPath)
     config.fixedTimeStep = static_cast<float>(physics["fixedTimeStep"].as_double(config.fixedTimeStep));
     config.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(config.velocityIterations));
     config.treeBroadphase = physics["treeBroadphase"].as_bool(config.treeBroadphase);
+    const ct::Json& layers = physics["layers"];
+    for (int layer = 0; layer < k2d::kCollisionLayers && layers.is_array() && layer < (int)layers.size(); ++layer)
+        k2d::SetCollisionLayerName(layer, layers[layer].as_cstr(""));
     return config;
 }
 

@@ -59,6 +59,7 @@
 #include "k2d/SpriteComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/TileMapComponent.h"
+#include "k2d/CollisionLayers.h"
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
 #include "k2d/VirtualPad.h"
@@ -4926,6 +4927,23 @@ int natActionReleased(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
+int natCollisionLayer(zen::VM*, zen::Value* args, int nargs)
+{
+    const char* name = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const int layer = CollisionLayerIndex(name);
+    if (layer < 0)
+        log_warn("collision_layer: no layer called \"%s\"", name);
+    args[0] = zen::val_int(layer >= 0 ? 1 << layer : 0);
+    return 1;
+}
+
+int natCollisionLayerName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    const int number = nargs >= 1 ? (int)zen::to_number(args[0]) : 0;
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(CollisionLayerName(number - 1).c_str()));
+    return 1;
+}
+
 int padArgument(zen::Value* args, int nargs, int index)
 {
     return nargs > index ? (int)zen::to_number(args[index]) : 0;
@@ -6442,6 +6460,8 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("action_pressed", &natActionPressed, 1);
     vm.def_native("action_released", &natActionReleased, 1);
     vm.def_native("action_strength", &natActionStrength, 1);
+    vm.def_native("collision_layer", &natCollisionLayer, 1);
+    vm.def_native("collision_layer_name", &natCollisionLayerName, 1);
     vm.def_native("action_bind", &natActionBind, 2);
     vm.def_native("action_bind_button", &natActionBindButton, 2);
     vm.def_native("action_bind_axis", &natActionBindAxis, 3);

@@ -19,7 +19,8 @@ enum class PropertyHint : uint8_t
     Range,
     Enum,
     File,
-    ColorNoAlpha
+    ColorNoAlpha,
+    Layers
 };
 
 struct PropertyInfo
@@ -42,6 +43,8 @@ struct PropertyInfo
     // From 0 to maximum on a slider that a typed value may pass (sizes, widths, radii).
     static PropertyInfo extent(PropertyType type, const char* name, float maximum, float step = 1.0f);
     static PropertyInfo enumeration(const char* name, const char* names);
+    // An Int whose bits are the collision layers, shown by their names.
+    static PropertyInfo layers(const char* name);
     static PropertyInfo file(const char* name, const char* extensions);
     static PropertyInfo color(const char* name, bool noAlpha = false);
 

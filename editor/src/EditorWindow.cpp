@@ -2145,6 +2145,9 @@ void EditorWindow::loadSettings()
         mSceneSettings.fixedTimeStep = static_cast<float>(physics["fixedTimeStep"].as_double(mSceneSettings.fixedTimeStep));
         mSceneSettings.velocityIterations = static_cast<int>(physics["velocityIterations"].as_int(mSceneSettings.velocityIterations));
         mSceneSettings.treeBroadphase = physics["treeBroadphase"].as_bool(mSceneSettings.treeBroadphase);
+        const ct::Json& layers = physics["layers"];
+        for (int layer = 0; layer < kCollisionLayers && layers.is_array() && layer < (int)layers.size(); ++layer)
+            mSceneSettings.layerNames[layer] = layers[layer].as_cstr("");
     }
     const ct::Json& display = mProjectDocument["display"];
     if (display.is_object())
@@ -2168,6 +2171,8 @@ void EditorWindow::applySettings()
     mScene.setFixedTimeStep(mSceneSettings.fixedTimeStep);
     mScene.setVelocityIterations(mSceneSettings.velocityIterations);
     mScene.setTreeBroadphase(mSceneSettings.treeBroadphase);
+    for (int layer = 0; layer < kCollisionLayers; ++layer)
+        SetCollisionLayerName(layer, mSceneSettings.layerNames[layer].c_str());
 }
 
 void EditorWindow::settingsChanged(const SceneSettings& settings, bool project)
@@ -2191,6 +2196,10 @@ void EditorWindow::settingsChanged(const SceneSettings& settings, bool project)
         physics.set("fixedTimeStep", ct::Json(static_cast<double>(mSceneSettings.fixedTimeStep)));
         physics.set("velocityIterations", ct::Json(mSceneSettings.velocityIterations));
         physics.set("treeBroadphase", ct::Json(mSceneSettings.treeBroadphase));
+        ct::Json layers = ct::Json::array();
+        for (int layer = 0; layer < kCollisionLayers; ++layer)
+            layers.push_back(ct::Json(mSceneSettings.layerNames[layer].c_str()));
+        physics.set("layers", layers);
         mProjectDocument.set("physics", physics);
         ct::Json display = ct::Json::object();
         display.set("width", ct::Json(mSceneSettings.displayWidth));

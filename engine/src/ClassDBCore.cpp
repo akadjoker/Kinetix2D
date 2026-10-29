@@ -158,7 +158,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -166,7 +166,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -222,7 +222,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -230,7 +230,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -253,7 +253,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -261,7 +261,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -327,7 +327,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -335,7 +335,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -607,7 +607,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -615,7 +615,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -720,7 +720,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Bool, "avoidanceEnabled"), &Steering2D::avoidanceEnabled, &Steering2D::setAvoidanceEnabled);
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Float, "lookAhead"), &Steering2D::lookAhead, &Steering2D::setLookAhead);
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::String, "groupTag"), &Steering2D::groupTag, &Steering2D::setGroupTag);
-    ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Int, "mask"), &Steering2D::mask, &Steering2D::setMask);
+    ClassDB::addProperty<Steering2D>(c, PropertyInfo::layers("mask"), &Steering2D::mask, &Steering2D::setMask);
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Float, "slowRadius"), &Steering2D::slowRadius, &Steering2D::setSlowRadius);
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Float, "wanderRadius"), &Steering2D::wanderRadius, &Steering2D::setWanderRadius);
     ClassDB::addProperty<Steering2D>(c, PropertyInfo(PropertyType::Float, "wanderDistance"), &Steering2D::wanderDistance, &Steering2D::setWanderDistance);
@@ -733,7 +733,7 @@ void RegisterCoreClasses()
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Vec2, "offset"), &Collider2D::offset, &Collider2D::setOffset);
     ClassDB::addProperty<Collider2D>(c, PropertyInfo(PropertyType::Bool, "sensor"), &Collider2D::isSensor, &Collider2D::setSensor);
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "category"),
+        c, PropertyInfo::layers("category"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).category())); },
         [](Component& component, const PropertyValue& value)
         {
@@ -741,7 +741,7 @@ void RegisterCoreClasses()
             collider.setFilter(static_cast<uint16_t>(value.asInt()), collider.mask());
         });
     ClassDB::addProperty(
-        c, PropertyInfo(PropertyType::Int, "mask"),
+        c, PropertyInfo::layers("mask"),
         [](const Component& component) { return PropertyValue::from(static_cast<unsigned int>(static_cast<const Collider2D&>(component).mask())); },
         [](Component& component, const PropertyValue& value)
         {

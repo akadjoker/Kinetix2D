@@ -3,7 +3,10 @@
 #include "LayoutWidgets.hpp"
 #include "Signal.hpp"
 
+#include <k2d/CollisionLayers.h>
 #include <k2d/Color.h>
+
+#include <ct/string.hpp>
 #include <mathc.h>
 
 namespace k2d::editor
@@ -22,6 +25,7 @@ struct SceneSettings
     Color ambient;
     int displayWidth = 1280;    // the window the game opens
     int displayHeight = 720;
+    ct::String layerNames[kCollisionLayers];   // the project's collision layers
 
     Math::Vec2 effectiveGravity() const { return sceneGravity ? sceneGravityValue : gravity; }
 };
