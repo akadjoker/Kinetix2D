@@ -982,6 +982,12 @@
             "data": {
               "path": "assets/scripts/follow_touch.py"
             }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/touch_sound.py"
+            }
           }
         ],
         "children": []

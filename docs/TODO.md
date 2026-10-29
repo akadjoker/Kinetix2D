@@ -30,7 +30,7 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
   - CPU (`k2d_performance_benchmark`): física 1000 caixas 20.2 ms (9.6 no desktop); `scene.update` de 2000 objectos 0.60 ms (0.018), provavelmente num núcleo pequeno
 - [x] Android: o jogo desenhado à resolução do projecto e escalado para o ecrã (linear, ou nearest com escala inteira): a cena das luzes do showcase de 51 para 90 FPS (o limite do ecrã de 90 Hz) no Redmi Pad 2
 - [x] "show FPS" no Project display: FPS e tempo do frame no canto do jogo
-- [ ] Android: não desenhar com a app em segundo plano (hoje chama o GL sem superfície)
+- [x] Android: em segundo plano o jogo pára (sem update, sem GL, 0% de CPU) e o áudio também (`AudioEngine::SetSuspended`); volta como estava
 - [ ] Export: texturas comprimidas (Basis/ASTC) e carregamento de níveis em fundo
 
 ## Luzes 2D
@@ -68,7 +68,7 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [ ] Android
   - [x] Runner como NativeActivity (`libk2d_runner.so`, arm64-v8a, API 26): o backend Android do zen_plataform, o `data.kpak` lido do APK; `tools/android/build-apk.sh` faz o APK sem Gradle nem Java (aapt2, zipalign, apksigner)
   - [x] Correr num dispositivo: ecrã inteiro, modo imersivo (zen_plataform `7a8fcac`), toque como rato, pausa e retoma (`6f31b2e`)
-  - [ ] Áudio no dispositivo
+  - [x] Áudio no dispositivo: AAudio a 48 kHz, efeitos e música (showcase: um bip por toque e um acorde em loop)
   - [ ] Export Android no editor e no `k2d_export`; ícone e orientação por projecto; armeabi-v7a e x86_64
 
 - [x] Molduras da câmara, do ecrã e dos limites na vista da cena (`021950c`)

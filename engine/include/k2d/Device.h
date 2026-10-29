@@ -35,6 +35,9 @@ namespace k2d
         int DrawableWidth() const { return mDrawableWidth; }
         int DrawableHeight() const { return mDrawableHeight; }
         bool WasResized() const { return mResized; }
+        // False while the system has taken the window's surface (an Android app in
+        // the background): nothing can be drawn until it comes back.
+        bool HasSurface() const { return mHasSurface; }
         float DeltaTime() const { return mDeltaTime; }
         float FPS() const { return mFps; }
         int DisplayIndex() const;
@@ -82,6 +85,7 @@ namespace k2d
         int mDrawableWidth;
         int mDrawableHeight;
         bool mResized;
+        bool mHasSurface = true;
         double mLastTime;
         float mDeltaTime;
         float mFps;

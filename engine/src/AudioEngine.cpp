@@ -235,6 +235,16 @@ bool AudioEngine::Ready() const
     return mImpl && mImpl->ready;
 }
 
+void AudioEngine::SetSuspended(bool suspended)
+{
+    if (!mImpl || !mImpl->ready)
+        return;
+    if (suspended)
+        ma_engine_stop(&mImpl->engine);
+    else
+        ma_engine_start(&mImpl->engine);
+}
+
 AudioEngine::SoundId AudioEngine::LoadSound(const char* path)
 {
     if (!mImpl || !path || !path[0])

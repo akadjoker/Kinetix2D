@@ -603,6 +603,18 @@ static int run(int argc, char** argv)
                 {
                     if (!device.PollEvents())
                         return false;
+                    // In the background (Android) the game stops: no update, no drawing, no sound.
+                    static bool suspended = false;
+                    if (suspended != !device.HasSurface())
+                    {
+                        suspended = !device.HasSurface();
+                        k2d::GetAudio().SetSuspended(suspended);
+                    }
+                    if (suspended)
+                    {
+                        time_sleep(50);
+                        return true;
+                    }
                     k2d::Profiler::Get().beginFrame();
                     k2d::GetZenDebugger().Poll();
                     // F5, or three fingers on a screen with no keyboard.

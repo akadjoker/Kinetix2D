@@ -269,6 +269,12 @@ bool Device::PollEvents()
         {
         case EVENT_WINDOW_CLOSE:
             return false;
+        case EVENT_WINDOW_SURFACE_LOST:
+            mHasSurface = false;
+            break;
+        case EVENT_WINDOW_SURFACE_READY:
+            mHasSurface = true;
+            break;
         case EVENT_KEY:
             mInput.OnKey(InputKeyFromPlatform(event.data.key.key), event.data.key.down, event.data.key.repeat);
             break;
@@ -295,7 +301,8 @@ bool Device::PollEvents()
     mInput.PollGamepads();
 
     UpdateSizes();
-    glViewport(0, 0, mDrawableWidth, mDrawableHeight);
+    if (mHasSurface)
+        glViewport(0, 0, mDrawableWidth, mDrawableHeight);
 
     const double now = time_seconds();
     float dt = (float)(now - mLastTime);
