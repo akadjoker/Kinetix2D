@@ -795,6 +795,10 @@ static bool testTileMapApi()
     k2d::TileMapComponent* tileMap = object->addComponent<k2d::TileMapComponent>();
     tileMap->setCellSize(32.0f, 32.0f);
     tileMap->setMapSize(4, 3);
+    const int water = tileMap->addTerrain("water");
+    tileMap->setTileTerrain(20, water, 0);
+    tileMap->setTileTerrain(21, water, k2d::TERRAIN_E);
+    tileMap->setTileTerrain(22, water, k2d::TERRAIN_W);
 
     k2d::ZenScriptComponent* script = object->addComponent<k2d::ZenScriptComponent>();
     const bool loaded = script->loadSource(
@@ -816,7 +820,10 @@ static bool testTileMapApi()
         "        set_number(\"wy\", wy)\n"
         "        cx, cy = t.world_to_cell(wx, wy)\n"
         "        set_number(\"cx\", cx)\n"
-        "        set_number(\"cy\", cy)\n",
+        "        set_number(\"cy\", cy)\n"
+        "        t.set_terrain(0, 2, \"water\")\n"
+        "        t.set_terrain(1, 2, 0)\n"
+        "        set_number(\"terrain\", t.get_terrain(1, 2))\n",
         "tilemap");
 
     scene.update(0.016f);
@@ -834,6 +841,8 @@ static bool testTileMapApi()
     ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("cy"), 1.0f);
     ok = ok && tileMap->getTile(2, 1) == 5;
     ok = ok && tileMap->hasCollision(2, 1);
+    ok = ok && nearEqual((float)k2d::ZenBlackboard::getNumber("terrain", -5.0), 0.0f);
+    ok = ok && tileMap->getTile(0, 2) == 21 && tileMap->getTile(1, 2) == 22;
 
     k2d::ZenBlackboard::clear();
     return ok;

@@ -261,6 +261,28 @@ void WriteTileMap(const Component& component, ct::Json& data, Assets* assets)
     if (tileMap.hasCullRect())
         data.set("cullRect", WriteVec4(tileMap.cullRect()));
     data.set("blendMode", ct::Json((int)tileMap.blendMode()));
+
+    if (tileMap.terrainCount() > 0)
+    {
+        ct::Json terrains = ct::Json::array();
+        for (int t = 0; t < tileMap.terrainCount(); ++t)
+        {
+            ct::Json terrain = ct::Json::object();
+            terrain.set("name", ct::Json(tileMap.terrainName(t).c_str()));
+            ct::Json tiles = ct::Json::array();
+            for (const TerrainTile& entry : tileMap.terrainTiles())
+                if (entry.terrain == t)
+                {
+                    ct::Json pair = ct::Json::array();
+                    pair.push_back(ct::Json(entry.tile));
+                    pair.push_back(ct::Json((int)entry.bits));
+                    tiles.push_back(pair);
+                }
+            terrain.set("tiles", tiles);
+            terrains.push_back(terrain);
+        }
+        data.set("terrains", terrains);
+    }
 }
 
 void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
@@ -305,6 +327,15 @@ void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
         tileMap.setCullRect(r.x, r.y, r.z, r.w);
     }
     tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
+
+    const ct::Json& terrains = data["terrains"];
+    for (size_t t = 0; terrains.is_array() && t < terrains.size(); ++t)
+    {
+        const int terrain = tileMap.addTerrain(terrains[t]["name"].as_cstr(""));
+        const ct::Json& tiles = terrains[t]["tiles"];
+        for (size_t i = 0; tiles.is_array() && i < tiles.size(); ++i)
+            tileMap.setTileTerrain((int)tiles[i][0].as_int(0), terrain, (unsigned char)tiles[i][1].as_int(0));
+    }
 }
 
 Component* CreateParallaxLayer(GameObject& owner)

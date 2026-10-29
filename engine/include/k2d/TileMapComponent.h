@@ -3,6 +3,7 @@
 #include "k2d/Component.h"
 #include "k2d/CanvasTypes.h"
 
+#include <ct/string.hpp>
 #include <ct/vector.hpp>
 #include <mathc.h>
 
@@ -12,6 +13,27 @@ namespace k2d
     class Texture;
     class Assets;
     class AStarGrid2D;
+
+    // The neighbours a terrain tile joins, as Godot's peering bits: a corner
+    // counts only where both sides beside it are of the terrain too.
+    enum TerrainBits : unsigned char
+    {
+        TERRAIN_N = 1,
+        TERRAIN_NE = 2,
+        TERRAIN_E = 4,
+        TERRAIN_SE = 8,
+        TERRAIN_S = 16,
+        TERRAIN_SW = 32,
+        TERRAIN_W = 64,
+        TERRAIN_NW = 128
+    };
+
+    struct TerrainTile
+    {
+        int tile;
+        int terrain;
+        unsigned char bits;
+    };
 
     class TileMapComponent : public Component
     {
@@ -52,6 +74,23 @@ namespace k2d
         int columns() const { return mColumns; }
         int rows() const { return mRows; }
 
+        // Autotiling: tiles of the tileset are given a terrain and the
+        // neighbours they join; painting a terrain picks, for the cell and the
+        // eight around it, the tile whose neighbours match.
+        int addTerrain(const ct::String &name);
+        void removeTerrain(int terrain);
+        int terrainCount() const { return static_cast<int>(mTerrainNames.size()); }
+        const ct::String &terrainName(int terrain) const;
+        void setTerrainName(int terrain, const ct::String &name);
+        // A terrain below 0 takes the tile out of every terrain.
+        void setTileTerrain(int tile, int terrain, unsigned char bits);
+        bool tileTerrain(int tile, int &terrain, unsigned char &bits) const;
+        const ct::Vector<TerrainTile> &terrainTiles() const { return mTerrainTiles; }
+        // The terrain of the cell's tile, or -1.
+        int terrainAt(int x, int y) const;
+        // Below 0 clears the cell; the neighbours follow either way.
+        void paintTerrain(int x, int y, int terrain);
+
     protected:
         void onRender(RenderQueue &queue) override;
 
@@ -74,6 +113,10 @@ namespace k2d
         float mCullH;
         bool mCullEnabled;
         BlendMode mBlendMode;
+        ct::Vector<ct::String> mTerrainNames;
+        ct::Vector<TerrainTile> mTerrainTiles;
+
+        void fitTerrainCell(int x, int y);
     };
 
 }

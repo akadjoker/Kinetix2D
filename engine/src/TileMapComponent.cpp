@@ -112,6 +112,140 @@ void TileMapComponent::setCollision(int x, int y, bool solid)
     mCollision[y * mColumns + x] = solid ? 1 : 0;
 }
 
+int TileMapComponent::addTerrain(const ct::String& name)
+{
+    mTerrainNames.push_back(name);
+    return static_cast<int>(mTerrainNames.size()) - 1;
+}
+
+void TileMapComponent::removeTerrain(int terrain)
+{
+    if (terrain < 0 || terrain >= terrainCount())
+        return;
+    mTerrainNames.erase(mTerrainNames.begin() + terrain);
+    for (std::size_t i = 0; i < mTerrainTiles.size();)
+    {
+        if (mTerrainTiles[i].terrain == terrain)
+        {
+            mTerrainTiles.erase(mTerrainTiles.begin() + i);
+            continue;
+        }
+        if (mTerrainTiles[i].terrain > terrain)
+            --mTerrainTiles[i].terrain;
+        ++i;
+    }
+}
+
+const ct::String& TileMapComponent::terrainName(int terrain) const
+{
+    static const ct::String none;
+    return terrain >= 0 && terrain < terrainCount() ? mTerrainNames[terrain] : none;
+}
+
+void TileMapComponent::setTerrainName(int terrain, const ct::String& name)
+{
+    if (terrain >= 0 && terrain < terrainCount())
+        mTerrainNames[terrain] = name;
+}
+
+void TileMapComponent::setTileTerrain(int tile, int terrain, unsigned char bits)
+{
+    for (std::size_t i = 0; i < mTerrainTiles.size(); ++i)
+        if (mTerrainTiles[i].tile == tile)
+        {
+            if (terrain < 0 || terrain >= terrainCount())
+                mTerrainTiles.erase(mTerrainTiles.begin() + i);
+            else
+            {
+                mTerrainTiles[i].terrain = terrain;
+                mTerrainTiles[i].bits = bits;
+            }
+            return;
+        }
+    if (tile > 0 && terrain >= 0 && terrain < terrainCount())
+        mTerrainTiles.push_back(TerrainTile{tile, terrain, bits});
+}
+
+bool TileMapComponent::tileTerrain(int tile, int& terrain, unsigned char& bits) const
+{
+    for (const TerrainTile& entry : mTerrainTiles)
+        if (entry.tile == tile)
+        {
+            terrain = entry.terrain;
+            bits = entry.bits;
+            return true;
+        }
+    return false;
+}
+
+int TileMapComponent::terrainAt(int x, int y) const
+{
+    int terrain = -1;
+    unsigned char bits = 0;
+    return tileTerrain(getTile(x, y), terrain, bits) ? terrain : -1;
+}
+
+void TileMapComponent::paintTerrain(int x, int y, int terrain)
+{
+    if (x < 0 || x >= mColumns || y < 0 || y >= mRows)
+        return;
+    int tile = 0;
+    for (const TerrainTile& entry : mTerrainTiles)
+        if (entry.terrain == terrain)
+        {
+            tile = entry.tile;
+            break;
+        }
+    if (terrain >= 0 && tile == 0)
+        return;
+    setTile(x, y, tile);
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+            fitTerrainCell(x + dx, y + dy);
+}
+
+void TileMapComponent::fitTerrainCell(int x, int y)
+{
+    const int terrain = terrainAt(x, y);
+    if (terrain < 0)
+        return;
+    auto same = [this, terrain](int cx, int cy) { return terrainAt(cx, cy) == terrain; };
+    const bool n = same(x, y - 1), e = same(x + 1, y), s = same(x, y + 1), w = same(x - 1, y);
+    unsigned char want = (n ? TERRAIN_N : 0) | (e ? TERRAIN_E : 0) | (s ? TERRAIN_S : 0) | (w ? TERRAIN_W : 0);
+    bool corners = false;
+    for (const TerrainTile& entry : mTerrainTiles)
+        if (entry.terrain == terrain && (entry.bits & (TERRAIN_NE | TERRAIN_SE | TERRAIN_SW | TERRAIN_NW)))
+            corners = true;
+    if (corners)
+    {
+        if (n && e && same(x + 1, y - 1))
+            want |= TERRAIN_NE;
+        if (s && e && same(x + 1, y + 1))
+            want |= TERRAIN_SE;
+        if (s && w && same(x - 1, y + 1))
+            want |= TERRAIN_SW;
+        if (n && w && same(x - 1, y - 1))
+            want |= TERRAIN_NW;
+    }
+    int best = 0;
+    int bestDistance = 9;
+    for (const TerrainTile& entry : mTerrainTiles)
+    {
+        if (entry.terrain != terrain)
+            continue;
+        int distance = 0;
+        for (unsigned char diff = static_cast<unsigned char>(entry.bits ^ want); diff; diff &= diff - 1)
+            ++distance;
+        if (distance < bestDistance)
+        {
+            bestDistance = distance;
+            best = entry.tile;
+        }
+    }
+    if (best > 0)
+        setTile(x, y, best);
+}
+
 bool TileMapComponent::loadTMX(Assets& assets, const char* tmxPath, const char* textureName)
 {
     if (!tmxPath)

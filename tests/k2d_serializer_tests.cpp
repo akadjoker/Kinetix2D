@@ -293,6 +293,72 @@ bool TestTileMapRoundTrip()
     return ok;
 }
 
+// Sides only (16 tiles) and the blob with corners (47 tiles), each tile id
+// carrying its bits so the expected tile reads off the neighbours.
+bool TestTileMapAutotile()
+{
+    using namespace k2d;
+    Scene scene;
+    TileMapComponent* map = scene.createObject("Map")->addComponent<TileMapComponent>();
+    map->setMapSize(5, 5);
+    const int wall = map->addTerrain("wall");
+    const unsigned char sides[4] = {TERRAIN_N, TERRAIN_E, TERRAIN_S, TERRAIN_W};
+    for (int m = 0; m < 16; ++m)
+    {
+        unsigned char bits = 0;
+        for (int b = 0; b < 4; ++b)
+            if (m & (1 << b))
+                bits |= sides[b];
+        map->setTileTerrain(100 + bits, wall, bits);
+    }
+    map->paintTerrain(1, 2, wall);
+    map->paintTerrain(2, 2, wall);
+    map->paintTerrain(3, 2, wall);
+    bool ok = map->getTile(1, 2) == 100 + TERRAIN_E && map->getTile(2, 2) == 100 + (TERRAIN_E | TERRAIN_W) &&
+              map->getTile(3, 2) == 100 + TERRAIN_W;
+    map->paintTerrain(2, 1, wall);
+    ok = ok && map->getTile(2, 1) == 100 + TERRAIN_S &&
+         map->getTile(2, 2) == 100 + (TERRAIN_N | TERRAIN_E | TERRAIN_W) && map->terrainAt(2, 1) == wall;
+    map->paintTerrain(2, 1, -1);
+    ok = ok && map->getTile(2, 1) == 0 && map->getTile(2, 2) == 100 + (TERRAIN_E | TERRAIN_W);
+
+    TileMapComponent* blob = scene.createObject("Blob")->addComponent<TileMapComponent>();
+    blob->setMapSize(4, 4);
+    const int ground = blob->addTerrain("ground");
+    int annotated = 0;
+    for (int bits = 0; bits < 256; ++bits)
+    {
+        const bool n = bits & TERRAIN_N, e = bits & TERRAIN_E, s = bits & TERRAIN_S, w = bits & TERRAIN_W;
+        if (((bits & TERRAIN_NE) && !(n && e)) || ((bits & TERRAIN_SE) && !(s && e)) ||
+            ((bits & TERRAIN_SW) && !(s && w)) || ((bits & TERRAIN_NW) && !(n && w)))
+            continue;
+        blob->setTileTerrain(1000 + bits, ground, (unsigned char)bits);
+        ++annotated;
+    }
+    for (int y = 0; y < 3; ++y)
+        for (int x = 0; x < 3; ++x)
+            blob->paintTerrain(x, y, ground);
+    ok = ok && annotated == 47 && blob->getTile(1, 1) == 1000 + 255 &&
+         blob->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S | TERRAIN_SE) &&
+         blob->getTile(1, 0) == 1000 + (TERRAIN_E | TERRAIN_S | TERRAIN_W | TERRAIN_SE | TERRAIN_SW);
+    blob->paintTerrain(1, 1, -1);
+    ok = ok && blob->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S);
+
+    ct::Json written = Serializer::WriteObject(*blob->owner());
+    Scene copyScene;
+    GameObject* copy = Serializer::ReadObject(copyScene, written);
+    TileMapComponent* copyMap = copy ? copy->getComponent<TileMapComponent>() : nullptr;
+    int terrain = -1;
+    unsigned char bits = 0;
+    ok = ok && copyMap && copyMap->terrainCount() == 1 && copyMap->terrainName(0) == "ground" &&
+         copyMap->terrainTiles().size() == 47 && copyMap->tileTerrain(1000 + 255, terrain, bits) && terrain == 0 &&
+         bits == 255 && copyMap->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S);
+
+    map->removeTerrain(wall);
+    ok = ok && map->terrainCount() == 0 && map->terrainTiles().empty();
+    return ok;
+}
+
 bool TestPolygonAndLineRoundTrip()
 {
     k2d::Scene srcScene;
@@ -768,6 +834,7 @@ int main()
     bool ninePatch = TestNinePatchRoundTrip();
     bool spriteBatch = TestSpriteBatchRoundTrip();
     bool animation = TestAnimationRoundTrip();
+    bool autotile = TestTileMapAutotile();
     bool lightDisambiguation = TestLightDisambiguation();
     bool occluder = TestOccluderRoundTrip();
     bool camera = TestCameraRoundTrip();
@@ -787,12 +854,13 @@ int main()
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
     std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
+    std::printf("Serializer tilemap: autotile=%s\n", autotile ? "pass" : "fail");
     std::printf("Serializer types: create_by_name=%s unit_float_colour=%s\n", createByName ? "pass" : "fail",
                 unitColour ? "pass" : "fail");
 
     return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
             ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
-            doubleRoundTrip && createByName && unitColour)
+            doubleRoundTrip && createByName && unitColour && autotile)
                ? 0
                : 1;
 }

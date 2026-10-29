@@ -1874,6 +1874,37 @@ int natTileMapSetTile(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+// A terrain by its index or its name; -1 for none.
+int terrainArgument(const TileMapComponent& tileMap, const zen::Value& value)
+{
+    if (!zen::is_string(value))
+        return (int)zen::to_number(value);
+    const char* name = zen::safe_string_chars(value);
+    for (int t = 0; t < tileMap.terrainCount(); ++t)
+        if (tileMap.terrainName(t) == name)
+            return t;
+    return -1;
+}
+
+int natTileMapSetTerrain(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    if (tileMap && nargs >= 3)
+        tileMap->paintTerrain((int)zen::to_number(args[0]), (int)zen::to_number(args[1]),
+                              terrainArgument(*tileMap, args[2]));
+    return 0;
+}
+
+int natTileMapGetTerrain(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    int terrain = -1;
+    if (tileMap && nargs >= 2)
+        terrain = tileMap->terrainAt((int)zen::to_number(args[0]), (int)zen::to_number(args[1]));
+    args[0] = zen::val_int(terrain);
+    return 1;
+}
+
 int natTileMapHasCollision(zen::VM*, zen::Value* args, int nargs)
 {
     TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
@@ -6118,6 +6149,8 @@ void ZenRuntime::Impl::initialize()
     tileMap.parent("Component");
     tileMap.method("get_tile", &natTileMapGetTile, 2);
     tileMap.method("set_tile", &natTileMapSetTile, 3);
+    tileMap.method("set_terrain", &natTileMapSetTerrain, 3);
+    tileMap.method("get_terrain", &natTileMapGetTerrain, 2);
     tileMap.method("has_collision", &natTileMapHasCollision, 2);
     tileMap.method("set_collision", &natTileMapSetCollision, 3);
     tileMap.method("get_columns", &natTileMapGetColumns, 0);
