@@ -42,7 +42,15 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Menu Help: manual (F1), referência de scripting e C++ no browser; os pacotes levam o manual em `bin/docs` (`7234a65`)
 - [x] Transições de cena: `load_scene(path, transition, seconds)` com fade, slide, zoom e wipe, a imagem da cena antiga copiada na GPU; o Play do editor passou a correr os fades (`b155f95`)
 - [x] Autotile nos TileMaps: terrenos com os vizinhos que cada tile liga (16 só lados, 47 blob, qualquer layout), pincel Terrain e marcação na paleta, `set_terrain` nos scripts (`e3afc1f`, `8886605`)
-- [ ] Gamepad
+- [x] Gamepad: 4 pads, acções ligadas a botões e eixos, `action_strength`, as acções por omissão no motor (o Play do editor não as tinha) (`bfcc2ba`); na web ainda não (stub no zen_plataform)
+- [x] Inspector: campos de ficheiro com o nome e pré-visualização no tooltip; imagem largada numa linha da Hierarchy vai para o Sprite/TileMap do objecto (`80471d6`)
+- [x] Add Component por categorias (`5702065`)
+- [x] Camadas de colisão com nome: Settings, `category`/`mask` por nomes, `collision_layer()` (`b96fef8`)
+- [ ] Tileset como recurso partilhado: textura, tamanho, terrenos, colisão e animação por tile, usado por vários TileMaps
+- [ ] Debugger de scripts: breakpoints, variáveis, passo a passo (precisa de hooks na VM do zenpy)
+- [ ] Timeline genérica: animar qualquer propriedade de qualquer objecto, com eventos
+- [ ] Assets: criar, renomear, mover e apagar, com as referências a acompanhar
+- [ ] Gamepad na web (Gamepad API no backend web do zen_plataform)
 - [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
 - [ ] Android: no fim
 
