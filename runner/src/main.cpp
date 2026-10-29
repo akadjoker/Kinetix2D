@@ -19,6 +19,7 @@
 #include <k2d/ScreenFade.h>
 #include <k2d/SceneManager.h>
 #include <k2d/Serializer.h>
+#include <k2d/ZenDebugger.h>
 #include <k2d/ZenScriptComponent.h>
 #include <k2d/ZenRuntime.h>
 
@@ -36,6 +37,7 @@
 #include <ct/json.hpp>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <ct/string.hpp>
@@ -403,8 +405,18 @@ void drawProfilerOverlay(k2d::CanvasRenderer& canvas, float width, float height)
 
 int main(int argc, char** argv)
 {
-    ct::String scenePath = argc >= 2 ? ct::String(argv[1]) : ct::String();
-    ct::String projectPath = argc >= 3 ? ct::String(argv[2]) : ct::String();
+    // k2d_runner scene.k2dscene [project.k2dproj] [--debug=port]
+    ct::Vector<ct::String> positional;
+    int debugPort = 0;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::strncmp(argv[i], "--debug=", 8) == 0)
+            debugPort = std::atoi(argv[i] + 8);
+        else
+            positional.push_back(argv[i]);
+    }
+    ct::String scenePath = positional.size() >= 1 ? positional[0] : ct::String();
+    ct::String projectPath = positional.size() >= 2 ? positional[1] : ct::String();
     ct::String title;
     if (scenePath.empty() && !unpackGame(scenePath, projectPath, title))
     {
@@ -460,6 +472,8 @@ int main(int argc, char** argv)
         k2d::SetZenScriptOutput(&scriptOutput, nullptr);
         k2d::SetZenScriptsEnabled(true);
         configureDefaultInputActions();
+        if (debugPort > 0 && debugPort < 65536)
+            k2d::GetZenDebugger().Connect(static_cast<std::uint16_t>(debugPort));
         if (!loadBytecodeManifest(projectRoot))
             result = 1;
         preloadTextures(sceneJson, assets, projectRoot);
@@ -534,6 +548,7 @@ int main(int argc, char** argv)
                     if (!device.PollEvents())
                         return false;
                     k2d::Profiler::Get().beginFrame();
+                    k2d::GetZenDebugger().Poll();
                     if (device.GetInput().KeyPressed((int)k2d::Key::F5))
                     {
                         profilerVisible = !profilerVisible;
