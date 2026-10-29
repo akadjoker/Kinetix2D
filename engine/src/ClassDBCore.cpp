@@ -292,6 +292,8 @@ void RegisterCoreClasses()
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f), &DirectionalLight2D::energy, &DirectionalLight2D::setEnergy);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Bool, "castShadow"), &DirectionalLight2D::castShadow, &DirectionalLight2D::setCastShadow);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"), &DirectionalLight2D::shadowFilter, &DirectionalLight2D::setShadowFilter);
+    ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::range(PropertyType::Float, "shadowBias", 0.0f, 0.05f, 0.0005f), &DirectionalLight2D::shadowBias, &DirectionalLight2D::setShadowBias);
+    ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo::range(PropertyType::Float, "shadowSmooth", 0.0f, 8.0f, 0.05f), &DirectionalLight2D::shadowSmooth, &DirectionalLight2D::setShadowSmooth);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Int, "cullMask"), &DirectionalLight2D::cullMask, &DirectionalLight2D::setCullMask);
     ClassDB::addProperty<DirectionalLight2D>(c, PropertyInfo(PropertyType::Float, "height"), &DirectionalLight2D::height, &DirectionalLight2D::setHeight);
     ClassDB::addProperty(
@@ -374,8 +376,11 @@ void RegisterCoreClasses()
     ClassInfo& c = ClassDB::add("Light2D", ComponentType::Light, ComponentClass::Light2D);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "energy", 0.0f, 16.0f, 0.01f), &Light2D::energy, &Light2D::setEnergy);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::extent(PropertyType::Float, "radius", 2048.0f), &Light2D::radius, &Light2D::setRadius);
+    ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "falloff", 0.0f, 8.0f, 0.05f), &Light2D::falloff, &Light2D::setFalloff);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Bool, "castShadow"), &Light2D::castShadow, &Light2D::setCastShadow);
     ClassDB::addProperty<Light2D>(c, PropertyInfo::enumeration("shadowFilter", "Nearest,PCF5,PCF13"), &Light2D::shadowFilter, &Light2D::setShadowFilter);
+    ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "shadowBias", 0.0f, 0.05f, 0.0005f), &Light2D::shadowBias, &Light2D::setShadowBias);
+    ClassDB::addProperty<Light2D>(c, PropertyInfo::range(PropertyType::Float, "shadowSmooth", 0.0f, 8.0f, 0.05f), &Light2D::shadowSmooth, &Light2D::setShadowSmooth);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Int, "cullMask"), &Light2D::cullMask, &Light2D::setCullMask);
     ClassDB::addProperty<Light2D>(c, PropertyInfo(PropertyType::Float, "height"), &Light2D::height, &Light2D::setHeight);
     ClassDB::addProperty(

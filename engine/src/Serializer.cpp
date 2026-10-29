@@ -1484,11 +1484,14 @@ void WritePointLight(const Component& component, ct::Json& data, Assets*)
     data.set("color", WriteColor(light.color()));
     data.set("energy", ct::Json((double)light.energy()));
     data.set("radius", ct::Json((double)light.radius()));
+    data.set("falloff", ct::Json((double)light.falloff()));
     data.set("castShadow", ct::Json(light.castShadow()));
     data.set("shadowColor", WriteColor(light.shadowColor()));
     data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
     data.set("cullMask", ct::Json(light.cullMask()));
     data.set("height", ct::Json((double)light.height()));
+    data.set("shadowBias", ct::Json((double)light.shadowBias()));
+    data.set("shadowSmooth", ct::Json((double)light.shadowSmooth()));
 }
 
 void ReadPointLight(Component& component, const ct::Json& data, Assets*)
@@ -1498,12 +1501,15 @@ void ReadPointLight(Component& component, const ct::Json& data, Assets*)
     light.setColor(color.r, color.g, color.b, color.a);
     light.setEnergy((float)data["energy"].as_double(1.0));
     light.setRadius((float)data["radius"].as_double(300.0));
+    light.setFalloff((float)data["falloff"].as_double(2.0));
     light.setCastShadow(data["castShadow"].as_bool(false));
     const Color shadowColor = ReadColor(data["shadowColor"], Color(0.0f, 0.0f, 0.0f, 1.0f));
     light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
     light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
     light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
     light.setHeight((float)data["height"].as_double(0.0));
+    light.setShadowBias((float)data["shadowBias"].as_double(0.002));
+    light.setShadowSmooth((float)data["shadowSmooth"].as_double(1.0));
 }
 
 void WriteDirectionalLight(const Component& component, ct::Json& data, Assets*)
@@ -1516,6 +1522,8 @@ void WriteDirectionalLight(const Component& component, ct::Json& data, Assets*)
     data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
     data.set("cullMask", ct::Json(light.cullMask()));
     data.set("height", ct::Json((double)light.height()));
+    data.set("shadowBias", ct::Json((double)light.shadowBias()));
+    data.set("shadowSmooth", ct::Json((double)light.shadowSmooth()));
 }
 
 void ReadDirectionalLight(Component& component, const ct::Json& data, Assets*)
@@ -1530,6 +1538,8 @@ void ReadDirectionalLight(Component& component, const ct::Json& data, Assets*)
     light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
     light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
     light.setHeight((float)data["height"].as_double(0.0));
+    light.setShadowBias((float)data["shadowBias"].as_double(0.002));
+    light.setShadowSmooth((float)data["shadowSmooth"].as_double(1.0));
 }
 
 Component* CreateOccluder(GameObject& owner)

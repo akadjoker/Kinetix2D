@@ -10,7 +10,8 @@ namespace k2d
         : Component(Type, ComponentEventRender, ComponentClass::Light2D), mColor(1.0f, 1.0f, 1.0f, 1.0f),
           mEnergy(1.0f), mRadius(300.0f), mCastShadow(false),
           mShadowColor(0.0f, 0.0f, 0.0f, 1.0f), mShadowFilter(SHADOW_FILTER_NEAREST),
-          mCullMask(1), mHeight(0.0f)
+          mCullMask(1), mHeight(0.0f), mFalloff(2.0f), mShadowBias(0.002f),
+          mShadowSmooth(1.0f)
     {
     }
 
@@ -49,6 +50,21 @@ namespace k2d
         mShadowFilter = filter;
     }
 
+    void Light2D::setFalloff(float falloff)
+    {
+        mFalloff = falloff;
+    }
+
+    void Light2D::setShadowBias(float bias)
+    {
+        mShadowBias = bias;
+    }
+
+    void Light2D::setShadowSmooth(float smooth)
+    {
+        mShadowSmooth = smooth;
+    }
+
     void Light2D::onRender(RenderQueue &queue)
     {
         PointLight light;
@@ -62,6 +78,9 @@ namespace k2d
         light.shadowColor = mShadowColor;
         light.cullMask = mCullMask;
         light.height = mHeight;
+        light.falloff = mFalloff;
+        light.shadowBias = mShadowBias;
+        light.shadowSmooth = mShadowSmooth;
         queue.AddLight(light);
     }
 

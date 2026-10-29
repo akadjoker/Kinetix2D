@@ -24,7 +24,7 @@ bool testLightClass()
     k2d::Light2D* light = object->addComponent<k2d::Light2D>();
 
     const k2d::ClassInfo* info = k2d::ClassDB::find(*light);
-    bool ok = info && info->name == "Light2D" && info->properties.size() == 8;
+    bool ok = info && info->name == "Light2D" && info->properties.size() == 11;
     ok = ok && k2d::ClassDB::find("Light2D") == info;
 
     k2d::PropertyValue value;
@@ -33,6 +33,7 @@ bool testLightClass()
     ok = ok && k2d::ClassDB::set(*light, "castShadow", k2d::PropertyValue::from(true)) && light->castShadow();
     ok = ok && k2d::ClassDB::set(*light, "shadowFilter", k2d::PropertyValue::from(2)) &&
          light->shadowFilter() == k2d::SHADOW_FILTER_PCF13;
+    ok = ok && k2d::ClassDB::set(*light, "falloff", k2d::PropertyValue::from(1.5f)) && near(light->falloff(), 1.5f);
     ok = ok && k2d::ClassDB::set(*light, "color", k2d::PropertyValue::from(k2d::Color(0.5f, 0.25f, 1.0f, 0.75f))) &&
          near(light->color().g, 0.25f) && near(light->color().a, 0.75f);
     ok = ok && k2d::ClassDB::get(*light, "color", value) && near(value.asColor().b, 1.0f);

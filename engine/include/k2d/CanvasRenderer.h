@@ -201,6 +201,8 @@ class CanvasRenderer
     int mWaterTintLoc;
     int mWaterHighlightLoc;
     int mLightHeightLoc;
+    int mLightParamsLoc;
+    int mDirectionalParamsLoc;
     int mDirectionalHeightLoc;
     unsigned int mShadowAtlas;
     unsigned int mShadowFramebuffer;

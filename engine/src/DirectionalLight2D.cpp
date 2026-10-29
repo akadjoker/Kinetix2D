@@ -11,7 +11,8 @@ namespace k2d
     DirectionalLight2D::DirectionalLight2D()
         : Component(Type, ComponentEventRender, ComponentClass::DirectionalLight2D), mColor(1.0f), mEnergy(1.0f),
           mCastShadow(false), mShadowColor(0.0f, 0.0f, 0.0f, 1.0f),
-          mShadowFilter(SHADOW_FILTER_NEAREST), mCullMask(1), mHeight(0.0f)
+          mShadowFilter(SHADOW_FILTER_NEAREST), mCullMask(1), mHeight(0.0f), mShadowBias(0.002f),
+          mShadowSmooth(1.0f)
     {
     }
 
@@ -45,6 +46,16 @@ namespace k2d
         mShadowFilter = filter;
     }
 
+    void DirectionalLight2D::setShadowBias(float bias)
+    {
+        mShadowBias = bias;
+    }
+
+    void DirectionalLight2D::setShadowSmooth(float smooth)
+    {
+        mShadowSmooth = smooth;
+    }
+
     void DirectionalLight2D::onRender(RenderQueue &queue)
     {
         Matrix2D transform = owner()->globalTransform();
@@ -62,6 +73,8 @@ namespace k2d
         light.shadowColor = mShadowColor;
         light.cullMask = mCullMask;
         light.height = mHeight;
+        light.shadowBias = mShadowBias;
+        light.shadowSmooth = mShadowSmooth;
         queue.AddDirectionalLight(light);
     }
 

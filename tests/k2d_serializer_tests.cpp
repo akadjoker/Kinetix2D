@@ -503,12 +503,17 @@ bool TestLightDisambiguation()
     point->setCastShadow(true);
     point->setCullMask(3u);
     point->setHeight(12.0f);
+    point->setFalloff(0.75f);
+    point->setShadowBias(0.01f);
+    point->setShadowSmooth(3.0f);
 
     k2d::GameObject* dirObj = srcScene.createObject("DirLight");
     k2d::DirectionalLight2D* dir = dirObj->addComponent<k2d::DirectionalLight2D>();
     dir->setColor(0.2f, 0.3f, 0.9f, 1.0f);
     dir->setEnergy(0.6f);
     dir->setCastShadow(false);
+    dir->setShadowBias(0.004f);
+    dir->setShadowSmooth(2.5f);
 
     k2d::Scene dstScene;
     ct::Json pointJson = k2d::Serializer::WriteObject(*pointObj);
@@ -525,8 +530,11 @@ bool TestLightDisambiguation()
     bool ok = NearColor(copyPoint->color(), {1.0f, 0.5f, 0.25f, 1.0f});
     ok = ok && Near(copyPoint->energy(), 1.8f) && Near(copyPoint->radius(), 222.0f);
     ok = ok && copyPoint->castShadow() == true && copyPoint->cullMask() == 3u && Near(copyPoint->height(), 12.0f);
+    ok = ok && Near(copyPoint->falloff(), 0.75f) && Near(copyPoint->shadowBias(), 0.01f) &&
+         Near(copyPoint->shadowSmooth(), 3.0f);
     ok = ok && NearColor(copyDir->color(), {0.2f, 0.3f, 0.9f, 1.0f});
     ok = ok && Near(copyDir->energy(), 0.6f) && copyDir->castShadow() == false;
+    ok = ok && Near(copyDir->shadowBias(), 0.004f) && Near(copyDir->shadowSmooth(), 2.5f);
 
     ok = ok && dynamic_cast<k2d::DirectionalLight2D*>(copyPoint) == nullptr;
     ok = ok && dynamic_cast<k2d::Light2D*>(copyDir) == nullptr;

@@ -62,6 +62,9 @@ struct PointLight
     unsigned int cullMask = 1;
 
     float height = 0.0f;
+    float falloff = 2.0f;
+    float shadowBias = 0.002f;
+    float shadowSmooth = 1.0f;
 };
 
 struct DirectionalLight
@@ -74,6 +77,8 @@ struct DirectionalLight
 
     float height = 0.0f;
     unsigned int cullMask = 1;
+    float shadowBias = 0.002f;
+    float shadowSmooth = 1.0f;
 };
 
 struct Occluder

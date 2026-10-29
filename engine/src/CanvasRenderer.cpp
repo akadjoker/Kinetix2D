@@ -144,18 +144,20 @@ uniform int u_lightShadowFlags[8];
 uniform int u_lightShadowFilter[8];
 uniform vec4 u_lightShadowColor[8];
 uniform int u_directionalShadowFilter[8];
+uniform vec4 u_lightParams[8];
+uniform vec4 u_directionalParams[8];
 
 out vec4 FragColor;
 
 // Every lookup compares two texels, so taps two texels apart cover the
 // PCF5 and PCF13 kernels with 3 and 7 of them.
-float shadowLit(vec2 uv, float depth, int filterMode, bool wrap)
+float shadowLit(vec2 uv, float depth, int filterMode, float smoothness, bool wrap)
 {
     int taps = filterMode == 0 ? 0 : (filterMode == 1 ? 1 : 3);
     float lit = 0.0;
     for (int x = -taps; x <= taps; ++x)
     {
-        float u = uv.x + float(x) * (2.0 / 2048.0);
+        float u = uv.x + float(x) * smoothness * (2.0 / 2048.0);
         if (!wrap)
             u = clamp(u, 0.5 / 2048.0, 1.0 - 0.5 / 2048.0);
         lit += texture(u_shadowAtlas, vec3(u, uv.y, depth));
@@ -222,15 +224,15 @@ void main()
             }
             else
             {
-                light_color.a *= radialCut * radialCut;
+                light_color.a *= pow(radialCut, u_lightParams[i].x);
             }
             if ((u_lightShadowFlags[i] & 1) != 0)
             {
                 vec2 lightRay = v_world - u_lightPos[i];
                 float atlasU = atan(lightRay.y, lightRay.x) / 6.28318530718 + 0.5;
                 float atlasV = (float(i * 2) + 0.5) / 16.0;
-                float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), dist / u_lightRadius[i] - 0.002,
-                                               u_lightShadowFilter[i], true);
+                float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), dist / u_lightRadius[i] - u_lightParams[i].y,
+                                               u_lightShadowFilter[i], u_lightParams[i].z, true);
                 vec4 shadow_color = u_lightShadowColor[i];
                 shadow_color.a *= light_color.a;
                 light_color = mix(light_color, shadow_color, shadow);
@@ -270,8 +272,8 @@ void main()
             float atlasU = (lateral / halfSize + 1.0) * 0.5;
             float atlasV = (8.0 + float(i * 2) + 0.5) / 16.0;
             float fragmentDepth = (along + shadowDistance * 0.5) / shadowDistance;
-            float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), fragmentDepth - 0.002,
-                                           u_directionalShadowFilter[i], false);
+            float shadow = 1.0 - shadowLit(vec2(atlasU, atlasV), fragmentDepth - u_directionalParams[i].x,
+                                           u_directionalShadowFilter[i], u_directionalParams[i].y, false);
             vec4 shadow_color = u_directionalLightShadowColor[i];
             shadow_color.a *= light_color.a;
             light_color = mix(light_color, shadow_color, shadow);
@@ -451,7 +453,7 @@ CanvasRenderer::CanvasRenderer()
       mFontTexture(0), mDefaultLightTexture(0), mLightTextureLoc(-1), mHasLightTextureLoc(-1),
       mCanvasModulate(1.0f, 1.0f, 1.0f, 1.0f), mCanvasModulateLoc(-1), mNormalMapLoc(-1), mHasNormalMapLoc(-1),
       mWaterMvpLoc(-1), mWaterNormalMapLoc(-1), mWaterPhaseALoc(-1), mWaterPhaseBLoc(-1), mWaterStrengthLoc(-1), mWaterNormalScaleLoc(-1),
-      mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1),
+      mWaterTintLoc(-1), mWaterHighlightLoc(-1), mLightHeightLoc(-1), mLightParamsLoc(-1), mDirectionalParamsLoc(-1),
       mDirectionalHeightLoc(-1), mShadowAtlas(0), mShadowFramebuffer(0), mShadowVAO(0), mShadowVBO(0),
       mMvpLoc(-1), mTexLoc(-1), mLightCountLoc(-1), mLightPosLoc(-1), mLightColorLoc(-1), mLightRadiusLoc(-1),
       mLightCullMaskLoc(-1), mDirectionalLightCountLoc(-1), mDirectionalLightDirectionLoc(-1),
@@ -947,8 +949,13 @@ void CanvasRenderer::ApplyDrawCalls()
         float rad[8];
         unsigned int cullMask[8];
         float height[8];
+        float params[32];
         for (int i = 0; i < mLightCount; ++i)
         {
+            params[i * 4 + 0] = mLights[i].falloff;
+            params[i * 4 + 1] = mLights[i].shadowBias;
+            params[i * 4 + 2] = mLights[i].shadowSmooth;
+            params[i * 4 + 3] = 0.0f;
             pos[i * 2 + 0] = mLights[i].position.x;
             pos[i * 2 + 1] = mLights[i].position.y;
             col[i * 4 + 0] = mLights[i].color.r;
@@ -964,6 +971,7 @@ void CanvasRenderer::ApplyDrawCalls()
         glUniform1fv(mLightRadiusLoc, mLightCount, rad);
         glUniform1uiv(mLightCullMaskLoc, mLightCount, cullMask);
         glUniform1fv(mLightHeightLoc, mLightCount, height);
+        glUniform4fv(mLightParamsLoc, mLightCount, params);
     }
 
     glUniform1i(mDirectionalLightCountLoc, mDirectionalLightCount);
@@ -973,8 +981,13 @@ void CanvasRenderer::ApplyDrawCalls()
         float color[32];
         unsigned int dirCullMask[8];
         float dirHeight[8];
+        float dirParams[32];
         for (int i = 0; i < mDirectionalLightCount; ++i)
         {
+            dirParams[i * 4 + 0] = mDirectionalLights[i].shadowBias;
+            dirParams[i * 4 + 1] = mDirectionalLights[i].shadowSmooth;
+            dirParams[i * 4 + 2] = 0.0f;
+            dirParams[i * 4 + 3] = 0.0f;
             direction[i * 2 + 0] = mDirectionalLights[i].direction.x;
             direction[i * 2 + 1] = mDirectionalLights[i].direction.y;
             color[i * 4 + 0] = mDirectionalLights[i].color.r;
@@ -988,6 +1001,7 @@ void CanvasRenderer::ApplyDrawCalls()
         glUniform4fv(mDirectionalLightColorLoc, mDirectionalLightCount, color);
         glUniform1uiv(mDirectionalCullMaskLoc, mDirectionalLightCount, dirCullMask);
         glUniform1fv(mDirectionalHeightLoc, mDirectionalLightCount, dirHeight);
+        glUniform4fv(mDirectionalParamsLoc, mDirectionalLightCount, dirParams);
     }
     int directionalFlags[8];
     int directionalFilters[8];
@@ -1131,6 +1145,8 @@ bool CanvasRenderer::SetupShaders()
     mLightRadiusLoc = glGetUniformLocation(mProgram, "u_lightRadius");
     mLightCullMaskLoc = glGetUniformLocation(mProgram, "u_lightCullMask");
     mLightHeightLoc = glGetUniformLocation(mProgram, "u_lightHeight");
+    mLightParamsLoc = glGetUniformLocation(mProgram, "u_lightParams");
+    mDirectionalParamsLoc = glGetUniformLocation(mProgram, "u_directionalParams");
     mDirectionalCullMaskLoc = glGetUniformLocation(mProgram, "u_directionalCullMask");
     mDirectionalHeightLoc = glGetUniformLocation(mProgram, "u_directionalHeight");
     mDirectionalLightCountLoc = glGetUniformLocation(mProgram, "u_directionalLightCount");
