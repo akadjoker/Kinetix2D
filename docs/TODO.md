@@ -49,7 +49,11 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 - [x] Add Component por categorias (`5702065`)
 - [x] Camadas de colisão com nome: Settings, `category`/`mask` por nomes, `collision_layer()` (`b96fef8`)
 - [x] Tileset partilhado (`.k2dtileset`): textura, corte, terrenos, tiles sólidos e animados, usado por vários mapas; editar num mapa grava o ficheiro; empacotado no export (`82d51d5`, `55dffe5`). Falta: mudar tiles sólidos em Play não refaz as formas da física
-- [ ] Debugger de scripts: breakpoints, variáveis, passo a passo (precisa de hooks na VM do zenpy)
+- [ ] Debugger de scripts: breakpoints, variáveis, passo a passo
+  - [x] VM (zenpy `ed1ced0`): nomes dos locais por função, `set_debug_hook` uma vez por linha por uma segunda tabela de despacho (sem gancho o despacho não muda), leitura de frames e locais
+  - [ ] Runner: `--debug=porta`, pára nos breakpoints e fala JSON por TCP local (o jogo corre em janela própria, como no Godot, para o editor não congelar)
+  - [ ] iGUI: margem de breakpoints e linha actual no CodeEditor
+  - [ ] Editor: breakpoints no Script Editor, painel Debugger (pilha, variáveis, Continue/Step Over/In/Out), F6 em modo debug
 - [ ] Timeline genérica: animar qualquer propriedade de qualquer objecto, com eventos
 - [ ] Assets: criar, renomear, mover e apagar, com as referências a acompanhar
 - [ ] Gamepad na web (Gamepad API no backend web do zen_plataform)
