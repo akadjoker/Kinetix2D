@@ -82,6 +82,12 @@ target_compile_features(k2d_collider_points_tests PRIVATE cxx_std_17)
 
 add_executable(k2d_light_benchmark k2d_light_benchmark.cpp)
 target_link_libraries(k2d_light_benchmark PRIVATE k2d)
+if(EMSCRIPTEN)
+    target_link_options(k2d_light_benchmark PRIVATE "-sALLOW_MEMORY_GROWTH=1" "-sMIN_WEBGL_VERSION=2"
+                        "-sMAX_WEBGL_VERSION=2" "-sFULL_ES3=1")
+    set_target_properties(k2d_light_benchmark PROPERTIES SUFFIX ".html"
+                          RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bench)
+endif()
 
 add_executable(k2d_performance_benchmark k2d_performance_benchmark.cpp)
 target_link_libraries(k2d_performance_benchmark PRIVATE k2d k2d_physics2d)

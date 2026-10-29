@@ -1,5 +1,6 @@
 // Frame time of the 2D lights and shadows on the GPU: fixed scenes drawn into
-// a target of their own, glFinish every frame; every 30th is shown, outside the
+// a target of their own, one pixel read back every frame (WebGL's glFinish does
+// not wait for the GPU); every 30th is shown, outside the
 // timing. Needs a display; run from bin/. --dump writes each case's last frame
 // to light_case_N.png.
 #include <k2d/Camera2D.h>
@@ -113,7 +114,8 @@ void run(k2d::Device& device, k2d::CanvasRenderer& canvas, k2d::RenderTarget& ta
         canvas.SetProjection(camera.Projection(kWidth, kHeight));
         scene.setRenderCamera(&camera, kWidth, kHeight);
         scene.render(canvas);
-        glFinish();
+        unsigned char pixel[4];
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
         lights = counter("lights");
         k2d::Profiler::Get().endFrame();
         const double ms = (k2d::Device::TimeSeconds() - start) * 1000.0;
