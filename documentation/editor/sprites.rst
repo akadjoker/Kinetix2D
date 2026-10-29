@@ -12,6 +12,8 @@ The quickest sprite
 
 Drag an image from **Assets** onto the scene view. It becomes an object named
 after the file, with a Sprite showing the whole image, where it was dropped.
+Dropped on an object's row in the Hierarchy instead, the image goes to that
+object's Sprite (or TileMap, NinePatch...), or gives it a Sprite.
 
 Cut an image into regions
 -------------------------

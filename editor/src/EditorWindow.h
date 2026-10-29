@@ -144,6 +144,9 @@ private:
     // Adds the script to the object, or to a new object at (x, y) in the scene
     // view when there is none.
     void attachScript(const ct::String& path, GameObject* object, float x, float y);
+    // The image goes to the first field of the object's components that takes
+    // one (a Sprite's, a TileMap's...); an object with none gets a Sprite.
+    void giveImage(const ct::String& path, GameObject* object);
     // An instance of the prefab under parent (the top when nullptr); at (x, y)
     // in the scene view when placed, where the prefab had it otherwise.
     GameObject* instantiatePrefab(const ct::String& path, GameObject* parent, bool placed, float x, float y);

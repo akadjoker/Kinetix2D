@@ -41,6 +41,12 @@ struct FieldBinding
 ig::retained::BoxLayout* addPropertyRow(ig::retained::Widget* parent, const PropertyInfo& info,
                                         const FieldBinding& binding, const FieldEdited& edited);
 
+// What a resource field shows when hovered: the texture a project path names,
+// with its size; false when the path is not a loaded image.
+using ResourcePreview = ct::Function<bool(const ct::String& path, ig::retained::TextureHandle& texture, float& width,
+                                          float& height)>;
+void setResourcePreview(ResourcePreview preview);
+
 // A row with only its label, for fields put in by hand.
 ig::retained::BoxLayout* addFieldRow(ig::retained::Widget* parent, const char* label);
 

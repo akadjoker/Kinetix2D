@@ -25,6 +25,13 @@ Make an object
 **From a prefab**
    Drag a ``.k2dprefab`` onto the scene view, or onto a Hierarchy row to put
    it under that object.
+**An image onto an object**
+   Drag an image from Assets onto an object's row in the Hierarchy: it goes to
+   the first component that takes an image (a Sprite, a TileMap, a NinePatch,
+   a Particle...), and an object with none gets a Sprite. Assets and the
+   Hierarchy share the left rail: drag over the *Hierarchy* button and it
+   opens, then drop on the row. Dropped below the rows, the image makes a new
+   sprite object.
 **From another object**
    **Duplicate** (Ctrl+D), or **Copy** and **Paste** (Ctrl+C, Ctrl+V). The
    clipboard is the system's, so objects paste into another scene or another
@@ -132,8 +139,9 @@ Editing values
 * Numbers with a range are sliders; drag them, or type a value (some, such as
   rotation and scale, accept values past the slider's ends).
 * Two-number values (``x``, ``y``) are two fields.
-* A file field (*Drop an asset here*) takes a file dragged from Assets, or a
-  typed path; the cross clears it.
+* A file field (*Drop an asset here*) shows the file's name; hover it to see
+  the whole path and, for an image, the image. It takes a file dragged from
+  Assets, or a typed path; the cross clears it.
 * Every change is one undo step, recorded when the drag ends.
 
 Prefabs

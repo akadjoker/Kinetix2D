@@ -109,7 +109,7 @@ HierarchyPanel::HierarchyPanel() : rt::BoxLayout(rt::LayoutDir::Vertical)
     mTree->setExternalDrop([](const rt::DragPayload& payload)
     {
         const ct::String* path = assetPath(payload);
-        return path && (isScriptPath(*path) || isPrefabPath(*path));
+        return path && (isScriptPath(*path) || isPrefabPath(*path) || isImagePath(*path));
     });
     mTree->externalDropped.connect([this](const rt::DragPayload& payload, rt::TreeNode* node)
     {

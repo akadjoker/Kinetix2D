@@ -46,19 +46,45 @@ public:
     }
 };
 
+ResourcePreview& resourcePreview()
+{
+    static ResourcePreview preview;
+    return preview;
+}
+
 // A resource path: typed and submitted, or an asset dropped from the Assets
-// panel when its extension is one the property takes.
+// panel when its extension is one the property takes. It shows the file's name;
+// hovering shows the whole path and, for an image, the image.
 class ResourceField : public rt::TextInput
 {
 public:
     IG_WIDGET_CLASS(ResourceField, rt::TextInput);
 
-    ResourceField(const rt::String& text, const ct::String& extensions)
-        : rt::TextInput(text), mExtensions(extensions)
+    ResourceField(const ct::String& path, const ct::String& extensions) : rt::TextInput(""), mExtensions(extensions)
     {
+        setPath(path);
     }
 
     ct::Function<void(const ct::String&)> picked;
+
+    void setPath(const ct::String& path)
+    {
+        mPath = path;
+        setText(EditorFileSystem::fileName(path));
+        setTooltip(path);
+        rt::TextureHandle texture;
+        float width = 0.0f, height = 0.0f;
+        if (path.empty() || !resourcePreview() || !resourcePreview()(path, texture, width, height))
+            texture = rt::TextureHandle();
+        setTooltipImage(texture, width, height);
+    }
+
+    // What was typed, or the path itself while the name it shows is untouched.
+    ct::String typedPath() const
+    {
+        const ct::String typed = text();
+        return typed == EditorFileSystem::fileName(mPath) ? mPath : typed;
+    }
 
     bool acceptsDrop(const rt::DragPayload& payload) override
     {
@@ -70,7 +96,7 @@ public:
     {
         if (const ct::String* path = assetPath(payload))
         {
-            setText(*path);
+            setPath(*path);
             if (picked)
                 picked(*path);
         }
@@ -96,6 +122,7 @@ private:
     }
 
     ct::String mExtensions;
+    ct::String mPath;
 };
 
 unsigned char byte(float v)
@@ -114,6 +141,11 @@ Color fromWidget(const rt::Color& c)
 }
 
 } // namespace
+
+void setResourcePreview(ResourcePreview preview)
+{
+    resourcePreview() = static_cast<ResourcePreview&&>(preview);
+}
 
 rt::BoxLayout* addFieldRow(rt::Widget* parent, const char* label)
 {
@@ -263,12 +295,14 @@ rt::BoxLayout* addPropertyRow(rt::Widget* parent, const PropertyInfo& info, cons
             set(PropertyValue::resourcePath(path));
             edited(true);
         };
-        field->submitted.connect([field](const rt::String& text) {
+        field->submitted.connect([field](const rt::String&) {
+            const ct::String path = field->typedPath();
+            field->setPath(path);
             if (field->picked)
-                field->picked(text);
+                field->picked(path);
         });
         iconButton(line, rt::IconId::Cross, "Clear", [field]() {
-            field->setText("");
+            field->setPath("");
             if (field->picked)
                 field->picked("");
         });

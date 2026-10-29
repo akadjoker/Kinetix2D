@@ -2,6 +2,7 @@
 
 #include "Icons.h"
 #include "ProjectExport.h"
+#include "PropertyFields.h"
 
 #include "TextInputWidgets.hpp"
 
@@ -362,6 +363,11 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         const rt::Rect area = mViewport->absoluteRect();
         if (isPrefabPath(path))
             instantiatePrefab(path, object, false, 0.0f, 0.0f);
+        else if (isImagePath(path) && object)
+            giveImage(path, object);
+        else if (isImagePath(path))
+            addSprite(path, EditorFileSystem::withoutExtension(EditorFileSystem::fileName(path)), Math::Vec4(),
+                      area.w * 0.5f, area.h * 0.5f);
         else
             attachScript(path, object, area.w * 0.5f, area.h * 0.5f);
     });
@@ -389,6 +395,16 @@ void EditorWindow::build(rt::WidgetApp& app, PlatformWindow* window)
         addSprite(region.texture, region.id, region.rect, area.w * 0.5f, area.h * 0.5f);
     });
     mInspector = mRightBar->addPage<InspectorPanel>(Icons::get("Inspector"), kInspectorPanel);
+    setResourcePreview([this](const ct::String& path, rt::TextureHandle& texture, float& width, float& height)
+    {
+        const Texture* image = mAssets.GetTexture(path.c_str());
+        if (!image)
+            return false;
+        texture.value = image->Id();
+        width = static_cast<float>(image->Width());
+        height = static_cast<float>(image->Height());
+        return true;
+    });
     mInspector->show(nullptr);
     mInspector->edited.connect([this](const char* label, bool final)
     {
@@ -1730,6 +1746,39 @@ void EditorWindow::dropAsset(const ct::String& path, float x, float y)
     addSprite(path, name, Math::Vec4(0.0f), x, y);
 }
 
+void EditorWindow::giveImage(const ct::String& path, GameObject* object)
+{
+    Texture* texture = mAssets.GetTexture(path.c_str());
+    if (!object || !texture || mPlaying)
+        return;
+    for (std::size_t type = 0; type < static_cast<std::size_t>(ComponentType::Count); ++type)
+    {
+        const ComponentType componentType = static_cast<ComponentType>(type);
+        for (std::size_t index = 0; index < object->rawComponentCount(componentType); ++index)
+        {
+            Component* component = object->rawComponent(componentType, index);
+            const ClassInfo* info = component ? ClassDB::find(*component) : nullptr;
+            for (std::size_t p = 0; info && p < info->properties.size(); ++p)
+            {
+                const PropertyInfo& property = info->properties[p].info;
+                if (property.type != PropertyType::ResourcePath || property.hintString.find("png") == ct::String::npos)
+                    continue;
+                if (ClassDB::set(*component, property.name.c_str(), PropertyValue::resourcePath(path)))
+                {
+                    showObject(object);
+                    commit("Set image");
+                }
+                return;
+            }
+        }
+    }
+    SpriteComponent* sprite = object->addComponent<SpriteComponent>();
+    sprite->setTexture(texture);
+    sprite->setSize(Math::Vec2(static_cast<float>(texture->Width()), static_cast<float>(texture->Height())));
+    showObject(object);
+    commit("Add sprite");
+}
+
 void EditorWindow::addSprite(const ct::String& path, const ct::String& name, const Math::Vec4& rect, float x, float y)
 {
     Texture* texture = mAssets.GetTexture(path.c_str());
@@ -2235,6 +2284,7 @@ void EditorWindow::shutdown()
     stopPlay();
     mTarget.destroy();
     mGameTarget.destroy();
+    setResourcePreview(ResourcePreview());
     GetSceneTransition().Release();
     if (mCanvasReady)
         mCanvas.Shutdown();
