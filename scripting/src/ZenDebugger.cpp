@@ -50,7 +50,12 @@ namespace k2d
         }
         mStream.set_nodelay(true);
         mStream.set_nonblocking(true);
-        ZenRuntime::instance().vm().set_debug_hook(&ZenDebugger::hook, this);
+        if (!ZenRuntime::instance().vm().set_debug_hook(&ZenDebugger::hook, this))
+        {
+            log_error("Debugger: this runner's VM has no debug hook; the editor starts k2d_runner_debug");
+            mStream.close();
+            return false;
+        }
         log_info("Debugger connected on 127.0.0.1:%u", (unsigned)port);
         send("{\"event\":\"hello\"}");
         // The editor sends its breakpoints first; the game starts once they

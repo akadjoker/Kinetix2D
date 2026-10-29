@@ -24,3 +24,12 @@ endif()
 set_target_properties(k2d_runner PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${K2D_RUNTIME_OUTPUT_DIRECTORY}
 )
+
+# The runner the editor's debugger starts: the same game on zen_debug, the VM
+# with the debug hook. What ships is k2d_runner, which has none.
+if(TARGET k2d_zen_debug)
+    add_executable(k2d_runner_debug src/main.cpp)
+    target_link_libraries(k2d_runner_debug PRIVATE k2d k2d_zen_debug k2d_physics2d)
+    target_compile_features(k2d_runner_debug PRIVATE cxx_std_17)
+    set_target_properties(k2d_runner_debug PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${K2D_RUNTIME_OUTPUT_DIRECTORY})
+endif()
