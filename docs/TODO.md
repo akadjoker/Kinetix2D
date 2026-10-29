@@ -40,8 +40,8 @@ Medido com `bin/k2d_light_benchmark` (correr de dentro de `bin/`; `--dump` grava
 
 - [x] Nada se perde sem perguntar: Image Editor e Sprite Editor perguntam antes de trocar de imagem; sair (menu, Ctrl+Q, X da janela) e mudar de projecto perguntam pela cena, imagem, regiões e scripts; zen_plataform `efec44c` (o fecho recusado fica recusado) (`f91f216`)
 - [x] Menu Help: manual (F1), referência de scripting e C++ no browser; os pacotes levam o manual em `bin/docs` (`7234a65`)
-- [ ] Transições de cena com animação, como no prisma3d
-- [ ] Autotile nos TileMaps
+- [x] Transições de cena: `load_scene(path, transition, seconds)` com fade, slide, zoom e wipe, a imagem da cena antiga copiada na GPU; o Play do editor passou a correr os fades (`b155f95`)
+- [x] Autotile nos TileMaps: terrenos com os vizinhos que cada tile liga (16 só lados, 47 blob, qualquer layout), pincel Terrain e marcação na paleta, `set_terrain` nos scripts (`e3afc1f`, `8886605`)
 - [ ] Gamepad
 - [ ] Tutoriais de jogos pequenos (colisão, plataformas…) no manual
 - [ ] Android: no fim
