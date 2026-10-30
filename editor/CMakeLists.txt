@@ -1,58 +1,61 @@
-add_library(k2d_editor_widgets STATIC
-    external/imgui_widgets/ImGuiFileDialog.cpp
-    external/imgui_widgets/ImGuiConsole.cpp
-    external/imgui_widgets/ImCurveEdit.cpp
-    external/imgui_widgets/ImGradient.cpp
-    external/imgui_widgets/ImSequencer.cpp
-)
-
-target_include_directories(k2d_editor_widgets PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui_widgets
-)
-
-target_link_libraries(k2d_editor_widgets PUBLIC imgui)
-target_compile_features(k2d_editor_widgets PUBLIC cxx_std_17)
+set(K2D_EDITOR_ICONS_PNG_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/k2d_editor_icons_png.h")
+add_custom_command(
+    OUTPUT "${K2D_EDITOR_ICONS_PNG_HEADER}"
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT="${CMAKE_CURRENT_SOURCE_DIR}/icons/atlas.png"
+        -DOUTPUT="${K2D_EDITOR_ICONS_PNG_HEADER}"
+        -DVARIABLE=kEditorIconsPng
+        -P "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/icons/atlas.png" "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake")
+set(K2D_EDITOR_ICONS_TXT_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/k2d_editor_icons_txt.h")
+add_custom_command(
+    OUTPUT "${K2D_EDITOR_ICONS_TXT_HEADER}"
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT="${CMAKE_CURRENT_SOURCE_DIR}/icons/atlas.txt"
+        -DOUTPUT="${K2D_EDITOR_ICONS_TXT_HEADER}"
+        -DVARIABLE=kEditorIconsTxt
+        -P "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/icons/atlas.txt" "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake")
 
 add_executable(k2d_editor
-    external/TextEditor.cpp
     src/main.cpp
-    src/core/EditorApplication.cpp
-    src/core/CommandStack.cpp
+    src/Icons.cpp
+    "${K2D_EDITOR_ICONS_PNG_HEADER}"
+    "${K2D_EDITOR_ICONS_TXT_HEADER}"
+    src/EditorWindow.cpp
+    src/EditorProject.cpp
+    src/HierarchyPanel.cpp
+    src/InspectorPanel.cpp
+    src/ViewportPanel.cpp
+    src/SceneGizmo.cpp
+    src/SceneShapes.cpp
+    src/AssetsPanel.cpp
+    src/SpriteCanvas.cpp
+    src/SpriteEditorPanel.cpp
+    src/AtlasPanel.cpp
+    src/FrameStrip.cpp
+    src/AnimatorPanel.cpp
+    src/SkeletonPanel.cpp
+    src/TilePalette.cpp
+    src/TilePainterPanel.cpp
+    src/ScriptEditorPanel.cpp
+    src/DebuggerPanel.cpp
+    src/DebuggerSession.cpp
+    src/ParticlesPanel.cpp
+    src/McpServer.cpp
+    src/EditorAssets.cpp
+    src/SettingsPanel.cpp
+    src/ProfilerPanel.cpp
+    src/ImageEditorPanel.cpp
+    src/PropertyFields.cpp
     src/core/EditorFileSystem.cpp
-    src/core/EditorSelection.cpp
-    src/core/EditorSettings.cpp
-    src/core/EditorToasts.cpp
-    src/core/Project.cpp
-    src/panels/AssetsPanel.cpp
-    src/panels/AnimatorPanel.cpp
-    src/panels/ConsolePanel.cpp
-    src/panels/GamePanel.cpp
-    src/panels/HierarchyPanel.cpp
-    src/panels/ImageEditorPanel.cpp
-    src/panels/InspectorPanel.cpp
-    src/panels/ParticlePanel.cpp
-    src/panels/PrefabsPanel.cpp
-    src/panels/ScriptsPanel.cpp
-    src/panels/SettingsPanel.cpp
-    src/panels/SpriteEditorPanel.cpp
-    src/panels/SceneViewportPanel.cpp
-    src/panels/SkeletonPanel.cpp
-    src/panels/ScriptEditorPanel.cpp
-    src/panels/TileMapPanel.cpp
+    src/core/CommandStack.cpp
+    src/core/AssetPaths.cpp
 )
-
-target_include_directories(k2d_editor PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/external
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/icons
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/panels
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets
-)
-
-target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d k2d_editor_widgets imgui)
+target_include_directories(k2d_editor PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_link_libraries(k2d_editor PRIVATE k2d k2d_zen k2d_physics2d k2d_export_lib igui::zen)
 target_compile_features(k2d_editor PRIVATE cxx_std_17)
-
-set_target_properties(k2d_editor PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${K2D_RUNTIME_OUTPUT_DIRECTORY}
-)
+if(NOT MSVC)
+    target_compile_options(k2d_editor PRIVATE -fno-rtti)
+endif()
+set_target_properties(k2d_editor PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${K2D_RUNTIME_OUTPUT_DIRECTORY})

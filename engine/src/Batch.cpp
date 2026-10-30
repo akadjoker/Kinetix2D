@@ -3,6 +3,8 @@
 #include "k2d/Profiler.h"
 #include "font_data.h"
 
+#include <platform.h>
+
 #include <ct/detail/utils.hpp>
 
 #include <cstring>
@@ -74,7 +76,7 @@ static GLuint CompileShader(GLenum type, const char* src)
     {
         char log[1024];
         glGetShaderInfoLog(s, sizeof(log), nullptr, log);
-        std::printf("shader compile error: %s\n", log);
+        log_error("shader compile error: %s", log);
         glDeleteShader(s);
         return 0;
     }
@@ -121,7 +123,7 @@ bool BatchRenderer::Init(const Config& config)
     UpdateProjection();
     ResetStats();
 
-    std::printf("BatchRenderer initialized: maxVertices=%zu maxDrawCalls=%zu\n", mConfig.maxVertices,
+    log_info("BatchRenderer initialized: maxVertices=%zu maxDrawCalls=%zu", mConfig.maxVertices,
                 mConfig.maxDrawCalls);
     return true;
 }
@@ -526,7 +528,7 @@ void BatchRenderer::Begin(int mode)
 {
     if (mInBeginEnd)
     {
-        std::printf("warning: Begin() without End()\n");
+        log_warn("warning: Begin() without End()");
         End();
     }
 
@@ -1381,14 +1383,14 @@ void BatchRenderer::ResetStats()
 void BatchRenderer::PrintStats() const
 {
     const Stats& s = mStats;
-    std::printf("=== BatchRenderer Stats ===\n");
-    std::printf("  Draw Calls:        %zu\n", s.drawCalls);
-    std::printf("  Vertices Drawn:    %zu\n", s.verticesDrawn);
-    std::printf("  Indices Drawn:     %zu\n", s.indicesDrawn);
-    std::printf("  Texture Switches:  %zu\n", s.textureSwitches);
-    std::printf("  Batches Flushed:   %zu\n", s.batchesFlushed);
-    std::printf("  Frame Count:       %zu\n", s.frameCount);
-    std::printf("===========================\n");
+    log_info("=== BatchRenderer Stats ===");
+    log_info("  Draw Calls:        %zu", s.drawCalls);
+    log_info("  Vertices Drawn:    %zu", s.verticesDrawn);
+    log_info("  Indices Drawn:     %zu", s.indicesDrawn);
+    log_info("  Texture Switches:  %zu", s.textureSwitches);
+    log_info("  Batches Flushed:   %zu", s.batchesFlushed);
+    log_info("  Frame Count:       %zu", s.frameCount);
+    log_info("===========================");
 }
 
 void BatchRenderer::SetProjection(const Math::Mat4& matrix)
@@ -1421,7 +1423,7 @@ void BatchRenderer::FlushBatch()
         return;
 
     ProfileScope profileScope("batch.flush");
-    // BatchRenderer shares a GL context with Canvas/ImGui, so only cache
+    // BatchRenderer shares a GL context with Canvas, so only cache
     // state within this flush unless it controls every pass itself.
     mState.Invalidate();
 
@@ -1566,7 +1568,7 @@ bool BatchRenderer::SetupShaders()
     {
         char log[1024];
         glGetProgramInfoLog(mProgram, sizeof(log), nullptr, log);
-        std::printf("shader link error: %s\n", log);
+        log_error("shader link error: %s", log);
         glDeleteProgram(mProgram);
         mProgram = 0;
         return false;

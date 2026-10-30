@@ -6,12 +6,12 @@
 
 #include "audio/miniaudio.h"
 
-#include <algorithm>
 #include <cstring>
-#include <string>
-#include <unordered_map>
+#include <ct/detail/utils.hpp>
+#include <ct/hashmap.hpp>
+#include <ct/string.hpp>
+#include <ct/vector.hpp>
 #include <utility>
-#include <vector>
 
 namespace k2d
 {
@@ -28,8 +28,8 @@ struct AudioEngine::Impl
     struct Sound
     {
         SoundId id = 0;
-        std::string path;
-        std::vector<unsigned char> bytes;
+        ct::String path;
+        ct::Vector<unsigned char> bytes;
         bool music = false;
     };
 
@@ -61,8 +61,8 @@ struct AudioEngine::Impl
     bool masterMuted = false;
     bool sfxMuted = false;
     bool musicMuted = false;
-    std::unordered_map<SoundId, Sound> sounds;
-    std::vector<Voice*> voices;
+    ct::HashMap<SoundId, Sound> sounds;
+    ct::Vector<Voice*> voices;
 };
 
 namespace
@@ -122,8 +122,8 @@ AudioEngine::Impl::Voice* createMusicVoice(AudioEngine::Impl* impl, AudioEngine:
 {
     if (!impl || !impl->ready)
         return nullptr;
-    const auto found = impl->sounds.find(soundId);
-    if (found == impl->sounds.end() || !found->second.music)
+    const AudioEngine::Impl::Sound* found = impl->sounds.find(soundId);
+    if (!found || !found->music)
         return nullptr;
 
     AudioEngine::Impl::Voice* voice = new AudioEngine::Impl::Voice();
@@ -133,11 +133,11 @@ AudioEngine::Impl::Voice* createMusicVoice(AudioEngine::Impl* impl, AudioEngine:
     voice->music = true;
     voice->volume = clamp(volume, 0.0f, 4.0f);
     ma_result result = MA_ERROR;
-    if (!found->second.bytes.empty())
+    if (!found->bytes.empty())
     {
         const ma_decoder_config config = ma_decoder_config_init_default();
         result =
-            ma_decoder_init_memory(found->second.bytes.data(), found->second.bytes.size(), &config, &voice->decoder);
+            ma_decoder_init_memory(found->bytes.data(), found->bytes.size(), &config, &voice->decoder);
         if (result == MA_SUCCESS)
         {
             voice->hasDecoder = true;
@@ -147,7 +147,7 @@ AudioEngine::Impl::Voice* createMusicVoice(AudioEngine::Impl* impl, AudioEngine:
     }
     else
     {
-        result = ma_sound_init_from_file(&impl->engine, found->second.path.c_str(), MA_SOUND_FLAG_STREAM,
+        result = ma_sound_init_from_file(&impl->engine, found->path.c_str(), MA_SOUND_FLAG_STREAM,
                                          &impl->musicGroup, nullptr, &voice->player);
     }
     if (result != MA_SUCCESS)
@@ -235,6 +235,16 @@ bool AudioEngine::Ready() const
     return mImpl && mImpl->ready;
 }
 
+void AudioEngine::SetSuspended(bool suspended)
+{
+    if (!mImpl || !mImpl->ready)
+        return;
+    if (suspended)
+        ma_engine_stop(&mImpl->engine);
+    else
+        ma_engine_start(&mImpl->engine);
+}
+
 AudioEngine::SoundId AudioEngine::LoadSound(const char* path)
 {
     if (!mImpl || !path || !path[0])
@@ -248,7 +258,7 @@ AudioEngine::SoundId AudioEngine::LoadSound(const char* path)
     sound.bytes.resize(file.Size());
     if (file.Size() > 0)
         std::memcpy(sound.bytes.data(), file.Data(), file.Size());
-    mImpl->sounds[id] = std::move(sound);
+    mImpl->sounds[id] = ct::detail::move(sound);
     return id;
 }
 
@@ -269,7 +279,7 @@ AudioEngine::SoundId AudioEngine::LoadSoundMemory(const void* data, std::size_t 
     sound.id = id;
     sound.bytes.resize(size);
     std::memcpy(sound.bytes.data(), data, size);
-    mImpl->sounds[id] = std::move(sound);
+    mImpl->sounds[id] = ct::detail::move(sound);
     return id;
 }
 
@@ -295,7 +305,7 @@ bool AudioEngine::Unload(SoundId sound)
         else
             ++it;
     }
-    return mImpl->sounds.erase(sound) != 0;
+    return mImpl->sounds.erase(sound);
 }
 
 void AudioEngine::Clear()
@@ -311,19 +321,19 @@ AudioEngine::VoiceId AudioEngine::Play(SoundId sound, float volume, float pitch,
 {
     if (!mImpl || !mImpl->ready)
         return 0;
-    const auto found = mImpl->sounds.find(sound);
-    if (found == mImpl->sounds.end() || found->second.music)
+    const Impl::Sound* found = mImpl->sounds.find(sound);
+    if (!found || found->music)
         return 0;
 
     Impl::Voice* voice = new Impl::Voice();
     voice->id = mImpl->nextVoice++;
     voice->sound = sound;
     ma_result result;
-    if (!found->second.bytes.empty())
+    if (!found->bytes.empty())
     {
         const ma_decoder_config config = ma_decoder_config_init_default();
         result =
-            ma_decoder_init_memory(found->second.bytes.data(), found->second.bytes.size(), &config, &voice->decoder);
+            ma_decoder_init_memory(found->bytes.data(), found->bytes.size(), &config, &voice->decoder);
         if (result == MA_SUCCESS)
         {
             voice->hasDecoder = true;
@@ -333,7 +343,7 @@ AudioEngine::VoiceId AudioEngine::Play(SoundId sound, float volume, float pitch,
     }
     else
     {
-        result = ma_sound_init_from_file(&mImpl->engine, found->second.path.c_str(), MA_SOUND_FLAG_DECODE,
+        result = ma_sound_init_from_file(&mImpl->engine, found->path.c_str(), MA_SOUND_FLAG_DECODE,
                                          &mImpl->sfxGroup, nullptr, &voice->player);
     }
     if (result != MA_SUCCESS)

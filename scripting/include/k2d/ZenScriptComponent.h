@@ -46,6 +46,9 @@ namespace k2d
 
         bool callEvent(const char *event, double value = 0.0);
         bool callCollision(GameObject *other, bool began);
+        bool callAnimationEvent(const char *name);
+        bool callAnimationFinished(const char *clip);
+        bool callParticleHit(float x, float y, float normalX, float normalY, double userTag);
         bool callFunction(const char *name, double value = 0.0);
         bool hasFunction(const char *name) const;
 
@@ -78,6 +81,7 @@ namespace k2d
         bool loadFromSource(const char *source, const char *path);
         bool loadFromBytecode(const unsigned char *data, std::size_t size, const char *path);
         bool ensureInstance();
+        void startIfNeeded();
 
         ZenScriptProperty &overrideSlot(const char *name);
         bool writeProperty(const ZenScriptProperty &prop);
@@ -95,10 +99,15 @@ namespace k2d
     class UserData;
     class VirtualPad;
 
-    class PhysicsWorld2D;
+    class Scene;
 
     void DispatchZenScriptEvents(GameObject &root);
-    void RouteZenScriptCollisions(PhysicsWorld2D &world);
+    void RouteZenScriptCollisions(Scene &scene);
+    void RouteZenScriptAnimationEvents(Scene &scene);
+    void RouteZenScriptActionEvents(Scene &scene);
+    // Physics particles report to the object they struck, not to an emitter:
+    // the scene owns the pool, so the hit object is the only script target.
+    void RouteZenScriptParticleHits(Scene &scene);
     void BroadcastZenScriptEvent(GameObject &root, const char *event, double value = 0.0);
 
     void SetZenScriptsEnabled(bool enabled);
@@ -111,11 +120,13 @@ namespace k2d
     // The editor supplies the Game view rectangle so mouse input in scripts is
     // local to the running game instead of the whole editor window.
     void SetZenScriptGameViewport(float x, float y, float width, float height);
+    void SetZenScriptGameViewport(float x, float y, float outputWidth, float outputHeight,
+                                  float virtualWidth, float virtualHeight);
     void SetZenScriptGameCamera(const Camera2D *camera);
     void SetZenScriptFrameStats(float deltaTime, float fps);
     void SetZenScriptProfilerVisible(bool visible);
     void SetZenScriptAssets(Assets *assets);
-    // Supplies the SDL-backed persistent data store used by user_data_* script APIs.
+    // Supplies the persistent data store used by user_data_* script APIs.
     void SetZenScriptUserData(UserData *userData);
     void SetZenScriptOutput(void (*fn)(const char *text, bool isError, void *user), void *user);
     void RegisterZenScriptSerializer();

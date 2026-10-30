@@ -5,7 +5,7 @@
 
 namespace k2d
 {
-    // Unity-style persistent user data. SDL chooses a writable per-user path
+    // Unity-style persistent user data. The platform chooses a writable per-user path
     // for the supplied organisation/application, never the project folder.
     class UserData
     {

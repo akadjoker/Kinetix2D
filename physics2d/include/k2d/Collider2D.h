@@ -2,23 +2,22 @@
 
 #include "k2d/Component.h"
 
-#include <kx/body.h>
-
 #include <mathc.h>
 
 namespace k2d
 {
 
-    class PhysicsWorld2D;
+    class Scene;
+    class RigidBody2D;
 
     class Collider2D : public Component
     {
     public:
         static const ComponentType Type = ComponentType::Collider;
 
-        Collider2D();
+        explicit Collider2D(ComponentClass componentClass);
 
-        virtual int addTo(kx::Body &body, float density, float scaleX, float scaleY) const = 0;
+        virtual int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const = 0;
 
         const Math::Vec2 &offset() const { return mOffset; }
         void setOffset(const Math::Vec2 &offset);
@@ -40,7 +39,7 @@ namespace k2d
         Math::Vec2 mOffset;
 
     private:
-        friend class PhysicsWorld2D;
+        friend class Scene;
 
         bool mSensor;
         uint16_t mCategory;

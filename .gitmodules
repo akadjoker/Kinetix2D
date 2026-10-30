@@ -7,3 +7,11 @@
 [submodule "external/zen/upstream"]
 	path = external/zen/upstream
 	url = https://github.com/akadjoker/zenpy.git
+[submodule "external/zen_plataform"]
+	path = external/zen_plataform
+	url = https://github.com/akadjoker/zen_plataform
+	branch = main
+[submodule "external/iGUI"]
+	path = external/iGUI
+	url = https://github.com/akadjoker/iGUI
+	branch = main

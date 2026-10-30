@@ -3,7 +3,7 @@
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 
-#include <SDL.h>
+#include <platform.h>
 
 #include <cstring>
 
@@ -11,12 +11,11 @@ namespace k2d
 {
 bool UserData::open(const char *organization, const char *application)
 {
-    char *path = SDL_GetPrefPath(organization && organization[0] ? organization : "Kinetix2D",
-                                 application && application[0] ? application : "App");
-    if (!path)
+    char path[4096];
+    if (!fs_get_pref_path(path, sizeof path, organization && organization[0] ? organization : "Kinetix2D",
+                          application && application[0] ? application : "App"))
         return false;
     mPath = path;
-    SDL_free(path);
     mValues = ct::Json::object();
     return true;
 }

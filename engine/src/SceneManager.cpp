@@ -9,6 +9,8 @@
 
 #include <ct/json.hpp>
 
+#include <cstring>
+
 namespace k2d
 {
 namespace
@@ -25,8 +27,15 @@ void preloadTextures(const ct::Json &node, Assets &assets)
             if ((key == "texture" || key == "normalMap") && value.is_string())
             {
                 const char *path = value.as_cstr("");
-                if (path[0] && !assets.GetTexture(path))
-                    assets.LoadTexture(path, path, true, false);
+                if (path[0] && !assets.GetTexture(path) && !assets.LoadTexture(path, path, true, false))
+                {
+                    // A path from another machine: try its tails ("assets/x.png",
+                    // then "x.png", ...) against the search paths. The texture keeps
+                    // the name the scene gives it, so the components still find it.
+                    for (const char *tail = std::strchr(path + 1, '/'); tail; tail = std::strchr(tail + 1, '/'))
+                        if (tail[1] && assets.LoadTexture(path, tail + 1, true, false))
+                            break;
+                }
             }
             else
                 preloadTextures(value, assets);
@@ -55,25 +64,44 @@ GameObject *SceneManager::Load(Scene &scene, Assets &assets, const char *path)
 
     preloadTextures(document, assets);
     scene.clear();
-    GameObject *loadedRoot = Serializer::ReadObject(scene, root, nullptr, &assets);
-    if (!loadedRoot)
-        return nullptr;
+
+    // The file's "root" describes the scene root itself, not a child of it.
+    // Reading it as an object would nest a second "Scene" under the real one,
+    // and anything a script spawns afterwards (parent nullptr) would land
+    // outside that nested branch instead of inside the loaded scene.
+    GameObject &sceneRoot = scene.root();
+    Serializer::ReadInto(scene, sceneRoot, root, &assets);
+    const ct::Json &ambient = document["lighting"]["ambient"];
+    scene.setAmbient(ambient.is_array() && ambient.size() >= 3
+                         ? Color((float)ambient[0].as_double(1.0), (float)ambient[1].as_double(1.0),
+                                 (float)ambient[2].as_double(1.0))
+                         : Color());
+
     mCurrentPath = path;
-    return loadedRoot;
+    return &sceneRoot;
 }
 
-void SceneManager::Request(const char *path)
+void SceneManager::Request(const char *path, SceneTransitionKind transition, float seconds)
 {
     mRequestedPath = path ? path : "";
+    mRequestedTransition = transition;
+    mRequestedSeconds = seconds;
 }
 
 GameObject *SceneManager::ApplyRequest(Scene &scene, Assets &assets)
 {
     if (mRequestedPath.empty())
         return nullptr;
-    const std::string path = mRequestedPath;
+    const ct::String path = mRequestedPath;
+    const SceneTransitionKind transition = mRequestedTransition;
     mRequestedPath.clear();
-    return Load(scene, assets, path.c_str());
+    mRequestedTransition = SceneTransitionKind::None;
+    GameObject *root = Load(scene, assets, path.c_str());
+    if (root)
+        GetSceneTransition().Start(transition, mRequestedSeconds);
+    else
+        GetSceneTransition().Clear();
+    return root;
 }
 
 SceneManager &GetSceneManager()

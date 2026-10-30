@@ -1,6 +1,7 @@
 #include "k2d/Animation2D.h"
 
 #include "k2d/GameObject.h"
+#include "k2d/Scene.h"
 #include "k2d/SpriteComponent.h"
 #include "k2d/Texture.h"
 
@@ -129,6 +130,89 @@ namespace k2d
         return true;
     }
 
+    bool Animation2D::addFramePoint(const char *clipName, size_t frameIndex, const Math::Vec2 &point)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size())
+            return false;
+        clip->frames[frameIndex].points.push_back(point);
+        return true;
+    }
+
+    bool Animation2D::setFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex,
+                                    const Math::Vec2 &point)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return false;
+        clip->frames[frameIndex].points[pointIndex] = point;
+        return true;
+    }
+
+    bool Animation2D::removeFramePoint(const char *clipName, size_t frameIndex, size_t pointIndex)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return false;
+        ct::Vector<Math::Vec2> &points = clip->frames[frameIndex].points;
+        points.erase(points.begin() + pointIndex);
+        return true;
+    }
+
+    size_t Animation2D::framePointCount(const char *clipName, size_t frameIndex) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip && frameIndex < clip->frames.size() ? clip->frames[frameIndex].points.size() : 0u;
+    }
+
+    const Math::Vec2 *Animation2D::framePointAt(const char *clipName, size_t frameIndex, size_t pointIndex) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        if (!clip || frameIndex >= clip->frames.size() || pointIndex >= clip->frames[frameIndex].points.size())
+            return nullptr;
+        return &clip->frames[frameIndex].points[pointIndex];
+    }
+
+    size_t Animation2D::currentFramePointCount() const
+    {
+        const AnimationClip *clip = activeClip();
+        return clip && !clip->frames.empty() && clip->frame >= 0 && static_cast<size_t>(clip->frame) < clip->frames.size()
+                   ? clip->frames[static_cast<size_t>(clip->frame)].points.size()
+                   : 0u;
+    }
+
+    bool Animation2D::currentFramePoint(size_t pointIndex, Math::Vec2 &outPoint) const
+    {
+        const AnimationClip *clip = activeClip();
+        if (!clip || clip->frames.empty() || clip->frame < 0 || static_cast<size_t>(clip->frame) >= clip->frames.size() ||
+            pointIndex >= clip->frames[static_cast<size_t>(clip->frame)].points.size())
+            return false;
+        outPoint = clip->frames[static_cast<size_t>(clip->frame)].points[pointIndex];
+        return true;
+    }
+
+    bool Animation2D::currentFrameRealPoint(size_t pointIndex, Math::Vec2 &outWorld) const
+    {
+        Math::Vec2 pixel;
+        if (!currentFramePoint(pointIndex, pixel))
+            return false;
+        const GameObject *object = owner();
+        const SpriteComponent *sprite = object ? object->getComponent<SpriteComponent>() : nullptr;
+        if (!object || !sprite)
+            return false;
+
+        const Math::Vec2 size = sprite->size();
+        if (sprite->flipX())
+            pixel.x = size.x - pixel.x;
+        if (sprite->flipY())
+            pixel.y = size.y - pixel.y;
+        const Math::Vec2 local = sprite->renderOffset() +
+                                 Math::Vec2(pixel.x - sprite->pivot().x * size.x,
+                                            pixel.y - sprite->pivot().y * size.y);
+        outWorld = object->globalTransform().Transform(local);
+        return true;
+    }
+
     bool Animation2D::removeFrame(const char *clipName, size_t index)
     {
         AnimationClip *clip = findClip(clipName);
@@ -168,6 +252,49 @@ namespace k2d
     {
         const AnimationClip *clip = findClip(clipName);
         return clip && index < clip->frames.size() ? &clip->frames[index] : nullptr;
+    }
+
+    bool Animation2D::addEvent(const char *clipName, int frame, const char *name)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || !name)
+            return false;
+        AnimationEvent event;
+        event.frame = frame;
+        event.name = name;
+        clip->events.push_back(event);
+        return true;
+    }
+
+    bool Animation2D::removeEvent(const char *clipName, size_t index)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->events.size())
+            return false;
+        clip->events.erase(clip->events.begin() + index);
+        return true;
+    }
+
+    bool Animation2D::setEvent(const char *clipName, size_t index, int frame, const char *name)
+    {
+        AnimationClip *clip = findClip(clipName);
+        if (!clip || index >= clip->events.size() || !name)
+            return false;
+        clip->events[index].frame = frame;
+        clip->events[index].name = name;
+        return true;
+    }
+
+    size_t Animation2D::eventCount(const char *clipName) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip ? clip->events.size() : 0u;
+    }
+
+    const AnimationEvent *Animation2D::eventAt(const char *clipName, size_t index) const
+    {
+        const AnimationClip *clip = findClip(clipName);
+        return clip && index < clip->events.size() ? &clip->events[index] : nullptr;
     }
 
     bool Animation2D::play(const char *name)
@@ -275,6 +402,7 @@ namespace k2d
                     clip->frame += clip->direction;
                     if (clip->frame >= frameCount - 1) { clip->frame = frameCount - 1; clip->direction = -1; }
                     else if (clip->frame <= 0) { clip->frame = 0; clip->direction = 1; }
+                    fireFrameEvents(*clip);
                 }
             }
             else
@@ -283,12 +411,47 @@ namespace k2d
                 if (clip->frame >= frameCount)
                 {
                     if (clip->mode == AnimationMode::Loop)
+                    {
                         clip->frame = 0;
-                    else { clip->frame = frameCount - 1; clip->playing = false; }
+                        fireFrameEvents(*clip);
+                    }
+                    else
+                    {
+                        clip->frame = frameCount - 1;
+                        clip->playing = false;
+                        fireClipFinished(*clip);
+                    }
+                }
+                else
+                {
+                    fireFrameEvents(*clip);
                 }
             }
         }
         applyFrame();
+    }
+
+    void Animation2D::fireFrameEvents(const AnimationClip &clip)
+    {
+        GameObject *object = owner();
+        Scene *scene = object ? object->scene() : nullptr;
+        if (!scene)
+            return;
+        for (size_t i = 0; i < clip.events.size(); ++i)
+        {
+            const AnimationEvent &event = clip.events[i];
+            if (event.frame == clip.frame)
+                scene->dispatchAnimationEvent(object, clip.name.c_str(), event.name.c_str(), false);
+        }
+    }
+
+    void Animation2D::fireClipFinished(const AnimationClip &clip)
+    {
+        GameObject *object = owner();
+        Scene *scene = object ? object->scene() : nullptr;
+        if (!scene)
+            return;
+        scene->dispatchAnimationEvent(object, clip.name.c_str(), "", true);
     }
 
     void Animation2D::applyFrame()

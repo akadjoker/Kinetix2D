@@ -12,3 +12,10 @@ docs/*
 !docs/api-style.md
 !docs/editor-workflow.md
 PLAN.md
+
+# Editor layout is per-machine state
+k2d_editor.ini
+editor/icons/*.jpeg
+
+# Web games exported from the editor
+projects/*/export/

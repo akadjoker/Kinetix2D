@@ -1,0 +1,19 @@
+{
+  "name": "ai_playground",
+  "startupScene": "scenes/01_seek_flee.k2dscene",
+  "scenes": [
+    "scenes/01_seek_flee.k2dscene",
+    "scenes/02_wander.k2dscene",
+    "scenes/03_separation.k2dscene",
+    "scenes/04_obstacle_avoidance.k2dscene",
+    "scenes/05_navmesh_chase.k2dscene",
+    "scenes/06_patrol_states.k2dscene",
+    "scenes/07_click_to_move.k2dscene"
+  ],
+  "physics": {
+    "gravity": [0.0, 0.0],
+    "fixedTimeStep": 0.016666667,
+    "velocityIterations": 8,
+    "treeBroadphase": true
+  }
+}

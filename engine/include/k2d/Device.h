@@ -4,10 +4,15 @@
 
 #include <ct/string.hpp>
 
-struct SDL_Window;
+struct PlatformWindow;
 
 namespace k2d
 {
+    // A platform key or mouse button as the Input knows it. Device feeds its own
+    // window's events through these; a host that reads the window itself (the
+    // editor, running the game in a panel) feeds an Input of its own the same way.
+    int InputKeyFromPlatform(int platformKey);
+    int InputButtonFromPlatform(int platformButton);
 
     class Device
     {
@@ -18,20 +23,21 @@ namespace k2d
         Device(const Device &) = delete;
         Device &operator=(const Device &) = delete;
 
-        bool Init(const char *title, int width, int height, bool vsync = true, bool enableUi = true);
+        bool Init(const char *title, int width, int height, bool vsync = true);
         void Focus();
         void Shutdown();
-
         bool PollEvents();
         void Swap();
+        void ShowCursor(bool visible);
 
         int Width() const { return mWidth; }
         int Height() const { return mHeight; }
-        // Framebuffer pixels can differ from window coordinates on HiDPI
-        // desktops. Rendering code that talks directly to GL needs these.
         int DrawableWidth() const { return mDrawableWidth; }
         int DrawableHeight() const { return mDrawableHeight; }
         bool WasResized() const { return mResized; }
+        // False while the system has taken the window's surface (an Android app in
+        // the background): nothing can be drawn until it comes back.
+        bool HasSurface() const { return mHasSurface; }
         float DeltaTime() const { return mDeltaTime; }
         float FPS() const { return mFps; }
         int DisplayIndex() const;
@@ -40,12 +46,7 @@ namespace k2d
 
         Input &GetInput() { return mInput; }
         const Input &GetInput() const { return mInput; }
-
-        void BeginUI();
-        void EndUI();
-
-        bool ImGuiWantsMouse() const { return mImGuiWantsMouse; }
-        bool ImGuiWantsKeyboard() const { return mImGuiWantsKeyboard; }
+        PlatformWindow *Window() const { return mWindow; }
 
         void CaptureScreenshot();
         void StartGifCapture(int frameRate = 60);
@@ -53,13 +54,13 @@ namespace k2d
         void CaptureGifFrame();
         bool IsGifCapturing() const { return mGifCapturing; }
 
-        // Preferred camelCase API. PascalCase names above remain compatible.
-        bool init(const char *title, int width, int height, bool vsync = true, bool enableUi = true)
-        { return Init(title, width, height, vsync, enableUi); }
+        bool init(const char *title, int width, int height, bool vsync = true)
+        { return Init(title, width, height, vsync); }
         void focus() { Focus(); }
         void shutdown() { Shutdown(); }
         bool pollEvents() { return PollEvents(); }
         void swap() { Swap(); }
+        void showCursor(bool visible) { ShowCursor(visible); }
         int width() const { return Width(); }
         int height() const { return Height(); }
         int drawableWidth() const { return DrawableWidth(); }
@@ -71,38 +72,31 @@ namespace k2d
         bool setDisplayIndex(int displayIndex) { return SetDisplayIndex(displayIndex); }
         Input &input() { return GetInput(); }
         const Input &input() const { return GetInput(); }
-        void beginUI() { BeginUI(); }
-        void endUI() { EndUI(); }
-        bool imguiWantsMouse() const { return ImGuiWantsMouse(); }
-        bool imguiWantsKeyboard() const { return ImGuiWantsKeyboard(); }
+        PlatformWindow *window() const { return Window(); }
 
     private:
-        SDL_Window *mWindow;
-        void *mGLContext;
+        void UpdateWindowTitle();
+        void UpdateSizes();
+
+        PlatformWindow *mWindow;
         Input mInput;
         int mWidth;
         int mHeight;
         int mDrawableWidth;
         int mDrawableHeight;
         bool mResized;
-        unsigned long long mLastCounter;
+        bool mHasSurface = true;
+        double mLastTime;
         float mDeltaTime;
         float mFps;
         float mFpsAccumulator;
         unsigned int mFpsFrames;
-        bool mImGuiWantsMouse;
-        bool mImGuiWantsKeyboard;
-        bool mUiInitialized;
-
         bool mGifCapturing;
         int mGifFrameRate;
         int mGifFrameCounter;
         void *mGifHandle;
         unsigned int mScreenshotIndex;
         unsigned int mGifFileIndex;
-
         ct::String mWindowTitle;
-        void UpdateWindowTitle();
     };
-
 }

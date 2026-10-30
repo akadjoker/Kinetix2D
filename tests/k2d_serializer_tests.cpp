@@ -1,6 +1,12 @@
 
 #include <k2d/k2d.h>
 
+#include <k2d/ChainCollider2D.h>
+#include <k2d/DistanceJoint2D.h>
+#include <k2d/NavigationRegion2D.h>
+#include <k2d/Physics2DSerializer.h>
+#include <k2d/RigidBody2D.h>
+
 #include <cstdio>
 #include <cmath>
 #include <cstring>
@@ -145,6 +151,7 @@ bool TestAnimationFramePathRoundTrip()
     k2d::Animation2D* animation = root->addComponent<k2d::Animation2D>();
     animation->addClip("run", nullptr, 0, 0, 0, 12.0f, k2d::AnimationMode::Loop);
     animation->addFrame("run", nullptr, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f), "sprites/player.png");
+    animation->addFramePoint("run", 0, Math::Vec2(13.0f, 7.0f));
 
     const ct::Json written = k2d::Serializer::WriteObject(*root);
     const ct::Json& frame = written["components"][0]["data"]["clips"][0]["frames"][0];
@@ -156,7 +163,43 @@ bool TestAnimationFramePathRoundTrip()
     k2d::Animation2D* copyAnimation = copy ? copy->getComponent<k2d::Animation2D>() : nullptr;
     const k2d::AnimationFrame* copyFrame = copyAnimation ? copyAnimation->frameAt("run", 0) : nullptr;
     return copyFrame && copyFrame->texturePath == "sprites/player.png" &&
-           NearVec4(copyFrame->rect, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f));
+           NearVec4(copyFrame->rect, Math::Vec4(8.0f, 4.0f, 16.0f, 24.0f)) &&
+           copyFrame->points.size() == 1 && NearVec2(copyFrame->points[0], Math::Vec2(13.0f, 7.0f));
+}
+
+bool TestActionRateRoundTrip()
+{
+    k2d::Scene srcScene;
+    k2d::GameObject* root = srcScene.createObject("RateActions");
+    k2d::ActionSequence2D* sequence = root->addComponent<k2d::ActionSequence2D>();
+
+    k2d::ActionStep force;
+    force.kind = k2d::ActionKind::Force;
+    force.vector = Math::Vec2(32.0f, -12.0f);
+    force.duration = 1.5f;
+    sequence->addStep(force);
+
+    k2d::ActionStep turnRate;
+    turnRate.kind = k2d::ActionKind::TurnRate;
+    turnRate.angleDegrees = 120.0f;
+    turnRate.duration = 0.75f;
+    sequence->addStep(turnRate);
+
+    const ct::Json written = k2d::Serializer::WriteObject(*root);
+    const ct::Json& steps = written["components"][0]["data"]["steps"];
+    if (ct::String(steps[0]["kind"].as_cstr("")) != ct::String("force") ||
+        ct::String(steps[1]["kind"].as_cstr("")) != ct::String("turnRate"))
+        return false;
+
+    k2d::Scene dstScene;
+    k2d::GameObject* copy = k2d::Serializer::ReadObject(dstScene, written);
+    k2d::ActionSequence2D* copySequence = copy ? copy->getComponent<k2d::ActionSequence2D>() : nullptr;
+    const k2d::ActionStep* copyForce = copySequence ? copySequence->stepAt(0) : nullptr;
+    const k2d::ActionStep* copyTurn = copySequence ? copySequence->stepAt(1) : nullptr;
+    return copySequence && copySequence->stepCount() == 2 && copyForce && copyTurn &&
+           copyForce->kind == k2d::ActionKind::Force && NearVec2(copyForce->vector, {32.0f, -12.0f}) &&
+           Near(copyForce->duration, 1.5f) && copyTurn->kind == k2d::ActionKind::TurnRate &&
+           Near(copyTurn->angleDegrees, 120.0f) && Near(copyTurn->duration, 0.75f);
 }
 
 class DummyScript : public k2d::ScriptComponent
@@ -180,6 +223,39 @@ bool TestUnregisteredTypeIsSkipped()
     ct::Json written = k2d::Serializer::WriteObject(*root);
     const ct::Json& components = written["components"];
     return k2d::Serializer::IsRegistered(k2d::ComponentType::Sprite) && components.is_array() && components.size() == 1;
+}
+
+bool TestCreateByName()
+{
+    bool sawSprite = false;
+    for (std::size_t i = 0; i < k2d::Serializer::TypeCount(); ++i)
+        sawSprite = sawSprite || std::strcmp(k2d::Serializer::TypeName(i), "Sprite") == 0;
+
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("Created");
+    k2d::Component* sprite = k2d::Serializer::Create(*object, "Sprite");
+    k2d::Component* missing = k2d::Serializer::Create(*object, "NoSuchType");
+    return sawSprite && sprite && sprite->type() == k2d::ComponentType::Sprite && !missing &&
+           object->rawComponentCount(k2d::ComponentType::Sprite) == 1 &&
+           k2d::Serializer::TypeName(k2d::Serializer::TypeCount()) == nullptr;
+}
+
+bool TestUnitFloatColour()
+{
+    // Hand-written scenes give colours as 0..1 floats; bytes stay bytes.
+    const char* text = "{\"name\":\"Dot\",\"components\":["
+                       "{\"type\":\"CircleShape\",\"data\":{\"radius\":10.0,\"color\":[1.0,0.9,0.2,1.0]}},"
+                       "{\"type\":\"RectShape\",\"data\":{\"color\":[255,128,0,255]}}]}";
+    k2d::Scene scene;
+    k2d::GameObject* dot = k2d::Serializer::ReadObject(scene, ct::Json::parse(text));
+    k2d::CircleShape* circle = dot ? dot->getComponent<k2d::CircleShape>() : nullptr;
+    k2d::RectShape* rect = dot ? dot->getComponent<k2d::RectShape>() : nullptr;
+    if (!circle || !rect)
+        return false;
+    const unsigned int c = circle->color().Packed();
+    const unsigned int r = rect->color().Packed();
+    return (c & 0xFFu) == 255 && ((c >> 8) & 0xFFu) == 230 && ((c >> 16) & 0xFFu) == 51 && (c >> 24) == 255 &&
+           (r & 0xFFu) == 255 && ((r >> 8) & 0xFFu) == 128 && ((r >> 16) & 0xFFu) == 0 && (r >> 24) == 255;
 }
 
 bool TestTileMapRoundTrip()
@@ -214,6 +290,128 @@ bool TestTileMapRoundTrip()
     ok = ok && copyMap->hasCullRect();
     ok = ok && NearVec4(copyMap->cullRect(), {10.0f, 20.0f, 100.0f, 80.0f});
     ok = ok && copyMap->blendMode() == k2d::BLEND_ADD;
+    return ok;
+}
+
+// Sides only (16 tiles) and the blob with corners (47 tiles), each tile id
+// carrying its bits so the expected tile reads off the neighbours.
+bool TestTileMapAutotile()
+{
+    using namespace k2d;
+    Scene scene;
+    TileMapComponent* map = scene.createObject("Map")->addComponent<TileMapComponent>();
+    map->setMapSize(5, 5);
+    const int wall = map->addTerrain("wall");
+    const unsigned char sides[4] = {TERRAIN_N, TERRAIN_E, TERRAIN_S, TERRAIN_W};
+    for (int m = 0; m < 16; ++m)
+    {
+        unsigned char bits = 0;
+        for (int b = 0; b < 4; ++b)
+            if (m & (1 << b))
+                bits |= sides[b];
+        map->setTileTerrain(100 + bits, wall, bits);
+    }
+    map->paintTerrain(1, 2, wall);
+    map->paintTerrain(2, 2, wall);
+    map->paintTerrain(3, 2, wall);
+    bool ok = map->getTile(1, 2) == 100 + TERRAIN_E && map->getTile(2, 2) == 100 + (TERRAIN_E | TERRAIN_W) &&
+              map->getTile(3, 2) == 100 + TERRAIN_W;
+    map->paintTerrain(2, 1, wall);
+    ok = ok && map->getTile(2, 1) == 100 + TERRAIN_S &&
+         map->getTile(2, 2) == 100 + (TERRAIN_N | TERRAIN_E | TERRAIN_W) && map->terrainAt(2, 1) == wall;
+    map->paintTerrain(2, 1, -1);
+    ok = ok && map->getTile(2, 1) == 0 && map->getTile(2, 2) == 100 + (TERRAIN_E | TERRAIN_W);
+
+    TileMapComponent* blob = scene.createObject("Blob")->addComponent<TileMapComponent>();
+    blob->setMapSize(4, 4);
+    const int ground = blob->addTerrain("ground");
+    int annotated = 0;
+    for (int bits = 0; bits < 256; ++bits)
+    {
+        const bool n = bits & TERRAIN_N, e = bits & TERRAIN_E, s = bits & TERRAIN_S, w = bits & TERRAIN_W;
+        if (((bits & TERRAIN_NE) && !(n && e)) || ((bits & TERRAIN_SE) && !(s && e)) ||
+            ((bits & TERRAIN_SW) && !(s && w)) || ((bits & TERRAIN_NW) && !(n && w)))
+            continue;
+        blob->setTileTerrain(1000 + bits, ground, (unsigned char)bits);
+        ++annotated;
+    }
+    for (int y = 0; y < 3; ++y)
+        for (int x = 0; x < 3; ++x)
+            blob->paintTerrain(x, y, ground);
+    ok = ok && annotated == 47 && blob->getTile(1, 1) == 1000 + 255 &&
+         blob->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S | TERRAIN_SE) &&
+         blob->getTile(1, 0) == 1000 + (TERRAIN_E | TERRAIN_S | TERRAIN_W | TERRAIN_SE | TERRAIN_SW);
+    blob->paintTerrain(1, 1, -1);
+    ok = ok && blob->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S);
+
+    ct::Json written = Serializer::WriteObject(*blob->owner());
+    Scene copyScene;
+    GameObject* copy = Serializer::ReadObject(copyScene, written);
+    TileMapComponent* copyMap = copy ? copy->getComponent<TileMapComponent>() : nullptr;
+    int terrain = -1;
+    unsigned char bits = 0;
+    ok = ok && copyMap && copyMap->terrainCount() == 1 && copyMap->terrainName(0) == "ground" &&
+         copyMap->terrainTiles().size() == 47 && copyMap->tileTerrain(1000 + 255, terrain, bits) && terrain == 0 &&
+         bits == 255 && copyMap->getTile(0, 0) == 1000 + (TERRAIN_E | TERRAIN_S);
+
+    map->removeTerrain(wall);
+    ok = ok && map->terrainCount() == 0 && map->terrainTiles().empty();
+    return ok;
+}
+
+// A tileset shared by two maps through a file: solid and animated tiles, the
+// map saved as the path alone, an edit through one map dirtying the file.
+bool TestSharedTileSet()
+{
+    using namespace k2d;
+    const char* path = "serializer_test.k2dtileset";
+    TileSet source;
+    source.cellWidth = 16.0f;
+    source.cellHeight = 16.0f;
+    source.atlasTilesX = 4;
+    source.terrainNames.push_back("grass");
+    source.terrainTiles.push_back(TerrainTile{3, 0, TERRAIN_E});
+    source.setTileSolid(5, true);
+    ct::Vector<int> frames;
+    frames.push_back(7);
+    frames.push_back(8);
+    source.setAnimation(7, frames, 4.0f);
+    bool ok = source.tileSolid(5) && !source.tileSolid(6) && source.frameAt(7, 0.1) == 7 &&
+              source.frameAt(7, 0.3) == 8 && source.frameAt(7, 0.6) == 7 && source.frameAt(9, 0.3) == 9;
+    ok = ok && source.save(path, nullptr);
+
+    Assets assets;
+    TileSet* shared = assets.LoadTileSet(path);
+    ok = ok && shared && shared == assets.LoadTileSet(path) && assets.FindTileSetPath(shared) &&
+         Near(shared->cellWidth, 16.0f) && shared->atlasTilesX == 4 && shared->terrainNames.size() == 1 &&
+         shared->tileSolid(5) && shared->animation(7) && Near(shared->animation(7)->fps, 4.0f) && !shared->dirty;
+
+    Scene scene;
+    TileMapComponent* a = scene.createObject("A")->addComponent<TileMapComponent>();
+    TileMapComponent* b = scene.createObject("B")->addComponent<TileMapComponent>();
+    a->setSharedTileSet(shared);
+    b->setSharedTileSet(shared);
+    a->setMapSize(3, 1);
+    a->setTile(1, 0, 5);
+    ok = ok && a->hasCollision(1, 0) && !a->cellCollision(1, 0) && !a->hasCollision(0, 0) &&
+         a->terrainCount() == 1 && Near(b->cellWidth(), 16.0f);
+
+    ct::Json written = Serializer::WriteObject(*a->owner(), &assets);
+    ok = ok && written.dump().find("\"tileset\"") != ct::String::npos &&
+         written.dump().find("\"cellWidth\"") == ct::String::npos;
+    Scene copyScene;
+    GameObject* copy = Serializer::ReadObject(copyScene, written, nullptr, &assets);
+    TileMapComponent* copyMap = copy ? copy->getComponent<TileMapComponent>() : nullptr;
+    ok = ok && copyMap && copyMap->sharedTileSet() == shared && copyMap->getTile(1, 0) == 5;
+
+    b->setTileSolid(6, true);
+    ok = ok && shared->dirty && a->tileSolid(6) && assets.SaveTileSets() == 1 && !shared->dirty;
+
+    a->setSharedTileSet(nullptr);
+    ok = ok && !a->sharedTileSet() && Near(a->cellWidth(), 16.0f) && a->tileSolid(6);
+    a->setTileSolid(5, false);
+    ok = ok && !a->tileSolid(5) && shared->tileSolid(5) && !shared->dirty;
+    std::remove(path);
     return ok;
 }
 
@@ -427,12 +625,17 @@ bool TestLightDisambiguation()
     point->setCastShadow(true);
     point->setCullMask(3u);
     point->setHeight(12.0f);
+    point->setFalloff(0.75f);
+    point->setShadowBias(0.01f);
+    point->setShadowSmooth(3.0f);
 
     k2d::GameObject* dirObj = srcScene.createObject("DirLight");
     k2d::DirectionalLight2D* dir = dirObj->addComponent<k2d::DirectionalLight2D>();
     dir->setColor(0.2f, 0.3f, 0.9f, 1.0f);
     dir->setEnergy(0.6f);
     dir->setCastShadow(false);
+    dir->setShadowBias(0.004f);
+    dir->setShadowSmooth(2.5f);
 
     k2d::Scene dstScene;
     ct::Json pointJson = k2d::Serializer::WriteObject(*pointObj);
@@ -449,8 +652,11 @@ bool TestLightDisambiguation()
     bool ok = NearColor(copyPoint->color(), {1.0f, 0.5f, 0.25f, 1.0f});
     ok = ok && Near(copyPoint->energy(), 1.8f) && Near(copyPoint->radius(), 222.0f);
     ok = ok && copyPoint->castShadow() == true && copyPoint->cullMask() == 3u && Near(copyPoint->height(), 12.0f);
+    ok = ok && Near(copyPoint->falloff(), 0.75f) && Near(copyPoint->shadowBias(), 0.01f) &&
+         Near(copyPoint->shadowSmooth(), 3.0f);
     ok = ok && NearColor(copyDir->color(), {0.2f, 0.3f, 0.9f, 1.0f});
     ok = ok && Near(copyDir->energy(), 0.6f) && copyDir->castShadow() == false;
+    ok = ok && Near(copyDir->shadowBias(), 0.004f) && Near(copyDir->shadowSmooth(), 2.5f);
 
     ok = ok && dynamic_cast<k2d::DirectionalLight2D*>(copyPoint) == nullptr;
     ok = ok && dynamic_cast<k2d::Light2D*>(copyDir) == nullptr;
@@ -583,6 +789,92 @@ bool TestParticleComponentRoundTrip()
     return ok;
 }
 
+
+// One round trip can hide a field that is written in a form the reader
+// normalises: the damage only shows on the second save. Compare the two dumps.
+bool TestDoubleRoundTripIsStable()
+{
+    k2d::RegisterPhysics2DSerializers();
+
+    k2d::Scene source;
+    k2d::GameObject* anchor = source.createObject("anchor");
+    anchor->setPosition({0.0f, 0.0f});
+    anchor->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    k2d::GameObject* terrain = source.createObject("terrain");
+    terrain->setPosition({10.0f, -5.0f});
+    terrain->setRotationDegrees(15.0f);
+    terrain->addComponent<k2d::RigidBody2D>()->setBodyType(k2d::BodyType::Static);
+
+    k2d::ChainCollider2D* chain = terrain->addComponent<k2d::ChainCollider2D>();
+    const Math::Vec2 chainPoints[] = {Math::Vec2(-60.0f, 0.0f), Math::Vec2(-20.0f, 18.0f), Math::Vec2(20.0f, -12.0f),
+                                      Math::Vec2(60.0f, 4.0f)};
+    chain->setPoints(chainPoints, 4);
+    chain->setLoop(true);
+    chain->setFilter(0x0004, 0x00FF);
+    chain->setOffset({3.0f, -7.0f});
+
+    k2d::DistanceJoint2D* joint = terrain->addComponent<k2d::DistanceJoint2D>();
+    joint->setTargetName("anchor");
+    joint->setLocalAnchorA({4.0f, 5.0f});
+    joint->setLocalAnchorB({-6.0f, 2.0f});
+    joint->setLength(87.5f);
+    joint->setLengthRange(40.0f, 120.0f);
+    joint->setSpring(3.5f, 0.25f);
+    joint->setCollideConnected(true);
+
+    k2d::NavigationRegion2D* region = terrain->addComponent<k2d::NavigationRegion2D>();
+    const Math::Vec2 outline[] = {Math::Vec2(0.0f, 0.0f), Math::Vec2(160.0f, 0.0f), Math::Vec2(160.0f, 160.0f),
+                                  Math::Vec2(0.0f, 160.0f)};
+    const Math::Vec2 holeA[] = {Math::Vec2(20.0f, 20.0f), Math::Vec2(60.0f, 20.0f), Math::Vec2(60.0f, 60.0f),
+                                Math::Vec2(20.0f, 60.0f)};
+    const Math::Vec2 holeB[] = {Math::Vec2(100.0f, 100.0f), Math::Vec2(140.0f, 100.0f), Math::Vec2(120.0f, 140.0f)};
+    const Math::Vec2* holes[] = {holeA, holeB};
+    const int holeCounts[] = {4, 3};
+    region->setPolygonWithHoles(outline, 4, holes, holeCounts, 2);
+
+    const ct::String firstText = k2d::Serializer::WriteObject(*terrain).dump();
+
+    ct::Json::Error err;
+    ct::Json firstJson = ct::Json::parse(firstText, &err);
+    k2d::Scene firstScene;
+    k2d::GameObject* firstCopy = k2d::Serializer::ReadObject(firstScene, firstJson);
+    bool ok = firstCopy != nullptr;
+
+    const ct::String secondText = ok ? k2d::Serializer::WriteObject(*firstCopy).dump() : ct::String();
+    ct::Json secondJson = ct::Json::parse(secondText, &err);
+    k2d::Scene secondScene;
+    k2d::GameObject* secondCopy = ok ? k2d::Serializer::ReadObject(secondScene, secondJson) : nullptr;
+    ok = ok && secondCopy != nullptr;
+
+    const ct::String thirdText = ok ? k2d::Serializer::WriteObject(*secondCopy).dump() : ct::String();
+
+    const bool stable = ok && firstText == secondText && secondText == thirdText;
+    ok = ok && stable;
+
+    k2d::ChainCollider2D* finalChain = ok ? secondCopy->getComponent<k2d::ChainCollider2D>() : nullptr;
+    ok = ok && finalChain && finalChain->points().size() == 4 && finalChain->loop() &&
+         finalChain->category() == 0x0004 && finalChain->mask() == 0x00FF &&
+         NearVec2(finalChain->offset(), {3.0f, -7.0f});
+    for (size_t i = 0; ok && i < 4; ++i)
+        ok = ok && NearVec2(finalChain->points()[i], chainPoints[i]);
+
+    k2d::DistanceJoint2D* finalJoint = ok ? secondCopy->getComponent<k2d::DistanceJoint2D>() : nullptr;
+    ok = ok && finalJoint && finalJoint->targetName() == ct::String("anchor") && finalJoint->collideConnected() &&
+         Near(finalJoint->length(), 87.5f) && Near(finalJoint->minLength(), 40.0f) &&
+         Near(finalJoint->maxLength(), 120.0f) && Near(finalJoint->springFrequency(), 3.5f) &&
+         Near(finalJoint->springDamping(), 0.25f) && NearVec2(finalJoint->localAnchorA(), {4.0f, 5.0f}) &&
+         NearVec2(finalJoint->localAnchorB(), {-6.0f, 2.0f});
+
+    k2d::NavigationRegion2D* finalRegion = ok ? secondCopy->getComponent<k2d::NavigationRegion2D>() : nullptr;
+    ok = ok && finalRegion && finalRegion->polygon().size() == 4 && finalRegion->holes().size() == 2 &&
+         finalRegion->holes()[0].size() == 4 && finalRegion->holes()[1].size() == 3 && finalRegion->valid();
+
+    std::printf("Serializer double round trip: stable=%s chain=%s joint=%s region=%s bytes=%d\n",
+                stable ? "pass" : "fail", finalChain ? "yes" : "no", finalJoint ? "yes" : "no",
+                finalRegion ? "yes" : "no", static_cast<int>(firstText.size()));
+    return ok;
+}
 } // namespace
 
 int main()
@@ -590,6 +882,7 @@ int main()
     bool roundTrip = TestRoundTripThroughText();
     bool defaults = TestDefaultsRoundTrip();
     bool animationFramePath = TestAnimationFramePathRoundTrip();
+    bool actionRates = TestActionRateRoundTrip();
     bool unregistered = TestUnregisteredTypeIsSkipped();
     bool tileMap = TestTileMapRoundTrip();
     bool polygonLine = TestPolygonAndLineRoundTrip();
@@ -597,23 +890,35 @@ int main()
     bool ninePatch = TestNinePatchRoundTrip();
     bool spriteBatch = TestSpriteBatchRoundTrip();
     bool animation = TestAnimationRoundTrip();
+    bool autotile = TestTileMapAutotile();
+    bool sharedTileSet = TestSharedTileSet();
     bool lightDisambiguation = TestLightDisambiguation();
     bool occluder = TestOccluderRoundTrip();
     bool camera = TestCameraRoundTrip();
     bool particle = TestParticleComponentRoundTrip();
+    bool doubleRoundTrip = TestDoubleRoundTripIsStable();
+    bool createByName = TestCreateByName();
+    bool unitColour = TestUnitFloatColour();
 
-    std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s unregistered_skipped=%s\n",
+    std::printf("Serializer: round_trip=%s defaults=%s animation_frame_path=%s action_rates=%s "
+                "unregistered_skipped=%s\n",
                 roundTrip ? "pass" : "fail", defaults ? "pass" : "fail", animationFramePath ? "pass" : "fail",
-                unregistered ? "pass" : "fail");
+                actionRates ? "pass" : "fail", unregistered ? "pass" : "fail");
     std::printf("Serializer components: tilemap=%s polygon_line=%s primitive_shapes=%s ninepatch=%s spritebatch=%s "
                 "animation=%s light_disambiguation=%s occluder=%s camera=%s particle=%s\n",
                 tileMap ? "pass" : "fail", polygonLine ? "pass" : "fail", primitiveShapes ? "pass" : "fail",
                 ninePatch ? "pass" : "fail", spriteBatch ? "pass" : "fail", animation ? "pass" : "fail",
                 lightDisambiguation ? "pass" : "fail", occluder ? "pass" : "fail", camera ? "pass" : "fail",
                 particle ? "pass" : "fail");
+    std::printf("Serializer stability: double_round_trip=%s\n", doubleRoundTrip ? "pass" : "fail");
+    std::printf("Serializer tilemap: autotile=%s shared_tileset=%s\n", autotile ? "pass" : "fail",
+                sharedTileSet ? "pass" : "fail");
+    std::printf("Serializer types: create_by_name=%s unit_float_colour=%s\n", createByName ? "pass" : "fail",
+                unitColour ? "pass" : "fail");
 
-    return (roundTrip && defaults && animationFramePath && unregistered && tileMap && polygonLine && primitiveShapes &&
-            ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle)
+    return (roundTrip && defaults && animationFramePath && actionRates && unregistered && tileMap && polygonLine && primitiveShapes &&
+            ninePatch && spriteBatch && animation && lightDisambiguation && occluder && camera && particle &&
+            doubleRoundTrip && createByName && unitColour && autotile && sharedTileSet)
                ? 0
                : 1;
 }

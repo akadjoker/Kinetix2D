@@ -32,6 +32,9 @@ struct ZenScriptClass
     int slotDestroy = -1;
     int slotEvent = -1;
     int slotCollision = -1;
+    int slotAnimationEvent = -1;
+    int slotAnimationFinished = -1;
+    int slotParticleHit = -1;
     long long timestamp = 0;
     unsigned int version = 1;
     ct::Vector<ZenScriptProperty> properties;
@@ -71,7 +74,14 @@ struct ZenRuntime::Impl
     ct::Vector<ZenScriptClass*> classes;
     ct::HashMap<void*, CachedInstance> instances;
     ct::HashMap<ct::String, CachedPrefab> prefabs;
-    ct::Vector<zen::Value*> liveInstances;
+    // A live script instance, kept as a GC root. The index back-pointer lets a
+    // destroyed component swap-and-pop its own slot instead of scanning.
+    struct LiveInstance
+    {
+        zen::Value* value = nullptr;
+        std::size_t* index = nullptr;
+    };
+    ct::Vector<LiveInstance> liveInstances;
 
     int executing = 0;
 
@@ -94,6 +104,9 @@ struct ZenRuntime::Impl
     int selectorDestroy = -1;
     int selectorEvent = -1;
     int selectorCollision = -1;
+    int selectorAnimationEvent = -1;
+    int selectorAnimationFinished = -1;
+    int selectorParticleHit = -1;
 
     void initialize();
     bool compileClass(const char* source, const char* path, ZenScriptClass& out);

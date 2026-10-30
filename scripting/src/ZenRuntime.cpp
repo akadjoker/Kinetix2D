@@ -6,16 +6,18 @@
 #include <zen/memory.h>
 #include <zen/object.h>
 #include <zen/vm.h>
+#include <zen/zen_host_output.h>
+#include <zen/zen_script_info.h>
 
+#include <cstdio>
 #include <cstring>
-#include <filesystem>
+#include <platform.h>
 #include <system_error>
 
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/Profiler.h"
 
-#include <SDL.h>
 
 namespace k2d
 {
@@ -34,7 +36,7 @@ namespace k2d
             for (const auto &entry : impl.instances)
                 zen::gc_mark_value(gc, entry.value.value);
             for (size_t i = 0; i < impl.liveInstances.size(); ++i)
-                zen::gc_mark_value(gc, *impl.liveInstances[i]);
+                zen::gc_mark_value(gc, *impl.liveInstances[i].value);
         }
     }
 
@@ -72,6 +74,11 @@ namespace k2d
         return mImpl->classes.size();
     }
 
+    std::size_t ZenRuntime::cachedInstanceCount() const
+    {
+        return mImpl->instances.size();
+    }
+
     bool ZenRuntime::hasCachedInstance(const void *pointer) const
     {
         return mImpl->instances.find(const_cast<void *>(pointer)) != nullptr;
@@ -102,7 +109,7 @@ namespace k2d
         if (!impl.vmProfiling)
             return;
         if (impl.vmProfileFrequency == 0)
-            impl.vmProfileFrequency = SDL_GetPerformanceFrequency();
+            impl.vmProfileFrequency = 1000000000ull;
 
         const float toMilliseconds = 1000.0f / static_cast<float>(impl.vmProfileFrequency);
         Profiler &profiler = Profiler::Get();
@@ -129,15 +136,20 @@ namespace k2d
         ++mGeneration;
     }
 
+    void ZenRuntime::clearPrefabCache()
+    {
+        mImpl->prefabs.clear();
+    }
+
     long long ZenFileTimestamp(const char *path)
     {
         if (!path || !path[0])
             return 0;
-        std::error_code error;
-        const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
-        if (error)
+        ct::String resolved;
+        if (!FileSystem::Instance().Resolve(path, resolved))
             return 0;
-        return (long long)time.time_since_epoch().count();
+        const long long time = file_mod_time(resolved.c_str());
+        return time < 0 ? 0 : time;
     }
 
     bool ZenRuntime::Impl::recompileClass(ZenScriptClass &entry, const char *source)
@@ -156,6 +168,9 @@ namespace k2d
         entry.slotDestroy = rebuilt.slotDestroy;
         entry.slotEvent = rebuilt.slotEvent;
         entry.slotCollision = rebuilt.slotCollision;
+        entry.slotAnimationEvent = rebuilt.slotAnimationEvent;
+        entry.slotAnimationFinished = rebuilt.slotAnimationFinished;
+        entry.slotParticleHit = rebuilt.slotParticleHit;
         entry.properties.clear();
         for (size_t i = 0; i < rebuilt.properties.size(); ++i)
             entry.properties.push_back(rebuilt.properties[i]);
@@ -247,7 +262,9 @@ namespace k2d
             return false;
         }
 
+        // Each script's top-level variables its own; classes and functions shared.
         zen::Compiler compiler;
+        compiler.set_private_globals(true);
         zen::ObjFunc *script = compiler.compile(&mImpl->vm.get_gc(), &mImpl->vm, source,
                                                 sourceName && sourceName[0] ? sourceName : "script");
         if (!script)
@@ -338,6 +355,9 @@ namespace k2d
             mImpl->selectorDestroy = mImpl->vm.intern_selector("on_destroy", 10);
             mImpl->selectorEvent = mImpl->vm.intern_selector("on_event", 8);
             mImpl->selectorCollision = mImpl->vm.intern_selector("on_collision", 12);
+            mImpl->selectorAnimationEvent = mImpl->vm.intern_selector("on_animation_event", 18);
+            mImpl->selectorAnimationFinished = mImpl->vm.intern_selector("on_animation_finished", 21);
+            mImpl->selectorParticleHit = mImpl->vm.intern_selector("on_particle_hit", 15);
         }
 
         ZenScriptClass entry;
@@ -358,6 +378,9 @@ namespace k2d
         entry.slotDestroy = slotIfPresent(mImpl->selectorDestroy);
         entry.slotEvent = slotIfPresent(mImpl->selectorEvent);
         entry.slotCollision = slotIfPresent(mImpl->selectorCollision);
+        entry.slotAnimationEvent = slotIfPresent(mImpl->selectorAnimationEvent);
+        entry.slotAnimationFinished = slotIfPresent(mImpl->selectorAnimationFinished);
+        entry.slotParticleHit = slotIfPresent(mImpl->selectorParticleHit);
         BuildZenClassProperties(entry, nullptr);
         mImpl->addClass(entry);
         return true;
@@ -379,6 +402,46 @@ namespace k2d
         return false;
     }
 
+    namespace
+    {
+        // The hooks a k2d script may define. called=false marks one the VM
+        // knows but this host never invokes, so defining it draws a warning
+        // instead of silently running nothing.
+        const zen::ScriptHook kScriptHooks[] = {
+            {"__init__", 1, true},
+            {"on_start", 0, true},
+            {"on_update", 1, true},
+            {"on_draw", 0, true},
+            {"on_draw_ui", 0, true},
+            {"on_destroy", 0, true},
+            {"on_event", 2, true},
+            {"on_collision", 2, true},
+            {"on_animation_event", 1, true},
+            {"on_animation_finished", 1, true},
+            {"on_particle_hit", 5, true},
+        };
+
+        void reportScriptContract(zen::ObjClass *klass, const char *path)
+        {
+            zen::ScriptDiagnostic diags[16];
+            const int count = zen::check_script_contract(klass, kScriptHooks,
+                                                         (int)(sizeof(kScriptHooks) / sizeof(kScriptHooks[0])),
+                                                         diags, 16, 0);
+            for (int i = 0; i < count; ++i)
+            {
+                char line[320];
+                const int n = std::snprintf(line, sizeof(line), "%s: %s\n", path ? path : "script",
+                                            diags[i].message);
+                if (n <= 0)
+                    continue;
+                if (diags[i].severity == zen::SCRIPT_DIAG_ERROR)
+                    zen_host_writeerr(line, (size_t)n);
+                else
+                    zen_host_write(line, (size_t)n);
+            }
+        }
+    }
+
     bool ZenRuntime::Impl::compileClass(const char *source, const char *path, ZenScriptClass &out)
     {
         if (!source)
@@ -391,6 +454,7 @@ namespace k2d
             snapshot.push_back(vm.get_global(i));
 
         zen::Compiler compiler;
+        compiler.set_private_globals(true);
         zen::ObjFunc *script = compiler.compile(&vm.get_gc(), &vm, source, path ? path : "script");
         if (!script)
         {
@@ -438,6 +502,9 @@ namespace k2d
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
             selectorCollision = vm.intern_selector("on_collision", 12);
+            selectorAnimationEvent = vm.intern_selector("on_animation_event", 18);
+            selectorAnimationFinished = vm.intern_selector("on_animation_finished", 21);
+            selectorParticleHit = vm.intern_selector("on_particle_hit", 15);
         }
 
         zen::ObjClass *klass = zen::as_class(found);
@@ -456,7 +523,11 @@ namespace k2d
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
+        out.slotAnimationEvent = slotIfPresent(selectorAnimationEvent);
+        out.slotAnimationFinished = slotIfPresent(selectorAnimationFinished);
+        out.slotParticleHit = slotIfPresent(selectorParticleHit);
         BuildZenClassProperties(out, source);
+        reportScriptContract(klass, path);
         return true;
     }
 
@@ -511,6 +582,9 @@ namespace k2d
             selectorDestroy = vm.intern_selector("on_destroy", 10);
             selectorEvent = vm.intern_selector("on_event", 8);
             selectorCollision = vm.intern_selector("on_collision", 12);
+            selectorAnimationEvent = vm.intern_selector("on_animation_event", 18);
+            selectorAnimationFinished = vm.intern_selector("on_animation_finished", 21);
+            selectorParticleHit = vm.intern_selector("on_particle_hit", 15);
         }
 
         zen::ObjClass *klass = zen::as_class(found);
@@ -531,6 +605,9 @@ namespace k2d
         out.slotDestroy = slotIfPresent(selectorDestroy);
         out.slotEvent = slotIfPresent(selectorEvent);
         out.slotCollision = slotIfPresent(selectorCollision);
+        out.slotAnimationEvent = slotIfPresent(selectorAnimationEvent);
+        out.slotAnimationFinished = slotIfPresent(selectorAnimationFinished);
+        out.slotParticleHit = slotIfPresent(selectorParticleHit);
         BuildZenClassProperties(out, nullptr);
         return true;
     }
@@ -562,8 +639,15 @@ namespace k2d
         if (!ptr)
             return zen::val_nil();
         if (CachedInstance *cached = instances.find(ptr))
+        {
             if (cached->klass == klass)
                 return cached->value;
+            // The address is being re-handed out under a different class. The
+            // entry below replaces this one, so neutralise it here or it stays
+            // reachable from Zen with a payload nothing will ever clear.
+            if (zen::is_instance(cached->value))
+                zen::as_instance(cached->value)->native_data = nullptr;
+        }
 
         zen::Value value = vm.make_instance(klass);
         zen::as_instance(value)->native_data = ptr;
@@ -577,7 +661,13 @@ namespace k2d
 
     void ZenRuntime::Impl::forgetInstance(void *ptr)
     {
-        instances.erase(ptr);
+        // Dropping the cache entry alone leaves any handle a script already
+        // holds pointing at freed memory: clear the payload too, so the
+        // nodeFromSelf/componentFromSelf null checks catch the stale handle
+        // instead of dereferencing it.
+        CachedInstance cached;
+        if (instances.erase(ptr, cached) && zen::is_instance(cached.value))
+            zen::as_instance(cached.value)->native_data = nullptr;
     }
 
 }

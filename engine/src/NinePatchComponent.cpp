@@ -68,7 +68,7 @@ namespace k2d
                     rect.pivotX = 0.0f;
                     rect.pivotY = 0.0f;
                     rect.color = mColor;
-                    item.commands.push_back(rect);
+                    item.commands.push_back(ct::detail::move(rect));
                 }
                 dstX += dstColW[col];
                 srcX += srcColW[col];
@@ -76,6 +76,14 @@ namespace k2d
             dstY += dstRowH[row];
             srcY += srcRowH[row];
         }
+    }
+
+
+    bool NinePatchComponent::renderBounds(Math::Vec2 &min, Math::Vec2 &max) const
+    {
+        min = -mPivot * mSize;
+        max = min + mSize;
+        return true;
     }
 
 } 

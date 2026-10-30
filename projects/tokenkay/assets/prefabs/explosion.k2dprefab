@@ -1,0 +1,355 @@
+{
+  "name": "explosion",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "assets/textures/items/43_Explosion_01.png",
+        "size": [
+          49.0,
+          47.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/explosion.py"
+      }
+    },
+    {
+      "type": "Animation2D",
+      "data": {
+        "clips": [
+          {
+            "name": "default",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 19,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 10.0,
+            "mode": 0,
+            "frames": [
+              {
+                "texture": "assets/textures/items/43_Explosion_01.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/44_Explosion_02.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/45_Explosion_03.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/46_Explosion_04.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/47_Explosion_05.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/48_Explosion_06.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/50_Explosion_08.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/51_Explosion_09.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/52_Explosion_10.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/53_Explosion_11.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/54_Explosion_12.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/55_Explosion_13.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/56_Explosion_14.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/57_Explosion_15.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/58_Explosion_16.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/59_Explosion_17.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/60_Explosion_18.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/61_Explosion_19.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/62_Explosion_20.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ],
+        "activeClip": "default",
+        "playing": true
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "oneShot",
+        "autoplay": true,
+        "steps": [
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 1.0499999523162842,
+            "ease": "linear"
+          }
+        ]
+      }
+    }
+  ],
+  "children": []
+}

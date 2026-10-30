@@ -38,6 +38,14 @@ The class is compiled once per file. Every object holding that file gets its
 own instance, so ``__init__`` and instance fields run per object while the
 module-level code runs once.
 
+Each file's top-level variables are its own. ``count = 0`` at the top of
+``player.py`` and ``count = 10`` at the top of ``enemy.py`` are two variables,
+and each file's functions and methods see their own; so is a name a function
+declares ``global``. Classes, top-level functions and imports stay shared by
+every script, so one script can still use another's class. To share a value
+between scripts, use the blackboard (``set_number``, ``get_number``...) or a
+field of an object both can reach.
+
 The class method set
 --------------------
 
@@ -66,7 +74,8 @@ The class method set
 
 ``on_event(name, value)`` (optional)
    Called for every event broadcast in the running scene (see
-   :ref:`scripting-events`). ``value`` is a number and defaults to 0.
+   :ref:`scripting-events`), and for ``Event`` actions fired by an Action
+   Sequence on the same object. ``value`` is a number and defaults to 0.
 
 ``on_collision(other, began)`` (optional)
    Called on the scripts of the object that was touched. ``other`` is the Node

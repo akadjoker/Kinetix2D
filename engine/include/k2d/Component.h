@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <limits>
 
+#include <mathc.h>
+
 namespace k2d
 {
 
@@ -28,6 +30,7 @@ enum class ComponentType : uint8_t
     AudioPlayer,
     RigidBody,
     Collider,
+    Joint,
     CircleShape,
     RectShape,
     CapsuleShape,
@@ -44,6 +47,11 @@ enum class ComponentType : uint8_t
     CharacterBody,
     Skeleton,
     Bone,
+    ParallaxLayer,
+    Steering,
+    Formation,
+    PathMotion,
+    ActionSequence,
     Count
 };
 
@@ -53,6 +61,26 @@ enum ComponentEventFlags : uint8_t
     ComponentEventUpdate = 1 << 0,
     ComponentEventLateUpdate = 1 << 1,
     ComponentEventRender = 1 << 2
+};
+
+enum class ComponentClass : uint8_t
+{
+    None,
+    Light2D,
+    DirectionalLight2D,
+    DistanceJoint2D,
+    RevoluteJoint2D,
+    WheelJoint2D,
+    MotorJoint2D,
+    MouseJoint2D,
+    GearJoint2D,
+    BoxCollider2D,
+    CircleCollider2D,
+    EdgeCollider2D,
+    PolygonCollider2D,
+    ChainCollider2D,
+    TileMapCollider2D,
+    ZenScript
 };
 
 class Component;
@@ -85,6 +113,7 @@ class Component
 
     GameObject* owner() const;
     ComponentType type() const;
+    ComponentClass componentClass() const;
     uint32_t id() const;
     bool active() const;
     void setActive(bool active);
@@ -94,7 +123,8 @@ class Component
     }
 
   protected:
-    explicit Component(ComponentType type, uint8_t events = ComponentEventNone);
+    explicit Component(ComponentType type, uint8_t events = ComponentEventNone,
+                       ComponentClass componentClass = ComponentClass::None);
 
     virtual void onAwake();
     virtual void onStart();
@@ -103,6 +133,9 @@ class Component
     virtual void onUpdate(float deltaTime);
     virtual void onLateUpdate(float deltaTime);
     virtual void onRender(RenderQueue& queue);
+    // The box the component draws in, in its object's space; false when it
+    // cannot tell, and it is then never culled.
+    virtual bool renderBounds(Math::Vec2& min, Math::Vec2& max) const;
     virtual void onDestroy();
 
   private:
@@ -117,6 +150,7 @@ class Component
     GameObject* mOwner;
     Component* mNextSibling;
     ComponentType mType;
+    ComponentClass mClass;
     uint32_t mLocalId;
     uint8_t mEvents;
     bool mActive;

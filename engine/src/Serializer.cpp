@@ -7,6 +7,9 @@
 #include "k2d/TileMapComponent.h"
 #include "k2d/Polygon2D.h"
 #include "k2d/NavigationRegion2D.h"
+#include "k2d/Formation2D.h"
+#include "k2d/PathMotion2D.h"
+#include "k2d/ActionSequence2D.h"
 #include "k2d/NavigationAgent2D.h"
 #include "k2d/Line2D.h"
 #include "k2d/CircleShape.h"
@@ -15,11 +18,14 @@
 #include "k2d/NinePatchComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/Animation2D.h"
+#include "k2d/Bone2D.h"
+#include "k2d/Skeleton2D.h"
 #include "k2d/Light2D.h"
 #include "k2d/DirectionalLight2D.h"
 #include "k2d/LightOccluder2D.h"
 #include "k2d/CameraComponent.h"
 #include "k2d/ParticleComponent.h"
+#include "k2d/ParallaxLayerComponent.h"
 #include "k2d/AudioPlayer.h"
 #include "k2d/UiControls.h"
 
@@ -92,12 +98,28 @@ ct::Json WritePackedColor(unsigned int packed)
     return a;
 }
 
+// Bytes, as WritePackedColor writes them; an array with any real number in it
+// is read as 0..1 floats instead, the form hand-written scenes use. Read as
+// bytes those came out nearly black and nearly transparent.
 void ReadPackedColorBytes(const ct::Json& j, unsigned char& r, unsigned char& g, unsigned char& b, unsigned char& a)
 {
-    r = (j.is_array() && j.size() > 0) ? (unsigned char)j[0].as_int(255) : 255;
-    g = (j.is_array() && j.size() > 1) ? (unsigned char)j[1].as_int(255) : 255;
-    b = (j.is_array() && j.size() > 2) ? (unsigned char)j[2].as_int(255) : 255;
-    a = (j.is_array() && j.size() > 3) ? (unsigned char)j[3].as_int(255) : 255;
+    unsigned char* channels[4] = {&r, &g, &b, &a};
+    const std::size_t count = j.is_array() ? j.size() : 0;
+    bool unit = false;
+    for (std::size_t i = 0; i < count && i < 4; ++i)
+        unit = unit || j[i].is_real();
+    for (std::size_t i = 0; i < 4; ++i)
+    {
+        if (i >= count)
+            *channels[i] = 255;
+        else if (unit)
+        {
+            const double v = j[i].as_double(1.0);
+            *channels[i] = (unsigned char)(v <= 0.0 ? 0 : v >= 1.0 ? 255 : (int)(v * 255.0 + 0.5));
+        }
+        else
+            *channels[i] = (unsigned char)j[i].as_int(255);
+    }
 }
 
 using CreateFn = Component* (*)(GameObject& owner);
@@ -211,17 +233,13 @@ void WriteTileMap(const Component& component, ct::Json& data, Assets* assets)
 {
     const TileMapComponent& tileMap = static_cast<const TileMapComponent&>(component);
 
-    if (assets)
-        if (const char* texName = assets->FindTextureName(tileMap.texture()))
-            data.set("texture", ct::Json(texName));
-
-    data.set("cellWidth", ct::Json((double)tileMap.cellWidth()));
-    data.set("cellHeight", ct::Json((double)tileMap.cellHeight()));
+    const char* shared = assets && tileMap.sharedTileSet() ? assets->FindTileSetPath(tileMap.sharedTileSet()) : nullptr;
+    if (shared)
+        data.set("tileset", ct::Json(shared));
+    else
+        tileMap.tileSet().write(data, assets);
     data.set("columns", ct::Json(tileMap.columns()));
     data.set("rows", ct::Json(tileMap.rows()));
-    data.set("atlasTilesX", ct::Json(tileMap.atlasTilesX()));
-    data.set("atlasPadding", WriteVec2(tileMap.atlasPadding()));
-    data.set("atlasGap", WriteVec2(tileMap.atlasGap()));
 
     ct::Json cells = ct::Json::array();
     cells.reserve((size_t)(tileMap.columns() * tileMap.rows()));
@@ -230,10 +248,11 @@ void WriteTileMap(const Component& component, ct::Json& data, Assets* assets)
             cells.push_back(ct::Json(tileMap.getTile(x, y)));
     data.set("cells", cells);
 
+    // The cells marked solid by hand; the tileset's solid tiles are its own.
     ct::Json collision = ct::Json::array();
     for (int y = 0; y < tileMap.rows(); ++y)
         for (int x = 0; x < tileMap.columns(); ++x)
-            collision.push_back(ct::Json(tileMap.hasCollision(x, y)));
+            collision.push_back(ct::Json(tileMap.cellCollision(x, y)));
     data.set("collision", collision);
 
     if (tileMap.hasCullRect())
@@ -245,19 +264,17 @@ void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
 {
     TileMapComponent& tileMap = static_cast<TileMapComponent&>(component);
 
-    if (assets)
-        if (const ct::Json* tex = data.find("texture"))
-            tileMap.setTexture(assets->GetTexture(tex->as_cstr()));
+    TileSet* shared = nullptr;
+    if (const ct::Json* path = data.find("tileset"))
+        shared = assets ? assets->LoadTileSet(path->as_cstr("")) : nullptr;
+    if (shared)
+        tileMap.setSharedTileSet(shared);
+    else
+        tileMap.editTileSet().read(data, assets);
 
-    tileMap.setCellSize((float)data["cellWidth"].as_double(32.0), (float)data["cellHeight"].as_double(32.0));
     const int columns = (int)data["columns"].as_int(0);
     const int rows = (int)data["rows"].as_int(0);
     tileMap.setMapSize(columns, rows);
-    tileMap.setAtlasTilesX((int)data["atlasTilesX"].as_int(1));
-    const Math::Vec2 atlasPadding = ReadVec2(data["atlasPadding"]);
-    const Math::Vec2 atlasGap = ReadVec2(data["atlasGap"]);
-    tileMap.setAtlasPadding(atlasPadding.x, atlasPadding.y);
-    tileMap.setAtlasGap(atlasGap.x, atlasGap.y);
 
     const ct::Json& cells = data["cells"];
     if (cells.is_array())
@@ -285,6 +302,39 @@ void ReadTileMap(Component& component, const ct::Json& data, Assets* assets)
     tileMap.setBlendMode((BlendMode)data["blendMode"].as_int(BLEND_MIX));
 }
 
+Component* CreateParallaxLayer(GameObject& owner)
+{
+    return owner.addComponent<ParallaxLayerComponent>();
+}
+
+void WriteParallaxLayer(const Component& component, ct::Json& data, Assets* assets)
+{
+    const ParallaxLayerComponent& layer = static_cast<const ParallaxLayerComponent&>(component);
+
+    if (assets)
+        if (const char* texName = assets->FindTextureName(layer.texture()))
+            data.set("texture", ct::Json(texName));
+
+    data.set("motionScale", WriteVec2(layer.motionScale()));
+    data.set("tileSize", WriteVec2(layer.tileSize()));
+    data.set("color", WriteColor(layer.color()));
+    data.set("zIndex", ct::Json(layer.zIndex()));
+}
+
+void ReadParallaxLayer(Component& component, const ct::Json& data, Assets* assets)
+{
+    ParallaxLayerComponent& layer = static_cast<ParallaxLayerComponent&>(component);
+
+    if (assets)
+        if (const ct::Json* tex = data.find("texture"))
+            layer.setTexture(assets->GetTexture(tex->as_cstr()));
+
+    layer.setMotionScale(ReadVec2(data["motionScale"], Math::Vec2(1.0f)));
+    layer.setTileSize(ReadVec2(data["tileSize"], Math::Vec2(0.0f)));
+    layer.setColor(ReadColor(data["color"], Color(1.0f)));
+    layer.setZIndex((int)data["zIndex"].as_int(-100));
+}
+
 Component* CreatePolygon(GameObject& owner)
 {
     return owner.addComponent<Polygon2D>();
@@ -293,6 +343,11 @@ Component* CreatePolygon(GameObject& owner)
 Component* CreateNavigationRegion(GameObject& owner)
 {
     return owner.addComponent<NavigationRegion2D>();
+}
+
+Component* CreateFormation(GameObject& owner)
+{
+    return owner.addComponent<Formation2D>();
 }
 
 Component* CreateNavigationAgent(GameObject& owner)
@@ -383,6 +438,17 @@ void WriteNavigationRegion(const Component& component, ct::Json& data, Assets*)
     for (size_t i = 0; i < region.polygon().size(); ++i)
         points.push_back(WriteVec2(region.polygon()[i]));
     data.set("points", points);
+
+    ct::Json holes = ct::Json::array();
+    for (size_t h = 0; h < region.holes().size(); ++h)
+    {
+        const ct::Vector<Math::Vec2>& hole = region.holes()[h];
+        ct::Json holeJson = ct::Json::array();
+        for (size_t i = 0; i < hole.size(); ++i)
+            holeJson.push_back(WriteVec2(hole[i]));
+        holes.push_back(holeJson);
+    }
+    data.set("holes", holes);
 }
 
 void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
@@ -393,12 +459,377 @@ void ReadNavigationRegion(Component& component, const ct::Json& data, Assets*)
     ct::Vector<Math::Vec2> points;
     for (size_t i = 0; i < pointsJson.size(); ++i)
         points.push_back(ReadVec2(pointsJson[i]));
-    static_cast<NavigationRegion2D&>(component).setPolygon(points.data(), static_cast<int>(points.size()));
+
+    const ct::Json& holesJson = data["holes"];
+    if (!holesJson.is_array() || holesJson.empty())
+    {
+        static_cast<NavigationRegion2D&>(component).setPolygon(points.data(), static_cast<int>(points.size()));
+        return;
+    }
+
+    ct::Vector<ct::Vector<Math::Vec2>> holes;
+    holes.resize(holesJson.size());
+    for (size_t h = 0; h < holesJson.size(); ++h)
+    {
+        const ct::Json& holeJson = holesJson[h];
+        if (!holeJson.is_array())
+            continue;
+        for (size_t i = 0; i < holeJson.size(); ++i)
+            holes[h].push_back(ReadVec2(holeJson[i]));
+    }
+
+    ct::Vector<const Math::Vec2*> holePtrs;
+    ct::Vector<int> holeCounts;
+    for (size_t h = 0; h < holes.size(); ++h)
+    {
+        holePtrs.push_back(holes[h].data());
+        holeCounts.push_back(static_cast<int>(holes[h].size()));
+    }
+
+    static_cast<NavigationRegion2D&>(component)
+        .setPolygonWithHoles(points.data(), static_cast<int>(points.size()), holePtrs.data(), holeCounts.data(),
+                              static_cast<int>(holes.size()));
+}
+
+const char* FormationShapeName(Formation2D::Shape shape)
+{
+    switch (shape)
+    {
+    case Formation2D::Shape::Abreast:
+        return "abreast";
+    case Formation2D::Shape::Wedge:
+        return "wedge";
+    case Formation2D::Shape::SingleFile:
+        return "singleFile";
+    case Formation2D::Shape::Surround:
+        break;
+    }
+    return "surround";
+}
+
+Formation2D::Shape FormationShapeFromName(const char* name)
+{
+    if (std::strcmp(name, "abreast") == 0)
+        return Formation2D::Shape::Abreast;
+    if (std::strcmp(name, "wedge") == 0)
+        return Formation2D::Shape::Wedge;
+    if (std::strcmp(name, "singleFile") == 0)
+        return Formation2D::Shape::SingleFile;
+    return Formation2D::Shape::Surround;
+}
+
+void WriteFormation(const Component& component, ct::Json& data, Assets*)
+{
+    const Formation2D& formation = static_cast<const Formation2D&>(component);
+    data.set("group", ct::Json(formation.groupTag().c_str()));
+    data.set("anchor", ct::Json(formation.anchorName().c_str()));
+    data.set("shape", ct::Json(FormationShapeName(formation.shape())));
+    data.set("spacing", ct::Json(static_cast<double>(formation.spacing())));
+    data.set("updateInterval", ct::Json(static_cast<double>(formation.updateInterval())));
+}
+
+void ReadFormation(Component& component, const ct::Json& data, Assets*)
+{
+    Formation2D& formation = static_cast<Formation2D&>(component);
+    formation.setGroupTag(data["group"].as_cstr(""));
+    formation.setAnchorName(data["anchor"].as_cstr(""));
+    formation.setShape(FormationShapeFromName(data["shape"].as_cstr("surround")));
+    formation.setSpacing(static_cast<float>(data["spacing"].as_double(60.0)));
+    formation.setUpdateInterval(static_cast<float>(data["updateInterval"].as_double(0.25)));
+}
+
+const char* MotionEaseName(MotionEase ease)
+{
+    switch (ease)
+    {
+    case MotionEase::InQuad:
+        return "inQuad";
+    case MotionEase::OutQuad:
+        return "outQuad";
+    case MotionEase::InOutQuad:
+        return "inOutQuad";
+    case MotionEase::InCubic:
+        return "inCubic";
+    case MotionEase::OutCubic:
+        return "outCubic";
+    case MotionEase::InOutCubic:
+        return "inOutCubic";
+    case MotionEase::InSine:
+        return "inSine";
+    case MotionEase::OutSine:
+        return "outSine";
+    case MotionEase::InOutSine:
+        return "inOutSine";
+    case MotionEase::InBack:
+        return "inBack";
+    case MotionEase::OutBack:
+        return "outBack";
+    case MotionEase::InOutBack:
+        return "inOutBack";
+    case MotionEase::InBounce:
+        return "inBounce";
+    case MotionEase::OutBounce:
+        return "outBounce";
+    case MotionEase::InOutBounce:
+        return "inOutBounce";
+    case MotionEase::InElastic:
+        return "inElastic";
+    case MotionEase::OutElastic:
+        return "outElastic";
+    case MotionEase::InOutElastic:
+        return "inOutElastic";
+    case MotionEase::Linear:
+        break;
+    }
+    return "linear";
+}
+
+MotionEase MotionEaseFromName(const char* name)
+{
+    static const struct
+    {
+        const char* name;
+        MotionEase ease;
+    } kNames[] = {
+        {"inQuad", MotionEase::InQuad}, {"outQuad", MotionEase::OutQuad}, {"inOutQuad", MotionEase::InOutQuad},
+        {"inCubic", MotionEase::InCubic}, {"outCubic", MotionEase::OutCubic}, {"inOutCubic", MotionEase::InOutCubic},
+        {"inSine", MotionEase::InSine}, {"outSine", MotionEase::OutSine}, {"inOutSine", MotionEase::InOutSine},
+        {"inBack", MotionEase::InBack}, {"outBack", MotionEase::OutBack}, {"inOutBack", MotionEase::InOutBack},
+        {"inBounce", MotionEase::InBounce}, {"outBounce", MotionEase::OutBounce},
+        {"inOutBounce", MotionEase::InOutBounce}, {"inElastic", MotionEase::InElastic},
+        {"outElastic", MotionEase::OutElastic}, {"inOutElastic", MotionEase::InOutElastic},
+    };
+    for (const auto& entry : kNames)
+        if (std::strcmp(name, entry.name) == 0)
+            return entry.ease;
+    return MotionEase::Linear;
+}
+
+Component* CreatePathMotion(GameObject& owner)
+{
+    return owner.addComponent<PathMotion2D>();
+}
+
+const char* PathMotionLoopName(PathMotionLoop loop)
+{
+    switch (loop)
+    {
+    case PathMotionLoop::Repeat:
+        return "repeat";
+    case PathMotionLoop::PingPong:
+        return "pingPong";
+    case PathMotionLoop::None:
+        break;
+    }
+    return "none";
+}
+
+PathMotionLoop PathMotionLoopFromName(const char* name)
+{
+    if (std::strcmp(name, "repeat") == 0)
+        return PathMotionLoop::Repeat;
+    if (std::strcmp(name, "pingPong") == 0)
+        return PathMotionLoop::PingPong;
+    return PathMotionLoop::None;
+}
+
+void WritePathMotion(const Component& component, ct::Json& data, Assets*)
+{
+    const PathMotion2D& motion = static_cast<const PathMotion2D&>(component);
+    data.set("loop", ct::Json(PathMotionLoopName(motion.loop())));
+    data.set("autoplay", ct::Json(motion.autoplay()));
+    data.set("oneShot", ct::Json(motion.oneShot()));
+    ct::Json keyframes = ct::Json::array();
+    for (std::size_t i = 0; i < motion.keyframeCount(); ++i)
+    {
+        const PathMotionKeyframe& kf = *motion.keyframeAt(i);
+        ct::Json entry = ct::Json::object();
+        entry.set("position", WriteVec2(kf.position));
+        entry.set("scale", WriteVec2(kf.scale));
+        entry.set("angle", ct::Json(static_cast<double>(kf.angleDegrees)));
+        entry.set("duration", ct::Json(static_cast<double>(kf.duration)));
+        entry.set("ease", ct::Json(MotionEaseName(kf.ease)));
+        keyframes.push_back(entry);
+    }
+    data.set("keyframes", keyframes);
+}
+
+void ReadPathMotion(Component& component, const ct::Json& data, Assets*)
+{
+    PathMotion2D& motion = static_cast<PathMotion2D&>(component);
+    motion.clearKeyframes();
+    motion.setLoop(PathMotionLoopFromName(data["loop"].as_cstr("none")));
+    motion.setAutoplay(data["autoplay"].as_bool(false));
+    motion.setOneShot(data["oneShot"].as_bool(false));
+    const ct::Json& keyframes = data["keyframes"];
+    if (!keyframes.is_array())
+        return;
+    for (std::size_t i = 0; i < keyframes.size(); ++i)
+    {
+        const ct::Json& entry = keyframes[i];
+        PathMotionKeyframe kf;
+        kf.position = ReadVec2(entry["position"]);
+        kf.scale = ReadVec2(entry["scale"], Math::Vec2(1.0f));
+        kf.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
+        kf.duration = static_cast<float>(entry["duration"].as_double(0.5));
+        kf.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
+        motion.addKeyframe(kf);
+    }
+}
+
+Component* CreateActionSequence(GameObject& owner)
+{
+    return owner.addComponent<ActionSequence2D>();
+}
+
+const char* ActionKindName(ActionKind kind)
+{
+    switch (kind)
+    {
+    case ActionKind::Color:
+        return "color";
+    case ActionKind::Move:
+        return "move";
+    case ActionKind::Scale:
+        return "scale";
+    case ActionKind::Turn:
+        return "turn";
+    case ActionKind::TurnRate:
+        return "turnRate";
+    case ActionKind::Force:
+        return "force";
+    case ActionKind::Pause:
+        return "pause";
+    case ActionKind::Fade:
+        return "fade";
+    case ActionKind::Parallel:
+        return "parallel";
+    case ActionKind::Event:
+        return "event";
+    }
+    return "pause";
+}
+
+ActionKind ActionKindFromName(const char* name)
+{
+    if (std::strcmp(name, "color") == 0)
+        return ActionKind::Color;
+    if (std::strcmp(name, "move") == 0)
+        return ActionKind::Move;
+    if (std::strcmp(name, "scale") == 0)
+        return ActionKind::Scale;
+    if (std::strcmp(name, "turn") == 0)
+        return ActionKind::Turn;
+    if (std::strcmp(name, "turnRate") == 0)
+        return ActionKind::TurnRate;
+    if (std::strcmp(name, "force") == 0)
+        return ActionKind::Force;
+    if (std::strcmp(name, "fade") == 0)
+        return ActionKind::Fade;
+    if (std::strcmp(name, "parallel") == 0)
+        return ActionKind::Parallel;
+    if (std::strcmp(name, "event") == 0)
+        return ActionKind::Event;
+    return ActionKind::Pause;
+}
+
+const char* ActionSequenceLoopName(ActionSequenceLoop loop)
+{
+    return loop == ActionSequenceLoop::Loop ? "loop" : "oneShot";
+}
+
+ActionSequenceLoop ActionSequenceLoopFromName(const char* name)
+{
+    return std::strcmp(name, "loop") == 0 ? ActionSequenceLoop::Loop : ActionSequenceLoop::OneShot;
+}
+
+ct::Json WriteActionData(const ActionData& action)
+{
+    ct::Json entry = ct::Json::object();
+    entry.set("kind", ct::Json(ActionKindName(action.kind)));
+    entry.set("vector", WriteVec2(action.vector));
+    entry.set("angle", ct::Json(static_cast<double>(action.angleDegrees)));
+    entry.set("color", WriteColor(action.color));
+    entry.set("alpha", ct::Json(static_cast<double>(action.alpha)));
+    entry.set("duration", ct::Json(static_cast<double>(action.duration)));
+    entry.set("ease", ct::Json(MotionEaseName(action.ease)));
+    if (!action.event.empty())
+        entry.set("event", ct::Json(action.event.c_str()));
+    return entry;
+}
+
+ct::Json WriteActionStep(const ActionStep& step)
+{
+    ct::Json entry = WriteActionData(step);
+    if (step.kind == ActionKind::Parallel)
+    {
+        ct::Json actions = ct::Json::array();
+        for (std::size_t i = 0; i < step.actions.size(); ++i)
+            actions.push_back(WriteActionData(step.actions[i]));
+        entry.set("actions", actions);
+    }
+    return entry;
+}
+
+ActionData ReadActionData(const ct::Json& entry)
+{
+    ActionData action;
+    action.kind = ActionKindFromName(entry["kind"].as_cstr("pause"));
+    action.vector = ReadVec2(entry["vector"]);
+    action.angleDegrees = static_cast<float>(entry["angle"].as_double(0.0));
+    action.color = ReadColor(entry["color"]);
+    action.alpha = static_cast<float>(entry["alpha"].as_double(action.color.a));
+    action.duration = static_cast<float>(entry["duration"].as_double(0.5));
+    action.ease = MotionEaseFromName(entry["ease"].as_cstr("linear"));
+    action.event = entry["event"].as_cstr("");
+    return action;
+}
+
+ActionStep ReadActionStep(const ct::Json& entry)
+{
+    ActionStep step;
+    static_cast<ActionData&>(step) = ReadActionData(entry);
+    const ct::Json& actions = entry["actions"];
+    if (step.kind == ActionKind::Parallel && actions.is_array())
+        for (std::size_t i = 0; i < actions.size(); ++i)
+        {
+            ActionData action = ReadActionData(actions[i]);
+            if (action.kind != ActionKind::Parallel)
+                step.actions.push_back(action);
+        }
+    return step;
+}
+
+void WriteActionSequence(const Component& component, ct::Json& data, Assets*)
+{
+    const ActionSequence2D& sequence = static_cast<const ActionSequence2D&>(component);
+    data.set("loop", ct::Json(ActionSequenceLoopName(sequence.loop())));
+    data.set("autoplay", ct::Json(sequence.autoplay()));
+    ct::Json steps = ct::Json::array();
+    for (std::size_t i = 0; i < sequence.stepCount(); ++i)
+        steps.push_back(WriteActionStep(*sequence.stepAt(i)));
+    data.set("steps", steps);
+}
+
+void ReadActionSequence(Component& component, const ct::Json& data, Assets*)
+{
+    ActionSequence2D& sequence = static_cast<ActionSequence2D&>(component);
+    sequence.clearSteps();
+    sequence.setLoop(ActionSequenceLoopFromName(data["loop"].as_cstr("oneShot")));
+    sequence.setAutoplay(data["autoplay"].as_bool(false));
+    const ct::Json& steps = data["steps"];
+    if (!steps.is_array())
+        return;
+    for (std::size_t i = 0; i < steps.size(); ++i)
+        sequence.addStep(ReadActionStep(steps[i]));
 }
 
 void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
 {
     const NavigationAgent2D& agent = static_cast<const NavigationAgent2D&>(component);
+    // Without hasTarget there is no representation for "no target", so every
+    // agent would load pointing at the world origin and walk to it.
+    data.set("hasTarget", ct::Json(agent.hasTarget()));
     data.set("target", WriteVec2(agent.targetPosition()));
     data.set("pathDesiredDistance", ct::Json(static_cast<double>(agent.pathDesiredDistance())));
     data.set("maxSpeed", ct::Json(static_cast<double>(agent.maxSpeed())));
@@ -406,6 +837,9 @@ void WriteNavigationAgent(const Component& component, ct::Json& data, Assets*)
     data.set("orientToPath", ct::Json(agent.orientToPath()));
     data.set("rotationLerpSpeed", ct::Json(static_cast<double>(agent.rotationLerpSpeed())));
     data.set("rotationOffsetDegrees", ct::Json(static_cast<double>(agent.rotationOffsetDegrees())));
+    data.set("followTarget", ct::Json(agent.followTargetName().c_str()));
+    data.set("repathInterval", ct::Json(static_cast<double>(agent.repathInterval())));
+    data.set("repathMoveThreshold", ct::Json(static_cast<double>(agent.repathMoveThreshold())));
 }
 
 void ReadNavigationAgent(Component& component, const ct::Json& data, Assets*)
@@ -417,8 +851,18 @@ void ReadNavigationAgent(Component& component, const ct::Json& data, Assets*)
     agent.setOrientToPath(data["orientToPath"].as_bool(false));
     agent.setRotationLerpSpeed(static_cast<float>(data["rotationLerpSpeed"].as_double(12.0)));
     agent.setRotationOffsetDegrees(static_cast<float>(data["rotationOffsetDegrees"].as_double(0.0)));
+    agent.setRepathInterval(static_cast<float>(data["repathInterval"].as_double(0.25)));
+    agent.setRepathMoveThreshold(static_cast<float>(data["repathMoveThreshold"].as_double(16.0)));
+    agent.setFollowTargetName(data["followTarget"].as_cstr(""));
+    // Older scenes have no hasTarget key; they always wrote a target, so treat
+    // a missing key as "targeted" to keep them behaving as before.
     if (const ct::Json* target = data.find("target"))
-        agent.setTargetPosition(ReadVec2(*target));
+    {
+        if (data["hasTarget"].as_bool(true))
+            agent.setTargetPosition(ReadVec2(*target));
+        else
+            agent.clearTarget();
+    }
 }
 
 Component* CreateLine(GameObject& owner)
@@ -807,9 +1251,29 @@ void WriteAnimation(const Component& component, ct::Json& data, Assets* assets)
                         frameJson.set("texture", ct::Json(frameTexture));
                 frameJson.set("rect", WriteVec4(frame.rect));
                 frameJson.set("offset", WriteVec2(frame.offset));
+                if (!frame.points.empty())
+                {
+                    ct::Json points = ct::Json::array();
+                    for (size_t pointIndex = 0; pointIndex < frame.points.size(); ++pointIndex)
+                        points.push_back(WriteVec2(frame.points[pointIndex]));
+                    frameJson.set("points", points);
+                }
                 frames.push_back(frameJson);
             }
             clipJson.set("frames", frames);
+        }
+        if (!clip->events.empty())
+        {
+            ct::Json events = ct::Json::array();
+            for (size_t eventIndex = 0; eventIndex < clip->events.size(); ++eventIndex)
+            {
+                const AnimationEvent& event = clip->events[eventIndex];
+                ct::Json eventJson = ct::Json::object();
+                eventJson.set("frame", ct::Json(event.frame));
+                eventJson.set("name", ct::Json(event.name.c_str()));
+                events.push_back(eventJson);
+            }
+            clipJson.set("events", events);
         }
         clips.push_back(clipJson);
     }
@@ -861,7 +1325,24 @@ void ReadAnimation(Component& component, const ct::Json& data, Assets* assets)
                     anim.addFrame(clipName, frameTexture, ReadVec4(frame["rect"]), frameTexturePath);
                     const size_t frameCount = anim.frameCount(clipName);
                     if (frameCount > 0)
+                    {
                         anim.setFrameOffset(clipName, frameCount - 1, ReadVec2(frame["offset"]));
+                        const ct::Json& points = frame["points"];
+                        if (points.is_array())
+                            for (size_t pointIndex = 0; pointIndex < points.size(); ++pointIndex)
+                                anim.addFramePoint(clipName, frameCount - 1, ReadVec2(points[pointIndex]));
+                    }
+                }
+            }
+
+            const ct::Json& events = clip["events"];
+            if (events.is_array())
+            {
+                const char* clipName = clip["name"].as_cstr("");
+                for (size_t eventIndex = 0; eventIndex < events.size(); ++eventIndex)
+                {
+                    const ct::Json& event = events[eventIndex];
+                    anim.addEvent(clipName, (int)event["frame"].as_int(0), event["name"].as_cstr(""));
                 }
             }
         }
@@ -876,6 +1357,102 @@ void ReadAnimation(Component& component, const ct::Json& data, Assets* assets)
         anim.stop();
 }
 
+const char* const kBoneProperties[] = {"x", "y", "rotation", "scaleX", "scaleY"};
+
+Component* CreateSkeleton(GameObject& owner)
+{
+    return owner.addComponent<Skeleton2D>();
+}
+
+void WriteSkeleton(const Component& component, ct::Json& data, Assets*)
+{
+    const Skeleton2D& skeleton = static_cast<const Skeleton2D&>(component);
+    data.set("speed", ct::Json((double)skeleton.speed()));
+    data.set("autoplay", ct::Json(skeleton.autoplay().c_str()));
+    ct::Json clips = ct::Json::array();
+    for (size_t i = 0; i < skeleton.clipCount(); ++i)
+    {
+        const BoneAnimationClip* clip = skeleton.clipAt(i);
+        ct::Json clipJson = ct::Json::object();
+        clipJson.set("name", ct::Json(clip->name.c_str()));
+        clipJson.set("duration", ct::Json((double)clip->duration));
+        clipJson.set("loop", ct::Json(clip->loop));
+        ct::Json tracks = ct::Json::array();
+        for (const BoneTrack& track : clip->tracks)
+        {
+            ct::Json trackJson = ct::Json::object();
+            trackJson.set("bone", ct::Json(track.boneName.c_str()));
+            trackJson.set("property", ct::Json(kBoneProperties[track.property]));
+            ct::Json keys = ct::Json::array();
+            for (const BoneKeyframe& key : track.keyframes)
+            {
+                ct::Json keyJson = ct::Json::array();
+                keyJson.push_back(ct::Json((double)key.time));
+                keyJson.push_back(ct::Json((double)key.value));
+                keyJson.push_back(ct::Json((int)key.easing));
+                keys.push_back(keyJson);
+            }
+            trackJson.set("keys", keys);
+            tracks.push_back(trackJson);
+        }
+        clipJson.set("tracks", tracks);
+        clips.push_back(clipJson);
+    }
+    data.set("clips", clips);
+}
+
+void ReadSkeleton(Component& component, const ct::Json& data, Assets*)
+{
+    Skeleton2D& skeleton = static_cast<Skeleton2D&>(component);
+    skeleton.setSpeed((float)data["speed"].as_double(1.0));
+    skeleton.setAutoplay(data["autoplay"].as_cstr(""));
+    const ct::Json& clips = data["clips"];
+    for (size_t i = 0; clips.is_array() && i < clips.size(); ++i)
+    {
+        const ct::Json& clipJson = clips[i];
+        BoneAnimationClip clip;
+        clip.name = clipJson["name"].as_cstr("");
+        clip.duration = (float)clipJson["duration"].as_double(1.0);
+        clip.loop = clipJson["loop"].as_bool(true);
+        const ct::Json& tracks = clipJson["tracks"];
+        for (size_t t = 0; tracks.is_array() && t < tracks.size(); ++t)
+        {
+            const ct::Json& trackJson = tracks[t];
+            BoneTrack track;
+            track.boneName = trackJson["bone"].as_cstr("");
+            const char* property = trackJson["property"].as_cstr("rotation");
+            for (int p = 0; p < 5; ++p)
+                if (std::strcmp(property, kBoneProperties[p]) == 0)
+                    track.property = (BoneTrack::Property)p;
+            const ct::Json& keys = trackJson["keys"];
+            for (size_t k = 0; keys.is_array() && k < keys.size(); ++k)
+            {
+                const ct::Json& key = keys[k];
+                const int easing = (int)key[2].as_int(0);
+                track.addKeyframe((float)key[0].as_double(0.0), (float)key[1].as_double(0.0),
+                                  (BoneKeyframe::Easing)(easing >= 0 && easing <= 4 ? easing : 0));
+            }
+            clip.tracks.push_back(track);
+        }
+        skeleton.addClip(clip);
+    }
+}
+
+Component* CreateBone(GameObject& owner)
+{
+    return owner.addComponent<Bone2D>();
+}
+
+void WriteBone(const Component& component, ct::Json& data, Assets*)
+{
+    data.set("length", ct::Json((double)static_cast<const Bone2D&>(component).length()));
+}
+
+void ReadBone(Component& component, const ct::Json& data, Assets*)
+{
+    static_cast<Bone2D&>(component).setLength((float)data["length"].as_double(50.0));
+}
+
 Component* CreatePointLight(GameObject& owner)
 {
     return owner.addComponent<Light2D>();
@@ -888,12 +1465,12 @@ Component* CreateDirectionalLight(GameObject& owner)
 
 bool IsPointLight(const Component& component)
 {
-    return dynamic_cast<const Light2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::Light2D;
 }
 
 bool IsDirectionalLight(const Component& component)
 {
-    return dynamic_cast<const DirectionalLight2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::DirectionalLight2D;
 }
 
 void WritePointLight(const Component& component, ct::Json& data, Assets*)
@@ -902,11 +1479,14 @@ void WritePointLight(const Component& component, ct::Json& data, Assets*)
     data.set("color", WriteColor(light.color()));
     data.set("energy", ct::Json((double)light.energy()));
     data.set("radius", ct::Json((double)light.radius()));
+    data.set("falloff", ct::Json((double)light.falloff()));
     data.set("castShadow", ct::Json(light.castShadow()));
     data.set("shadowColor", WriteColor(light.shadowColor()));
     data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
     data.set("cullMask", ct::Json(light.cullMask()));
     data.set("height", ct::Json((double)light.height()));
+    data.set("shadowBias", ct::Json((double)light.shadowBias()));
+    data.set("shadowSmooth", ct::Json((double)light.shadowSmooth()));
 }
 
 void ReadPointLight(Component& component, const ct::Json& data, Assets*)
@@ -916,12 +1496,15 @@ void ReadPointLight(Component& component, const ct::Json& data, Assets*)
     light.setColor(color.r, color.g, color.b, color.a);
     light.setEnergy((float)data["energy"].as_double(1.0));
     light.setRadius((float)data["radius"].as_double(300.0));
+    light.setFalloff((float)data["falloff"].as_double(2.0));
     light.setCastShadow(data["castShadow"].as_bool(false));
     const Color shadowColor = ReadColor(data["shadowColor"], Color(0.0f, 0.0f, 0.0f, 1.0f));
     light.setShadowColor(shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
     light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
     light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
     light.setHeight((float)data["height"].as_double(0.0));
+    light.setShadowBias((float)data["shadowBias"].as_double(0.002));
+    light.setShadowSmooth((float)data["shadowSmooth"].as_double(1.0));
 }
 
 void WriteDirectionalLight(const Component& component, ct::Json& data, Assets*)
@@ -934,6 +1517,8 @@ void WriteDirectionalLight(const Component& component, ct::Json& data, Assets*)
     data.set("shadowFilter", ct::Json((int)light.shadowFilter()));
     data.set("cullMask", ct::Json(light.cullMask()));
     data.set("height", ct::Json((double)light.height()));
+    data.set("shadowBias", ct::Json((double)light.shadowBias()));
+    data.set("shadowSmooth", ct::Json((double)light.shadowSmooth()));
 }
 
 void ReadDirectionalLight(Component& component, const ct::Json& data, Assets*)
@@ -948,6 +1533,8 @@ void ReadDirectionalLight(Component& component, const ct::Json& data, Assets*)
     light.setShadowFilter((ShadowFilter)data["shadowFilter"].as_int(SHADOW_FILTER_NEAREST));
     light.setCullMask((unsigned int)data["cullMask"].as_uint(1));
     light.setHeight((float)data["height"].as_double(0.0));
+    light.setShadowBias((float)data["shadowBias"].as_double(0.002));
+    light.setShadowSmooth((float)data["shadowSmooth"].as_double(1.0));
 }
 
 Component* CreateOccluder(GameObject& owner)
@@ -989,6 +1576,8 @@ void WriteCamera(const Component& component, ct::Json& data, Assets*)
 
     data.set("viewportWidth", ct::Json((double)cameraComponent.viewportWidth()));
     data.set("viewportHeight", ct::Json((double)cameraComponent.viewportHeight()));
+    data.set("viewportScaleMode", ct::Json(ViewportScaleModeName(cameraComponent.viewportScaleMode())));
+    data.set("integerScale", ct::Json(cameraComponent.integerScale()));
     data.set("renderPriority", ct::Json((int64_t)cameraComponent.renderPriority()));
     data.set("position", WriteVec2(camera.position));
     data.set("rotationDegrees", ct::Json((double)camera.rotationDegrees));
@@ -1013,11 +1602,26 @@ void ReadCamera(Component& component, const ct::Json& data, Assets*)
     CameraComponent& cameraComponent = static_cast<CameraComponent&>(component);
     cameraComponent.setViewport((float)data["viewportWidth"].as_double(0.0),
                                 (float)data["viewportHeight"].as_double(0.0));
+    cameraComponent.setViewportScaleMode(ParseViewportScaleMode(data["viewportScaleMode"].as_cstr("fit")));
+    cameraComponent.setIntegerScale(data["integerScale"].as_bool(false));
     cameraComponent.setRenderPriority((int)data["renderPriority"].as_int(0));
 
     Camera2D& camera = cameraComponent.camera();
     camera.position = ReadVec2(data["position"]);
     camera.rotationDegrees = (float)data["rotationDegrees"].as_double(0.0);
+    // Pre-migration scenes authored the camera's view through this field instead
+    // of the node's own transform. If the node is still at the origin, adopt the
+    // saved view as its transform so nothing jumps to (0,0) under the new model;
+    // a node already placed on purpose is left alone.
+    if (GameObject* owner = cameraComponent.owner())
+    {
+        const bool ownerAtOrigin = owner->position().x == 0.0f && owner->position().y == 0.0f;
+        const bool cameraElsewhere = camera.position.x != 0.0f || camera.position.y != 0.0f;
+        if (ownerAtOrigin && cameraElsewhere)
+            owner->setPosition(camera.position);
+        if (ownerAtOrigin && camera.rotationDegrees != 0.0f && owner->rotationDegrees() == 0.0f)
+            owner->setRotationDegrees(camera.rotationDegrees);
+    }
     camera.zoom = ReadVec2(data["zoom"], Math::Vec2(1.0f, 1.0f));
     camera.offset = ReadVec2(data["offset"]);
     camera.limitEnabled = data["limitEnabled"].as_bool(false);
@@ -1151,11 +1755,17 @@ const TypeEntry* AllEntries(std::size_t& count)
     static const TypeEntry kEntries[] = {
         {ComponentType::Sprite, "Sprite", &CreateSprite, &WriteSprite, &ReadSprite, nullptr},
         {ComponentType::TileMap, "TileMap", &CreateTileMap, &WriteTileMap, &ReadTileMap, nullptr},
+        {ComponentType::ParallaxLayer, "ParallaxLayer", &CreateParallaxLayer, &WriteParallaxLayer,
+         &ReadParallaxLayer, nullptr},
         {ComponentType::Polygon2D, "Polygon2D", &CreatePolygon, &WritePolygon, &ReadPolygon, nullptr},
         {ComponentType::NavigationRegion, "NavigationRegion2D", &CreateNavigationRegion, &WriteNavigationRegion,
          &ReadNavigationRegion, nullptr},
         {ComponentType::NavigationAgent, "NavigationAgent2D", &CreateNavigationAgent, &WriteNavigationAgent,
          &ReadNavigationAgent, nullptr},
+        {ComponentType::Formation, "Formation2D", &CreateFormation, &WriteFormation, &ReadFormation, nullptr},
+        {ComponentType::PathMotion, "PathMotion2D", &CreatePathMotion, &WritePathMotion, &ReadPathMotion, nullptr},
+        {ComponentType::ActionSequence, "ActionSequence2D", &CreateActionSequence, &WriteActionSequence,
+         &ReadActionSequence, nullptr},
         {ComponentType::LinePath, "Line2D", &CreateLine, &WriteLine, &ReadLine, nullptr},
         {ComponentType::CircleShape, "CircleShape", &CreateCircleShape, &WriteCircleShape, &ReadCircleShape, nullptr},
         {ComponentType::RectShape, "RectShape", &CreateRectShape, &WriteRectShape, &ReadRectShape, nullptr},
@@ -1165,6 +1775,8 @@ const TypeEntry* AllEntries(std::size_t& count)
         {ComponentType::AudioPlayer, "AudioPlayer", &CreateAudioPlayer, &WriteAudioPlayer, &ReadAudioPlayer, nullptr},
         {ComponentType::SpriteBatch, "SpriteBatch", &CreateSpriteBatch, &WriteSpriteBatch, &ReadSpriteBatch, nullptr},
         {ComponentType::Animation, "Animation2D", &CreateAnimation, &WriteAnimation, &ReadAnimation, nullptr},
+        {ComponentType::Skeleton, "Skeleton2D", &CreateSkeleton, &WriteSkeleton, &ReadSkeleton, nullptr},
+        {ComponentType::Bone, "Bone2D", &CreateBone, &WriteBone, &ReadBone, nullptr},
         {ComponentType::Light, "Light2D", &CreatePointLight, &WritePointLight, &ReadPointLight, &IsPointLight},
         {ComponentType::Light, "DirectionalLight2D", &CreateDirectionalLight, &WriteDirectionalLight,
          &ReadDirectionalLight, &IsDirectionalLight},
@@ -1276,9 +1888,51 @@ void ReadComponent(GameObject& owner, const ct::Json& entryJson, Assets* assets)
 }
 } // namespace
 
+ct::Json Serializer::WriteComponentData(const Component& component, Assets* assets)
+{
+    const TypeEntry* entry = FindEntryForComponent(component);
+    ct::Json data = ct::Json::object();
+    if (entry)
+        entry->write(component, data, assets);
+    return data;
+}
+
+bool Serializer::ReadComponentData(Component& component, const ct::Json& data, Assets* assets)
+{
+    const TypeEntry* entry = FindEntryForComponent(component);
+    if (!entry)
+        return false;
+    entry->read(component, data, assets);
+    return true;
+}
+
 bool Serializer::IsRegistered(ComponentType type)
 {
     return AnyEntryForType(type);
+}
+
+std::size_t Serializer::TypeCount()
+{
+    std::size_t count = 0;
+    AllEntries(count);
+    return count + RuntimeEntries().size();
+}
+
+const char* Serializer::TypeName(std::size_t index)
+{
+    std::size_t count = 0;
+    const TypeEntry* entries = AllEntries(count);
+    if (index < count)
+        return entries[index].name;
+    index -= count;
+    const ct::Vector<TypeEntry>& runtime = RuntimeEntries();
+    return index < runtime.size() ? runtime[index].name : nullptr;
+}
+
+Component* Serializer::Create(GameObject& owner, const char* typeName)
+{
+    const TypeEntry* entry = FindByName(typeName);
+    return entry ? entry->create(owner) : nullptr;
 }
 
 bool Serializer::RegisterType(ComponentType type, const char* name, CreateFn create, WriteFn write, ReadFn read,
@@ -1331,6 +1985,29 @@ ct::Json Serializer::WriteObject(const GameObject& object, Assets* assets)
     j.set("children", children);
 
     return j;
+}
+
+void Serializer::ReadInto(Scene& scene, GameObject& object, const ct::Json& json, Assets* assets)
+{
+    object.setName(json["name"].as_cstr(""));
+    object.setTag(json["tag"].as_cstr(""));
+    object.setActive(json["active"].as_bool(true));
+    object.setVisible(json["visible"].as_bool(true));
+    object.setLocked(json["locked"].as_bool(false));
+    object.setZIndex((int)json["zIndex"].as_int(0));
+    object.setPosition(ReadVec2(json["position"]));
+    object.setRotationDegrees((float)json["rotation"].as_double(0.0));
+    object.setScale(ReadVec2(json["scale"], Math::Vec2(1.0f, 1.0f)));
+
+    const ct::Json& components = json["components"];
+    if (components.is_array())
+        for (std::size_t i = 0; i < components.size(); ++i)
+            ReadComponent(object, components[i], assets);
+
+    const ct::Json& children = json["children"];
+    if (children.is_array())
+        for (std::size_t i = 0; i < children.size(); ++i)
+            ReadObject(scene, children[i], &object, assets);
 }
 
 GameObject* Serializer::ReadObject(Scene& scene, const ct::Json& json, GameObject* parent, Assets* assets)

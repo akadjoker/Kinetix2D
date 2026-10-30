@@ -1,8 +1,10 @@
 #include "k2d/FileSystem.h"
+
+#include <ct/detail/utils.hpp>
 #include "k2d/FileBuffer.h"
 #include "k2d/KPak.h"
 
-#include <SDL.h>
+#include <platform.h>
 #include <cstdlib>
 #include <cstring>
 
@@ -27,12 +29,9 @@ FileSystem::~FileSystem() = default;
 
 void FileSystem::Init()
 {
-    char* base = SDL_GetBasePath();
-    if (base)
-    {
+    char base[4096];
+    if (fs_get_base_path(base, sizeof base))
         mBasePath = base;
-        SDL_free(base);
-    }
     ResetSearchPaths();
 }
 
@@ -43,7 +42,7 @@ void FileSystem::Shutdown()
     mBasePath.clear();
 }
 
-void FileSystem::AddSearchPath(const char* path)
+void FileSystem::AddSearchPath(const char* path, bool first)
 {
     if (!path || !path[0])
         return;
@@ -51,7 +50,11 @@ void FileSystem::AddSearchPath(const char* path)
     ct::String p(path);
     while (HasTrailingSeparator(p))
         p.pop_back();
-    if (!p.empty())
+    if (p.empty())
+        return;
+    if (first)
+        mSearchPaths.insert(mSearchPaths.begin(), p);
+    else
         mSearchPaths.push_back(p);
 }
 
@@ -67,10 +70,10 @@ bool FileSystem::MountPack(const char* path, const char* key)
 {
     if (!path || !path[0])
         return false;
-    std::unique_ptr<KPak> pack(new KPak());
+    ct::Unique<KPak> pack = ct::make_unique<KPak>();
     if (!pack->Open(path, key ? key : ""))
         return false;
-    mPacks.push_back(std::move(pack));
+    mPacks.push_back(ct::detail::move(pack));
     return true;
 }
 
@@ -84,15 +87,11 @@ bool FileSystem::Exists(const char* path) const
     if (!path || !path[0])
         return false;
 
-    for (const std::unique_ptr<KPak>& pack : mPacks)
+    for (const ct::Unique<KPak>& pack : mPacks)
         if (pack && pack->Contains(path))
             return true;
 
-    SDL_RWops* rw = SDL_RWFromFile(path, "rb");
-    if (!rw)
-        return false;
-    SDL_RWclose(rw);
-    return true;
+    return file_exists(path);
 }
 
 bool FileSystem::Resolve(const char* rel, ct::String& out) const
@@ -100,14 +99,17 @@ bool FileSystem::Resolve(const char* rel, ct::String& out) const
     if (!rel || !rel[0])
         return false;
 
-    // 1) The path exactly as given (absolute or cwd-relative).
-    if (Exists(rel))
+    // 1) An absolute path is only itself.
+    if (path_is_absolute(rel))
     {
+        if (!Exists(rel))
+            return false;
         out = rel;
         return true;
     }
 
-    // 2) Each search root, resolved against the current directory.
+    // 2) Each search root first: a project's "assets/x.png" is its own, not
+    //    the one that happens to sit under the current directory.
     for (size_t i = 0; i < mSearchPaths.size(); ++i)
     {
         ct::String candidate = mSearchPaths[i];
@@ -120,8 +122,14 @@ bool FileSystem::Resolve(const char* rel, ct::String& out) const
         }
     }
 
-    // 3) Each search root, resolved against the executable directory.
-    //    SDL_GetBasePath() already ends with a separator.
+    // 3) The path as given, from the current directory.
+    if (Exists(rel))
+    {
+        out = rel;
+        return true;
+    }
+
+    // 4) Each search root, resolved against the executable directory.
     if (!mBasePath.empty())
     {
         for (size_t i = 0; i < mSearchPaths.size(); ++i)
@@ -145,9 +153,9 @@ bool FileSystem::LoadFile(const char* rel, FileBuffer& buffer, bool nullTerminat
 {
     if (rel && rel[0])
     {
-        for (const std::unique_ptr<KPak>& pack : mPacks)
+        for (const ct::Unique<KPak>& pack : mPacks)
         {
-            std::vector<unsigned char> data;
+            ct::Vector<unsigned char> data;
             if (pack && pack->Contains(rel))
                 return pack->Read(rel, data) && buffer.AssignCopy(data.data(), data.size(), nullTerminate);
         }
@@ -186,13 +194,7 @@ bool FileSystem::SaveFile(const char* path, const void* data, size_t size) const
     if (!path || !path[0])
         return false;
 
-    SDL_RWops* rw = SDL_RWFromFile(path, "wb");
-    if (!rw)
-        return false;
-
-    size_t written = size > 0 ? SDL_RWwrite(rw, data, 1, size) : 0;
-    SDL_RWclose(rw);
-    return written == size;
+    return file_write(path, data, size);
 }
 
 bool FileSystem::SaveTextFile(const char* path, const ct::String& text) const

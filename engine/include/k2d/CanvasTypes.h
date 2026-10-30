@@ -38,10 +38,14 @@ struct WaterEffect
     Color tint = Color(0.78f, 0.92f, 1.0f, 1.0f);
     float highlight = 0.24f;
 
+    // Two effects that are off draw alike whatever their settings, so a batch
+    // of plain sprites never compares them.
     bool operator==(const WaterEffect& other) const
     {
-        return enabled == other.enabled && strength == other.strength && normalScale == other.normalScale &&
-               flowA == other.flowA && flowB == other.flowB && tint == other.tint && highlight == other.highlight;
+        if (enabled != other.enabled)
+            return false;
+        return !enabled || (strength == other.strength && normalScale == other.normalScale && flowA == other.flowA &&
+                            flowB == other.flowB && tint == other.tint && highlight == other.highlight);
     }
     bool operator!=(const WaterEffect& other) const
     {
@@ -62,6 +66,9 @@ struct PointLight
     unsigned int cullMask = 1;
 
     float height = 0.0f;
+    float falloff = 2.0f;
+    float shadowBias = 0.002f;
+    float shadowSmooth = 1.0f;
 };
 
 struct DirectionalLight
@@ -74,6 +81,8 @@ struct DirectionalLight
 
     float height = 0.0f;
     unsigned int cullMask = 1;
+    float shadowBias = 0.002f;
+    float shadowSmooth = 1.0f;
 };
 
 struct Occluder
@@ -161,7 +170,10 @@ struct RenderItem
     }
 };
 
-static const int kMaxPointLights = 8;
+static const int kMaxPointLights = 16;
+// A light mask bit no light carries: the item is drawn as it is, untouched by
+// lights and by the scene's ambient. The UI is.
+static const unsigned int kUnlitLightMask = 0x80000000u;
 static const int kMaxDirectionalLights = 8;
 
 } // namespace k2d

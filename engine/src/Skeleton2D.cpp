@@ -1,10 +1,11 @@
 #include "k2d/Skeleton2D.h"
+#include "k2d/Utils.h"
 #include "k2d/Scene.h"
 
 #include "k2d/Bone2D.h"
 #include "k2d/GameObject.h"
 
-#include <algorithm>
+#include <ct/detail/utils.hpp>
 #include <cmath>
 #include <cstring>
 
@@ -81,8 +82,17 @@ bool Skeleton2D::removeClip(const char* name)
     if (!name)
         return false;
     const size_t oldSize = mClips.size();
-    mClips.erase(std::remove_if(mClips.begin(), mClips.end(),
-        [name](const BoneAnimationClip& clip) { return clip.name == name; }), mClips.end());
+    size_t kept = 0;
+    for (size_t i = 0; i < mClips.size(); ++i)
+    {
+        if (mClips[i].name == name)
+            continue;
+        if (kept != i)
+            mClips[kept] = ct::detail::move(mClips[i]);
+        ++kept;
+    }
+    while (mClips.size() > kept)
+        mClips.pop_back();
     return oldSize != mClips.size();
 }
 
@@ -126,6 +136,12 @@ void Skeleton2D::stop()
     resetToRest();
 }
 
+void Skeleton2D::clearAnimation()
+{
+    stop();
+    mCurrent.clear();
+}
+
 void Skeleton2D::pause() { mPlaying = false; }
 void Skeleton2D::resume() { mPlaying = !mCurrent.empty(); }
 
@@ -134,8 +150,8 @@ void Skeleton2D::seek(float time)
     const BoneAnimationClip* clip = getClip(mCurrent.c_str());
     if (!clip)
         return;
-    const float duration = std::max(0.0f, clip->duration);
-    mTime = std::max(0.0f, std::min(time, duration));
+    const float duration = Max(0.0f, clip->duration);
+    mTime = Max(0.0f, Min(time, duration));
     applyClip(*clip);
 }
 
@@ -284,6 +300,19 @@ void Skeleton2D::applyClip(const BoneAnimationClip& clip)
             break;
         }
     }
+}
+
+void Skeleton2D::setAutoplay(const char* name)
+{
+    mAutoplay = name ? name : "";
+}
+
+void Skeleton2D::onStart()
+{
+    if (!mCurrent.empty() || mAutoplay.empty())
+        return;
+    if (const BoneAnimationClip* clip = getClip(mAutoplay.c_str()))
+        play(mAutoplay.c_str(), clip->loop, mSpeed);
 }
 
 void Skeleton2D::onUpdate(float deltaTime)

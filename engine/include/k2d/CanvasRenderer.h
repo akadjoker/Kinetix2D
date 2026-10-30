@@ -30,6 +30,8 @@ class CanvasRenderer
         size_t indicesDrawn;
         size_t textureSwitches;
         size_t batchesFlushed;
+        size_t commandsCulled;
+        size_t lightsCulled;
     };
 
     CanvasRenderer();
@@ -44,6 +46,10 @@ class CanvasRenderer
     void SetDefaultLightTexture(unsigned int textureId);
 
     void SetCanvasModulate(float r, float g, float b);
+    // The world rectangle in view: rects, polygons and lights wholly outside
+    // it are skipped. Without one, nothing is.
+    void SetCullRect(float minX, float minY, float maxX, float maxY);
+    void ClearCullRect();
 
     unsigned int CreateShader(const char* fragmentSource);
     void DestroyShader(unsigned int program);
@@ -142,6 +148,8 @@ class CanvasRenderer
     void SetupShadowAtlas();
     void ShutdownShadowAtlas();
     void RenderShadowAtlas();
+    bool UploadShadowEdges();
+    bool ShadowLightsChanged();
     void EmitQuad(BlendMode blendMode, unsigned int textureId, unsigned int normalTextureId, unsigned int customProgram,
                   const WaterEffect& water, const Matrix2D& matrix, float width, float height, int texWidth,
                   int texHeight, float pivotX, float pivotY, float srcX, float srcY, float srcW, float srcH, bool flipX,
@@ -153,6 +161,7 @@ class CanvasRenderer
     void EmitText(BlendMode blendMode, const Matrix2D& matrix, float x, float y, float size, const char* text,
                   const Color& color, unsigned int lightMask);
     void FlattenOccluderEdges();
+    bool InView(const Matrix2D& m, float x0, float y0, float x1, float y1) const;
     void SetupFontTexture();
 
     Config mConfig;
@@ -185,42 +194,26 @@ class CanvasRenderer
     int mHasNormalMapLoc;
     int mWaterMvpLoc;
     int mWaterNormalMapLoc;
-    int mWaterTimeLoc;
+    int mWaterPhaseALoc;
+    int mWaterPhaseBLoc;
     int mWaterStrengthLoc;
     int mWaterNormalScaleLoc;
-    int mWaterFlowALoc;
-    int mWaterFlowBLoc;
     int mWaterTintLoc;
     int mWaterHighlightLoc;
-    int mLightHeightLoc;
-    int mDirectionalHeightLoc;
     unsigned int mShadowAtlas;
-    unsigned int mShadowDepth;
     unsigned int mShadowFramebuffer;
     unsigned int mShadowVAO;
     unsigned int mShadowVBO;
+    unsigned int mLightBuffer;
     int mMvpLoc;
     int mTexLoc;
     int mLightCountLoc;
-    int mLightPosLoc;
-    int mLightColorLoc;
-    int mLightRadiusLoc;
-    int mLightCullMaskLoc;
     int mDirectionalLightCountLoc;
-    int mDirectionalLightDirectionLoc;
-    int mDirectionalLightColorLoc;
-    int mDirectionalCullMaskLoc;
-    int mDirectionalLightShadowFlagsLoc;
-    int mDirectionalLightShadowColorLoc;
-    int mDirectionalShadowFilterLoc;
     const PointLight* mLights;
     int mLightCount;
     const DirectionalLight* mDirectionalLights;
     int mDirectionalLightCount;
 
-    int mShadowFlagsLoc;
-    int mShadowColorLoc;
-    int mShadowFilterLoc;
     int mShadowAtlasLoc;
     int mCanvasSizeLoc;
     const Occluder* mOccluders;
@@ -228,11 +221,21 @@ class CanvasRenderer
     float mOrthoWidth;
     float mOrthoHeight;
 
-    struct ShadowVertex
-    {
-        float x, y, z, w;
-    };
-    ct::Vector<ShadowVertex> mShadowVertices;
+    int mShadowLightLoc;
+    int mShadowOffsetLoc;
+    int mShadowDirectionalLoc;
+    int mShadowFrameLoc;
+    int mShadowCenterLoc;
+    ct::Vector<Math::Vec4> mShadowVertices;
+    size_t mShadowVertexCapacity;
+    ct::Vector<PointLight> mVisibleLights;
+    ct::Vector<Math::Vec4> mShadowKeys;
+    ct::Vector<Math::Vec4> mShadowKeysScratch;
+    bool mCulling;
+    float mCullMinX;
+    float mCullMinY;
+    float mCullMaxX;
+    float mCullMaxY;
 };
 
 } // namespace k2d

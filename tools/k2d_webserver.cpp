@@ -1,11 +1,10 @@
-#include <array>
+#include <ct/string.hpp>
+#include <platform.h>
+
 #include <cctype>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <string>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -17,8 +16,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
-
-namespace fs = std::filesystem;
 
 namespace
 {
@@ -32,13 +29,13 @@ constexpr Socket kInvalidSocket = -1;
 void closeSocket(Socket socket) { close(socket); }
 #endif
 
-const char* mimeType(const fs::path& path)
+const char* mimeType(const char* path)
 {
-    const std::string extension = path.extension().string();
+    const ct::String extension(path_extension(path));
     if (extension == ".html") return "text/html; charset=utf-8";
     if (extension == ".js") return "application/javascript; charset=utf-8";
     if (extension == ".wasm") return "application/wasm";
-    if (extension == ".data" || extension == ".zbc") return "application/octet-stream";
+    if (extension == ".data" || extension == ".zbc" || extension == ".kpak") return "application/octet-stream";
     if (extension == ".json") return "application/json; charset=utf-8";
     if (extension == ".css") return "text/css; charset=utf-8";
     if (extension == ".png") return "image/png";
@@ -58,9 +55,8 @@ bool sendAll(Socket socket, const char* data, size_t size)
     while (size > 0)
     {
         // Browsers can cancel a fetch as soon as they have the data they
-        // need. On POSIX, writing the remainder of that response otherwise
-        // raises SIGPIPE and terminates the entire development Web server.
-        const int sent = send(socket, data, static_cast<int>(size), noSignal);
+        // need, which turns the rest of the send into an error here.
+        const auto sent = send(socket, data, static_cast<int>(size), noSignal);
         if (sent <= 0)
             return false;
         data += sent;
@@ -69,10 +65,10 @@ bool sendAll(Socket socket, const char* data, size_t size)
     return true;
 }
 
-bool safeRelativePath(const std::string& target, fs::path& result)
+bool safeRelativePath(const ct::String& target, ct::String& result)
 {
     const size_t query = target.find_first_of("?#");
-    const std::string raw = target.substr(0, query);
+    const ct::String raw = target.substr(0, query);
     if (raw.empty() || raw[0] != '/')
         return false;
 
@@ -81,12 +77,16 @@ bool safeRelativePath(const std::string& target, fs::path& result)
     while (begin <= raw.size())
     {
         const size_t end = raw.find('/', begin);
-        const std::string part = raw.substr(begin, end == std::string::npos ? end : end - begin);
-        if (part == ".." || part.find('\\') != std::string::npos || part.find('%') != std::string::npos)
+        const ct::String part = raw.substr(begin, end == ct::String::npos ? end : end - begin);
+        if (part == ".." || part.contains('\\') || part.contains('%'))
             return false;
         if (!part.empty() && part != ".")
-            result /= part;
-        if (end == std::string::npos)
+        {
+            if (!result.empty())
+                result += '/';
+            result += part;
+        }
+        if (end == ct::String::npos)
             break;
         begin = end + 1;
     }
@@ -96,76 +96,91 @@ bool safeRelativePath(const std::string& target, fs::path& result)
 void respond(Socket client, int status, const char* text, const char* type = "text/plain; charset=utf-8")
 {
     const char* reason = status == 200 ? "OK" : status == 403 ? "Forbidden" : status == 404 ? "Not Found" : "Bad Request";
-    const std::string body = text ? text : "";
-    const std::string header = "HTTP/1.1 " + std::to_string(status) + " " + reason + "\r\nContent-Type: " + type +
-                               "\r\nContent-Length: " + std::to_string(body.size()) +
-                               "\r\nConnection: close\r\nCache-Control: no-cache\r\n\r\n";
-    sendAll(client, header.data(), header.size());
-    sendAll(client, body.data(), body.size());
+    const size_t bodySize = text ? std::strlen(text) : 0;
+    char header[512];
+    const int headerSize = std::snprintf(header, sizeof header,
+                                         "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
+                                         "Connection: close\r\nCache-Control: no-cache\r\n\r\n",
+                                         status, reason, type, bodySize);
+    sendAll(client, header, static_cast<size_t>(headerSize));
+    sendAll(client, text ? text : "", bodySize);
 }
 
-void handleClient(Socket client, const fs::path& root)
+ct::String absolutePath(const char* path)
 {
-    std::array<char, 4096> buffer{};
-    const int received = recv(client, buffer.data(), static_cast<int>(buffer.size() - 1), 0);
+    char absolute[4096];
+    char normalized[4096];
+    if (!path_absolute(absolute, sizeof absolute, path) || !path_normalize(normalized, sizeof normalized, absolute))
+        return ct::String();
+    return ct::String(normalized);
+}
+
+bool insideRoot(const ct::String& root, const ct::String& file)
+{
+    if (!file.starts_with(root))
+        return false;
+    return file.size() == root.size() || root.ends_with("/") || file[root.size()] == '/';
+}
+
+void handleClient(Socket client, const ct::String& root)
+{
+    char buffer[4096] = {};
+    const int received = recv(client, buffer, static_cast<int>(sizeof buffer - 1), 0);
     if (received <= 0)
         return;
     buffer[static_cast<size_t>(received)] = '\0';
-    const std::string request(buffer.data());
+    const ct::String request(buffer);
     const size_t lineEnd = request.find("\r\n");
     const size_t firstSpace = request.find(' ');
-    const size_t secondSpace = firstSpace == std::string::npos ? std::string::npos : request.find(' ', firstSpace + 1);
-    if (lineEnd == std::string::npos || firstSpace == std::string::npos || secondSpace == std::string::npos ||
+    const size_t secondSpace = firstSpace == ct::String::npos ? ct::String::npos : request.find(' ', firstSpace + 1);
+    if (lineEnd == ct::String::npos || firstSpace == ct::String::npos || secondSpace == ct::String::npos ||
         (request.substr(0, firstSpace) != "GET" && request.substr(0, firstSpace) != "HEAD"))
     {
         respond(client, 400, "Only GET requests are supported\n");
         return;
     }
 
-    fs::path relative;
+    ct::String relative;
     if (!safeRelativePath(request.substr(firstSpace + 1, secondSpace - firstSpace - 1), relative))
     {
         respond(client, 403, "Forbidden\n");
         return;
     }
-    fs::path file = root / relative;
-    std::error_code error;
-    if (fs::is_directory(file, error))
-        file /= "index.html";
-    const fs::path canonicalRoot = fs::weakly_canonical(root, error);
-    const fs::path canonicalFile = fs::weakly_canonical(file, error);
-    bool insideRoot = !error;
-    auto rootIt = canonicalRoot.begin();
-    auto fileIt = canonicalFile.begin();
-    while (insideRoot && rootIt != canonicalRoot.end())
+    char joined[4096];
+    if (!path_join(joined, sizeof joined, root.c_str(), relative.c_str()))
     {
-        insideRoot = fileIt != canonicalFile.end() && *rootIt == *fileIt;
-        ++rootIt;
-        ++fileIt;
+        respond(client, 404, "Not found\n");
+        return;
     }
-    if (!insideRoot || !fs::is_regular_file(canonicalFile))
+    ct::String file(joined);
+    PathInfo info = {};
+    if (fs_get_path_info(file.c_str(), &info) && info.type == PATH_TYPE_DIRECTORY)
+        file += "/index.html";
+    const ct::String canonicalFile = absolutePath(file.c_str());
+    if (canonicalFile.empty() || !insideRoot(root, canonicalFile) || !fs_get_path_info(canonicalFile.c_str(), &info) ||
+        info.type != PATH_TYPE_FILE)
     {
         respond(client, 404, "Not found\n");
         return;
     }
 
-    std::ifstream input(canonicalFile, std::ios::binary);
-    input.seekg(0, std::ios::end);
-    const size_t size = static_cast<size_t>(input.tellg());
-    input.seekg(0, std::ios::beg);
-    const std::string header = "HTTP/1.1 200 OK\r\nContent-Type: " + std::string(mimeType(canonicalFile)) +
-                               "\r\nContent-Length: " + std::to_string(size) +
-                               "\r\nConnection: close\r\nCache-Control: no-cache\r\n\r\n";
-    if (!sendAll(client, header.data(), header.size()))
-        return;
-    while (input.good())
+    size_t size = 0;
+    uint8_t* data = file_read(canonicalFile.c_str(), &size);
+    if (!data)
     {
-        const std::streamsize count = input.read(buffer.data(), buffer.size()).gcount();
-        if (count <= 0 || !sendAll(client, buffer.data(), static_cast<size_t>(count)))
-            return;
+        respond(client, 404, "Not found\n");
+        return;
     }
+    char header[512];
+    const int headerSize = std::snprintf(header, sizeof header,
+                                         "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
+                                         "Connection: close\r\nCache-Control: no-cache\r\n\r\n",
+                                         mimeType(canonicalFile.c_str()), size);
+    if (sendAll(client, header, static_cast<size_t>(headerSize)))
+        sendAll(client, reinterpret_cast<const char*>(data), size);
+    fs_free(data);
 }
-}
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -174,9 +189,9 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "Usage: k2d_webserver <export-directory> [port]\n");
         return 1;
     }
-    const fs::path root = fs::absolute(argv[1]);
+    const ct::String root = absolutePath(argv[1]);
     const int port = argc == 3 ? std::atoi(argv[2]) : 8080;
-    if (!fs::is_directory(root) || port < 1 || port > 65535)
+    if (root.empty() || !dir_exists(root.c_str()) || port < 1 || port > 65535)
         return 1;
 
 #if defined(_WIN32)

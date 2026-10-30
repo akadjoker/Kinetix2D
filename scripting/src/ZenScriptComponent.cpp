@@ -1,6 +1,5 @@
 #include "k2d/ZenScriptComponent.h"
 
-#include "k2d/PhysicsWorld2D.h"
 #include "k2d/BoxCollider2D.h"
 #include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
@@ -14,6 +13,8 @@
 #include <zen/bytecode.h>
 
 #include "k2d/Animation2D.h"
+#include "k2d/AStar2D.h"
+#include "k2d/AStarGrid2D.h"
 #include "k2d/AudioEngine.h"
 #include "k2d/AudioPlayer.h"
 #include "k2d/Assets.h"
@@ -23,23 +24,33 @@
 #include "k2d/CapsuleShape.h"
 #include "k2d/CircleShape.h"
 #include "k2d/DirectionalLight2D.h"
+#include "k2d/DistanceJoint2D.h"
 #include "k2d/FileBuffer.h"
 #include "k2d/FileSystem.h"
 #include "k2d/GameObject.h"
+#include "k2d/GearJoint2D.h"
 #include "k2d/Input.h"
 #include "k2d/InputActionMap.h"
+#include "k2d/Joint2D.h"
 #include "k2d/Light2D.h"
 #include "k2d/LightOccluder2D.h"
 #include "k2d/Line2D.h"
+#include "k2d/MotorJoint2D.h"
+#include "k2d/MouseJoint2D.h"
 #include "k2d/MotionStreak2D.h"
 #include "k2d/MotionTween2D.h"
+#include "k2d/PathMotion2D.h"
+#include "k2d/ActionSequence2D.h"
+#include "k2d/Navigation2D.h"
 #include "k2d/NavigationAgent2D.h"
+#include "k2d/Steering2D.h"
 #include "k2d/NavigationRegion2D.h"
 #include "k2d/NinePatchComponent.h"
 #include "k2d/ParticleComponent.h"
 #include "k2d/Polygon2D.h"
 #include "k2d/RectShape.h"
 #include "k2d/RenderQueue.h"
+#include "k2d/RevoluteJoint2D.h"
 #include "k2d/Scene.h"
 #include "k2d/ScreenFade.h"
 #include "k2d/SceneManager.h"
@@ -48,9 +59,11 @@
 #include "k2d/SpriteComponent.h"
 #include "k2d/SpriteBatch.h"
 #include "k2d/TileMapComponent.h"
+#include "k2d/CollisionLayers.h"
 #include "k2d/UiControls.h"
 #include "k2d/UserData.h"
 #include "k2d/VirtualPad.h"
+#include "k2d/WheelJoint2D.h"
 
 #include <zen/vm.h>
 #include <zen/compiler.h>
@@ -58,12 +71,11 @@
 #include <zen/object.h>
 #include <zen/zen_host_output.h>
 
-#include <SDL.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
+#include <platform.h>
 #include <limits>
 #include <system_error>
 
@@ -82,6 +94,8 @@ struct ZenGameViewport
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
+    float outputWidth = 0.0f;
+    float outputHeight = 0.0f;
     bool valid = false;
 };
 ZenGameViewport gZenGameViewport;
@@ -93,6 +107,27 @@ bool gZenScriptsEnabled = false;
 void (*gZenOutput)(const char* text, bool isError, void* user) = nullptr;
 void* gZenOutputUser = nullptr;
 GameObject* gZenCallbackNode = nullptr;
+
+bool zenMouseInsideViewport()
+{
+    return !gZenGameViewport.valid ||
+           (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
+            gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.outputWidth &&
+            gZenInput->MouseY() >= gZenGameViewport.y &&
+            gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.outputHeight);
+}
+
+float zenMouseX()
+{
+    const float outputX = gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0f;
+    return gZenGameViewport.valid ? outputX * gZenGameViewport.width / gZenGameViewport.outputWidth : outputX;
+}
+
+float zenMouseY()
+{
+    const float outputY = gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0f;
+    return gZenGameViewport.valid ? outputY * gZenGameViewport.height / gZenGameViewport.outputHeight : outputY;
+}
 
 struct ZenCallbackScope
 {
@@ -127,6 +162,16 @@ struct ZenDrawContext
         }
         return item;
     }
+
+    // Commands already written keep the z they were drawn at; the next one
+    // opens a fresh item, so a script can raise the z partway through on_draw.
+    void setZIndex(int value)
+    {
+        if (value == zIndex)
+            return;
+        zIndex = value;
+        item = nullptr;
+    }
 };
 
 ZenDrawContext* gZenDrawContext = nullptr;
@@ -149,11 +194,11 @@ long long fileTimestamp(const char* path)
 {
     if (!path || !path[0])
         return 0;
-    std::error_code error;
-    const std::filesystem::file_time_type time = std::filesystem::last_write_time(path, error);
-    if (error)
+    ct::String resolved;
+    if (!FileSystem::Instance().Resolve(path, resolved))
         return 0;
-    return (long long)time.time_since_epoch().count();
+    const long long time = file_mod_time(resolved.c_str());
+    return time < 0 ? 0 : time;
 }
 
 void preloadPrefabTextures(const ct::Json& node)
@@ -194,23 +239,6 @@ int keyCode(zen::Value value)
     return code >= 0 && code < Input::MAX_KEYS ? code : -1;
 }
 
-const char* valueToCString(zen::VM* vm, zen::Value v, char* smallBuffer, size_t smallSize)
-{
-    if (zen::is_small_string(v))
-    {
-        const int len = zen::small_string_len(v);
-        const char* chars = zen::small_string_chars(v);
-        size_t n = (size_t)len < smallSize - 1 ? (size_t)len : smallSize - 1;
-        std::memcpy(smallBuffer, chars, n);
-        smallBuffer[n] = '\0';
-        return smallBuffer;
-    }
-    if (zen::is_obj(v) && v.as.obj && v.as.obj->type == zen::OBJ_STRING)
-        return ((zen::ObjString*)v.as.obj)->chars;
-    (void)vm;
-    return "";
-}
-
 // A point list argument is an array of [x, y] pairs, mirroring the engine's
 // own JSON convention for polygons (Serializer.cpp's ReadVec2/WriteVec2) —
 // not a flat list of numbers.
@@ -233,6 +261,22 @@ bool unpackPointArray(zen::Value value, ct::Vector<Math::Vec2>& out)
                                  (float)zen::to_number(zen::array_get(pair, 1))));
     }
     return true;
+}
+
+// Mirror of unpackPointArray's convention: an array of [x, y] pairs, not a
+// flat list of numbers.
+zen::Value packPointArray(zen::VM* vm, const ct::Vector<Math::Vec2>& points)
+{
+    zen::GC& gc = vm->get_gc();
+    zen::ObjArray* outer = zen::new_array(&gc);
+    for (size_t i = 0; i < points.size(); ++i)
+    {
+        zen::ObjArray* pair = zen::new_array(&gc);
+        zen::array_push(&gc, pair, zen::val_float(points[i].x));
+        zen::array_push(&gc, pair, zen::val_float(points[i].y));
+        zen::array_push(&gc, outer, zen::val_obj((zen::Obj*)pair));
+    }
+    return zen::val_obj((zen::Obj*)outer);
 }
 
 float drawColorComponent(zen::Value value)
@@ -260,6 +304,16 @@ void addLineTriangles(ct::Vector<Math::Vec2>& triangles, float x0, float y0, flo
     triangles.push_back(b - normal);
 }
 
+// on_draw items inherit the owner's zIndex, which puts an overlay (a speech
+// bubble, a health bar) in the same sorting bucket as the scenery the entity
+// walks behind. Raising it here keeps the entity's own ySort intact.
+int natSetDrawZ(zen::VM*, zen::Value* args, int nargs)
+{
+    if (gZenDrawContext && nargs >= 1)
+        gZenDrawContext->setZIndex((int)zen::to_integer(args[0]));
+    return 0;
+}
+
 int natSetDrawColor(zen::VM*, zen::Value* args, int nargs)
 {
     if (gZenDrawContext && nargs >= 3)
@@ -284,7 +338,7 @@ int natDrawLine(zen::VM*, zen::Value* args, int nargs)
                      (float)zen::to_number(args[2]), (float)zen::to_number(args[3]),
                      nargs >= 5 ? (float)zen::to_number(args[4]) : 1.0f);
     if (!command.ownedPolygonPoints.empty())
-        item->commands.push_back(command);
+        item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -319,7 +373,7 @@ int natDrawRect(zen::VM*, zen::Value* args, int nargs)
         addLineTriangles(command.ownedPolygonPoints, x + width, y + height, x, y + height, thickness);
         addLineTriangles(command.ownedPolygonPoints, x, y + height, x, y, thickness);
     }
-    item->commands.push_back(command);
+    item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -361,7 +415,7 @@ int natDrawCircle(zen::VM*, zen::Value* args, int nargs)
             addLineTriangles(command.ownedPolygonPoints, x0, y0, x1, y1, thickness);
         }
     }
-    item->commands.push_back(command);
+    item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
@@ -370,23 +424,21 @@ int natDrawText(zen::VM* vm, zen::Value* args, int nargs)
     RenderItem* item = gZenDrawContext ? gZenDrawContext->ensureItem() : nullptr;
     if (!item || nargs < 3)
         return 0;
-    char small[16];
     RenderCommand command;
     command.type = RenderCommand::kText;
     command.x = (float)zen::to_number(args[0]);
     command.y = (float)zen::to_number(args[1]);
     command.width = nargs >= 4 ? (float)zen::to_number(args[3]) : 16.0f;
     command.color = gZenDrawContext->color;
-    command.text = valueToCString(vm, args[2], small, sizeof(small));
+    command.text = zen::safe_string_chars(args[2]);
     if (command.width > 0.0f && !command.text.empty())
-        item->commands.push_back(command);
+        item->commands.push_back(ct::detail::move(command));
     return 0;
 }
 
 int natDrawTextWidth(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const char* text = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* text = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const float size = nargs >= 2 ? (float)zen::to_number(args[1]) : 16.0f;
     unsigned int longest = 0;
     unsigned int length = 0;
@@ -422,6 +474,7 @@ struct ZenScriptComponent::State
     ZenScriptClass* scriptClass = nullptr;
     zen::Value self = zen::val_nil();
     zen::Value instance = zen::val_nil();
+    std::size_t liveIndex = 0;
     unsigned int generation = 0;
     unsigned int classVersion = 0;
     bool loaded = false;
@@ -445,14 +498,14 @@ struct RunningScript
     {
         ++mImpl.executing;
         if (mProfiling)
-            mCounter = SDL_GetPerformanceCounter();
+            mCounter = time_nanos();
     }
 
     ~RunningScript()
     {
         if (mProfiling)
         {
-            const uint64_t elapsed = SDL_GetPerformanceCounter() - mCounter;
+            const uint64_t elapsed = time_nanos() - mCounter;
             switch (mPhase)
             {
             case ScriptProfilePhase::Update:
@@ -676,8 +729,7 @@ int natNodeFind(zen::VM* vm, zen::Value* args, int nargs)
     GameObject* found = nullptr;
     if (node && node->scene() && nargs >= 1)
     {
-        char small[16];
-        found = node->scene()->find(valueToCString(vm, args[0], small, sizeof(small)));
+        found = node->scene()->find(zen::safe_string_chars(args[0]));
     }
     args[0] = (found && state) ? state->instanceFor(state->nodeClass, found) : zen::val_nil();
     return 1;
@@ -690,8 +742,7 @@ int natNodeCreateChild(zen::VM* vm, zen::Value* args, int nargs)
     GameObject* child = nullptr;
     if (node && node->scene() && nargs >= 1)
     {
-        char small[16];
-        child = node->scene()->createObject(valueToCString(vm, args[0], small, sizeof(small)), node);
+        child = node->scene()->createObject(zen::safe_string_chars(args[0]), node);
     }
     args[0] = (child && state) ? state->instanceFor(state->nodeClass, child) : zen::val_nil();
     return 1;
@@ -704,8 +755,7 @@ int natNodeSpawn(zen::VM* vm, zen::Value* args, int nargs)
     GameObject* spawned = nullptr;
     if (node && node->scene() && nargs >= 1)
     {
-        char small[16];
-        const char* path = valueToCString(vm, args[0], small, sizeof(small));
+        const char* path = zen::safe_string_chars(args[0]);
         ct::String key(path);
         ZenRuntime::Impl::CachedPrefab* prefab = state ? state->prefabs.find(key) : nullptr;
         if (!prefab)
@@ -731,9 +781,27 @@ int natNodeSpawn(zen::VM* vm, zen::Value* args, int nargs)
                 preloadPrefabTextures(prefab->data);
                 prefab->texturesPreloaded = true;
             }
-            spawned = Serializer::ReadObject(*node->scene(), prefab->data, nullptr, gZenAssets);
-            if (spawned && nargs >= 3)
-                spawned->setPosition(Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2])));
+            // Position must land in the JSON before ReadObject runs: reading a
+            // RigidBody2D attaches it to the world right there, seeding its
+            // simulated position from the object's position at that instant.
+            // Setting position on the returned object afterward is too late
+            // for a Dynamic body -- pushTransforms() never re-syncs one from
+            // the transform, so it would snap back to wherever it was created
+            // (the prefab's authored position, typically the origin) on the
+            // very next physics step.
+            if (nargs >= 3)
+            {
+                ct::Json spawnData(prefab->data);
+                ct::Json position = ct::Json::array();
+                position.push_back(ct::Json((double)zen::to_number(args[1])));
+                position.push_back(ct::Json((double)zen::to_number(args[2])));
+                spawnData.set("position", position);
+                spawned = Serializer::ReadObject(*node->scene(), spawnData, nullptr, gZenAssets);
+            }
+            else
+            {
+                spawned = Serializer::ReadObject(*node->scene(), prefab->data, nullptr, gZenAssets);
+            }
         }
     }
     args[0] = (spawned && state) ? state->instanceFor(state->nodeClass, spawned) : zen::val_nil();
@@ -808,14 +876,16 @@ int natRaycast(zen::VM* vm, zen::Value* args, int nargs)
     ZenRuntime::Impl* state = stateFromVM(vm);
     GameObject* hit = nullptr;
     Math::Vec2 point(0.0f, 0.0f);
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 5)
     {
-        if (nargs >= 5)
-        {
-            const Math::Vec2 origin((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
-            const Math::Vec2 direction((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
-            hit = world->raycast(origin, direction, (float)zen::to_number(args[4]), &point);
-        }
+        const Math::Vec2 origin((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        const Math::Vec2 direction((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        // Script raycasts are normally perception/weapon queries originating
+        // on the script owner. Ignore that owner's body so its own collider
+        // cannot block the query before it leaves the character.
+        hit = scene->raycast(origin, direction, (float)zen::to_number(args[4]), &point, nullptr,
+                             gZenCallbackNode);
     }
     args[0] = (hit && state) ? state->instanceFor(state->nodeClass, hit) : zen::val_nil();
     args[1] = zen::val_float(point.x);
@@ -827,18 +897,18 @@ int natBodyAt(zen::VM* vm, zen::Value* args, int nargs)
 {
     ZenRuntime::Impl* state = stateFromVM(vm);
     GameObject* found = nullptr;
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
-        if (nargs >= 2)
-            found = world->objectAtPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 2)
+        found = scene->objectAtPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
     args[0] = (found && state) ? state->instanceFor(state->nodeClass, found) : zen::val_nil();
     return 1;
 }
 
 int natSetGravity(zen::VM*, zen::Value* args, int nargs)
 {
-    if (PhysicsWorld2D* world = PhysicsWorld2D::Active())
-        if (nargs >= 2)
-            world->setGravity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 2)
+        scene->setGravity(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
     args[0] = zen::val_nil();
     return 1;
 }
@@ -854,11 +924,104 @@ int natGetActiveCamera(zen::VM* vm, zen::Value* args, int)
 
 int natGetGravity(zen::VM*, zen::Value* args, int)
 {
-    PhysicsWorld2D* world = PhysicsWorld2D::Active();
-    const Math::Vec2 gravity = world ? world->gravity() : Math::Vec2(0.0f, 0.0f);
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    const Math::Vec2 gravity = scene ? scene->gravity() : Math::Vec2(0.0f, 0.0f);
     args[0] = zen::val_float(gravity.x);
     args[1] = zen::val_float(gravity.y);
     return 2;
+}
+
+ParticleResponse particleResponseFromName(const char* name, ParticleResponse fallback)
+{
+    if (!name || !name[0])
+        return fallback;
+    if (std::strcmp(name, "kill") == 0)
+        return ParticleResponse::Kill;
+    if (std::strcmp(name, "bounce") == 0)
+        return ParticleResponse::Bounce;
+    if (std::strcmp(name, "stick") == 0)
+        return ParticleResponse::Stick;
+    return fallback;
+}
+
+Texture* particleTexture(zen::VM* vm, zen::Value* args, int nargs, int index)
+{
+    if (nargs <= index || !gZenAssets)
+        return nullptr;
+    const char* name = zen::safe_string_chars(args[index]);
+    if (!name || !name[0])
+        return nullptr;
+    Texture* texture = gZenAssets->GetTexture(name);
+    return texture ? texture : gZenAssets->LoadTexture(name, name, true, false);
+}
+
+void particleFillVisuals(zen::VM* vm, zen::Value* args, int nargs, int first, ParticleSpawn2D& spawn)
+{
+    spawn.texture = particleTexture(vm, args, nargs, first);
+    const float size = nargs >= first + 2 ? (float)zen::to_number(args[first + 1]) : 4.0f;
+    spawn.size = Math::Vec2(size, size);
+    spawn.userTag = nargs >= first + 3 ? (uint32_t)zen::to_integer(args[first + 2]) : 0u;
+    spawn.colorStart = Color::White();
+    const bool fade = nargs >= first + 5 ? zen::to_number(args[first + 4]) != 0.0 : true;
+    spawn.colorEnd = fade ? Color(1.0f, 1.0f, 1.0f, 0.0f) : spawn.colorStart;
+}
+
+int natParticleExplode(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    if (scene && nargs >= 6)
+    {
+        const char* responseName = nargs >= 10 ? zen::safe_string_chars(args[9]) : nullptr;
+
+        ParticleSpawn2D style;
+        particleFillVisuals(vm, args, nargs, 6, style);
+
+        ParticlePhysics2D& particles = scene->particles();
+        particles.explode(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                          (size_t)zen::to_integer(args[2]), (float)zen::to_number(args[3]),
+                          (float)zen::to_number(args[4]), style.size.x * 0.5f, style.size.x * 0.5f,
+                          (float)zen::to_number(args[5]),
+                          style.userTag, particleResponseFromName(responseName, ParticleResponse::Bounce),
+                          style.texture, style.size, style.colorStart, style.colorEnd);
+    }
+    args[0] = zen::val_nil();
+    return 1;
+}
+
+int natParticleEmit(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    uint32_t id = ParticlePhysics2D::InvalidId;
+    if (scene && nargs >= 5)
+    {
+        const char* responseName = nargs >= 9 ? zen::safe_string_chars(args[8]) : nullptr;
+
+        ParticleSpawn2D spawn;
+        particleFillVisuals(vm, args, nargs, 5, spawn);
+        spawn.position = Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        spawn.velocity = Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        spawn.life = (float)zen::to_number(args[4]);
+        spawn.radius = spawn.size.x * 0.5f;
+        spawn.response = particleResponseFromName(responseName, ParticleResponse::Kill);
+        id = scene->particles().emit(spawn);
+    }
+    args[0] = zen::val_int((int64_t)id);
+    return 1;
+}
+
+int natParticleCount(zen::VM*, zen::Value* args, int)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    args[0] = zen::val_int(scene ? (int64_t)scene->particles().count() : 0);
+    return 1;
+}
+
+int natParticleClear(zen::VM*, zen::Value* args, int)
+{
+    if (Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr)
+        scene->particles().clear();
+    args[0] = zen::val_nil();
+    return 1;
 }
 
 RigidBody2D* bodyFromSelf(zen::Value* args)
@@ -1061,14 +1224,13 @@ int natBodySetType(zen::VM* vm, zen::Value* args, int nargs)
     RigidBody2D* body = bodyFromSelf(args);
     if (body && nargs >= 1)
     {
-        char small[16];
-        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const char* name = zen::safe_string_chars(args[0]);
         if (std::strcmp(name, "static") == 0)
-            body->setBodyType(kx::BodyType::Static);
+            body->setBodyType(k2d::BodyType::Static);
         else if (std::strcmp(name, "kinematic") == 0)
-            body->setBodyType(kx::BodyType::Kinematic);
+            body->setBodyType(k2d::BodyType::Kinematic);
         else
-            body->setBodyType(kx::BodyType::Dynamic);
+            body->setBodyType(k2d::BodyType::Dynamic);
     }
     args[0] = zen::val_nil();
     return 1;
@@ -1077,7 +1239,7 @@ int natBodySetType(zen::VM* vm, zen::Value* args, int nargs)
 int natBodyIsAwake(zen::VM*, zen::Value* args, int)
 {
     RigidBody2D* body = bodyFromSelf(args);
-    args[0] = zen::val_bool(body && body->body() && body->body()->IsAwake());
+    args[0] = zen::val_bool(body && body->inWorld() && body->IsAwake());
     return 1;
 }
 
@@ -1381,8 +1543,7 @@ int natUiLabelSetText(zen::VM* vm, zen::Value* args, int nargs)
     UiLabel* label = static_cast<UiLabel*>(componentFromSelf(args));
     if (label && nargs >= 1)
     {
-        char small[256];
-        label->setText(valueToCString(vm, args[0], small, sizeof(small)));
+        label->setText(zen::safe_string_chars(args[0]));
     }
     return 0;
 }
@@ -1415,8 +1576,7 @@ int natSkeletonPlay(zen::VM* vm, zen::Value* args, int nargs)
     bool ok = false;
     if (skeleton && nargs >= 1)
     {
-        char small[16];
-        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const char* name = zen::safe_string_chars(args[0]);
         const bool loop = nargs >= 2 ? zen::is_truthy(args[1]) : true;
         const float speed = nargs >= 3 ? (float)zen::to_number(args[2]) : 1.0f;
         ok = skeleton->play(name, loop, speed);
@@ -1505,8 +1665,7 @@ int natSkeletonFindBone(zen::VM* vm, zen::Value* args, int nargs)
     Bone2D* bone = nullptr;
     if (skeleton && state && nargs >= 1)
     {
-        char small[16];
-        bone = skeleton->findBone(valueToCString(vm, args[0], small, sizeof(small)));
+        bone = skeleton->findBone(zen::safe_string_chars(args[0]));
     }
     args[0] = bone ? state->instanceFor(state->boneClass, bone) : zen::val_nil();
     return 1;
@@ -1525,8 +1684,7 @@ int natSkeletonSolveIK(zen::VM* vm, zen::Value* args, int nargs)
     bool ok = false;
     if (skeleton && nargs >= 3)
     {
-        char small[16];
-        const char* effector = valueToCString(vm, args[0], small, sizeof(small));
+        const char* effector = zen::safe_string_chars(args[0]);
         const Math::Vec2 target((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
         const int chain = nargs >= 4 ? (int)zen::to_number(args[3]) : 0;
         const int iterations = nargs >= 5 ? (int)zen::to_number(args[4]) : 8;
@@ -1717,6 +1875,37 @@ int natTileMapSetTile(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+// A terrain by its index or its name; -1 for none.
+int terrainArgument(const TileMapComponent& tileMap, const zen::Value& value)
+{
+    if (!zen::is_string(value))
+        return (int)zen::to_number(value);
+    const char* name = zen::safe_string_chars(value);
+    for (int t = 0; t < tileMap.terrainCount(); ++t)
+        if (tileMap.terrainName(t) == name)
+            return t;
+    return -1;
+}
+
+int natTileMapSetTerrain(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    if (tileMap && nargs >= 3)
+        tileMap->paintTerrain((int)zen::to_number(args[0]), (int)zen::to_number(args[1]),
+                              terrainArgument(*tileMap, args[2]));
+    return 0;
+}
+
+int natTileMapGetTerrain(zen::VM*, zen::Value* args, int nargs)
+{
+    TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
+    int terrain = -1;
+    if (tileMap && nargs >= 2)
+        terrain = tileMap->terrainAt((int)zen::to_number(args[0]), (int)zen::to_number(args[1]));
+    args[0] = zen::val_int(terrain);
+    return 1;
+}
+
 int natTileMapHasCollision(zen::VM*, zen::Value* args, int nargs)
 {
     TileMapComponent* tileMap = zen::zen_instance_data<TileMapComponent>(args[-1]);
@@ -1802,6 +1991,17 @@ int natNavAgentSetTarget(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
+int natNavAgentFollowPosition(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    Math::Vec2 position(0.0f, 0.0f);
+    const bool resolved = agent && agent->followPosition(position);
+    args[0] = zen::val_bool(resolved);
+    args[1] = zen::val_float(position.x);
+    args[2] = zen::val_float(position.y);
+    return 3;
+}
+
 int natNavAgentGetTarget(zen::VM*, zen::Value* args, int)
 {
     NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
@@ -1816,6 +2016,23 @@ int natNavAgentRepath(zen::VM*, zen::Value* args, int)
     NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
     args[0] = zen::val_bool(agent && agent->repath());
     return 1;
+}
+
+int natNavAgentSetFollowTarget(zen::VM* vm, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+    {
+        agent->setFollowTargetName(zen::safe_string_chars(args[0]));
+    }
+    return 0;
+}
+
+int natNavAgentClearFollowTarget(zen::VM*, zen::Value* args, int)
+{
+    if (NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]))
+        agent->setFollowTargetName(nullptr);
+    return 0;
 }
 
 int natNavAgentClearPath(zen::VM*, zen::Value* args, int)
@@ -1908,6 +2125,253 @@ int natNavAgentSetAutoMove(zen::VM*, zen::Value* args, int nargs)
     return 0;
 }
 
+int natNavAgentGetOrientToPath(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_bool(agent && agent->orientToPath());
+    return 1;
+}
+
+int natNavAgentSetOrientToPath(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setOrientToPath(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natNavAgentGetRotationLerpSpeed(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_float(agent ? agent->rotationLerpSpeed() : 0.0f);
+    return 1;
+}
+
+int natNavAgentSetRotationLerpSpeed(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setRotationLerpSpeed((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natNavAgentGetRotationOffset(zen::VM*, zen::Value* args, int)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    args[0] = zen::val_float(agent ? agent->rotationOffsetDegrees() : 0.0f);
+    return 1;
+}
+
+int natNavAgentSetRotationOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    NavigationAgent2D* agent = zen::zen_instance_data<NavigationAgent2D>(args[-1]);
+    if (agent && nargs >= 1)
+        agent->setRotationOffsetDegrees((float)zen::to_number(args[0]));
+    return 0;
+}
+
+
+int natSteeringGetWeight(zen::VM*, zen::Value* args, int)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    args[0] = zen::val_float(steering ? steering->weight() : 0.0f);
+    return 1;
+}
+
+int natSteeringSetWeight(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+        steering->setWeight((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSteeringSetTarget(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 2)
+        steering->setTargetPosition(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+// The velocity a behaviour should reason about: whatever is actually moving
+// this object. A script never has to tell it what it already knows.
+Math::Vec2 steeringOwnerVelocity(const Steering2D* steering)
+{
+    GameObject* object = steering ? steering->owner() : nullptr;
+    if (!object)
+        return Math::Vec2(0.0f, 0.0f);
+    if (NavigationAgent2D* agent = object->getComponent<NavigationAgent2D>())
+        if (agent->velocity().LengthSquared() > 0.0f)
+            return agent->velocity();
+    if (CharacterBody2D* character = object->getComponent<CharacterBody2D>())
+        if (character->velocity().LengthSquared() > 0.0f)
+            return character->velocity();
+    if (RigidBody2D* body = object->getComponent<RigidBody2D>())
+        return body->velocity();
+    return Math::Vec2(0.0f, 0.0f);
+}
+
+int natSteeringSeek(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->seek(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                             steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringFlee(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->flee(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                             steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringArrive(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 3)
+        out = steering->arrive(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                               steeringOwnerVelocity(steering), (float)zen::to_number(args[2]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringWander(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 2)
+        out = steering->wander((float)zen::to_number(args[0]), steeringOwnerVelocity(steering),
+                               (float)zen::to_number(args[1]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringSeparation(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 1)
+        out = steering->separation(steeringOwnerVelocity(steering), (float)zen::to_number(args[0]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringAvoid(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 out(0.0f, 0.0f);
+    if (steering && nargs >= 1)
+        out = steering->avoidance(steeringOwnerVelocity(steering), (float)zen::to_number(args[0]));
+    args[0] = zen::val_float(out.x);
+    args[1] = zen::val_float(out.y);
+    return 2;
+}
+
+int natSteeringSetSlowRadius(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+        steering->setSlowRadius((float)zen::to_number(args[0]));
+    return 0;
+}
+
+// Grouped rather than one selector per field: the VM interns every method name
+// it ever sees, and a pile of set_this / set_that was what pushed a bundle over
+// its selector budget.
+int natSteeringSetSeparation(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 1)
+        return 0;
+    steering->setSeparationEnabled(zen::is_truthy(args[0]));
+    if (nargs >= 2)
+        steering->setSeparationRadius((float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natSteeringSetAvoidance(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 1)
+        return 0;
+    steering->setAvoidanceEnabled(zen::is_truthy(args[0]));
+    if (nargs >= 2)
+        steering->setLookAhead((float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natSteeringSetWander(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (!steering || nargs < 3)
+        return 0;
+    steering->setWanderRadius((float)zen::to_number(args[0]));
+    steering->setWanderDistance((float)zen::to_number(args[1]));
+    steering->setWanderJitter((float)zen::to_number(args[2]));
+    return 0;
+}
+
+
+int natSteeringSetMask(zen::VM*, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+        steering->setMask((uint16_t)zen::to_number(args[0]));
+    return 0;
+}
+
+int natSteeringSetGroup(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+    {
+        steering->setGroupTag(zen::safe_string_chars(args[0]));
+    }
+    return 0;
+}
+
+int natSteeringGetTarget(zen::VM*, zen::Value* args, int)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    Math::Vec2 point(0.0f, 0.0f);
+    const bool resolved = steering && steering->target(point);
+    args[0] = zen::val_bool(resolved);
+    args[1] = zen::val_float(point.x);
+    args[2] = zen::val_float(point.y);
+    return 3;
+}
+
+int natSteeringSetTargetObject(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]);
+    if (steering && nargs >= 1)
+    {
+        steering->setTargetName(zen::safe_string_chars(args[0]));
+    }
+    return 0;
+}
+
+int natSteeringClearTargetObject(zen::VM*, zen::Value* args, int)
+{
+    if (Steering2D* steering = zen::zen_instance_data<Steering2D>(args[-1]))
+        steering->setTargetName(nullptr);
+    return 0;
+}
 
 int natDirectionalLightGetColor(zen::VM*, zen::Value* args, int)
 {
@@ -2089,8 +2553,7 @@ int natMotionTweenSetLoop(zen::VM* vm, zen::Value* args, int nargs)
     MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
     if (tween && nargs >= 1)
     {
-        char small[16];
-        tween->setLoop(parseMotionTweenLoop(valueToCString(vm, args[0], small, sizeof(small))));
+        tween->setLoop(parseMotionTweenLoop(zen::safe_string_chars(args[0])));
     }
     return 0;
 }
@@ -2129,18 +2592,269 @@ int natMotionTweenAddTrack(zen::VM* vm, zen::Value* args, int nargs)
     MotionTween2D* tween = zen::zen_instance_data<MotionTween2D>(args[-1]);
     if (tween && nargs >= 6)
     {
-        char propertyBuf[16];
         MotionTweenTrack track;
-        track.property = parseMotionTweenProperty(valueToCString(vm, args[0], propertyBuf, sizeof(propertyBuf)));
+        track.property = parseMotionTweenProperty(zen::safe_string_chars(args[0]));
         track.from = Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
         track.to = Math::Vec2((float)zen::to_number(args[3]), (float)zen::to_number(args[4]));
         track.duration = (float)zen::to_number(args[5]);
         track.delay = nargs >= 7 ? (float)zen::to_number(args[6]) : 0.0f;
-        char easeBuf[16];
         track.ease =
-            nargs >= 8 ? parseMotionEase(valueToCString(vm, args[7], easeBuf, sizeof(easeBuf))) : MotionEase::OutQuad;
+            nargs >= 8 ? parseMotionEase(zen::safe_string_chars(args[7])) : MotionEase::OutQuad;
         track.enabled = nargs >= 9 ? zen::is_truthy(args[8]) : true;
         tween->addTrack(track);
+    }
+    return 0;
+}
+
+PathMotionLoop parsePathMotionLoop(const char* name)
+{
+    if (std::strcmp(name, "repeat") == 0)
+        return PathMotionLoop::Repeat;
+    if (std::strcmp(name, "ping_pong") == 0)
+        return PathMotionLoop::PingPong;
+    return PathMotionLoop::None;
+}
+
+const char* pathMotionLoopName(PathMotionLoop loop)
+{
+    switch (loop)
+    {
+    case PathMotionLoop::Repeat:
+        return "repeat";
+    case PathMotionLoop::PingPong:
+        return "ping_pong";
+    default:
+        return "none";
+    }
+}
+
+int natPathMotionPlay(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion)
+        motion->play(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natPathMotionStop(zen::VM*, zen::Value* args, int)
+{
+    if (PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]))
+        motion->stop();
+    return 0;
+}
+
+int natPathMotionPause(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion)
+        motion->pause(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natPathMotionIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->playing());
+    return 1;
+}
+
+int natPathMotionIsPaused(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->paused());
+    return 1;
+}
+
+int natPathMotionGetTime(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_float(motion ? motion->time() : 0.0f);
+    return 1;
+}
+
+int natPathMotionGetLoop(zen::VM* vm, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(pathMotionLoopName(motion ? motion->loop() : PathMotionLoop::None)));
+    return 1;
+}
+
+int natPathMotionSetLoop(zen::VM* vm, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 1)
+    {
+        motion->setLoop(parsePathMotionLoop(zen::safe_string_chars(args[0])));
+    }
+    return 0;
+}
+
+int natPathMotionGetOneShot(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_bool(motion && motion->oneShot());
+    return 1;
+}
+
+int natPathMotionSetOneShot(zen::VM*, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 1)
+        motion->setOneShot(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natPathMotionClearKeyframes(zen::VM*, zen::Value* args, int)
+{
+    if (PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]))
+        motion->clearKeyframes();
+    return 0;
+}
+
+int natPathMotionKeyframeCount(zen::VM*, zen::Value* args, int)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    args[0] = zen::val_int(motion ? (int64_t)motion->keyframeCount() : 0);
+    return 1;
+}
+
+int natPathMotionAddKeyframe(zen::VM* vm, zen::Value* args, int nargs)
+{
+    PathMotion2D* motion = zen::zen_instance_data<PathMotion2D>(args[-1]);
+    if (motion && nargs >= 6)
+    {
+        PathMotionKeyframe kf;
+        kf.position = Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+        kf.scale = Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3]));
+        kf.angleDegrees = (float)zen::to_number(args[4]);
+        kf.duration = (float)zen::to_number(args[5]);
+        kf.ease = nargs >= 7 ? parseMotionEase(zen::safe_string_chars(args[6])) : MotionEase::Linear;
+        motion->addKeyframe(kf);
+    }
+    return 0;
+}
+
+ActionKind parseActionKind(const char* name)
+{
+    if (std::strcmp(name, "color") == 0)
+        return ActionKind::Color;
+    if (std::strcmp(name, "move") == 0)
+        return ActionKind::Move;
+    if (std::strcmp(name, "scale") == 0)
+        return ActionKind::Scale;
+    if (std::strcmp(name, "turn") == 0)
+        return ActionKind::Turn;
+    if (std::strcmp(name, "turn_rate") == 0 || std::strcmp(name, "turnRate") == 0)
+        return ActionKind::TurnRate;
+    if (std::strcmp(name, "force") == 0)
+        return ActionKind::Force;
+    if (std::strcmp(name, "fade") == 0)
+        return ActionKind::Fade;
+    return ActionKind::Pause;
+}
+
+ActionSequenceLoop parseActionSequenceLoop(const char* name)
+{
+    return std::strcmp(name, "loop") == 0 ? ActionSequenceLoop::Loop : ActionSequenceLoop::OneShot;
+}
+
+const char* actionSequenceLoopName(ActionSequenceLoop loop)
+{
+    return loop == ActionSequenceLoop::Loop ? "loop" : "one_shot";
+}
+
+int natActionSequencePlay(zen::VM*, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence)
+        sequence->play(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natActionSequenceStop(zen::VM*, zen::Value* args, int)
+{
+    if (ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]))
+        sequence->stop();
+    return 0;
+}
+
+int natActionSequencePause(zen::VM*, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence)
+        sequence->pause(nargs >= 1 ? zen::is_truthy(args[0]) : true);
+    return 0;
+}
+
+int natActionSequenceIsPlaying(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_bool(sequence && sequence->playing());
+    return 1;
+}
+
+int natActionSequenceIsPaused(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_bool(sequence && sequence->paused());
+    return 1;
+}
+
+int natActionSequenceCurrentStep(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_int(sequence ? (int64_t)sequence->currentStep() : -1);
+    return 1;
+}
+
+int natActionSequenceGetLoop(zen::VM* vm, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_obj(
+        (zen::Obj*)vm->make_string(actionSequenceLoopName(sequence ? sequence->loop() : ActionSequenceLoop::OneShot)));
+    return 1;
+}
+
+int natActionSequenceSetLoop(zen::VM* vm, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence && nargs >= 1)
+    {
+        sequence->setLoop(parseActionSequenceLoop(zen::safe_string_chars(args[0])));
+    }
+    return 0;
+}
+
+int natActionSequenceClearSteps(zen::VM*, zen::Value* args, int)
+{
+    if (ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]))
+        sequence->clearSteps();
+    return 0;
+}
+
+int natActionSequenceStepCount(zen::VM*, zen::Value* args, int)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    args[0] = zen::val_int(sequence ? (int64_t)sequence->stepCount() : 0);
+    return 1;
+}
+
+int natActionSequenceAddStep(zen::VM* vm, zen::Value* args, int nargs)
+{
+    ActionSequence2D* sequence = zen::zen_instance_data<ActionSequence2D>(args[-1]);
+    if (sequence && nargs >= 9)
+    {
+        ActionStep step;
+        step.kind = parseActionKind(zen::safe_string_chars(args[0]));
+        step.vector = Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+        step.angleDegrees = (float)zen::to_number(args[3]);
+        step.color = Color::FromBytes((unsigned char)zen::to_integer(args[4]), (unsigned char)zen::to_integer(args[5]),
+                                      (unsigned char)zen::to_integer(args[6]), (unsigned char)zen::to_integer(args[7]));
+        step.alpha = step.color.a;
+        step.duration = (float)zen::to_number(args[8]);
+        step.ease =
+            nargs >= 10 ? parseMotionEase(zen::safe_string_chars(args[9])) : MotionEase::Linear;
+        sequence->addStep(step);
     }
     return 0;
 }
@@ -2226,8 +2940,7 @@ int natSpriteBatchAdd(zen::VM* vm, zen::Value* args, int nargs)
     int index = -1;
     if (batch && nargs >= 5)
     {
-        char small[128];
-        const char* name = valueToCString(vm, args[0], small, sizeof(small));
+        const char* name = zen::safe_string_chars(args[0]);
         Texture* texture = gZenAssets ? gZenAssets->GetTexture(name) : nullptr;
         if (!texture && gZenAssets && name[0])
             texture = gZenAssets->LoadTexture(name, name, true, false);
@@ -2368,6 +3081,499 @@ int natLineSetColor(zen::VM*, zen::Value* args, int nargs)
         line->setColor((unsigned char)zen::to_integer(args[0]), (unsigned char)zen::to_integer(args[1]),
                        (unsigned char)zen::to_integer(args[2]), a);
     }
+    return 0;
+}
+
+int natLineSetTexture(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Line2D* line = zen::zen_instance_data<Line2D>(args[-1]);
+    if (line)
+        line->setTexture(particleTexture(vm, args, nargs, 0));
+    return 0;
+}
+
+int natJointGetTargetName(zen::VM* vm, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->targetName().c_str() : ""));
+    return 1;
+}
+
+int natJointSetTargetName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        joint->setTargetName(zen::safe_string_chars(args[0]));
+    }
+    return 0;
+}
+
+int natJointGetCollideConnected(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->collideConnected());
+    return 1;
+}
+
+int natJointSetCollideConnected(zen::VM*, zen::Value* args, int nargs)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setCollideConnected(zen::is_truthy(args[0]));
+    return 0;
+}
+
+int natJointIsConnected(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->isConnected());
+    return 1;
+}
+
+int natJointGetAnchorA(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->anchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natJointGetAnchorB(zen::VM*, zen::Value* args, int)
+{
+    Joint2D* joint = zen::zen_instance_data<Joint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->anchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natDistanceJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natDistanceJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natDistanceJointGetLength(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->length() : 0.0f);
+    return 1;
+}
+
+int natDistanceJointSetLength(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setLength((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natDistanceJointGetLengthRange(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->minLength() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->maxLength() : 0.0f);
+    return 2;
+}
+
+int natDistanceJointSetLengthRange(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLengthRange((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natDistanceJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natDistanceJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    DistanceJoint2D* joint = zen::zen_instance_data<DistanceJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natMouseJointGetTarget(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    const Math::Vec2 target = joint ? joint->target() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(target.x);
+    args[1] = zen::val_float(target.y);
+    return 2;
+}
+
+int natMouseJointSetTarget(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setTarget(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natMouseJointGetMaxForce(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxForce() : 0.0f);
+    return 1;
+}
+
+int natMouseJointSetMaxForce(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxForce((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMouseJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natMouseJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    MouseJoint2D* joint = zen::zen_instance_data<MouseJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natRevoluteJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natRevoluteJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natRevoluteJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natRevoluteJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natRevoluteJointGetReferenceAngle(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->referenceAngle() : 0.0f);
+    return 1;
+}
+
+int natRevoluteJointSetReferenceAngle(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setReferenceAngle((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natRevoluteJointGetMotor(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->motorEnabled());
+    args[1] = zen::val_float(joint ? joint->motorSpeed() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->maxMotorTorque() : 0.0f);
+    return 3;
+}
+
+int natRevoluteJointSetMotor(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setMotor(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natRevoluteJointGetLimits(zen::VM*, zen::Value* args, int)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->limitEnabled());
+    args[1] = zen::val_float(joint ? joint->lowerAngle() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->upperAngle() : 0.0f);
+    return 3;
+}
+
+int natRevoluteJointSetLimits(zen::VM*, zen::Value* args, int nargs)
+{
+    RevoluteJoint2D* joint = zen::zen_instance_data<RevoluteJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setLimits(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natWheelJointGetLocalAnchorA(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorA() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAnchorA(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetLocalAnchorB(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 anchor = joint ? joint->localAnchorB() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(anchor.x);
+    args[1] = zen::val_float(anchor.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAnchorB(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAnchorB(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetLocalAxisA(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    const Math::Vec2 axis = joint ? joint->localAxisA() : Math::Vec2(1.0f, 0.0f);
+    args[0] = zen::val_float(axis.x);
+    args[1] = zen::val_float(axis.y);
+    return 2;
+}
+
+int natWheelJointSetLocalAxisA(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLocalAxisA(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natWheelJointGetMotor(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    args[0] = zen::val_bool(joint && joint->motorEnabled());
+    args[1] = zen::val_float(joint ? joint->motorSpeed() : 0.0f);
+    args[2] = zen::val_float(joint ? joint->maxMotorTorque() : 0.0f);
+    return 3;
+}
+
+int natWheelJointSetMotor(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 3)
+        joint->setMotor(zen::is_truthy(args[0]), (float)zen::to_number(args[1]), (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natWheelJointGetSpring(zen::VM*, zen::Value* args, int)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->springFrequency() : 0.0f);
+    args[1] = zen::val_float(joint ? joint->springDamping() : 0.0f);
+    return 2;
+}
+
+int natWheelJointSetSpring(zen::VM*, zen::Value* args, int nargs)
+{
+    WheelJoint2D* joint = zen::zen_instance_data<WheelJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setSpring((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natGearJointSetJointA(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        const char* name = zen::safe_string_chars(args[0]);
+        const int index = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
+        joint->setJointA(name, index);
+    }
+    return 0;
+}
+
+int natGearJointGetJointA(zen::VM* vm, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->jointATargetName().c_str() : ""));
+    args[1] = zen::val_int(joint ? joint->jointAIndex() : 0);
+    return 2;
+}
+
+int natGearJointSetJointB(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+    {
+        const char* name = zen::safe_string_chars(args[0]);
+        const int index = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
+        joint->setJointB(name, index);
+    }
+    return 0;
+}
+
+int natGearJointGetJointB(zen::VM* vm, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(joint ? joint->jointBTargetName().c_str() : ""));
+    args[1] = zen::val_int(joint ? joint->jointBIndex() : 0);
+    return 2;
+}
+
+int natGearJointGetRatio(zen::VM*, zen::Value* args, int)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->ratio() : 0.0f);
+    return 1;
+}
+
+int natGearJointSetRatio(zen::VM*, zen::Value* args, int nargs)
+{
+    GearJoint2D* joint = zen::zen_instance_data<GearJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setRatio((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetLinearOffset(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    const Math::Vec2 offset = joint ? joint->linearOffset() : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(offset.x);
+    args[1] = zen::val_float(offset.y);
+    return 2;
+}
+
+int natMotorJointSetLinearOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 2)
+        joint->setLinearOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natMotorJointGetAngularOffset(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->angularOffset() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetAngularOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setAngularOffset((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetMaxForce(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxForce() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetMaxForce(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxForce((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetMaxTorque(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->maxTorque() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetMaxTorque(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setMaxTorque((float)zen::to_number(args[0]));
+    return 0;
+}
+
+int natMotorJointGetCorrectionFactor(zen::VM*, zen::Value* args, int)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    args[0] = zen::val_float(joint ? joint->correctionFactor() : 0.0f);
+    return 1;
+}
+
+int natMotorJointSetCorrectionFactor(zen::VM*, zen::Value* args, int nargs)
+{
+    MotorJoint2D* joint = zen::zen_instance_data<MotorJoint2D>(args[-1]);
+    if (joint && nargs >= 1)
+        joint->setCorrectionFactor((float)zen::to_number(args[0]));
     return 0;
 }
 
@@ -2518,8 +3724,7 @@ int natCircleShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
     CircleShape* shape = zen::zen_instance_data<CircleShape>(args[-1]);
     if (shape && nargs >= 1)
     {
-        char small[8];
-        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+        shape->setMode(parseShapeRenderMode(zen::safe_string_chars(args[0])));
     }
     return 0;
 }
@@ -2592,8 +3797,7 @@ int natRectShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
     RectShape* shape = zen::zen_instance_data<RectShape>(args[-1]);
     if (shape && nargs >= 1)
     {
-        char small[8];
-        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+        shape->setMode(parseShapeRenderMode(zen::safe_string_chars(args[0])));
     }
     return 0;
 }
@@ -2666,8 +3870,7 @@ int natCapsuleShapeSetMode(zen::VM* vm, zen::Value* args, int nargs)
     CapsuleShape* shape = zen::zen_instance_data<CapsuleShape>(args[-1]);
     if (shape && nargs >= 1)
     {
-        char small[8];
-        shape->setMode(parseShapeRenderMode(valueToCString(vm, args[0], small, sizeof(small))));
+        shape->setMode(parseShapeRenderMode(zen::safe_string_chars(args[0])));
     }
     return 0;
 }
@@ -2719,9 +3922,6 @@ int natBoxColliderGetSize(zen::VM*, zen::Value* args, int)
     return 2;
 }
 
-// BoxCollider2D::setSize calls Collider2D::markDirty(), which flags the
-// sibling RigidBody2D for PhysicsWorld2D::rebuildChanged() — the fixture is
-// rebuilt with the new size on the world's next step(), same as the editor.
 int natBoxColliderSetSize(zen::VM*, zen::Value* args, int nargs)
 {
     BoxCollider2D* box = zen::zen_instance_data<BoxCollider2D>(args[-1]);
@@ -2737,8 +3937,6 @@ int natCircleColliderGetRadius(zen::VM*, zen::Value* args, int)
     return 1;
 }
 
-// See natBoxColliderSetSize: CircleCollider2D::setRadius() also marks the
-// body dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
 int natCircleColliderSetRadius(zen::VM*, zen::Value* args, int nargs)
 {
     CircleCollider2D* circle = zen::zen_instance_data<CircleCollider2D>(args[-1]);
@@ -2759,8 +3957,6 @@ int natEdgeColliderGetPoints(zen::VM*, zen::Value* args, int)
     return 4;
 }
 
-// See natBoxColliderSetSize: EdgeCollider2D::setPoints() also marks the body
-// dirty, so the fixture is rebuilt on the next PhysicsWorld2D::step().
 int natEdgeColliderSetPoints(zen::VM*, zen::Value* args, int nargs)
 {
     EdgeCollider2D* edge = zen::zen_instance_data<EdgeCollider2D>(args[-1]);
@@ -2921,17 +4117,29 @@ struct ComponentBinding
 {
     const char* names[3];
     Component* (*get)(GameObject&);
+    Component* (*getAt)(GameObject&, std::size_t);
     Component* (*add)(GameObject&);
     bool (*has)(const GameObject&);
+    std::size_t (*count)(const GameObject&);
 };
 
 template <class T> Component* componentGet(GameObject& node) { return node.getComponent<T>(); }
+template <class T> Component* componentGetAt(GameObject& node, std::size_t index)
+{
+    return node.getComponentAt<T>(index);
+}
 template <class T> Component* componentAdd(GameObject& node) { return node.addComponent<T>(); }
 template <class T> bool componentHas(const GameObject& node) { return node.contains<T>(); }
+template <class T> std::size_t componentCount(const GameObject& node) { return node.componentCount<T>(); }
 
 template <ComponentType kType> Component* componentGetRaw(GameObject& node)
 {
     return node.rawComponent(kType);
+}
+
+template <ComponentType kType> Component* componentGetAtRaw(GameObject& node, std::size_t index)
+{
+    return node.rawComponent(kType, index);
 }
 
 template <ComponentType kType> bool componentHasRaw(const GameObject& node)
@@ -2939,45 +4147,75 @@ template <ComponentType kType> bool componentHasRaw(const GameObject& node)
     return node.rawComponentCount(kType) > 0;
 }
 
+template <ComponentType kType> std::size_t componentCountRaw(const GameObject& node)
+{
+    return node.rawComponentCount(kType);
+}
+
+template <class T>
+ComponentBinding componentBinding(const char* first, const char* second = nullptr, const char* third = nullptr)
+{
+    return {{first, second, third}, &componentGet<T>, &componentGetAt<T>, &componentAdd<T>, &componentHas<T>,
+            &componentCount<T>};
+}
+
+template <ComponentType kType>
+ComponentBinding abstractComponentBinding(const char* first, const char* second = nullptr, const char* third = nullptr)
+{
+    return {{first, second, third}, &componentGetRaw<kType>, &componentGetAtRaw<kType>, nullptr,
+            &componentHasRaw<kType>, &componentCountRaw<kType>};
+}
+
 const ComponentBinding kComponentBindings[] = {
-    {{"RigidBody", "Body", "RigidBody2D"}, &componentGet<RigidBody2D>, &componentAdd<RigidBody2D>, &componentHas<RigidBody2D>},
-    {{"Sprite", "SpriteComponent", nullptr}, &componentGet<SpriteComponent>, &componentAdd<SpriteComponent>, &componentHas<SpriteComponent>},
-    {{"Animation", "Animation2D", nullptr}, &componentGet<Animation2D>, &componentAdd<Animation2D>, &componentHas<Animation2D>},
-    {{"Camera", "CameraComponent", nullptr}, &componentGet<CameraComponent>, &componentAdd<CameraComponent>, &componentHas<CameraComponent>},
-    {{"Particle", "ParticleComponent", nullptr}, &componentGet<ParticleComponent>, &componentAdd<ParticleComponent>, &componentHas<ParticleComponent>},
-    {{"ScriptComponent", nullptr, nullptr}, &componentGet<ZenScriptComponent>, &componentAdd<ZenScriptComponent>, &componentHas<ZenScriptComponent>},
-    {{"CharacterBody", "CharacterBody2D", nullptr}, &componentGet<CharacterBody2D>, &componentAdd<CharacterBody2D>, &componentHas<CharacterBody2D>},
-    {{"Collider", "Collider2D", nullptr}, &componentGetRaw<ComponentType::Collider>, nullptr, &componentHasRaw<ComponentType::Collider>},
-    {{"BoxCollider", "BoxCollider2D", nullptr}, &componentGet<BoxCollider2D>, &componentAdd<BoxCollider2D>, &componentHas<BoxCollider2D>},
-    {{"CircleCollider", "CircleCollider2D", nullptr}, &componentGet<CircleCollider2D>, &componentAdd<CircleCollider2D>, &componentHas<CircleCollider2D>},
-    {{"EdgeCollider", "EdgeCollider2D", nullptr}, &componentGet<EdgeCollider2D>, &componentAdd<EdgeCollider2D>, &componentHas<EdgeCollider2D>},
-    {{"PolygonCollider", "PolygonCollider2D", nullptr}, &componentGet<PolygonCollider2D>, &componentAdd<PolygonCollider2D>, &componentHas<PolygonCollider2D>},
-    {{"ChainCollider", "ChainCollider2D", nullptr}, &componentGet<ChainCollider2D>, &componentAdd<ChainCollider2D>, &componentHas<ChainCollider2D>},
-    {{"TileMap", "TileMapComponent", nullptr}, &componentGet<TileMapComponent>, &componentAdd<TileMapComponent>, &componentHas<TileMapComponent>},
-    {{"SpriteBatch", nullptr, nullptr}, &componentGet<SpriteBatch>, &componentAdd<SpriteBatch>, &componentHas<SpriteBatch>},
-    {{"Polygon2D", nullptr, nullptr}, &componentGet<Polygon2D>, &componentAdd<Polygon2D>, &componentHas<Polygon2D>},
-    {{"Line2D", nullptr, nullptr}, &componentGet<Line2D>, &componentAdd<Line2D>, &componentHas<Line2D>},
-    {{"NinePatch", "NinePatchComponent", nullptr}, &componentGet<NinePatchComponent>, &componentAdd<NinePatchComponent>, &componentHas<NinePatchComponent>},
-    {{"Light", nullptr, nullptr}, &componentGetRaw<ComponentType::Light>, nullptr, &componentHasRaw<ComponentType::Light>},
-    {{"Light2D", nullptr, nullptr}, &componentGet<Light2D>, &componentAdd<Light2D>, &componentHas<Light2D>},
-    {{"DirectionalLight2D", nullptr, nullptr}, &componentGet<DirectionalLight2D>, &componentAdd<DirectionalLight2D>, &componentHas<DirectionalLight2D>},
-    {{"LightOccluder", "LightOccluder2D", nullptr}, &componentGet<LightOccluder2D>, &componentAdd<LightOccluder2D>, &componentHas<LightOccluder2D>},
-    {{"AudioPlayer", nullptr, nullptr}, &componentGet<AudioPlayer>, &componentAdd<AudioPlayer>, &componentHas<AudioPlayer>},
-    {{"CircleShape", nullptr, nullptr}, &componentGet<CircleShape>, &componentAdd<CircleShape>, &componentHas<CircleShape>},
-    {{"RectShape", nullptr, nullptr}, &componentGet<RectShape>, &componentAdd<RectShape>, &componentHas<RectShape>},
-    {{"CapsuleShape", nullptr, nullptr}, &componentGet<CapsuleShape>, &componentAdd<CapsuleShape>, &componentHas<CapsuleShape>},
-    {{"UiCanvas", nullptr, nullptr}, &componentGet<UiCanvas>, &componentAdd<UiCanvas>, &componentHas<UiCanvas>},
-    {{"Panel", "UiPanel", nullptr}, &componentGet<UiPanel>, &componentAdd<UiPanel>, &componentHas<UiPanel>},
-    {{"Label", "UiLabel", nullptr}, &componentGet<UiLabel>, &componentAdd<UiLabel>, &componentHas<UiLabel>},
-    {{"Button", "UiButton", nullptr}, &componentGet<UiButton>, &componentAdd<UiButton>, &componentHas<UiButton>},
-    {{"CheckBox", "UiCheckBox", nullptr}, &componentGet<UiCheckBox>, &componentAdd<UiCheckBox>, &componentHas<UiCheckBox>},
-    {{"Slider", "UiSlider", nullptr}, &componentGet<UiSlider>, &componentAdd<UiSlider>, &componentHas<UiSlider>},
-    {{"NavigationRegion", "NavigationRegion2D", nullptr}, &componentGet<NavigationRegion2D>, &componentAdd<NavigationRegion2D>, &componentHas<NavigationRegion2D>},
-    {{"NavigationAgent", "NavigationAgent2D", nullptr}, &componentGet<NavigationAgent2D>, &componentAdd<NavigationAgent2D>, &componentHas<NavigationAgent2D>},
-    {{"MotionTween", "MotionTween2D", nullptr}, &componentGet<MotionTween2D>, &componentAdd<MotionTween2D>, &componentHas<MotionTween2D>},
-    {{"MotionStreak", "MotionStreak2D", nullptr}, &componentGet<MotionStreak2D>, &componentAdd<MotionStreak2D>, &componentHas<MotionStreak2D>},
-    {{"Skeleton", "Skeleton2D", nullptr}, &componentGet<Skeleton2D>, &componentAdd<Skeleton2D>, &componentHas<Skeleton2D>},
-    {{"Bone", "Bone2D", nullptr}, &componentGet<Bone2D>, &componentAdd<Bone2D>, &componentHas<Bone2D>},
+    componentBinding<RigidBody2D>("RigidBody", "Body", "RigidBody2D"),
+    componentBinding<SpriteComponent>("Sprite", "SpriteComponent"),
+    componentBinding<Animation2D>("Animation", "Animation2D"),
+    componentBinding<CameraComponent>("Camera", "CameraComponent"),
+    componentBinding<ParticleComponent>("Particle", "ParticleComponent"),
+    componentBinding<ZenScriptComponent>("ScriptComponent"),
+    componentBinding<CharacterBody2D>("CharacterBody", "CharacterBody2D"),
+    abstractComponentBinding<ComponentType::Collider>("Collider", "Collider2D"),
+    componentBinding<BoxCollider2D>("BoxCollider", "BoxCollider2D"),
+    componentBinding<CircleCollider2D>("CircleCollider", "CircleCollider2D"),
+    componentBinding<EdgeCollider2D>("EdgeCollider", "EdgeCollider2D"),
+    componentBinding<PolygonCollider2D>("PolygonCollider", "PolygonCollider2D"),
+    componentBinding<ChainCollider2D>("ChainCollider", "ChainCollider2D"),
+    abstractComponentBinding<ComponentType::Joint>("Joint", "Joint2D"),
+    componentBinding<DistanceJoint2D>("DistanceJoint", "DistanceJoint2D"),
+    componentBinding<MouseJoint2D>("MouseJoint", "MouseJoint2D"),
+    componentBinding<RevoluteJoint2D>("RevoluteJoint", "RevoluteJoint2D"),
+    componentBinding<WheelJoint2D>("WheelJoint", "WheelJoint2D"),
+    componentBinding<GearJoint2D>("GearJoint", "GearJoint2D"),
+    componentBinding<MotorJoint2D>("MotorJoint", "MotorJoint2D"),
+    componentBinding<TileMapComponent>("TileMap", "TileMapComponent"),
+    componentBinding<SpriteBatch>("SpriteBatch"),
+    componentBinding<Polygon2D>("Polygon2D"),
+    componentBinding<Line2D>("Line2D"),
+    componentBinding<NinePatchComponent>("NinePatch", "NinePatchComponent"),
+    abstractComponentBinding<ComponentType::Light>("Light"),
+    componentBinding<Light2D>("Light2D"),
+    componentBinding<DirectionalLight2D>("DirectionalLight2D"),
+    componentBinding<LightOccluder2D>("LightOccluder", "LightOccluder2D"),
+    componentBinding<AudioPlayer>("AudioPlayer"),
+    componentBinding<CircleShape>("CircleShape"),
+    componentBinding<RectShape>("RectShape"),
+    componentBinding<CapsuleShape>("CapsuleShape"),
+    componentBinding<UiCanvas>("UiCanvas"),
+    componentBinding<UiPanel>("Panel", "UiPanel"),
+    componentBinding<UiLabel>("Label", "UiLabel"),
+    componentBinding<UiButton>("Button"),
+    componentBinding<UiCheckBox>("CheckBox", "UiCheckBox"),
+    componentBinding<UiSlider>("Slider", "UiSlider"),
+    componentBinding<NavigationRegion2D>("NavigationRegion", "NavigationRegion2D"),
+    componentBinding<NavigationAgent2D>("NavigationAgent", "NavigationAgent2D"),
+    componentBinding<Steering2D>("Steering", "Steering2D"),
+
+    componentBinding<MotionTween2D>("MotionTween", "MotionTween2D"),
+    componentBinding<MotionStreak2D>("MotionStreak", "MotionStreak2D"),
+    componentBinding<Skeleton2D>("Skeleton", "Skeleton2D"),
+    componentBinding<Bone2D>("Bone", "Bone2D"),
+    componentBinding<PathMotion2D>("PathMotion", "PathMotion2D"),
+    componentBinding<ActionSequence2D>("ActionSequence", "ActionSequence2D"),
 };
 
 const ComponentBinding* findComponentBinding(const char* name)
@@ -2992,17 +4230,17 @@ const ComponentBinding* findComponentBinding(const char* name)
 /* Generic component lookup.  The Zen compiler lowers
 ** node.get_component<RigidBody>() to node.get_component(RigidBody), so the first
 ** native argument is the requested host class. */
-int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
+int natNodeGetComponent(zen::VM* vm, zen::Value receiver, zen::Value* typeArgs, int, zen::Value* args, int)
 {
-    GameObject* node = nodeFromSelf(args);
+    GameObject* node = zen::zen_instance_data<GameObject>(receiver);
     ZenRuntime::Impl* state = stateFromVM(vm);
-    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    if (!node || !state || !zen::is_class(typeArgs[0]))
     {
         args[0] = zen::val_nil();
         return 1;
     }
 
-    zen::ObjClass* requested = zen::as_class(args[0]);
+    zen::ObjClass* requested = zen::as_class(typeArgs[0]);
     const char* name = requested->name ? requested->name->chars : "";
 
     const ComponentBinding* binding = findComponentBinding(name);
@@ -3011,17 +4249,40 @@ int natNodeGetComponent(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
-int natNodeAddComponent(zen::VM* vm, zen::Value* args, int nargs)
+int natNodeGetComponents(zen::VM* vm, zen::Value receiver, zen::Value* typeArgs, int, zen::Value* args, int)
 {
-    GameObject* node = nodeFromSelf(args);
+    zen::GC& gc = vm->get_gc();
+    zen::ObjArray* result = zen::new_array(&gc);
+    GameObject* node = zen::zen_instance_data<GameObject>(receiver);
     ZenRuntime::Impl* state = stateFromVM(vm);
-    if (!node || !state || nargs < 1 || !zen::is_class(args[0]))
+    if (!node || !state || !zen::is_class(typeArgs[0]))
+    {
+        args[0] = zen::val_obj((zen::Obj*)result);
+        return 1;
+    }
+
+    zen::ObjClass* requested = zen::as_class(typeArgs[0]);
+    const char* name = requested->name ? requested->name->chars : "";
+    if (const ComponentBinding* binding = findComponentBinding(name))
+        for (std::size_t index = 0; index < binding->count(*node); ++index)
+            if (Component* component = binding->getAt(*node, index))
+                zen::array_push(&gc, result, state->instanceFor(requested, component));
+
+    args[0] = zen::val_obj((zen::Obj*)result);
+    return 1;
+}
+
+int natNodeAddComponent(zen::VM* vm, zen::Value receiver, zen::Value* typeArgs, int, zen::Value* args, int)
+{
+    GameObject* node = zen::zen_instance_data<GameObject>(receiver);
+    ZenRuntime::Impl* state = stateFromVM(vm);
+    if (!node || !state || !zen::is_class(typeArgs[0]))
     {
         args[0] = zen::val_nil();
         return 1;
     }
 
-    zen::ObjClass* requested = zen::as_class(args[0]);
+    zen::ObjClass* requested = zen::as_class(typeArgs[0]);
     const char* name = requested->name ? requested->name->chars : "";
     const ComponentBinding* binding = findComponentBinding(name);
     Component* component = (binding && binding->add) ? binding->add(*node) : nullptr;
@@ -3029,13 +4290,13 @@ int natNodeAddComponent(zen::VM* vm, zen::Value* args, int nargs)
     return 1;
 }
 
-int natNodeHasComponent(zen::VM*, zen::Value* args, int nargs)
+int natNodeHasComponent(zen::VM*, zen::Value receiver, zen::Value* typeArgs, int, zen::Value* args, int)
 {
-    GameObject* node = nodeFromSelf(args);
+    GameObject* node = zen::zen_instance_data<GameObject>(receiver);
     bool has = false;
-    if (node && nargs >= 1 && zen::is_class(args[0]))
+    if (node && zen::is_class(typeArgs[0]))
     {
-        zen::ObjClass* requested = zen::as_class(args[0]);
+        zen::ObjClass* requested = zen::as_class(typeArgs[0]);
         const char* name = requested->name ? requested->name->chars : "";
         if (const ComponentBinding* binding = findComponentBinding(name))
             has = binding->has(*node);
@@ -3044,13 +4305,13 @@ int natNodeHasComponent(zen::VM*, zen::Value* args, int nargs)
     return 1;
 }
 
-int natNodeRemoveComponent(zen::VM*, zen::Value* args, int nargs)
+int natNodeRemoveComponent(zen::VM*, zen::Value receiver, zen::Value* typeArgs, int, zen::Value* args, int)
 {
-    GameObject* node = nodeFromSelf(args);
+    GameObject* node = zen::zen_instance_data<GameObject>(receiver);
     bool removed = false;
-    if (node && nargs >= 1 && zen::is_class(args[0]))
+    if (node && zen::is_class(typeArgs[0]))
     {
-        zen::ObjClass* requested = zen::as_class(args[0]);
+        zen::ObjClass* requested = zen::as_class(typeArgs[0]);
         const char* name = requested->name ? requested->name->chars : "";
         if (const ComponentBinding* binding = findComponentBinding(name))
             if (Component* component = binding->get(*node))
@@ -3072,8 +4333,7 @@ int natNodeSetName(zen::VM* vm, zen::Value* args, int nargs)
     GameObject* node = nodeFromSelf(args);
     if (node && nargs >= 1)
     {
-        char small[16];
-        node->setName(valueToCString(vm, args[0], small, sizeof(small)));
+        node->setName(zen::safe_string_chars(args[0]));
     }
     return 0;
 }
@@ -3090,10 +4350,26 @@ int natNodeSetTag(zen::VM* vm, zen::Value* args, int nargs)
     GameObject* node = nodeFromSelf(args);
     if (node && nargs >= 1)
     {
-        char small[16];
-        node->setTag(valueToCString(vm, args[0], small, sizeof(small)));
+        node->setTag(zen::safe_string_chars(args[0]));
     }
     return 0;
+}
+
+int natNodeCall(zen::VM* vm, zen::Value* args, int nargs)
+{
+    GameObject* node = nodeFromSelf(args);
+    bool called = false;
+    if (node && nargs >= 1)
+    {
+        const char* name = zen::safe_string_chars(args[0]);
+        const double value = nargs >= 2 ? zen::to_number(args[1]) : 0.0;
+        const size_t count = node->componentCount<ZenScriptComponent>();
+        for (size_t i = 0; i < count; ++i)
+            if (ZenScriptComponent* script = node->getComponentAt<ZenScriptComponent>(i))
+                called = script->callFunction(name, value) || called;
+    }
+    args[0] = zen::val_bool(called);
+    return 1;
 }
 
 int natNodeGetGlobalPosition(zen::VM*, zen::Value* args, int)
@@ -3173,8 +4449,7 @@ int natButtonSetText(zen::VM* vm, zen::Value* args, int nargs)
     UiButton* button = zen::zen_instance_data<UiButton>(args[-1]);
     if (button && nargs >= 1)
     {
-        char small[16];
-        button->setText(valueToCString(vm, args[0], small, sizeof(small)));
+        button->setText(zen::safe_string_chars(args[0]));
     }
     return 0;
 }
@@ -3282,8 +4557,7 @@ int natAnimationPlay(zen::VM* vm, zen::Value* args, int nargs)
     bool ok = false;
     if (animation && nargs >= 1)
     {
-        char small[16];
-        ok = animation->play(valueToCString(vm, args[0], small, sizeof(small)));
+        ok = animation->play(zen::safe_string_chars(args[0]));
     }
     else if (animation)
     {
@@ -3314,6 +4588,44 @@ int natAnimationCurrent(zen::VM* vm, zen::Value* args, int)
     Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
     args[0] = zen::val_obj((zen::Obj*)vm->make_string(animation ? animation->currentClip() : ""));
     return 1;
+}
+
+int natAnimationGetFrame(zen::VM*, zen::Value* args, int)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    args[0] = zen::val_int(animation ? animation->frame() : 0);
+    return 1;
+}
+
+int natAnimationPointCount(zen::VM*, zen::Value* args, int)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    args[0] = zen::val_int(animation ? static_cast<int64_t>(animation->currentFramePointCount()) : 0);
+    return 1;
+}
+
+int natAnimationGetPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    const int64_t index = nargs >= 1 ? zen::to_integer(args[0]) : -1;
+    const bool found = animation && index >= 0 && animation->currentFramePoint(static_cast<size_t>(index), point);
+    args[0] = zen::val_bool(found);
+    args[1] = zen::val_float(point.x);
+    args[2] = zen::val_float(point.y);
+    return 3;
+}
+
+int natAnimationGetRealPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    Animation2D* animation = zen::zen_instance_data<Animation2D>(args[-1]);
+    Math::Vec2 point(0.0f);
+    const int64_t index = nargs >= 1 ? zen::to_integer(args[0]) : -1;
+    const bool found = animation && index >= 0 && animation->currentFrameRealPoint(static_cast<size_t>(index), point);
+    args[0] = zen::val_bool(found);
+    args[1] = zen::val_float(point.x);
+    args[2] = zen::val_float(point.y);
+    return 3;
 }
 
 int natParticleStart(zen::VM*, zen::Value* args, int)
@@ -3361,8 +4673,7 @@ int natParticleIsPlaying(zen::VM*, zen::Value* args, int)
 
 int natGetNumber(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const double fallback = nargs >= 2 ? zen::to_number(args[1]) : 0.0;
     args[0] = zen::val_float(ZenBlackboard::getNumber(key, fallback));
     return 1;
@@ -3370,18 +4681,15 @@ int natGetNumber(zen::VM* vm, zen::Value* args, int nargs)
 
 int natSetNumber(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
     if (nargs >= 2)
-        ZenBlackboard::setNumber(valueToCString(vm, args[0], small, sizeof(small)), zen::to_number(args[1]));
+        ZenBlackboard::setNumber(zen::safe_string_chars(args[0]), zen::to_number(args[1]));
     return 0;
 }
 
 int natGetString(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    char smallFallback[16];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
-    const char* fallback = nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const char* fallback = nargs >= 2 ? zen::safe_string_chars(args[1]) : "";
     const ct::String value = ZenBlackboard::getString(key, fallback);
     args[0] = zen::val_obj((zen::Obj*)vm->make_string(value.c_str()));
     return 1;
@@ -3389,18 +4697,15 @@ int natGetString(zen::VM* vm, zen::Value* args, int nargs)
 
 int natSetString(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    char smallValue[16];
     if (nargs >= 2)
-        ZenBlackboard::setString(valueToCString(vm, args[0], small, sizeof(small)),
-                                 valueToCString(vm, args[1], smallValue, sizeof(smallValue)));
+        ZenBlackboard::setString(zen::safe_string_chars(args[0]),
+                                 zen::safe_string_chars(args[1]));
     return 0;
 }
 
 int natGetFlag(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const bool fallback = nargs >= 2 && zen::is_truthy(args[1]);
     args[0] = zen::val_bool(ZenBlackboard::getBool(key, fallback));
     return 1;
@@ -3408,24 +4713,21 @@ int natGetFlag(zen::VM* vm, zen::Value* args, int nargs)
 
 int natSetFlag(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
     if (nargs >= 2)
-        ZenBlackboard::setBool(valueToCString(vm, args[0], small, sizeof(small)), zen::is_truthy(args[1]));
+        ZenBlackboard::setBool(zen::safe_string_chars(args[0]), zen::is_truthy(args[1]));
     return 0;
 }
 
 int natHasKey(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_bool(ZenBlackboard::has(key));
     return 1;
 }
 
 int natUserDataGetInt(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const int fallback = nargs >= 2 ? (int)zen::to_integer(args[1]) : 0;
     args[0] = zen::val_int(gZenUserData ? gZenUserData->getInt(key, fallback) : fallback);
     return 1;
@@ -3433,16 +4735,14 @@ int natUserDataGetInt(zen::VM* vm, zen::Value* args, int nargs)
 
 int natUserDataSetInt(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     if (gZenUserData && nargs >= 2)
-        gZenUserData->setInt(valueToCString(vm, args[0], small, sizeof(small)), (int)zen::to_integer(args[1]));
+        gZenUserData->setInt(zen::safe_string_chars(args[0]), (int)zen::to_integer(args[1]));
     return 0;
 }
 
 int natUserDataGetFloat(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const float fallback = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
     args[0] = zen::val_float(gZenUserData ? gZenUserData->getFloat(key, fallback) : fallback);
     return 1;
@@ -3450,18 +4750,15 @@ int natUserDataGetFloat(zen::VM* vm, zen::Value* args, int nargs)
 
 int natUserDataSetFloat(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     if (gZenUserData && nargs >= 2)
-        gZenUserData->setFloat(valueToCString(vm, args[0], small, sizeof(small)), (float)zen::to_number(args[1]));
+        gZenUserData->setFloat(zen::safe_string_chars(args[0]), (float)zen::to_number(args[1]));
     return 0;
 }
 
 int natUserDataGetString(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    char smallFallback[64];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
-    const char* fallback = nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const char* fallback = nargs >= 2 ? zen::safe_string_chars(args[1]) : "";
     const char* value = gZenUserData ? gZenUserData->getString(key, fallback) : fallback;
     args[0] = zen::val_obj((zen::Obj*)vm->make_string(value));
     return 1;
@@ -3469,18 +4766,15 @@ int natUserDataGetString(zen::VM* vm, zen::Value* args, int nargs)
 
 int natUserDataSetString(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    char smallValue[64];
     if (gZenUserData && nargs >= 2)
-        gZenUserData->setString(valueToCString(vm, args[0], small, sizeof(small)),
-                                valueToCString(vm, args[1], smallValue, sizeof(smallValue)));
+        gZenUserData->setString(zen::safe_string_chars(args[0]),
+                                zen::safe_string_chars(args[1]));
     return 0;
 }
 
 int natUserDataGetBool(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     const bool fallback = nargs >= 2 && zen::is_truthy(args[1]);
     args[0] = zen::val_bool(gZenUserData ? gZenUserData->getBool(key, fallback) : fallback);
     return 1;
@@ -3488,25 +4782,22 @@ int natUserDataGetBool(zen::VM* vm, zen::Value* args, int nargs)
 
 int natUserDataSetBool(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     if (gZenUserData && nargs >= 2)
-        gZenUserData->setBool(valueToCString(vm, args[0], small, sizeof(small)), zen::is_truthy(args[1]));
+        gZenUserData->setBool(zen::safe_string_chars(args[0]), zen::is_truthy(args[1]));
     return 0;
 }
 
 int natUserDataHas(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* key = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* key = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_bool(gZenUserData && gZenUserData->has(key));
     return 1;
 }
 
 int natUserDataDelete(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     if (gZenUserData && nargs >= 1)
-        gZenUserData->erase(valueToCString(vm, args[0], small, sizeof(small)));
+        gZenUserData->erase(zen::safe_string_chars(args[0]));
     return 0;
 }
 
@@ -3519,30 +4810,26 @@ int natUserDataClear(zen::VM*, zen::Value*, int)
 
 int natUserDataLoad(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     const bool loaded =
         gZenUserData &&
-        (nargs >= 1 ? gZenUserData->load(valueToCString(vm, args[0], small, sizeof(small))) : gZenUserData->load());
+        (nargs >= 1 ? gZenUserData->load(zen::safe_string_chars(args[0])) : gZenUserData->load());
     args[0] = zen::val_bool(loaded);
     return 1;
 }
 
 int natUserDataSave(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
     const bool saved =
         gZenUserData &&
-        (nargs >= 1 ? gZenUserData->save(valueToCString(vm, args[0], small, sizeof(small))) : gZenUserData->save());
+        (nargs >= 1 ? gZenUserData->save(zen::safe_string_chars(args[0])) : gZenUserData->save());
     args[0] = zen::val_bool(saved);
     return 1;
 }
 
 int natUserDataReadText(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    char smallFallback[64];
-    const char* fileName = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
-    const char* fallback = nargs >= 2 ? valueToCString(vm, args[1], smallFallback, sizeof(smallFallback)) : "";
+    const char* fileName = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const char* fallback = nargs >= 2 ? zen::safe_string_chars(args[1]) : "";
     ct::String text = fallback;
     if (gZenUserData)
         gZenUserData->readText(fileName, text);
@@ -3552,20 +4839,17 @@ int natUserDataReadText(zen::VM* vm, zen::Value* args, int nargs)
 
 int natUserDataWriteText(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    char smallText[64];
     const bool saved = gZenUserData && nargs >= 2 &&
-                       gZenUserData->writeText(valueToCString(vm, args[0], small, sizeof(small)),
-                                               ct::String(valueToCString(vm, args[1], smallText, sizeof(smallText))));
+                       gZenUserData->writeText(zen::safe_string_chars(args[0]),
+                                               ct::String(zen::safe_string_chars(args[1])));
     args[0] = zen::val_bool(saved);
     return 1;
 }
 
 int natEmit(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[16];
     if (nargs >= 1)
-        ZenBlackboard::emit(valueToCString(vm, args[0], small, sizeof(small)),
+        ZenBlackboard::emit(zen::safe_string_chars(args[0]),
                             nargs >= 2 ? zen::to_number(args[1]) : 0.0);
     return 0;
 }
@@ -3624,25 +4908,132 @@ int natVirtualKeysVisible(zen::VM*, zen::Value* args, int)
 
 int natActionDown(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* action = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_bool(gZenInput && GetInputActions().Down(*gZenInput, action));
     return 1;
 }
 
 int natActionPressed(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* action = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_bool(gZenInput && GetInputActions().Pressed(*gZenInput, action));
     return 1;
 }
 
 int natActionReleased(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[64];
-    const char* action = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* action = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_bool(gZenInput && GetInputActions().Released(*gZenInput, action));
+    return 1;
+}
+
+int natCollisionLayer(zen::VM*, zen::Value* args, int nargs)
+{
+    const char* name = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const int layer = CollisionLayerIndex(name);
+    if (layer < 0)
+        log_warn("collision_layer: no layer called \"%s\"", name);
+    args[0] = zen::val_int(layer >= 0 ? 1 << layer : 0);
+    return 1;
+}
+
+int natCollisionLayerName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    const int number = nargs >= 1 ? (int)zen::to_number(args[0]) : 0;
+    args[0] = zen::val_obj((zen::Obj*)vm->make_string(CollisionLayerName(number - 1).c_str()));
+    return 1;
+}
+
+int padArgument(zen::Value* args, int nargs, int index)
+{
+    return nargs > index ? (int)zen::to_number(args[index]) : 0;
+}
+
+int natActionStrength(zen::VM*, zen::Value* args, int nargs)
+{
+    const char* action = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    args[0] = zen::val_float(gZenInput ? GetInputActions().Strength(*gZenInput, action) : 0.0f);
+    return 1;
+}
+
+int natActionBind(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 2)
+        GetInputActions().Bind(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]));
+    return 0;
+}
+
+int natActionBindButton(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 2)
+        GetInputActions().BindPadButton(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]));
+    return 0;
+}
+
+int natActionBindAxis(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 3)
+        GetInputActions().BindPadAxis(zen::safe_string_chars(args[0]), (int)zen::to_number(args[1]),
+                                      (int)zen::to_number(args[2]));
+    return 0;
+}
+
+int natActionClear(zen::VM*, zen::Value* args, int nargs)
+{
+    if (nargs >= 1)
+        GetInputActions().Clear(zen::safe_string_chars(args[0]));
+    return 0;
+}
+
+int natGamepadConnected(zen::VM*, zen::Value* args, int nargs)
+{
+    args[0] = zen::val_bool(gZenInput && gZenInput->GamepadConnected(padArgument(args, nargs, 0)));
+    return 1;
+}
+
+int natGamepadName(zen::VM* vm, zen::Value* args, int nargs)
+{
+    const int pad = padArgument(args, nargs, 0);
+    const char* name = gZenInput && gZenInput->GamepadConnected(pad) ? gamepad_name(pad) : nullptr;
+    args[0] = name ? zen::val_obj((zen::Obj*)vm->make_string(name)) : zen::val_nil();
+    return 1;
+}
+
+int natGamepadDown(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadDown(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadPressed(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadPressed(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadReleased(zen::VM*, zen::Value* args, int nargs)
+{
+    const int button = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_bool(gZenInput && gZenInput->PadReleased(button, padArgument(args, nargs, 1)));
+    return 1;
+}
+
+int natGamepadAxis(zen::VM*, zen::Value* args, int nargs)
+{
+    const int axis = nargs >= 1 ? (int)zen::to_number(args[0]) : -1;
+    args[0] = zen::val_float(gZenInput ? gZenInput->PadAxisValue(axis, padArgument(args, nargs, 1)) : 0.0f);
+    return 1;
+}
+
+int natGamepadRumble(zen::VM*, zen::Value* args, int nargs)
+{
+    const float strong = nargs >= 1 ? (float)zen::to_number(args[0]) : 0.0f;
+    const float weak = nargs >= 2 ? (float)zen::to_number(args[1]) : 0.0f;
+    const float seconds = nargs >= 3 ? (float)zen::to_number(args[2]) : 0.2f;
+    const int pad = padArgument(args, nargs, 3);
+    args[0] = zen::val_bool(gamepad_rumble(pad, strong, weak, (uint32_t)(seconds > 0.0f ? seconds * 1000.0f : 0.0f)));
     return 1;
 }
 
@@ -3672,25 +5063,27 @@ int natFadeProgress(zen::VM* vm, zen::Value* args, int)
 
 int natLoadScene(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[256];
-    const char* path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* path = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
+    const char* name = nargs >= 2 ? zen::safe_string_chars(args[1]) : "";
+    const SceneTransitionKind transition = SceneTransition::KindFromName(name);
+    if (name[0] && transition == SceneTransitionKind::None)
+        log_warn("load_scene: no transition called \"%s\"", name);
+    const float seconds = nargs >= 3 ? static_cast<float>(zen::to_number(args[2])) : 0.5f;
     if (path[0])
-        GetSceneManager().Request(path);
+        GetSceneManager().Request(path, transition, seconds);
     return 0;
 }
 
 int natAudioLoad(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[256];
-    const char* path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* path = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_int(GetAudio().LoadSound(path));
     return 1;
 }
 
 int natAudioLoadMusic(zen::VM* vm, zen::Value* args, int nargs)
 {
-    char small[256];
-    const char* path = nargs >= 1 ? valueToCString(vm, args[0], small, sizeof(small)) : "";
+    const char* path = nargs >= 1 ? zen::safe_string_chars(args[0]) : "";
     args[0] = zen::val_int(GetAudio().LoadMusic(path));
     return 1;
 }
@@ -3859,36 +5252,26 @@ int natAudioMusicMuted(zen::VM* vm, zen::Value* args, int)
 int natMouseDown(zen::VM*, zen::Value* args, int nargs)
 {
     const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-    const bool inside = !gZenGameViewport.valid || (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
-                                                    gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
-                                                    gZenInput->MouseY() >= gZenGameViewport.y &&
-                                                    gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
-    args[0] = zen::val_bool(gZenInput && inside && gZenInput->MouseDown(button));
+    args[0] = zen::val_bool(gZenInput && zenMouseInsideViewport() && gZenInput->MouseDown(button));
     return 1;
 }
 
 int natMousePressed(zen::VM*, zen::Value* args, int nargs)
 {
     const int button = nargs >= 1 ? (int)zen::to_integer(args[0]) : 0;
-    const bool inside = !gZenGameViewport.valid || (gZenInput && gZenInput->MouseX() >= gZenGameViewport.x &&
-                                                    gZenInput->MouseX() < gZenGameViewport.x + gZenGameViewport.width &&
-                                                    gZenInput->MouseY() >= gZenGameViewport.y &&
-                                                    gZenInput->MouseY() < gZenGameViewport.y + gZenGameViewport.height);
-    args[0] = zen::val_bool(gZenInput && inside && gZenInput->MousePressed(button));
+    args[0] = zen::val_bool(gZenInput && zenMouseInsideViewport() && gZenInput->MousePressed(button));
     return 1;
 }
 
 int natMouseX(zen::VM*, zen::Value* args, int)
 {
-    args[0] =
-        zen::val_float(gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0);
+    args[0] = zen::val_float(zenMouseX());
     return 1;
 }
 
 int natMouseY(zen::VM*, zen::Value* args, int)
 {
-    args[0] =
-        zen::val_float(gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0);
+    args[0] = zen::val_float(zenMouseY());
     return 1;
 }
 
@@ -3935,9 +5318,7 @@ int natScreenToWorld(zen::VM*, zen::Value* args, int nargs)
 
 int natMouseWorldPosition(zen::VM*, zen::Value* args, int)
 {
-    const float x = gZenInput ? gZenInput->MouseX() - (gZenGameViewport.valid ? gZenGameViewport.x : 0.0f) : 0.0f;
-    const float y = gZenInput ? gZenInput->MouseY() - (gZenGameViewport.valid ? gZenGameViewport.y : 0.0f) : 0.0f;
-    const Math::Vec2 point = screenToWorld(x, y);
+    const Math::Vec2 point = screenToWorld(zenMouseX(), zenMouseY());
     args[0] = zen::val_float(point.x);
     args[1] = zen::val_float(point.y);
     return 2;
@@ -3976,6 +5357,262 @@ int natWheelY(zen::VM*, zen::Value* args, int)
     args[0] = zen::val_float(gZenInput ? gZenInput->WheelY() : 0.0);
     return 1;
 }
+
+// AStarGrid2D and AStar2D are script-owned values, not components: a Zen
+// script constructs one with ClassName() and the VM frees it via the native
+// dtor when the wrapping instance is garbage collected, following the
+// ctor/dtor ClassBuilder pattern zen's own embedding tests use for owned
+// native data (test_embedding.cpp's Sprite), since no component in this file
+// is script-constructible.
+AStarGrid2D* gridFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<AStarGrid2D>(args[-1]);
+}
+
+void* natAStarGridCtor(zen::VM*, int, zen::Value*)
+{
+    return new AStarGrid2D();
+}
+
+void natAStarGridDtor(zen::VM*, void* data)
+{
+    delete static_cast<AStarGrid2D*>(data);
+}
+
+int natAStarGridSetSize(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetSize((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]));
+    return 0;
+}
+
+int natAStarGridSetCellSize(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetCellSize((float)zen::to_number(args[0]), (float)zen::to_number(args[1]));
+    return 0;
+}
+
+int natAStarGridSetOffset(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetOffset(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    return 0;
+}
+
+int natAStarGridSetHeuristic(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 1)
+            grid->SetHeuristic(static_cast<AStarGrid2D::Heuristic>((int)zen::to_integer(args[0])));
+    return 0;
+}
+
+int natAStarGridSetDiagonalMode(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 1)
+            grid->SetDiagonalMode(static_cast<AStarGrid2D::DiagonalMode>((int)zen::to_integer(args[0])));
+    return 0;
+}
+
+int natAStarGridClear(zen::VM*, zen::Value* args, int)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        grid->Clear();
+    return 0;
+}
+
+int natAStarGridSetSolid(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 2)
+            grid->SetSolid((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                           nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGridIsSolid(zen::VM*, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    args[0] = zen::val_bool(grid && nargs >= 2 &&
+                            grid->IsSolid((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1])));
+    return 1;
+}
+
+int natAStarGridFillSolidRegion(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 4)
+            grid->FillSolidRegion((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                  (int)zen::to_integer(args[2]), (int)zen::to_integer(args[3]),
+                                  nargs < 5 || zen::is_truthy(args[4]));
+    return 0;
+}
+
+int natAStarGridSetWeightScale(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStarGrid2D* grid = gridFromSelf(args))
+        if (nargs >= 3)
+            grid->SetWeightScale((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                 (float)zen::to_number(args[2]));
+    return 0;
+}
+
+int natAStarGridGetPointPosition(zen::VM*, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    const Math::Vec2 pos = grid && nargs >= 2
+                               ? grid->GetPointPosition((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]))
+                               : Math::Vec2(0.0f, 0.0f);
+    args[0] = zen::val_float(pos.x);
+    args[1] = zen::val_float(pos.y);
+    return 2;
+}
+
+int natAStarGridGetPointPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    AStarGrid2D* grid = gridFromSelf(args);
+    ct::Vector<Math::Vec2> path;
+    if (grid && nargs >= 4)
+    {
+        const bool allowPartial = nargs >= 5 && zen::is_truthy(args[4]);
+        grid->GetPointPath(IVec2((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1])),
+                           IVec2((int)zen::to_integer(args[2]), (int)zen::to_integer(args[3])), path, allowPartial);
+    }
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+AStar2D* astarGraphFromSelf(zen::Value* args)
+{
+    return zen::zen_instance_data<AStar2D>(args[-1]);
+}
+
+void* natAStarGraphCtor(zen::VM*, int, zen::Value*)
+{
+    return new AStar2D();
+}
+
+void natAStarGraphDtor(zen::VM*, void* data)
+{
+    delete static_cast<AStar2D*>(data);
+}
+
+int natAStarGraphAddPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 3)
+            graph->AddPoint((int)zen::to_integer(args[0]),
+                            Math::Vec2((float)zen::to_number(args[1]), (float)zen::to_number(args[2])),
+                            nargs >= 4 ? (float)zen::to_number(args[3]) : 1.0f);
+    return 0;
+}
+
+int natAStarGraphRemovePoint(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 1)
+            graph->RemovePoint((int)zen::to_integer(args[0]));
+    return 0;
+}
+
+int natAStarGraphHasPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    args[0] = zen::val_bool(graph && nargs >= 1 && graph->HasPoint((int)zen::to_integer(args[0])));
+    return 1;
+}
+
+int natAStarGraphConnectPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 2)
+            graph->ConnectPoints((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                 nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGraphDisconnectPoints(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 2)
+            graph->DisconnectPoints((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]),
+                                    nargs < 3 || zen::is_truthy(args[2]));
+    return 0;
+}
+
+int natAStarGraphSetPointDisabled(zen::VM*, zen::Value* args, int nargs)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        if (nargs >= 1)
+            graph->SetPointDisabled((int)zen::to_integer(args[0]), nargs < 2 || zen::is_truthy(args[1]));
+    return 0;
+}
+
+int natAStarGraphGetClosestPoint(zen::VM*, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    const int id =
+        graph && nargs >= 2
+            ? graph->GetClosestPoint(Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                                     nargs >= 3 && zen::is_truthy(args[2]))
+            : -1;
+    args[0] = zen::val_int(id);
+    return 1;
+}
+
+int natAStarGraphGetPointPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    ct::Vector<Math::Vec2> path;
+    if (graph && nargs >= 2)
+    {
+        const bool allowPartial = nargs >= 3 && zen::is_truthy(args[2]);
+        graph->GetPointPath((int)zen::to_integer(args[0]), (int)zen::to_integer(args[1]), path, allowPartial);
+    }
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+int natAStarGraphClear(zen::VM*, zen::Value* args, int)
+{
+    if (AStar2D* graph = astarGraphFromSelf(args))
+        graph->Clear();
+    return 0;
+}
+
+int natAStarGraphGetPointCount(zen::VM*, zen::Value* args, int)
+{
+    AStar2D* graph = astarGraphFromSelf(args);
+    args[0] = zen::val_int(graph ? graph->GetPointCount() : 0);
+    return 1;
+}
+
+int natNavPath(zen::VM* vm, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    ct::Vector<Math::Vec2> path;
+    if (scene && nargs >= 4)
+        Navigation2D::GetPath(*scene, Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])),
+                              Math::Vec2((float)zen::to_number(args[2]), (float)zen::to_number(args[3])), path);
+    args[0] = packPointArray(vm, path);
+    return 1;
+}
+
+int natNavPointFree(zen::VM*, zen::Value* args, int nargs)
+{
+    Scene* scene = gZenCallbackNode ? gZenCallbackNode->scene() : nullptr;
+    bool inside = false;
+    if (scene && nargs >= 2)
+        inside = Navigation2D::Contains(
+            *scene, Math::Vec2((float)zen::to_number(args[0]), (float)zen::to_number(args[1])));
+    args[0] = zen::val_bool(inside);
+    return 1;
+}
 } // namespace
 
 // A component is about to leave its object: drop the script handle cached for
@@ -3986,10 +5623,16 @@ static void forgetRemovedComponent(Component* component, void* user)
     static_cast<ZenRuntime::Impl*>(user)->forgetInstance(component);
 }
 
+static void forgetRemovedObject(GameObject* object, void* user)
+{
+    static_cast<ZenRuntime::Impl*>(user)->forgetInstance(object);
+}
+
 void ZenRuntime::Impl::initialize()
 {
     zen_host_set_writer(&zenHostWriter, nullptr);
     Component::SetRemovedCallback(&forgetRemovedComponent, this);
+    GameObject::SetRemovedCallback(&forgetRemovedObject, this);
 
     vm.open_lib_globals(&zen::zen_lib_base);
     vm.register_lib(&zen::zen_lib_math);
@@ -4070,6 +5713,18 @@ void ZenRuntime::Impl::initialize()
     };
     for (const KeyConstant& entry : keyConstants)
         vm.def_global(entry.name, zen::val_int(static_cast<int>(entry.key)));
+    static const char* const padButtons[] = {"PAD_A",          "PAD_B",           "PAD_X",          "PAD_Y",
+                                             "PAD_BACK",       "PAD_GUIDE",       "PAD_START",      "PAD_LEFT_STICK",
+                                             "PAD_RIGHT_STICK", "PAD_LEFT_SHOULDER", "PAD_RIGHT_SHOULDER", "PAD_UP",
+                                             "PAD_DOWN",       "PAD_LEFT",        "PAD_RIGHT"};
+    static_assert(sizeof(padButtons) / sizeof(padButtons[0]) == Input::PAD_BUTTONS, "a name for every pad button");
+    for (int i = 0; i < Input::PAD_BUTTONS; ++i)
+        vm.def_global(padButtons[i], zen::val_int(i));
+    static const char* const padAxes[] = {"AXIS_LEFT_X",  "AXIS_LEFT_Y",       "AXIS_RIGHT_X",
+                                          "AXIS_RIGHT_Y", "AXIS_TRIGGER_LEFT", "AXIS_TRIGGER_RIGHT"};
+    static_assert(sizeof(padAxes) / sizeof(padAxes[0]) == Input::PAD_AXES, "a name for every pad axis");
+    for (int i = 0; i < Input::PAD_AXES; ++i)
+        vm.def_global(padAxes[i], zen::val_int(i));
 
     auto component = vm.def_class("Component");
     component.method("is_active", &natComponentIsActive, 0);
@@ -4130,14 +5785,16 @@ void ZenRuntime::Impl::initialize()
     node.method("get_button", &natNodeGetButton, 0);
     node.method("get_checkbox", &natNodeGetCheckBox, 0);
     node.method("get_slider", &natNodeGetSlider, 0);
-    node.method("get_component", &natNodeGetComponent, 1);
-    node.method("add_component", &natNodeAddComponent, 1);
-    node.method("has_component", &natNodeHasComponent, 1);
-    node.method("remove_component", &natNodeRemoveComponent, 1);
+    node.generic_method("get_component", &natNodeGetComponent, 1, 0);
+    node.generic_method("get_components", &natNodeGetComponents, 1, 0);
+    node.generic_method("add_component", &natNodeAddComponent, 1, 0);
+    node.generic_method("has_component", &natNodeHasComponent, 1, 0);
+    node.generic_method("remove_component", &natNodeRemoveComponent, 1, 0);
     node.method("get_id", &natNodeGetId, 0);
     node.method("set_name", &natNodeSetName, 1);
     node.method("get_tag", &natNodeGetTag, 0);
     node.method("set_tag", &natNodeSetTag, 1);
+    node.method("call", &natNodeCall, -1);
     node.method("get_global_position", &natNodeGetGlobalPosition, 0);
     node.method("get_right", &natNodeGetRight, 0);
     node.method("get_up", &natNodeGetUp, 0);
@@ -4165,6 +5822,10 @@ void ZenRuntime::Impl::initialize()
     animation.method("stop", &natAnimationStop, 0);
     animation.method("is_playing", &natAnimationIsPlaying, 0);
     animation.method("current", &natAnimationCurrent, 0);
+    animation.method("get_frame", &natAnimationGetFrame, 0);
+    animation.method("point_count", &natAnimationPointCount, 0);
+    animation.method("get_point", &natAnimationGetPoint, 1);
+    animation.method("get_real_point", &natAnimationGetRealPoint, 1);
     animation.persistent(true).constructable(false);
     animationClass = animation.end();
 
@@ -4308,8 +5969,103 @@ void ZenRuntime::Impl::initialize()
     chainCollider.persistent(true).constructable(false);
     zen::ObjClass* chainColliderClass = chainCollider.end();
 
+    auto joint = vm.def_class("Joint");
+    joint.parent("Component");
+    joint.method("get_target_name", &natJointGetTargetName, 0);
+    joint.method("set_target_name", &natJointSetTargetName, 1);
+    joint.method("get_collide_connected", &natJointGetCollideConnected, 0);
+    joint.method("set_collide_connected", &natJointSetCollideConnected, 1);
+    joint.method("is_connected", &natJointIsConnected, 0);
+    joint.method("get_anchor_a", &natJointGetAnchorA, 0);
+    joint.method("get_anchor_b", &natJointGetAnchorB, 0);
+    joint.persistent(true).constructable(false);
+    zen::ObjClass* jointClass = joint.end();
+
+    auto distanceJoint = vm.def_class("DistanceJoint");
+    distanceJoint.parent("Joint");
+    distanceJoint.method("get_local_anchor_a", &natDistanceJointGetLocalAnchorA, 0);
+    distanceJoint.method("set_local_anchor_a", &natDistanceJointSetLocalAnchorA, 2);
+    distanceJoint.method("get_local_anchor_b", &natDistanceJointGetLocalAnchorB, 0);
+    distanceJoint.method("set_local_anchor_b", &natDistanceJointSetLocalAnchorB, 2);
+    distanceJoint.method("get_length", &natDistanceJointGetLength, 0);
+    distanceJoint.method("set_length", &natDistanceJointSetLength, 1);
+    distanceJoint.method("get_length_range", &natDistanceJointGetLengthRange, 0);
+    distanceJoint.method("set_length_range", &natDistanceJointSetLengthRange, 2);
+    distanceJoint.method("get_spring", &natDistanceJointGetSpring, 0);
+    distanceJoint.method("set_spring", &natDistanceJointSetSpring, 2);
+    distanceJoint.persistent(true).constructable(false);
+    zen::ObjClass* distanceJointClass = distanceJoint.end();
+
+    auto mouseJoint = vm.def_class("MouseJoint");
+    mouseJoint.parent("Joint");
+    mouseJoint.method("get_target", &natMouseJointGetTarget, 0);
+    mouseJoint.method("set_target", &natMouseJointSetTarget, 2);
+    mouseJoint.method("get_max_force", &natMouseJointGetMaxForce, 0);
+    mouseJoint.method("set_max_force", &natMouseJointSetMaxForce, 1);
+    mouseJoint.method("get_spring", &natMouseJointGetSpring, 0);
+    mouseJoint.method("set_spring", &natMouseJointSetSpring, 2);
+    mouseJoint.persistent(true).constructable(false);
+    zen::ObjClass* mouseJointClass = mouseJoint.end();
+
+    auto revoluteJoint = vm.def_class("RevoluteJoint");
+    revoluteJoint.parent("Joint");
+    revoluteJoint.method("get_local_anchor_a", &natRevoluteJointGetLocalAnchorA, 0);
+    revoluteJoint.method("set_local_anchor_a", &natRevoluteJointSetLocalAnchorA, 2);
+    revoluteJoint.method("get_local_anchor_b", &natRevoluteJointGetLocalAnchorB, 0);
+    revoluteJoint.method("set_local_anchor_b", &natRevoluteJointSetLocalAnchorB, 2);
+    revoluteJoint.method("get_reference_angle", &natRevoluteJointGetReferenceAngle, 0);
+    revoluteJoint.method("set_reference_angle", &natRevoluteJointSetReferenceAngle, 1);
+    revoluteJoint.method("get_motor", &natRevoluteJointGetMotor, 0);
+    revoluteJoint.method("set_motor", &natRevoluteJointSetMotor, 3);
+    revoluteJoint.method("get_limits", &natRevoluteJointGetLimits, 0);
+    revoluteJoint.method("set_limits", &natRevoluteJointSetLimits, 3);
+    revoluteJoint.persistent(true).constructable(false);
+    zen::ObjClass* revoluteJointClass = revoluteJoint.end();
+
+    auto wheelJoint = vm.def_class("WheelJoint");
+    wheelJoint.parent("Joint");
+    wheelJoint.method("get_local_anchor_a", &natWheelJointGetLocalAnchorA, 0);
+    wheelJoint.method("set_local_anchor_a", &natWheelJointSetLocalAnchorA, 2);
+    wheelJoint.method("get_local_anchor_b", &natWheelJointGetLocalAnchorB, 0);
+    wheelJoint.method("set_local_anchor_b", &natWheelJointSetLocalAnchorB, 2);
+    wheelJoint.method("get_local_axis_a", &natWheelJointGetLocalAxisA, 0);
+    wheelJoint.method("set_local_axis_a", &natWheelJointSetLocalAxisA, 2);
+    wheelJoint.method("get_motor", &natWheelJointGetMotor, 0);
+    wheelJoint.method("set_motor", &natWheelJointSetMotor, 3);
+    wheelJoint.method("get_spring", &natWheelJointGetSpring, 0);
+    wheelJoint.method("set_spring", &natWheelJointSetSpring, 2);
+    wheelJoint.persistent(true).constructable(false);
+    zen::ObjClass* wheelJointClass = wheelJoint.end();
+
+    auto gearJoint = vm.def_class("GearJoint");
+    gearJoint.parent("Joint");
+    gearJoint.method("get_joint_a", &natGearJointGetJointA, 0);
+    gearJoint.method("set_joint_a", &natGearJointSetJointA, -1);
+    gearJoint.method("get_joint_b", &natGearJointGetJointB, 0);
+    gearJoint.method("set_joint_b", &natGearJointSetJointB, -1);
+    gearJoint.method("get_ratio", &natGearJointGetRatio, 0);
+    gearJoint.method("set_ratio", &natGearJointSetRatio, 1);
+    gearJoint.persistent(true).constructable(false);
+    zen::ObjClass* gearJointClass = gearJoint.end();
+
+    auto motorJoint = vm.def_class("MotorJoint");
+    motorJoint.parent("Joint");
+    motorJoint.method("get_linear_offset", &natMotorJointGetLinearOffset, 0);
+    motorJoint.method("set_linear_offset", &natMotorJointSetLinearOffset, 2);
+    motorJoint.method("get_angular_offset", &natMotorJointGetAngularOffset, 0);
+    motorJoint.method("set_angular_offset", &natMotorJointSetAngularOffset, 1);
+    motorJoint.method("get_max_force", &natMotorJointGetMaxForce, 0);
+    motorJoint.method("set_max_force", &natMotorJointSetMaxForce, 1);
+    motorJoint.method("get_max_torque", &natMotorJointGetMaxTorque, 0);
+    motorJoint.method("set_max_torque", &natMotorJointSetMaxTorque, 1);
+    motorJoint.method("get_correction_factor", &natMotorJointGetCorrectionFactor, 0);
+    motorJoint.method("set_correction_factor", &natMotorJointSetCorrectionFactor, 1);
+    motorJoint.persistent(true).constructable(false);
+    zen::ObjClass* motorJointClass = motorJoint.end();
+
     (void)characterBodyClass;
     (void)colliderClass;
+    (void)jointClass;
 
     auto panel = vm.def_class("Panel");
     panel.parent("Component");
@@ -4416,6 +6172,7 @@ void ZenRuntime::Impl::initialize()
     line.method("set_width", &natLineSetWidth, 1);
     line.method("get_color", &natLineGetColor, 0);
     line.method("set_color", &natLineSetColor, -1);
+    line.method("set_texture", &natLineSetTexture, 1);
     line.persistent(true).constructable(false);
     zen::ObjClass* lineClass = line.end();
 
@@ -4463,6 +6220,40 @@ void ZenRuntime::Impl::initialize()
     motionTween.persistent(true).constructable(false);
     zen::ObjClass* motionTweenClass = motionTween.end();
 
+    auto pathMotion = vm.def_class("PathMotion");
+    pathMotion.parent("Component");
+    pathMotion.method("play", &natPathMotionPlay, -1);
+    pathMotion.method("stop", &natPathMotionStop, 0);
+    pathMotion.method("pause", &natPathMotionPause, -1);
+    pathMotion.method("is_playing", &natPathMotionIsPlaying, 0);
+    pathMotion.method("is_paused", &natPathMotionIsPaused, 0);
+    pathMotion.method("get_time", &natPathMotionGetTime, 0);
+    pathMotion.method("get_loop", &natPathMotionGetLoop, 0);
+    pathMotion.method("set_loop", &natPathMotionSetLoop, 1);
+    pathMotion.method("get_one_shot", &natPathMotionGetOneShot, 0);
+    pathMotion.method("set_one_shot", &natPathMotionSetOneShot, 1);
+    pathMotion.method("clear_keyframes", &natPathMotionClearKeyframes, 0);
+    pathMotion.method("keyframe_count", &natPathMotionKeyframeCount, 0);
+    pathMotion.method("add_keyframe", &natPathMotionAddKeyframe, -1);
+    pathMotion.persistent(true).constructable(false);
+    zen::ObjClass* pathMotionClass = pathMotion.end();
+
+    auto actionSequence = vm.def_class("ActionSequence");
+    actionSequence.parent("Component");
+    actionSequence.method("play", &natActionSequencePlay, -1);
+    actionSequence.method("stop", &natActionSequenceStop, 0);
+    actionSequence.method("pause", &natActionSequencePause, -1);
+    actionSequence.method("is_playing", &natActionSequenceIsPlaying, 0);
+    actionSequence.method("is_paused", &natActionSequenceIsPaused, 0);
+    actionSequence.method("current_step", &natActionSequenceCurrentStep, 0);
+    actionSequence.method("get_loop", &natActionSequenceGetLoop, 0);
+    actionSequence.method("set_loop", &natActionSequenceSetLoop, 1);
+    actionSequence.method("clear_steps", &natActionSequenceClearSteps, 0);
+    actionSequence.method("step_count", &natActionSequenceStepCount, 0);
+    actionSequence.method("add_step", &natActionSequenceAddStep, -1);
+    actionSequence.persistent(true).constructable(false);
+    zen::ObjClass* actionSequenceClass = actionSequence.end();
+
     auto motionStreak = vm.def_class("MotionStreak");
     motionStreak.parent("Component");
     motionStreak.method("reset", &natMotionStreakReset, 0);
@@ -4481,6 +6272,8 @@ void ZenRuntime::Impl::initialize()
     tileMap.parent("Component");
     tileMap.method("get_tile", &natTileMapGetTile, 2);
     tileMap.method("set_tile", &natTileMapSetTile, 3);
+    tileMap.method("set_terrain", &natTileMapSetTerrain, 3);
+    tileMap.method("get_terrain", &natTileMapGetTerrain, 2);
     tileMap.method("has_collision", &natTileMapHasCollision, 2);
     tileMap.method("set_collision", &natTileMapSetCollision, 3);
     tileMap.method("get_columns", &natTileMapGetColumns, 0);
@@ -4520,6 +6313,9 @@ void ZenRuntime::Impl::initialize()
     navigationAgent.parent("Component");
     navigationAgent.method("set_target", &natNavAgentSetTarget, 2);
     navigationAgent.method("get_target", &natNavAgentGetTarget, 0);
+    navigationAgent.method("get_follow_position", &natNavAgentFollowPosition, 0);
+    navigationAgent.method("set_follow_target", &natNavAgentSetFollowTarget, 1);
+    navigationAgent.method("clear_follow_target", &natNavAgentClearFollowTarget, 0);
     navigationAgent.method("repath", &natNavAgentRepath, 0);
     navigationAgent.method("clear_path", &natNavAgentClearPath, 0);
     navigationAgent.method("has_path", &natNavAgentHasPath, 0);
@@ -4532,8 +6328,37 @@ void ZenRuntime::Impl::initialize()
     navigationAgent.method("set_max_speed", &natNavAgentSetMaxSpeed, 1);
     navigationAgent.method("get_auto_move", &natNavAgentGetAutoMove, 0);
     navigationAgent.method("set_auto_move", &natNavAgentSetAutoMove, 1);
+    navigationAgent.method("get_orient_to_path", &natNavAgentGetOrientToPath, 0);
+    navigationAgent.method("set_orient_to_path", &natNavAgentSetOrientToPath, 1);
+    navigationAgent.method("get_rotation_lerp_speed", &natNavAgentGetRotationLerpSpeed, 0);
+    navigationAgent.method("set_rotation_lerp_speed", &natNavAgentSetRotationLerpSpeed, 1);
+    navigationAgent.method("get_rotation_offset", &natNavAgentGetRotationOffset, 0);
+    navigationAgent.method("set_rotation_offset", &natNavAgentSetRotationOffset, 1);
     navigationAgent.persistent(true).constructable(false);
     zen::ObjClass* navigationAgentClass = navigationAgent.end();
+
+    auto steering = vm.def_class("Steering");
+    steering.parent("Component");
+    steering.method("get_weight", &natSteeringGetWeight, 0);
+    steering.method("set_weight", &natSteeringSetWeight, 1);
+    steering.method("get_target", &natSteeringGetTarget, 0);
+    steering.method("set_target", &natSteeringSetTarget, 2);
+    steering.method("set_target_object", &natSteeringSetTargetObject, 1);
+    steering.method("clear_target_object", &natSteeringClearTargetObject, 0);
+    steering.method("seek", &natSteeringSeek, 3);
+    steering.method("flee", &natSteeringFlee, 3);
+    steering.method("arrive", &natSteeringArrive, 3);
+    steering.method("wander", &natSteeringWander, 2);
+    steering.method("separation", &natSteeringSeparation, 1);
+    steering.method("avoid", &natSteeringAvoid, 1);
+    steering.method("set_group", &natSteeringSetGroup, 1);
+    steering.method("set_mask", &natSteeringSetMask, 1);
+    steering.method("set_separation", &natSteeringSetSeparation, -1);
+    steering.method("set_avoidance", &natSteeringSetAvoidance, -1);
+    steering.method("set_wander", &natSteeringSetWander, 3);
+    steering.method("set_slow_radius", &natSteeringSetSlowRadius, 1);
+    steering.persistent(true).constructable(false);
+    zen::ObjClass* steeringClass = steering.end();
 
     auto skeleton = vm.def_class("Skeleton");
     skeleton.parent("Component");
@@ -4573,6 +6398,10 @@ void ZenRuntime::Impl::initialize()
         {"Collider2D", colliderClass}, {"BoxCollider2D", boxColliderClass},
         {"CircleCollider2D", circleColliderClass}, {"EdgeCollider2D", edgeColliderClass},
         {"PolygonCollider2D", polygonColliderClass}, {"ChainCollider2D", chainColliderClass},
+        {"Joint2D", jointClass}, {"DistanceJoint2D", distanceJointClass},
+        {"MouseJoint2D", mouseJointClass}, {"RevoluteJoint2D", revoluteJointClass},
+        {"WheelJoint2D", wheelJointClass}, {"GearJoint2D", gearJointClass},
+        {"MotorJoint2D", motorJointClass},
         {"TileMapComponent", tileMapClass}, {"NinePatchComponent", ninePatchClass},
         {"LightOccluder2D", occluderClass},
         {"UiPanel", panelClass}, {"UiLabel", labelClass},
@@ -4580,6 +6409,8 @@ void ZenRuntime::Impl::initialize()
         {"NavigationRegion2D", navigationRegionClass}, {"NavigationAgent2D", navigationAgentClass},
         {"MotionTween2D", motionTweenClass}, {"MotionStreak2D", motionStreakClass},
         {"Skeleton2D", skeletonClass}, {"Bone2D", boneClass},
+        {"Steering2D", steeringClass},
+        {"PathMotion2D", pathMotionClass}, {"ActionSequence2D", actionSequenceClass},
     };
     (void)light2DClass;
     for (const Alias& alias : aliases)
@@ -4608,6 +6439,10 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("user_data_read_text", &natUserDataReadText, -1);
     vm.def_native("user_data_write_text", &natUserDataWriteText, 2);
     vm.def_native("emit", &natEmit, -1);
+    vm.def_native("particle_explode", &natParticleExplode, -1);
+    vm.def_native("particle_emit", &natParticleEmit, -1);
+    vm.def_native("particle_count", &natParticleCount, 0);
+    vm.def_native("particle_clear", &natParticleClear, 0);
 
     vm.def_native("key_down", &natKeyDown, 1);
     vm.def_native("key_pressed", &natKeyPressed, 1);
@@ -4624,11 +6459,25 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("action_down", &natActionDown, 1);
     vm.def_native("action_pressed", &natActionPressed, 1);
     vm.def_native("action_released", &natActionReleased, 1);
+    vm.def_native("action_strength", &natActionStrength, 1);
+    vm.def_native("collision_layer", &natCollisionLayer, 1);
+    vm.def_native("collision_layer_name", &natCollisionLayerName, 1);
+    vm.def_native("action_bind", &natActionBind, 2);
+    vm.def_native("action_bind_button", &natActionBindButton, 2);
+    vm.def_native("action_bind_axis", &natActionBindAxis, 3);
+    vm.def_native("action_clear", &natActionClear, 1);
+    vm.def_native("gamepad_connected", &natGamepadConnected, -1);
+    vm.def_native("gamepad_name", &natGamepadName, -1);
+    vm.def_native("gamepad_down", &natGamepadDown, -1);
+    vm.def_native("gamepad_pressed", &natGamepadPressed, -1);
+    vm.def_native("gamepad_released", &natGamepadReleased, -1);
+    vm.def_native("gamepad_axis", &natGamepadAxis, -1);
+    vm.def_native("gamepad_rumble", &natGamepadRumble, -1);
     vm.def_native("fade_in", &natFadeIn, 1);
     vm.def_native("fade_out", &natFadeOut, 1);
     vm.def_native("is_fading", &natIsFading, 0);
     vm.def_native("fade_progress", &natFadeProgress, 0);
-    vm.def_native("load_scene", &natLoadScene, 1);
+    vm.def_native("load_scene", &natLoadScene, -1);
     vm.def_native("audio_load", &natAudioLoad, 1);
     vm.def_native("audio_load_music", &natAudioLoadMusic, 1);
     vm.def_native("audio_play", &natAudioPlay, -1);
@@ -4667,6 +6516,7 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("world_view_rect", &natWorldViewRect, 0);
 
     vm.def_native("set_draw_color", &natSetDrawColor, -1);
+    vm.def_native("set_draw_z", &natSetDrawZ, 1);
     vm.def_native("draw_line", &natDrawLine, -1);
     vm.def_native("draw_rect", &natDrawRect, -1);
     vm.def_native("draw_circle", &natDrawCircle, -1);
@@ -4679,26 +6529,85 @@ void ZenRuntime::Impl::initialize()
     vm.def_native("get_active_camera", &natGetActiveCamera, 0);
     vm.def_native("set_gravity", &natSetGravity, 2);
     vm.def_native("get_gravity", &natGetGravity, 0);
+    vm.def_native("nav_path", &natNavPath, 4);
+    vm.def_native("nav_point_free", &natNavPointFree, 2);
+
+    struct AStarEnumConstant
+    {
+        const char* name;
+        int value;
+    };
+    static const AStarEnumConstant astarEnumConstants[] = {
+        {"ASTAR_HEURISTIC_EUCLIDEAN", (int)AStarGrid2D::Heuristic::Euclidean},
+        {"ASTAR_HEURISTIC_MANHATTAN", (int)AStarGrid2D::Heuristic::Manhattan},
+        {"ASTAR_HEURISTIC_OCTILE", (int)AStarGrid2D::Heuristic::Octile},
+        {"ASTAR_HEURISTIC_CHEBYSHEV", (int)AStarGrid2D::Heuristic::Chebyshev},
+        {"ASTAR_DIAGONAL_ALWAYS", (int)AStarGrid2D::DiagonalMode::Always},
+        {"ASTAR_DIAGONAL_NEVER", (int)AStarGrid2D::DiagonalMode::Never},
+        {"ASTAR_DIAGONAL_AT_LEAST_ONE_WALKABLE", (int)AStarGrid2D::DiagonalMode::AtLeastOneWalkable},
+        {"ASTAR_DIAGONAL_ONLY_IF_NO_OBSTACLES", (int)AStarGrid2D::DiagonalMode::OnlyIfNoObstacles},
+    };
+    for (const AStarEnumConstant& entry : astarEnumConstants)
+        vm.def_global(entry.name, zen::val_int(entry.value));
+
+    auto astarGrid = vm.def_class("AStarGrid");
+    astarGrid.ctor(&natAStarGridCtor);
+    astarGrid.dtor(&natAStarGridDtor);
+    astarGrid.method("set_size", &natAStarGridSetSize, 2);
+    astarGrid.method("set_cell_size", &natAStarGridSetCellSize, 2);
+    astarGrid.method("set_offset", &natAStarGridSetOffset, 2);
+    astarGrid.method("set_heuristic", &natAStarGridSetHeuristic, 1);
+    astarGrid.method("set_diagonal_mode", &natAStarGridSetDiagonalMode, 1);
+    astarGrid.method("clear", &natAStarGridClear, 0);
+    astarGrid.method("set_solid", &natAStarGridSetSolid, -1);
+    astarGrid.method("is_solid", &natAStarGridIsSolid, 2);
+    astarGrid.method("fill_solid_region", &natAStarGridFillSolidRegion, -1);
+    astarGrid.method("set_weight_scale", &natAStarGridSetWeightScale, 3);
+    astarGrid.method("get_point_position", &natAStarGridGetPointPosition, 2);
+    astarGrid.method("get_point_path", &natAStarGridGetPointPath, -1);
+    astarGrid.end();
+
+    auto astarGraph = vm.def_class("AStarGraph");
+    astarGraph.ctor(&natAStarGraphCtor);
+    astarGraph.dtor(&natAStarGraphDtor);
+    astarGraph.method("add_point", &natAStarGraphAddPoint, -1);
+    astarGraph.method("remove_point", &natAStarGraphRemovePoint, 1);
+    astarGraph.method("has_point", &natAStarGraphHasPoint, 1);
+    astarGraph.method("connect_points", &natAStarGraphConnectPoints, -1);
+    astarGraph.method("disconnect_points", &natAStarGraphDisconnectPoints, -1);
+    astarGraph.method("set_point_disabled", &natAStarGraphSetPointDisabled, -1);
+    astarGraph.method("get_closest_point", &natAStarGraphGetClosestPoint, -1);
+    astarGraph.method("get_point_path", &natAStarGraphGetPointPath, -1);
+    astarGraph.method("clear", &natAStarGraphClear, 0);
+    astarGraph.method("get_point_count", &natAStarGraphGetPointCount, 0);
+    astarGraph.end();
 }
 
 ZenScriptComponent::ZenScriptComponent()
-    : ScriptComponent(ComponentEventUpdate | ComponentEventRender), mState(new State())
+    : ScriptComponent(ComponentEventUpdate | ComponentEventRender, ComponentClass::ZenScript), mState(new State())
 {
-    ZenRuntime::instance().impl().liveInstances.push_back(&mState->instance);
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+    mState->liveIndex = impl.liveInstances.size();
+    ZenRuntime::Impl::LiveInstance live;
+    live.value = &mState->instance;
+    live.index = &mState->liveIndex;
+    impl.liveInstances.push_back(live);
 }
 
 ZenScriptComponent::~ZenScriptComponent()
 {
     destroyInstance();
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
-    for (size_t i = 0; i < impl.liveInstances.size(); ++i)
+    // Swap-and-pop by the stored index: the entry moved into this slot has to
+    // learn its new home, which is why the list holds the states and not just
+    // the values.
+    const std::size_t index = mState->liveIndex;
+    if (index < impl.liveInstances.size() && impl.liveInstances[index].value == &mState->instance)
     {
-        if (impl.liveInstances[i] == &mState->instance)
-        {
-            impl.liveInstances[i] = impl.liveInstances.back();
-            impl.liveInstances.pop_back();
-            break;
-        }
+        impl.liveInstances[index] = impl.liveInstances.back();
+        impl.liveInstances.pop_back();
+        if (index < impl.liveInstances.size())
+            *impl.liveInstances[index].index = index;
     }
     delete mState;
 }
@@ -4942,9 +6851,126 @@ void routeCollision(const CollisionInfo& info, void*)
 }
 } // namespace
 
-void RouteZenScriptCollisions(PhysicsWorld2D& world)
+void RouteZenScriptCollisions(Scene& scene)
 {
-    world.setCollisionCallback(&routeCollision, nullptr);
+    scene.setCollisionCallback(&routeCollision, nullptr);
+}
+
+bool ZenScriptComponent::callAnimationEvent(const char* name)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance() || !name)
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotAnimationEvent < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[1] = {zen::val_obj((zen::Obj*)impl.vm.make_string(name))};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotAnimationEvent, args, 1);
+    return !impl.vm.had_error();
+}
+
+bool ZenScriptComponent::callAnimationFinished(const char* clip)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance() || !clip)
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotAnimationFinished < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[1] = {zen::val_obj((zen::Obj*)impl.vm.make_string(clip))};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotAnimationFinished, args, 1);
+    return !impl.vm.had_error();
+}
+
+namespace
+{
+void routeAnimationEvent(GameObject* object, const char* clip, const char* event, bool finished, void*)
+{
+    if (!gZenScriptsEnabled || !object)
+        return;
+    const size_t count = object->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+    {
+        ZenScriptComponent* script = object->getComponentAt<ZenScriptComponent>(i);
+        if (!script)
+            continue;
+        if (finished)
+            script->callAnimationFinished(clip);
+        else
+            script->callAnimationEvent(event);
+    }
+}
+} // namespace
+
+void RouteZenScriptAnimationEvents(Scene& scene)
+{
+    scene.setAnimationEventCallback(&routeAnimationEvent, nullptr);
+}
+
+namespace
+{
+void routeActionEvent(GameObject* object, const char* event, void*)
+{
+    if (!gZenScriptsEnabled || !object || !event)
+        return;
+    const size_t count = object->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+        if (ZenScriptComponent* script = object->getComponentAt<ZenScriptComponent>(i))
+            if (script->active())
+                script->callEvent(event);
+}
+} // namespace
+
+void RouteZenScriptActionEvents(Scene& scene)
+{
+    scene.setActionEventCallback(&routeActionEvent, nullptr);
+}
+
+bool ZenScriptComponent::callParticleHit(float x, float y, float normalX, float normalY, double userTag)
+{
+    ZenCallbackScope callbackScope(owner());
+    if ((!mState->loaded && !mState->pending) || !ensureInstance())
+        return false;
+
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (!scriptClass || scriptClass->slotParticleHit < 0)
+        return false;
+
+    ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
+
+    zen::Value args[5] = {zen::val_float(x), zen::val_float(y), zen::val_float(normalX),
+                          zen::val_float(normalY), zen::val_float(userTag)};
+    RunningScript running;
+    impl.vm.invoke(mState->instance, scriptClass->slotParticleHit, args, 5);
+    return !impl.vm.had_error();
+}
+
+namespace
+{
+void routeParticleHit(const ParticleHit2D& hit, void*)
+{
+    if (!gZenScriptsEnabled || !hit.other)
+        return;
+    const size_t count = hit.other->componentCount<ZenScriptComponent>();
+    for (size_t i = 0; i < count; ++i)
+        if (ZenScriptComponent* script = hit.other->getComponentAt<ZenScriptComponent>(i))
+            script->callParticleHit(hit.point.x, hit.point.y, hit.normal.x, hit.normal.y, (double)hit.userTag);
+}
+} // namespace
+
+void RouteZenScriptParticleHits(Scene& scene)
+{
+    scene.particles().setHitCallback(&routeParticleHit, nullptr);
 }
 
 bool ZenScriptComponent::callFunction(const char* name, double value)
@@ -5187,21 +7213,26 @@ void ZenScriptComponent::onUpdate(float deltaTime)
 
     ZenScriptClass* scriptClass = mState->scriptClass;
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
-    if (!mState->started)
-    {
-        mState->started = true;
-        if (scriptClass->slotStart >= 0)
-        {
-            RunningScript running(ScriptProfilePhase::Update);
-            impl.vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
-        }
-    }
+    startIfNeeded();
 
     if (scriptClass->slotUpdate >= 0)
     {
         zen::Value dt = zen::val_float(deltaTime);
         RunningScript running(ScriptProfilePhase::Update);
         impl.vm.invoke(mState->instance, scriptClass->slotUpdate, &dt, 1);
+    }
+}
+
+void ZenScriptComponent::startIfNeeded()
+{
+    if (mState->started)
+        return;
+    mState->started = true;
+    ZenScriptClass* scriptClass = mState->scriptClass;
+    if (scriptClass->slotStart >= 0)
+    {
+        RunningScript running(ScriptProfilePhase::Update);
+        ZenRuntime::instance().impl().vm.invoke(mState->instance, scriptClass->slotStart, nullptr, 0);
     }
 }
 
@@ -5212,6 +7243,7 @@ void ZenScriptComponent::onRender(RenderQueue& queue)
         return;
     if (!ensureInstance())
         return;
+    startIfNeeded();
 
     ZenScriptClass* scriptClass = mState->scriptClass;
     ZenRuntime::Impl& impl = ZenRuntime::instance().impl();
@@ -5474,11 +7506,20 @@ void SetZenScriptVirtualPad(VirtualPad* pad)
 
 void SetZenScriptGameViewport(float x, float y, float width, float height)
 {
+    SetZenScriptGameViewport(x, y, width, height, width, height);
+}
+
+void SetZenScriptGameViewport(float x, float y, float outputWidth, float outputHeight,
+                              float virtualWidth, float virtualHeight)
+{
     gZenGameViewport.x = x;
     gZenGameViewport.y = y;
-    gZenGameViewport.width = width > 0.0f ? width : 0.0f;
-    gZenGameViewport.height = height > 0.0f ? height : 0.0f;
-    gZenGameViewport.valid = gZenGameViewport.width > 0.0f && gZenGameViewport.height > 0.0f;
+    gZenGameViewport.outputWidth = outputWidth > 0.0f ? outputWidth : 0.0f;
+    gZenGameViewport.outputHeight = outputHeight > 0.0f ? outputHeight : 0.0f;
+    gZenGameViewport.width = virtualWidth > 0.0f ? virtualWidth : 0.0f;
+    gZenGameViewport.height = virtualHeight > 0.0f ? virtualHeight : 0.0f;
+    gZenGameViewport.valid = gZenGameViewport.outputWidth > 0.0f && gZenGameViewport.outputHeight > 0.0f &&
+                             gZenGameViewport.width > 0.0f && gZenGameViewport.height > 0.0f;
 }
 
 void SetZenScriptGameCamera(const Camera2D* camera)
@@ -5584,7 +7625,7 @@ void readZenScript(Component& component, const ct::Json& data, Assets*)
 
 bool matchZenScript(const Component& component)
 {
-    return dynamic_cast<const ZenScriptComponent*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::ZenScript;
 }
 } // namespace
 

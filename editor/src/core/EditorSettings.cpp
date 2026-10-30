@@ -65,6 +65,10 @@ bool EditorSettings::load(const char* path)
     viewportLivePreview = root["viewportLivePreview"].as_bool(true);
     showColliders = root["showColliders"].as_bool(true);
     showPhysicsDebug = root["showPhysicsDebug"].as_bool(false);
+    showNavigationDebug = root["showNavigationDebug"].as_bool(false);
+    showObjectNames = root["showObjectNames"].as_bool(true);
+    showObjectMarkers = root["showObjectMarkers"].as_bool(true);
+    showParentLinks = root["showParentLinks"].as_bool(true);
     return true;
 }
 
@@ -89,6 +93,10 @@ bool EditorSettings::save(const char* path) const
     root.set("viewportLivePreview", viewportLivePreview);
     root.set("showColliders", showColliders);
     root.set("showPhysicsDebug", showPhysicsDebug);
+    root.set("showNavigationDebug", showNavigationDebug);
+    root.set("showObjectNames", showObjectNames);
+    root.set("showObjectMarkers", showObjectMarkers);
+    root.set("showParentLinks", showParentLinks);
 
     return FileSystem::Instance().SaveTextFile(path, root.dump(2));
 }

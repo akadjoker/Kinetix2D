@@ -1,22 +1,65 @@
 #include "k2d/Scene.h"
 
 #include "k2d/CameraComponent.h"
+#include "k2d/CanvasRenderer.h"
+#include "k2d/Collider2D.h"
 #include "k2d/Input.h"
+#include "k2d/Joint2D.h"
 #include "k2d/Profiler.h"
+#include "k2d/RigidBody2D.h"
+#include "k2d/Steering2D.h"
 #include "k2d/UiControls.h"
 
 namespace k2d
 {
 
-    Scene::Scene() : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false), mHasDisposed(false)
+    Scene::Scene()
+        : mRoot("root"), mNextId(1), mObjectCount(0), mTopologyVersion(0), mComponentListsDirty(false),
+          mHasDisposed(false), mRenderCamera(nullptr), mRenderViewportWidth(0.0f), mRenderViewportHeight(0.0f),
+          mCulling(false), mRenderCulled(0),
+          mGravity(0.0f, 980.0f), mUseTree(true), mStepStamp(0), mNextBodyId(1), mFrameStamp(0),
+          // Not 0: equal stamps mean "already synced this frame", so matching
+          // the initial frame stamp would skip the very first sync and leave
+          // every query looking at an empty tree.
+          mBroadphaseStamp(0xFFFFFFFFu),
+          mVelocityIterations(8), mFixedStep(1.0f / 60.0f), mAccumulator(0.0f), mCollisionCallback(nullptr),
+          mCollisionCallbackUser(nullptr), mAnimationEventCallback(nullptr), mAnimationEventCallbackUser(nullptr),
+          mActionEventCallback(nullptr), mActionEventCallbackUser(nullptr),
+          mSimulationEnabled(false), mHasDirtyBodies(false), mParticles(*this)
     {
         mRoot.mScene = this;
     }
 
     Scene::~Scene()
     {
+        // Bodies must go before the objects their user data points at.
+        clearBodies();
         mRoot.deleteChildrenRaw();
         mRoot.mScene = nullptr;
+    }
+
+    void Scene::setAnimationEventCallback(AnimationEventCallback callback, void *user)
+    {
+        mAnimationEventCallback = callback;
+        mAnimationEventCallbackUser = user;
+    }
+
+    void Scene::dispatchAnimationEvent(GameObject *object, const char *clip, const char *event, bool finished)
+    {
+        if (mAnimationEventCallback)
+            mAnimationEventCallback(object, clip, event, finished, mAnimationEventCallbackUser);
+    }
+
+    void Scene::setActionEventCallback(ActionEventCallback callback, void *user)
+    {
+        mActionEventCallback = callback;
+        mActionEventCallbackUser = user;
+    }
+
+    void Scene::dispatchActionEvent(GameObject *object, const char *event)
+    {
+        if (mActionEventCallback)
+            mActionEventCallback(object, event, mActionEventCallbackUser);
     }
 
     GameObject &Scene::root()
@@ -77,6 +120,7 @@ namespace k2d
             oldParent->addChildRaw(object);
             return false;
         }
+        markTopologyChanged();
         return true;
     }
 
@@ -112,66 +156,130 @@ namespace k2d
         return const_cast<Scene *>(this)->activeCamera();
     }
 
+    void Scene::makeCameraActive(CameraComponent &camera)
+    {
+        int highest = camera.renderPriority();
+        for (std::size_t i = 0; i < mCameras.size(); ++i)
+        {
+            CameraComponent *other = mCameras[i];
+            if (other && other != &camera && other->renderPriority() > highest)
+                highest = other->renderPriority();
+        }
+        camera.setRenderPriority(highest + 1);
+    }
+
     void Scene::update(float deltaTime)
     {
-        ProfileScope profileScope("scene.update");
-        // Capture the counts: components added from an update begin on the next
-        // frame. Removed components become null entries until compaction, so a
-        // callback can never invalidate the list being iterated.
-        const std::size_t count = mAllComponents.size();
-        for (std::size_t i = 0; i < count; ++i)
         {
-            Component *component = mAllComponents[i];
-            GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveInHierarchy())
-                object->updateComponent(component, deltaTime);
-        }
+            ProfileScope profileScope("scene.update");
+            ++mFrameStamp;
+            // Capture the counts: components added from an update begin on the next
+            // frame. Removed components become null entries until compaction, so a
+            // callback can never invalidate the list being iterated.
+            const std::size_t count = mAllComponents.size();
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                Component *component = mAllComponents[i];
+                GameObject *object = component ? component->owner() : nullptr;
+                if (object && !object->disposed() && object->isActiveInHierarchy())
+                    object->updateComponent(component, deltaTime);
+            }
 
-        const std::size_t lateCount = mLateUpdateComponents.size();
-        for (std::size_t i = 0; i < lateCount; ++i)
-        {
-            Component *component = mLateUpdateComponents[i];
-            GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveInHierarchy())
-                object->lateUpdateComponent(component, deltaTime);
+            const std::size_t lateCount = mLateUpdateComponents.size();
+            for (std::size_t i = 0; i < lateCount; ++i)
+            {
+                Component *component = mLateUpdateComponents[i];
+                GameObject *object = component ? component->owner() : nullptr;
+                if (object && !object->disposed() && object->isActiveInHierarchy())
+                    object->lateUpdateComponent(component, deltaTime);
+            }
+            flushDisposed();
+            compactComponentLists();
+            updateUi();
         }
-        flushDisposed();
-        compactComponentLists();
-        updateUi();
+        stepBodies(deltaTime);
+    }
+
+    void Scene::setRenderCamera(const Camera2D *camera, float viewportWidth, float viewportHeight)
+    {
+        mRenderCamera = camera;
+        mRenderViewportWidth = viewportWidth;
+        mRenderViewportHeight = viewportHeight;
     }
 
     void Scene::render(CanvasRenderer &canvas)
     {
+        canvas.SetCanvasModulate(mAmbient.r, mAmbient.g, mAmbient.b);
+        mCulling = mRenderCamera && mRenderViewportWidth > 0.0f && mRenderViewportHeight > 0.0f;
+        if (mCulling)
+        {
+            mRenderCamera->VisibleRect(mCullMin.x, mCullMin.y, mCullMax.x, mCullMax.y, mRenderViewportWidth,
+                                       mRenderViewportHeight);
+            canvas.SetCullRect(mCullMin.x, mCullMin.y, mCullMax.x, mCullMax.y);
+        }
         buildRenderQueue().Flush(canvas);
+        mCulling = false;
+        canvas.ClearCullRect();
+        canvas.SetCanvasModulate(1.0f, 1.0f, 1.0f);
+    }
+
+    bool Scene::culled(const GameObject &object, const Component &component) const
+    {
+        Math::Vec2 min, max;
+        if (!mCulling || !component.renderBounds(min, max))
+            return false;
+        const Matrix2D &m = object.globalTransform();
+        const float hx = (max.x - min.x) * 0.5f;
+        const float hy = (max.y - min.y) * 0.5f;
+        const float lx = min.x + hx;
+        const float ly = min.y + hy;
+        const float cx = m.a * lx + m.c * ly + m.tx;
+        const float cy = m.b * lx + m.d * ly + m.ty;
+        const float ex = std::fabs(m.a) * hx + std::fabs(m.c) * hy;
+        const float ey = std::fabs(m.b) * hx + std::fabs(m.d) * hy;
+        return cx + ex < mCullMin.x || cx - ex > mCullMax.x || cy + ey < mCullMin.y || cy - ey > mCullMax.y;
     }
 
     RenderQueue &Scene::buildRenderQueue()
     {
         ProfileScope profileScope("scene.render_queue");
         mRenderQueue.Clear();
+        mRenderCulled = 0;
         const std::size_t count = mRenderComponents.size();
         for (std::size_t i = 0; i < count; ++i)
         {
             Component *component = mRenderComponents[i];
             GameObject *object = component ? component->owner() : nullptr;
-            if (object && !object->disposed() && object->isActiveAndVisibleInHierarchy())
+            if (!object || object->disposed() || !object->isActiveAndVisibleInHierarchy())
+                continue;
+            if (culled(*object, *component))
+                ++mRenderCulled;
+            else
                 object->renderComponent(component, mRenderQueue);
         }
+        mParticles.submit(mRenderQueue);
         compactComponentLists();
+        Profiler::Get().addCounter("items", mRenderQueue.ItemCount());
+        Profiler::Get().addCounter("culled", mRenderCulled);
         return mRenderQueue;
     }
 
     void Scene::clear()
     {
+        clearBodies();
         mRoot.deleteChildrenRaw();
         mAllComponents.clear();
         mLateUpdateComponents.clear();
         mRenderComponents.clear();
         mCameras.clear();
         mUiControls.clear();
+        mSteerings.clear();
+        mNeighbourBodies.clear();
+        mNeighbours.clear();
         mObjectCount = 0;
         mNextId = 1;
         mComponentListsDirty = false;
+        mParticles.clear();
     }
 
     void Scene::registerBranch(GameObject *object)
@@ -222,6 +330,19 @@ namespace k2d
             mCameras.push_back(static_cast<CameraComponent *>(component));
         if (UiControl *control = component->uiControl())
             mUiControls.push_back(control);
+        if (component->mType == ComponentType::RigidBody && simulationEnabled())
+            attachBody(*static_cast<RigidBody2D *>(component));
+        if (component->mType == ComponentType::Collider && simulationEnabled())
+        {
+            GameObject *object = component->owner();
+            RigidBody2D *rigidBody = object ? object->getComponent<RigidBody2D>() : nullptr;
+            if (rigidBody && rigidBody->inWorld())
+                markBodyDirty(*rigidBody);
+        }
+        if (component->mType == ComponentType::Joint)
+            mJoints.push_back(static_cast<Joint2D *>(component));
+        if (component->mType == ComponentType::Steering)
+            mSteerings.push_back(static_cast<Steering2D *>(component));
     }
 
     void Scene::unregisterComponent(Component *component)
@@ -251,6 +372,38 @@ namespace k2d
                     mUiControls[i] = nullptr;
                     break;
                 }
+        if (component->mType == ComponentType::Collider)
+        {
+            GameObject *object = component->owner();
+            RigidBody2D *rigidBody = object ? object->getComponent<RigidBody2D>() : nullptr;
+            if (rigidBody && rigidBody->inWorld())
+                markBodyDirty(*rigidBody);
+        }
+        if (component->mType == ComponentType::Steering)
+            for (std::size_t i = 0; i < mSteerings.size(); ++i)
+                if (mSteerings[i] == component)
+                {
+                    mSteerings[i] = nullptr;
+                    break;
+                }
+        if (component->mType == ComponentType::RigidBody)
+            detachBody(*static_cast<RigidBody2D *>(component));
+        if (component->mType == ComponentType::Joint)
+        {
+            Joint2D *joint = static_cast<Joint2D *>(component);
+            for (std::size_t i = 0; i < mJoints.size(); ++i)
+            {
+                if (mJoints[i] == joint)
+                {
+                    mJoints[i] = mJoints.back();
+                    mJoints.pop_back();
+                    break;
+                }
+            }
+            for (std::size_t i = 0; i < mJoints.size(); ++i)
+                if (mJoints[i]->dependsOnJoint(joint))
+                    mJoints[i]->invalidate();
+        }
     }
 
     void Scene::compactComponentLists()
@@ -289,6 +442,11 @@ namespace k2d
             if (mUiControls[uiRead])
                 mUiControls[uiWrite++] = mUiControls[uiRead];
         mUiControls.resize(uiWrite);
+        std::size_t steeringWrite = 0;
+        for (std::size_t steeringRead = 0; steeringRead < mSteerings.size(); ++steeringRead)
+            if (mSteerings[steeringRead])
+                mSteerings[steeringWrite++] = mSteerings[steeringRead];
+        mSteerings.resize(steeringWrite);
         mComponentListsDirty = false;
     }
 
@@ -308,9 +466,15 @@ namespace k2d
         bool canHit = false;
         if (input)
         {
-            x = input->MouseX() - viewport.x;
-            y = input->MouseY() - viewport.y;
-            canHit = x >= 0.0f && y >= 0.0f && x < viewport.width && y < viewport.height;
+            const float outputX = input->MouseX() - viewport.x;
+            const float outputY = input->MouseY() - viewport.y;
+            canHit = outputX >= 0.0f && outputY >= 0.0f && outputX < viewport.outputWidth &&
+                     outputY < viewport.outputHeight;
+            if (canHit)
+            {
+                x = outputX * viewport.width / viewport.outputWidth;
+                y = outputY * viewport.height / viewport.outputHeight;
+            }
         }
 
         UiControl *hit = nullptr;

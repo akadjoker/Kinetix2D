@@ -43,7 +43,8 @@ field set by the engine before ``__init__`` runs.
 
 .. py:method:: on_event(name, value)
 
-   Called for every broadcast event. ``value`` is a number, 0 by default.
+   Called for every broadcast event, and for an ``Event`` step emitted by an
+   Action Sequence on the same node. ``value`` is a number, 0 by default.
 
 .. py:method:: on_collision(other, began)
 
@@ -226,6 +227,11 @@ The ``Node`` class
 
    Returns the component of the matching type on the object, or ``None``.
 
+.. py:method:: Node.get_components(type)
+
+   Returns a list of every component matching ``type``. Use ``len(...)`` for
+   the number of components.
+
 The ``Sprite`` class
 --------------------
 
@@ -306,7 +312,7 @@ offset.
    Returns True while a shake is active.
 
 The ``RigidBody`` class
-----------------------
+-----------------------
 
 ``RigidBody`` wraps a RigidBody2D. Impulses divide by mass, so the numbers are not
 velocities: a 40x40 box at density 1 has mass 1600 and
@@ -467,7 +473,78 @@ Input
 
 .. py:function:: action_released(name)
 
-   Query a remappable input action by name.
+   Query a remappable input action by name. An action is held while any of
+   its keys, pad buttons or pad axes is; pressed the frame the first comes on,
+   released the frame the last goes off. The runner and the editor's Play
+   start with ``move_forward``, ``move_backward``, ``turn_left``,
+   ``turn_right`` (WASD, the arrows, the D-pad and the left stick),
+   ``primary`` (Space, pad A) and ``secondary`` (left Ctrl, pad B).
+
+.. py:function:: action_strength(name)
+
+   0 to 1: 1 while a key or button of the action is held, how far a stick is
+   pushed its way otherwise. For analog movement:
+
+   .. code-block:: python
+
+      dx = action_strength("turn_right") - action_strength("turn_left")
+
+.. py:function:: action_bind(name, key)
+
+.. py:function:: action_bind_button(name, button)
+
+.. py:function:: action_bind_axis(name, axis, direction)
+
+   Add a key (``KEY_*``), a pad button (``PAD_*``) or a pad axis pushed one
+   way (``direction`` 1 or -1, past half its travel) to an action.
+
+.. py:function:: action_clear(name)
+
+   Take every binding off an action.
+
+.. py:function:: collision_layer(name)
+
+   The bit of the project's collision layer with that name, ready for a
+   category or a mask (``collision_layer("player") | collision_layer("enemy")``);
+   0, with a warning, for a name the project does not have.
+
+.. py:function:: collision_layer_name(number)
+
+   The name of layer 1 to 16, empty when it has none.
+
+Gamepads
+~~~~~~~~
+
+Up to four pads in the standard layout. ``pad`` is the slot, 0 by default.
+The actions above listen to every pad.
+
+.. py:function:: gamepad_connected(pad=0)
+
+.. py:function:: gamepad_name(pad=0)
+
+   The pad's name, or None.
+
+.. py:function:: gamepad_down(button, pad=0)
+
+.. py:function:: gamepad_pressed(button, pad=0)
+
+.. py:function:: gamepad_released(button, pad=0)
+
+   ``PAD_A``, ``PAD_B``, ``PAD_X``, ``PAD_Y``, ``PAD_BACK``, ``PAD_GUIDE``,
+   ``PAD_START``, ``PAD_LEFT_STICK``, ``PAD_RIGHT_STICK``,
+   ``PAD_LEFT_SHOULDER``, ``PAD_RIGHT_SHOULDER``, ``PAD_UP``, ``PAD_DOWN``,
+   ``PAD_LEFT``, ``PAD_RIGHT``.
+
+.. py:function:: gamepad_axis(axis, pad=0)
+
+   ``AXIS_LEFT_X``, ``AXIS_LEFT_Y``, ``AXIS_RIGHT_X``, ``AXIS_RIGHT_Y``
+   (-1 to 1, down is positive) and ``AXIS_TRIGGER_LEFT``,
+   ``AXIS_TRIGGER_RIGHT`` (0 to 1), past a dead zone of 0.15.
+
+.. py:function:: gamepad_rumble(strong, weak, seconds=0.2, pad=0)
+
+   Shakes the pad; False where the pad or the system cannot. Gamepads work
+   on desktop; the web runner does not read them yet.
 
 .. py:function:: mouse_down(button)
 
@@ -520,11 +597,32 @@ Viewport and camera
 Scene and transitions
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. py:function:: load_scene(path)
+.. py:function:: load_scene(path, transition="", seconds=0.5)
 
-   Schedules a scene replacement after the current frame. The scene is loaded
-   through the normal asset paths and its physics world is rebuilt before the
-   next update.
+   Schedules a scene replacement: the new scene comes in at the start of the
+   next frame. The scene is loaded through the normal asset paths and its
+   physics world is rebuilt before its first update.
+
+   With a ``transition`` the last frame of the old scene is kept as an image
+   and animated away over the new one for ``seconds``, while the new scene
+   already runs underneath:
+
+   ``fade``
+      the old frame fades out;
+   ``slide_left``, ``slide_right``, ``slide_up``, ``slide_down``
+      it slides off the screen that way;
+   ``zoom_in``
+      it grows and fades;
+   ``zoom_out``
+      it shrinks to the centre;
+   ``wipe_left``, ``wipe_right``
+      it is wiped away in that direction.
+
+   An unknown name logs a warning and the scene changes at once.
+
+   .. code-block:: python
+
+      load_scene("scenes/level2.k2dscene", "slide_left", 0.6)
 
 .. py:function:: fade_in(seconds)
 

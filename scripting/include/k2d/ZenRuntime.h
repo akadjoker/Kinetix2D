@@ -24,6 +24,7 @@ namespace k2d
 
         std::size_t compileCount() const { return mCompileCount; }
         std::size_t cachedClassCount() const;
+        std::size_t cachedInstanceCount() const;
         // Whether a script handle is cached for this component address. The
         // cache is what keeps a removed component's handle alive, so being
         // able to see it is what makes that testable.
@@ -32,6 +33,9 @@ namespace k2d
         unsigned int generation() const { return mGeneration; }
 
         void reset();
+        // Spawned prefabs are cached as JSON. The editor clears this at the
+        // start of Play so edits saved since the previous run are picked up.
+        void clearPrefabCache();
         bool invalidate(const char *path);
         bool recompile(const char *path);
         std::size_t refreshChangedFiles();

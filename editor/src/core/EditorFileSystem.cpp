@@ -23,6 +23,49 @@ ct::String EditorFileSystem::join(const ct::String &left, const char *right)
     return result;
 }
 
+bool EditorFileSystem::isAbsolute(const ct::String &path)
+{
+    if (path.empty())
+        return false;
+    if (path[0] == '/' || path[0] == '\\')
+        return true;
+    return path.size() >= 2 && path[1] == ':';
+}
+
+ct::String EditorFileSystem::relativeTo(const ct::String &root, const ct::String &path)
+{
+    if (root.empty() || path.empty() || !isAbsolute(path))
+        return path;
+
+    ct::String base = root;
+    while (!base.empty() && (base[base.size() - 1] == '/' || base[base.size() - 1] == '\\'))
+        base.pop_back();
+    if (base.empty() || path.size() <= base.size())
+        return path;
+
+    for (size_t i = 0; i < base.size(); ++i)
+    {
+        const char a = path[i] == '\\' ? '/' : path[i];
+        const char b = base[i] == '\\' ? '/' : base[i];
+        if (a != b)
+            return path;
+    }
+    if (path[base.size()] != '/' && path[base.size()] != '\\')
+        return path;
+
+    ct::String result;
+    for (size_t i = base.size() + 1; i < path.size(); ++i)
+        result.push_back(path[i] == '\\' ? '/' : path[i]);
+    return result.empty() ? path : result;
+}
+
+ct::String EditorFileSystem::resolve(const ct::String &root, const ct::String &path)
+{
+    if (path.empty() || isAbsolute(path) || root.empty())
+        return path;
+    return join(root, path.c_str());
+}
+
 ct::String EditorFileSystem::currentDirectory()
 {
 #if defined(_WIN32)
@@ -167,6 +210,17 @@ bool EditorFileSystem::isDirectory(const ct::String &path)
 #else
     struct stat info;
     return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+#endif
+}
+
+bool EditorFileSystem::isLink(const ct::String &path)
+{
+#if defined(_WIN32)
+    const DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+#else
+    struct stat info;
+    return lstat(path.c_str(), &info) == 0 && S_ISLNK(info.st_mode);
 #endif
 }
 

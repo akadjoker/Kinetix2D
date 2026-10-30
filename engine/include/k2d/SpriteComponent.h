@@ -114,6 +114,7 @@ class SpriteComponent : public Component
 
   protected:
     void onRender(RenderQueue& queue) override;
+    bool renderBounds(Math::Vec2& min, Math::Vec2& max) const override;
 
   private:
     Material2D mMaterial;

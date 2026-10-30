@@ -28,6 +28,12 @@ namespace k2d
         const Color &shadowColor() const { return mShadowColor; }
         void setShadowFilter(ShadowFilter filter);
         ShadowFilter shadowFilter() const { return mShadowFilter; }
+        void setFalloff(float falloff);
+        float falloff() const { return mFalloff; }
+        void setShadowBias(float bias);
+        float shadowBias() const { return mShadowBias; }
+        void setShadowSmooth(float smooth);
+        float shadowSmooth() const { return mShadowSmooth; }
 
         void setCullMask(unsigned int mask);
         unsigned int cullMask() const { return mCullMask; }
@@ -47,11 +53,17 @@ namespace k2d
         ShadowFilter mShadowFilter;
         unsigned int mCullMask;
         float mHeight;
+        float mFalloff;
+        float mShadowBias;
+        float mShadowSmooth;
     };
 
     template <> struct ComponentMatch<Light2D>
     {
-        static bool test(const Component *component) { return dynamic_cast<const Light2D *>(component) != nullptr; }
+        static bool test(const Component *component)
+        {
+            return component->componentClass() == ComponentClass::Light2D;
+        }
     };
 
 }

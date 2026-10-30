@@ -26,6 +26,7 @@ namespace k2d
         Texture *texture() const { return mTexture; }
         const Math::Vec2 &motionScale() const { return mMotionScale; }
         const Math::Vec2 &tileSize() const { return mTileSize; }
+        const Color &color() const { return mColor; }
         int zIndex() const { return mZIndex; }
 
         void submit(RenderQueue &queue, const Camera2D &camera,

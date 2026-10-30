@@ -1,6 +1,7 @@
 #include "k2d/FileBuffer.h"
 
-#include <SDL_rwops.h>
+#include <platform.h>
+
 #include <cstdlib>
 #include <cstring>
 
@@ -29,50 +30,13 @@ void FileBuffer::Release()
 bool FileBuffer::Load(const char* path, bool nullTerminate)
 {
     Release();
-
-    SDL_RWops* rw = SDL_RWFromFile(path, "rb");
-    if (!rw)
+    size_t size = 0;
+    uint8_t* data = file_read(path, &size);
+    if (!data)
         return false;
-
-    Sint64 sizeS64 = SDL_RWsize(rw);
-    if (sizeS64 < 0)
-    {
-        SDL_RWclose(rw);
-        return false;
-    }
-
-    size_t size = static_cast<size_t>(sizeS64);
-    size_t allocSize = nullTerminate ? size + 1 : size;
-    unsigned char* buffer = static_cast<unsigned char*>(std::malloc(allocSize > 0 ? allocSize : 1));
-    if (!buffer)
-    {
-        SDL_RWclose(rw);
-        return false;
-    }
-
-    size_t readTotal = 0;
-    while (readTotal < size)
-    {
-        size_t got = SDL_RWread(rw, buffer + readTotal, 1, size - readTotal);
-        if (got == 0)
-            break;
-        readTotal += got;
-    }
-
-    SDL_RWclose(rw);
-
-    if (readTotal != size)
-    {
-        std::free(buffer);
-        return false;
-    }
-
-    if (nullTerminate)
-        buffer[size] = '\0';
-
-    mData = buffer;
-    mSize = size;
-    return true;
+    const bool ok = AssignCopy(data, size, nullTerminate);
+    fs_free(data);
+    return ok;
 }
 
 bool FileBuffer::AssignCopy(const void* data, size_t size, bool nullTerminate)

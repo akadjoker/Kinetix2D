@@ -26,6 +26,8 @@ class AudioEngine
     bool Init();
     void Shutdown();
     bool Ready() const;
+    // Stops the output while the app is in the background, and starts it again.
+    void SetSuspended(bool suspended);
 
     SoundId LoadSound(const char* path);
     SoundId LoadMusic(const char* path);

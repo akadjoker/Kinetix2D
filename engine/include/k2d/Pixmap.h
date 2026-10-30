@@ -21,6 +21,9 @@ class Pixmap
     // Copies a rectangular pixel area into out. The source and result keep
     // their RGBA pixels; this never creates an OpenGL texture.
     bool CopyRect(int x, int y, int width, int height, Pixmap& out) const;
+    // Tight bounding box of pixels whose alpha is above threshold. False
+    // means every pixel is at or below it, leaving x/y/width/height untouched.
+    bool ComputeTrimBounds(unsigned char alphaThreshold, int& x, int& y, int& width, int& height) const;
     void DrawLine(int x0, int y0, int x1, int y1, unsigned char r, unsigned char g, unsigned char b,
                   unsigned char a = 255);
     void DrawRect(int x, int y, int width, int height, unsigned char r, unsigned char g, unsigned char b,
@@ -71,6 +74,10 @@ class Pixmap
     bool copyRect(int x, int y, int width, int height, Pixmap& out) const
     {
         return CopyRect(x, y, width, height, out);
+    }
+    bool computeTrimBounds(unsigned char alphaThreshold, int& x, int& y, int& width, int& height) const
+    {
+        return ComputeTrimBounds(alphaThreshold, x, y, width, height);
     }
     void drawLine(int x0, int y0, int x1, int y1, unsigned char r, unsigned char g, unsigned char b,
                   unsigned char a = 255)

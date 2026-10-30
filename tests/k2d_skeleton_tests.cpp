@@ -1,9 +1,11 @@
 #include <k2d/Bone2D.h>
 #include <k2d/Scene.h>
+#include <k2d/Serializer.h>
 #include <k2d/Skeleton2D.h>
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 static bool closeTo(float actual, float expected)
 {
@@ -54,10 +56,37 @@ int main()
     const Math::Vec2 ikTip = forearm->globalTransform().Transform(40.0f, 0.0f);
     const bool ikSolved = ikStarted && std::hypot(ikTip.x - 40.0f, ikTip.y - 40.0f) <= 0.1f;
 
-    std::printf("skeleton: interpolation=%s found=%s started=%s halfway=%s seek=%s completed=%s reset=%s ik=%s\n",
+    arm->setRotationDegrees(10.0f);
+    skeleton->setAutoplay("wave");
+    skeleton->clipAt(0)->loop = false;
+    skeleton->clipAt(0)->tracks[0].keyframes[1].easing = k2d::BoneKeyframe::EaseOut;
+    const ct::Json saved = k2d::Serializer::WriteObject(*root);
+    k2d::Scene loadedScene;
+    k2d::GameObject* loaded = k2d::Serializer::ReadObject(loadedScene, saved, nullptr);
+    k2d::Skeleton2D* loadedSkeleton = loaded ? loaded->getComponent<k2d::Skeleton2D>() : nullptr;
+    const k2d::BoneAnimationClip* loadedClip = loadedSkeleton ? loadedSkeleton->getClip("wave") : nullptr;
+    k2d::Bone2D* loadedForearm = loadedSkeleton ? loadedSkeleton->findBone("Forearm") : nullptr;
+    const bool roundTrip = loadedClip && !loadedClip->loop && loadedClip->tracks.size() == 1 &&
+                           loadedClip->tracks[0].boneName == "Arm" &&
+                           loadedClip->tracks[0].property == k2d::BoneTrack::Rotation &&
+                           loadedClip->tracks[0].keyframes.size() == 2 &&
+                           closeTo(loadedClip->tracks[0].keyframes[1].value, 90.0f) &&
+                           loadedClip->tracks[0].keyframes[1].easing == k2d::BoneKeyframe::EaseOut &&
+                           loadedForearm && closeTo(loadedForearm->length(), 40.0f) &&
+                           loadedSkeleton->autoplay() == "wave";
+    loadedScene.update(0.0f);
+    const bool autoplay = loadedSkeleton && loadedSkeleton->playing() &&
+                          std::strcmp(loadedSkeleton->currentAnimation(), "wave") == 0;
+
+    std::printf("skeleton: interpolation=%s found=%s started=%s halfway=%s seek=%s completed=%s reset=%s ik=%s "
+                "roundtrip=%s autoplay=%s\n",
                 interpolation ? "pass" : "fail", found ? "pass" : "fail",
                 started ? "pass" : "fail", halfway ? "pass" : "fail",
                 seeked ? "pass" : "fail", completed ? "pass" : "fail",
-                reset ? "pass" : "fail", ikSolved ? "pass" : "fail");
-    return interpolation && found && started && halfway && seeked && completed && reset && ikSolved ? 0 : 1;
+                reset ? "pass" : "fail", ikSolved ? "pass" : "fail", roundTrip ? "pass" : "fail",
+                autoplay ? "pass" : "fail");
+    return interpolation && found && started && halfway && seeked && completed && reset && ikSolved && roundTrip &&
+                   autoplay
+               ? 0
+               : 1;
 }

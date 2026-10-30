@@ -5,7 +5,7 @@
 namespace k2d
 {
 // Per-renderer OpenGL state cache. Call Invalidate() whenever code outside
-// the cache changes GL state (for example ImGui or a custom render pass).
+// the cache changes GL state (for example a custom render pass).
 class RenderState
 {
   public:

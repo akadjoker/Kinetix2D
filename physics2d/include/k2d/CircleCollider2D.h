@@ -10,7 +10,7 @@ namespace k2d
     public:
         CircleCollider2D();
 
-        int addTo(kx::Body &body, float density, float scaleX, float scaleY) const override;
+        int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const override;
 
         float radius() const { return mRadius; }
         void setRadius(float radius);
@@ -23,7 +23,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const CircleCollider2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::CircleCollider2D;
         }
     };
 

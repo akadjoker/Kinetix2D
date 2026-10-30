@@ -7,9 +7,9 @@ The build produces three executables in ``bin/`` next to the source tree:
 The editor (``k2d_editor``)
 ---------------------------
 
-The editor is an ImGui application over the real ``k2d::Scene`` — there is one
-scene model and the editor edits it directly. Its source lives in
-``editor/src`` (``core/``, ``panels/``, ``widgets/``).
+The editor is an iGUI (retained mode) application over the real
+``k2d::Scene`` — there is one scene model and the editor edits it directly. Its
+source lives in ``editor/src``.
 
 * Dockable panels: Hierarchy, Inspector, Assets, Console, Game, the 2D Scene
   viewport, Scripts, Settings, Prefabs, Animator, Particle, Sprite/Image,
@@ -42,6 +42,41 @@ The runner maps the default input actions (``move_forward``, ``move_backward``,
 profiler overlay on F5. Touch controls are disabled by default, including in a
 Web export. Enable them only for scenes that need them with, for example,
 ``"virtualPad": { "enabled": true }`` in the scene JSON.
+
+``k2d_runner_debug`` is the same runner on the VM built with the debug hook.
+``--debug=port`` connects it to the editor's debugger on ``127.0.0.1:port``
+(the editor listens on 7790) and the scripts stop at its breakpoints. The two
+talk in JSON lines: the editor sends ``breakpoints`` (a file and its lines),
+``start``, ``continue``, ``pause``, ``step_over``, ``step_in`` and
+``step_out``; the runner answers ``hello``, ``stopped`` (the reason and every
+frame with its function, file, line and locals) and ``running``.
+``k2d_runner`` logs an error for ``--debug`` and runs the game without it: its
+VM has no hook.
+
+Android
+-------
+
+``k2d_export <project> --android`` writes an APK in ``<project>/export/android``,
+as the editor's Export Android does: the runner built for Android
+(``android/libk2d_runner.so`` beside the tool, or ``--runner``), the game's
+``data.kpak`` in the APK's assets, put together with the SDK's ``aapt2``,
+``zipalign`` and ``apksigner`` (``--sdk``, or ``ANDROID_HOME``) and signed with the
+debug key.
+
+``tools/android/build-apk.sh`` builds that runner with the NDK, as the library of
+a NativeActivity, copies it to ``bin/android/``, and makes an APK from an
+exported game's ``data.kpak``.
+
+.. code-block:: text
+
+   tools/android/build-apk.sh <project>/export/web/data.kpak [name] [package] [run]
+
+It needs the Android SDK (build-tools 35, platform 35) and NDK r30, by default in
+``~/android/android-sdk`` and ``~/android/android-ndk-r30`` (``ANDROID_HOME`` and
+``ANDROID_NDK_HOME`` override them). The APK is signed with the debug key and
+written to ``build-android/``; ``run`` installs it with ``adb`` and starts it.
+On the device the runner copies ``data.kpak`` to the app's cache and unpacks it
+there, as the desktop runner does with the one beside it.
 
 The packer (``k2d_pack``)
 -------------------------

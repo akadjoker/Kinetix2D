@@ -1,30 +1,117 @@
 #include "k2d/Device.h"
 
+#include "k2d/FileSystem.h"
 #include "k2d/OpenGL.h"
 
-#include "k2d/FileSystem.h"
+#include <platform.h>
 
-#include <SDL.h>
 #include <cstdio>
 #include <cstring>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "k2d/Image.h"
 
 #define MSF_GIF_IMPL
 #include <msf_gif.h>
 
-#include <imgui.h>
-#include <backends/imgui_impl_sdl2.h>
-#include <backends/imgui_impl_opengl3.h>
-
 namespace k2d
 {
+namespace
+{
+int toScancode(int key)
+{
+    if (key >= KEY_A && key <= KEY_Z)
+        return (int)Key::A + (key - KEY_A);
+    if (key >= KEY_ONE && key <= KEY_NINE)
+        return (int)Key::Num1 + (key - KEY_ONE);
+    if (key >= KEY_F1 && key <= KEY_F12)
+        return (int)Key::F1 + (key - KEY_F1);
+    if (key >= KEY_KP_1 && key <= KEY_KP_9)
+        return 89 + (key - KEY_KP_1);
+    switch (key)
+    {
+    case KEY_ZERO: return (int)Key::Num0;
+    case KEY_ENTER: return (int)Key::Enter;
+    case KEY_ESCAPE: return (int)Key::Escape;
+    case KEY_BACKSPACE: return (int)Key::Backspace;
+    case KEY_TAB: return (int)Key::Tab;
+    case KEY_SPACE: return (int)Key::Space;
+    case KEY_MINUS: return 45;
+    case KEY_EQUAL: return 46;
+    case KEY_LEFT_BRACKET: return 47;
+    case KEY_RIGHT_BRACKET: return 48;
+    case KEY_BACKSLASH: return 49;
+    case KEY_SEMICOLON: return 51;
+    case KEY_APOSTROPHE: return 52;
+    case KEY_GRAVE: return 53;
+    case KEY_COMMA: return 54;
+    case KEY_PERIOD: return 55;
+    case KEY_SLASH: return 56;
+    case KEY_CAPS_LOCK: return 57;
+    case KEY_PRINT_SCREEN: return 70;
+    case KEY_SCROLL_LOCK: return 71;
+    case KEY_PAUSE: return 72;
+    case KEY_INSERT: return 73;
+    case KEY_HOME: return 74;
+    case KEY_PAGE_UP: return 75;
+    case KEY_DELETE: return 76;
+    case KEY_END: return 77;
+    case KEY_PAGE_DOWN: return 78;
+    case KEY_RIGHT: return (int)Key::Right;
+    case KEY_LEFT: return (int)Key::Left;
+    case KEY_DOWN: return (int)Key::Down;
+    case KEY_UP: return (int)Key::Up;
+    case KEY_NUM_LOCK: return 83;
+    case KEY_KP_DIVIDE: return 84;
+    case KEY_KP_MULTIPLY: return 85;
+    case KEY_KP_SUBTRACT: return 86;
+    case KEY_KP_ADD: return 87;
+    case KEY_KP_ENTER: return 88;
+    case KEY_KP_0: return 98;
+    case KEY_KP_DECIMAL: return 99;
+    case KEY_MENU: return 101;
+    case KEY_KP_EQUAL: return 103;
+    case KEY_LEFT_CONTROL: return (int)Key::LeftCtrl;
+    case KEY_LEFT_SHIFT: return (int)Key::LeftShift;
+    case KEY_LEFT_ALT: return (int)Key::LeftAlt;
+    case KEY_LEFT_SUPER: return 227;
+    case KEY_RIGHT_CONTROL: return (int)Key::RightCtrl;
+    case KEY_RIGHT_SHIFT: return (int)Key::RightShift;
+    case KEY_RIGHT_ALT: return 230;
+    case KEY_RIGHT_SUPER: return 231;
+    default: return -1;
+    }
+}
+
+int toMouseButton(int button)
+{
+    switch (button)
+    {
+    case MOUSE_LEFT: return 0;
+    case MOUSE_MIDDLE: return 1;
+    case MOUSE_RIGHT: return 2;
+    default: return button;
+    }
+}
+
+PlatformWindow* createWindow(WindowConfig& config)
+{
+    config.gl.profile = GL_PROFILE_ES;
+    config.gl.major = 3;
+    config.gl.minor = 0;
+    if (PlatformWindow* window = window_create(&config))
+        return window;
+    log_warn("OpenGL ES 3.0 context unavailable (%s), falling back to OpenGL 3.3 core", platform_get_error());
+    platform_clear_error();
+    config.gl.profile = GL_PROFILE_CORE;
+    config.gl.major = 3;
+    config.gl.minor = 3;
+    return window_create(&config);
+}
+} // namespace
 
 Device::Device()
-    : mWindow(nullptr), mGLContext(nullptr), mWidth(0), mHeight(0), mDrawableWidth(0), mDrawableHeight(0),
-      mResized(false), mLastCounter(0), mDeltaTime(0.0f), mFps(0.0f), mFpsAccumulator(0.0f), mFpsFrames(0),
-      mImGuiWantsMouse(false), mImGuiWantsKeyboard(false), mUiInitialized(false), mGifCapturing(false),
+    : mWindow(nullptr), mWidth(0), mHeight(0), mDrawableWidth(0), mDrawableHeight(0), mResized(false),
+      mLastTime(0.0), mDeltaTime(0.0f), mFps(0.0f), mFpsAccumulator(0.0f), mFpsFrames(0), mGifCapturing(false),
       mGifFrameRate(60), mGifFrameCounter(0), mGifHandle(nullptr), mScreenshotIndex(1), mGifFileIndex(1)
 {
 }
@@ -34,172 +121,139 @@ Device::~Device()
     Shutdown();
 }
 
-bool Device::Init(const char* title, int width, int height, bool vsync, bool enableUi)
+bool Device::Init(const char* title, int width, int height, bool vsync)
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
+#if defined(__ANDROID__)
+    mInput.SetTouchAsMouse(true);
+#endif
+    if (!platform_init())
     {
-        std::printf("SDL_Init failed: %s\n", SDL_GetError());
+        log_error("platform_init failed: %s", platform_get_error());
         return false;
     }
 
     FileSystem::Instance().Init();
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-
-    // A 1280x720 runner on a smaller desktop gets centered with part of
-    // the window off-screen. Clamp only the initial size; the window stays
-    // resizable and the game continues to use its actual drawable size.
-    int initialWidth = width;
-    int initialHeight = height;
-    SDL_Rect usableBounds{};
-    if (SDL_GetDisplayUsableBounds(0, &usableBounds) == 0)
+    WindowConfig config = {};
+    config.title = title;
+#if defined(__EMSCRIPTEN__)
+    // The game takes the canvas as the page lays it out.
+    config.width = 0;
+    config.height = 0;
+    (void)width;
+    (void)height;
+#else
+    config.width = width;
+    config.height = height;
+#endif
+    MonitorInfo monitor = {};
+    if (monitor_get_info(0, &monitor))
     {
         const int margin = 48;
-        if (usableBounds.w > margin)
-            initialWidth = initialWidth < usableBounds.w - margin ? initialWidth : usableBounds.w - margin;
-        if (usableBounds.h > margin)
-            initialHeight = initialHeight < usableBounds.h - margin ? initialHeight : usableBounds.h - margin;
+        if (monitor.work_w > margin && config.width > monitor.work_w - margin)
+            config.width = monitor.work_w - margin;
+        if (monitor.work_h > margin && config.height > monitor.work_h - margin)
+            config.height = monitor.work_h - margin;
     }
+    config.x = WINDOW_POS_CENTERED;
+    config.y = WINDOW_POS_CENTERED;
+    config.render = RENDER_GL;
+    config.resizable = true;
+    config.vsync = vsync;
 
-    mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, initialWidth, initialHeight,
-                               SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    mWindow = createWindow(config);
     if (!mWindow)
     {
-        std::printf("SDL_CreateWindow failed: %s\n", SDL_GetError());
+        log_error("window_create failed: %s", platform_get_error());
         return false;
     }
+    window_make_current(mWindow);
 
-    SDL_GLContext ctx = SDL_GL_CreateContext(mWindow);
-    if (!ctx)
-    {
-        std::printf("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+    if (!LoadOpenGL())
         return false;
-    }
-    mGLContext = ctx;
 
-    SDL_GL_MakeCurrent(mWindow, ctx);
+    log_info("GL_VERSION: %s", (const char*)glGetString(GL_VERSION));
+    log_info("GL_RENDERER: %s", (const char*)glGetString(GL_RENDERER));
 
-#if !K2D_OPENGL_NATIVE_GLES3
-    if (!gladLoadGLES2Loader((GLADloadproc)SDL_GL_GetProcAddress))
-    {
-        std::printf("gladLoadGLES2Loader failed\n");
-        return false;
-    }
-#endif
-
-    SDL_GL_SetSwapInterval(vsync ? 1 : 0);
-
-    std::printf("GL_VERSION: %s\n", (const char*)glGetString(GL_VERSION));
-    std::printf("GL_RENDERER: %s\n", (const char*)glGetString(GL_RENDERER));
-
-    int w = 0;
-    int h = 0;
-    SDL_GetWindowSize(mWindow, &w, &h);
-    mWidth = w;
-    mHeight = h;
+    UpdateSizes();
     mResized = false;
-    int drawableWidth = 0;
-    int drawableHeight = 0;
-    SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
-    mDrawableWidth = drawableWidth;
-    mDrawableHeight = drawableHeight;
-    glViewport(0, 0, drawableWidth, drawableHeight);
+    glViewport(0, 0, mDrawableWidth, mDrawableHeight);
 
-    mLastCounter = SDL_GetPerformanceCounter();
+    mLastTime = time_seconds();
     mDeltaTime = 0.0f;
     mFps = 0.0f;
     mFpsAccumulator = 0.0f;
     mFpsFrames = 0;
-
-    if (enableUi)
-    {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui_ImplSDL2_InitForOpenGL(mWindow, mGLContext);
-        ImGui_ImplOpenGL3_Init("#version 300 es");
-        mUiInitialized = true;
-    }
-
     mWindowTitle = title;
-
     return true;
 }
 
 void Device::Shutdown()
 {
-    if (mUiInitialized)
-    {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplSDL2_Shutdown();
-        ImGui::DestroyContext();
-        mUiInitialized = false;
-    }
-    if (mGLContext)
-    {
-        SDL_GL_DeleteContext(mGLContext);
-        mGLContext = nullptr;
-    }
     if (mWindow)
     {
-        SDL_DestroyWindow(mWindow);
+        window_destroy(mWindow);
         mWindow = nullptr;
-    }
-    FileSystem::Instance().Shutdown();
-    SDL_Quit();
-}
-
-void Device::BeginUI()
-{
-    if (mUiInitialized)
-    {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-    }
-}
-
-void Device::EndUI()
-{
-    if (mUiInitialized)
-    {
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        FileSystem::Instance().Shutdown();
+        platform_shutdown();
     }
 }
 
 void Device::Focus()
 {
-    if (!mWindow)
-        return;
-    SDL_RaiseWindow(mWindow);
-    SDL_SetWindowInputFocus(mWindow);
+    if (mWindow)
+        window_focus(mWindow);
+}
+
+void Device::ShowCursor(bool visible)
+{
+    if (mWindow)
+        mouse_set_mode(mWindow, visible ? MOUSE_MODE_NORMAL : MOUSE_MODE_HIDDEN);
 }
 
 int Device::DisplayIndex() const
 {
     if (!mWindow)
         return 0;
-    const int display = SDL_GetWindowDisplayIndex(mWindow);
+    const int display = monitor_from_window(mWindow);
     return display >= 0 ? display : 0;
 }
 
 bool Device::SetDisplayIndex(int displayIndex)
 {
-    if (!mWindow || displayIndex < 0 || displayIndex >= SDL_GetNumVideoDisplays())
-        return false;
-    SDL_Rect bounds{};
-    if (SDL_GetDisplayUsableBounds(displayIndex, &bounds) != 0)
+    MonitorInfo monitor = {};
+    if (!mWindow || displayIndex < 0 || displayIndex >= monitor_count() || !monitor_get_info(displayIndex, &monitor))
         return false;
     int width = 0;
     int height = 0;
-    SDL_GetWindowSize(mWindow, &width, &height);
-    SDL_SetWindowPosition(mWindow, bounds.x + (bounds.w - width) / 2, bounds.y + (bounds.h - height) / 2);
+    window_get_size(mWindow, &width, &height);
+    window_set_position(mWindow, monitor.work_x + (monitor.work_w - width) / 2,
+                        monitor.work_y + (monitor.work_h - height) / 2);
     return true;
+}
+
+void Device::UpdateSizes()
+{
+    int width = 0;
+    int height = 0;
+    window_get_size(mWindow, &width, &height);
+    if (width != mWidth || height != mHeight)
+    {
+        mWidth = width;
+        mHeight = height;
+        mResized = true;
+    }
+    window_get_framebuffer_size(mWindow, &mDrawableWidth, &mDrawableHeight);
+}
+
+int InputKeyFromPlatform(int platformKey)
+{
+    return toScancode(platformKey);
+}
+
+int InputButtonFromPlatform(int platformButton)
+{
+    return toMouseButton(platformButton);
 }
 
 bool Device::PollEvents()
@@ -207,137 +261,74 @@ bool Device::PollEvents()
     mInput.NewFrame();
     mResized = false;
 
-    SDL_Event e;
-    while (SDL_PollEvent(&e))
+    window_begin_frame(mWindow);
+    Event event;
+    while (poll_event(mWindow, &event))
     {
-        if (mUiInitialized)
-            ImGui_ImplSDL2_ProcessEvent(&e);
-
-        switch (e.type)
+        switch (event.type)
         {
-        case SDL_QUIT:
+        case EVENT_WINDOW_CLOSE:
             return false;
-
-        case SDL_KEYDOWN:
-            mInput.OnKey(e.key.keysym.scancode, true, e.key.repeat != 0);
+        case EVENT_WINDOW_SURFACE_LOST:
+            mHasSurface = false;
             break;
-
-        case SDL_KEYUP:
-            mInput.OnKey(e.key.keysym.scancode, false, e.key.repeat != 0);
+        case EVENT_WINDOW_SURFACE_READY:
+            mHasSurface = true;
             break;
-
-        case SDL_MOUSEBUTTONDOWN:
-            mInput.OnMouseButton(e.button.button - 1, true);
+        case EVENT_KEY:
+            mInput.OnKey(InputKeyFromPlatform(event.data.key.key), event.data.key.down, event.data.key.repeat);
             break;
-
-        case SDL_MOUSEBUTTONUP:
-            mInput.OnMouseButton(e.button.button - 1, false);
+        case EVENT_MOUSE_BUTTON:
+            mInput.OnMouseButton(InputButtonFromPlatform(event.data.mouse.button), event.data.mouse.down);
             break;
-
-        case SDL_MOUSEMOTION:
-            mInput.OnMouseMove((float)e.motion.x, (float)e.motion.y);
+        case EVENT_MOUSE_MOVE:
+            mInput.OnMouseMove((float)event.data.mouse.x, (float)event.data.mouse.y);
             break;
-
-        case SDL_MOUSEWHEEL:
-            mInput.OnWheel((float)e.wheel.y);
+        case EVENT_MOUSE_WHEEL:
+            mInput.OnWheel(event.data.wheel.y);
             break;
-
-        case SDL_FINGERDOWN:
-            mInput.OnTouch((long long)e.tfinger.fingerId, e.tfinger.x * mWidth, e.tfinger.y * mHeight, true, false);
+        case EVENT_TOUCH:
+            mInput.OnTouch(event.data.touch.id, event.data.touch.x, event.data.touch.y,
+                           event.data.touch.phase == TOUCH_DOWN,
+                           event.data.touch.phase == TOUCH_UP || event.data.touch.phase == TOUCH_CANCEL);
             break;
-
-        case SDL_FINGERUP:
-            mInput.OnTouch((long long)e.tfinger.fingerId, e.tfinger.x * mWidth, e.tfinger.y * mHeight, false, true);
-            break;
-
-        case SDL_FINGERMOTION:
-            mInput.OnTouch((long long)e.tfinger.fingerId, e.tfinger.x * mWidth, e.tfinger.y * mHeight, false, false);
-            break;
-
-        case SDL_WINDOWEVENT:
-            if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-            {
-                int w = 0;
-                int h = 0;
-                SDL_GetWindowSize(mWindow, &w, &h);
-                if (w != mWidth || h != mHeight)
-                {
-                    mWidth = w;
-                    mHeight = h;
-                    mResized = true;
-                    int drawableWidth = 0;
-                    int drawableHeight = 0;
-                    SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
-                    mDrawableWidth = drawableWidth;
-                    mDrawableHeight = drawableHeight;
-                    glViewport(0, 0, drawableWidth, drawableHeight);
-                }
-            }
-            break;
-
         default:
             break;
         }
     }
+    if (window_should_close(mWindow))
+        return false;
+    mInput.PollGamepads();
 
-    int windowWidth = 0;
-    int windowHeight = 0;
-    SDL_GetWindowSize(mWindow, &windowWidth, &windowHeight);
-    if (windowWidth != mWidth || windowHeight != mHeight)
-    {
-        mWidth = windowWidth;
-        mHeight = windowHeight;
-        mResized = true;
-    }
+    UpdateSizes();
+    if (mHasSurface)
+        glViewport(0, 0, mDrawableWidth, mDrawableHeight);
 
-    int drawableWidth = 0;
-    int drawableHeight = 0;
-    SDL_GL_GetDrawableSize(mWindow, &drawableWidth, &drawableHeight);
-    mDrawableWidth = drawableWidth;
-    mDrawableHeight = drawableHeight;
-    glViewport(0, 0, drawableWidth, drawableHeight);
-
-    unsigned long long now = SDL_GetPerformanceCounter();
-    unsigned long long freq = SDL_GetPerformanceFrequency();
-    float dt = (float)((double)(now - mLastCounter) / (double)freq);
-    mLastCounter = now;
+    const double now = time_seconds();
+    float dt = (float)(now - mLastTime);
+    mLastTime = now;
     if (dt > 0.25f)
         dt = 0.25f;
     mDeltaTime = dt;
     mFpsAccumulator += dt;
     ++mFpsFrames;
-    // Sample over half a second instead of displaying 1 / dt. It is stable
-    // under vsync and still responds quickly when a scene becomes expensive.
     if (mFpsAccumulator >= 0.5f)
     {
         mFps = static_cast<float>(mFpsFrames) / mFpsAccumulator;
         mFpsAccumulator = 0.0f;
         mFpsFrames = 0;
     }
-
-    if (mUiInitialized)
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        mImGuiWantsMouse = io.WantCaptureMouse;
-        mImGuiWantsKeyboard = io.WantCaptureKeyboard;
-    }
-    else
-    {
-        mImGuiWantsMouse = false;
-        mImGuiWantsKeyboard = false;
-    }
-
     return true;
 }
 
 double Device::TimeSeconds()
 {
-    return (double)SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
+    return time_seconds();
 }
 
 void Device::Swap()
 {
-    SDL_GL_SwapWindow(mWindow);
+    window_swap(mWindow);
 }
 
 void Device::UpdateWindowTitle()
@@ -345,7 +336,7 @@ void Device::UpdateWindowTitle()
     ct::String title = mWindowTitle;
     if (mGifCapturing)
         title += " [RECORDING]";
-    SDL_SetWindowTitle(mWindow, title.c_str());
+    window_set_title(mWindow, title.c_str());
 }
 
 void Device::CaptureScreenshot()
@@ -369,8 +360,8 @@ void Device::CaptureScreenshot()
         }
     }
 
-    stbi_write_png(filename, mWidth, mHeight, 4, pixels, stride);
-    std::printf("Screenshot saved: %s\n", filename);
+    WriteImagePng(filename, mWidth, mHeight, pixels, stride);
+    log_info("Screenshot saved: %s", filename);
 
     delete[] pixels;
 }
@@ -389,7 +380,7 @@ void Device::StartGifCapture(int frameRate)
     mGifHandle = (void*)gifState;
 
     UpdateWindowTitle();
-    std::printf("Started GIF capture (%d fps)\n", frameRate);
+    log_info("Started GIF capture (%d fps)", frameRate);
 }
 
 void Device::StopGifCapture()
@@ -413,7 +404,7 @@ void Device::StopGifCapture()
         {
             std::fwrite(result.data, 1, result.dataSize, fp);
             std::fclose(fp);
-            std::printf("GIF saved: %s (%d frames)\n", filename, mGifFrameCounter);
+            log_info("GIF saved: %s (%d frames)", filename, mGifFrameCounter);
         }
         msf_gif_free(result);
     }

@@ -12,7 +12,7 @@ namespace k2d
     public:
         PolygonCollider2D();
 
-        int addTo(kx::Body &body, float density, float scaleX, float scaleY) const override;
+        int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const override;
 
         const ct::Vector<Math::Vec2> &points() const { return mPoints; }
         void setPoints(const Math::Vec2 *points, int count);
@@ -26,7 +26,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const PolygonCollider2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::PolygonCollider2D;
         }
     };
 

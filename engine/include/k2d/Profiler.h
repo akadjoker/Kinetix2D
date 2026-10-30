@@ -21,10 +21,20 @@ namespace k2d
         uint32_t displayCalls;
     };
 
+    // A count the frame adds up (draw calls, objects culled...), shown as it
+    // was at the last refresh.
+    struct ProfileCounter
+    {
+        char name[48];
+        uint64_t value;
+        uint64_t display;
+    };
+
     class Profiler
     {
     public:
         static const uint32_t MaxSamples = 32;
+        static const uint32_t MaxCounters = 16;
         static const uint32_t MaxDepth = 16;
         static const double RefreshSeconds;
 
@@ -35,9 +45,12 @@ namespace k2d
         bool begin(const char *name);
         void end();
         void addSample(const char *name, float milliseconds, uint32_t calls = 1);
+        void addCounter(const char *name, uint64_t value);
 
         const ProfileSample *samples() const;
         uint32_t sampleCount() const;
+        const ProfileCounter *counters() const { return mCounters; }
+        uint32_t counterCount() const { return mCounterCount; }
         float frameMilliseconds() const;
 
         void SetEnabled(bool enabled) { mEnabled = enabled; }
@@ -55,6 +68,8 @@ namespace k2d
         uint32_t findOrCreate(const char *name);
 
         ProfileSample mSamples[MaxSamples];
+        ProfileCounter mCounters[MaxCounters];
+        uint32_t mCounterCount;
         ActiveScope mStack[MaxDepth];
         uint64_t mFrameStart;
         uint64_t mFrequency;

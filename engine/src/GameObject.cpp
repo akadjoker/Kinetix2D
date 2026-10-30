@@ -7,6 +7,24 @@
 namespace k2d
 {
 
+    namespace
+    {
+        GameObject::RemovedCallback gRemovedCallback = nullptr;
+        void *gRemovedCallbackUser = nullptr;
+    }
+
+    void GameObject::SetRemovedCallback(RemovedCallback callback, void *user)
+    {
+        gRemovedCallback = callback;
+        gRemovedCallbackUser = user;
+    }
+
+    void GameObject::notifyRemoved(GameObject *object)
+    {
+        if (gRemovedCallback && object)
+            gRemovedCallback(object, gRemovedCallbackUser);
+    }
+
     static constexpr float EPSILON = 1e-6f;
     inline float clamp(float value, float min, float max)
     {
@@ -32,6 +50,7 @@ namespace k2d
 
     GameObject::~GameObject()
     {
+        notifyRemoved(this);
         deleteComponents();
         deleteChildrenRaw();
         if (mParent)
@@ -604,6 +623,12 @@ namespace k2d
     {
         updateGlobalTransform();
         return mGlobalTransform;
+    }
+
+    float GameObject::globalRotationDegrees() const
+    {
+        updateGlobalTransform();
+        return mGlobalTransform.RotationDegrees();
     }
 
     Math::Vec2 GameObject::globalPosition() const

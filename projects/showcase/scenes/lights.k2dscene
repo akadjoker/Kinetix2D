@@ -1,0 +1,1181 @@
+{
+  "root": {
+    "name": "Scene",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Floor",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": -10,
+        "position": [
+          640.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                1800.0,
+                1100.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                170,
+                170,
+                180,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          300.0,
+          200.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          420.0,
+          520.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          560.0,
+          300.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 4",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          760.0,
+          180.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 5",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          880.0,
+          460.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 6",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1040.0,
+          280.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 7",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1160.0,
+          560.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 8",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          220.0,
+          600.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 9",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          620.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Pillar 10",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1000.0,
+          120.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  -22.0
+                ],
+                [
+                  22.0,
+                  22.0
+                ],
+                [
+                  -22.0,
+                  22.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                44.0,
+                44.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                96,
+                98,
+                112,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Wall 1",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          640.0,
+          40.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -180.0,
+                  -9.0
+                ],
+                [
+                  180.0,
+                  -9.0
+                ],
+                [
+                  180.0,
+                  9.0
+                ],
+                [
+                  -180.0,
+                  9.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                360.0,
+                18.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                120,
+                110,
+                100,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Wall 2",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          120.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -9.0,
+                  -150.0
+                ],
+                [
+                  9.0,
+                  -150.0
+                ],
+                [
+                  9.0,
+                  150.0
+                ],
+                [
+                  -9.0,
+                  150.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                18.0,
+                300.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                120,
+                110,
+                100,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Wall 3",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          1220.0,
+          360.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  -9.0,
+                  -120.0
+                ],
+                [
+                  9.0,
+                  -120.0
+                ],
+                [
+                  9.0,
+                  120.0
+                ],
+                [
+                  -9.0,
+                  120.0
+                ]
+              ]
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                18.0,
+                240.0
+              ],
+              "mode": 0,
+              "lineWidth": 1.0,
+              "color": [
+                120,
+                110,
+                100,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Hexagon",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          700.0,
+          420.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Polygon2D",
+            "data": {
+              "points": [
+                [
+                  50.0,
+                  0.0
+                ],
+                [
+                  25.0,
+                  43.30126953125
+                ],
+                [
+                  -25.0,
+                  43.30126953125
+                ],
+                [
+                  -50.0,
+                  6.1232337864698064e-15
+                ],
+                [
+                  -25.0,
+                  -43.30126953125
+                ],
+                [
+                  25.0,
+                  -43.30126953125
+                ]
+              ],
+              "color": [
+                150,
+                90,
+                80,
+                255
+              ],
+              "blendMode": 0
+            }
+          },
+          {
+            "type": "LightOccluder2D",
+            "data": {
+              "points": [
+                [
+                  50.0,
+                  0.0
+                ],
+                [
+                  25.0,
+                  43.30126953125
+                ],
+                [
+                  -25.0,
+                  43.30126953125
+                ],
+                [
+                  -50.0,
+                  6.1232337864698064e-15
+                ],
+                [
+                  -25.0,
+                  -43.30126953125
+                ],
+                [
+                  25.0,
+                  -43.30126953125
+                ]
+              ]
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Warm Light",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          470.0,
+          380.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Light2D",
+            "data": {
+              "color": [
+                1.0,
+                0.6200000047683716,
+                0.30000001192092896,
+                1.0
+              ],
+              "energy": 1.2000000476837158,
+              "radius": 520.0,
+              "castShadow": true,
+              "shadowColor": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "shadowFilter": 1,
+              "cullMask": 1,
+              "height": 0.0
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/follow_touch.py"
+            }
+          },
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/touch_sound.py"
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Cool Light",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          960.0,
+          340.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Light2D",
+            "data": {
+              "color": [
+                0.3499999940395355,
+                0.550000011920929,
+                1.0,
+                1.0
+              ],
+              "energy": 1.100000023841858,
+              "radius": 460.0,
+              "castShadow": true,
+              "shadowColor": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "shadowFilter": 2,
+              "cullMask": 1,
+              "height": 0.0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Green Light",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          260.0,
+          140.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Light2D",
+            "data": {
+              "color": [
+                0.4000000059604645,
+                1.0,
+                0.5,
+                1.0
+              ],
+              "energy": 0.8999999761581421,
+              "radius": 300.0,
+              "castShadow": true,
+              "shadowColor": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "shadowFilter": 0,
+              "cullMask": 1,
+              "height": 0.0
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "GameObject",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          471.589599609375,
+          294.25634765625
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 0.0,
+              "viewportHeight": 0.0,
+              "viewportScaleMode": "expand",
+              "integerScale": false,
+              "renderPriority": 0,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": false,
+              "limits": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "smoothingEnabled": false,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5,
+              "followTarget": ""
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "GameObject",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [],
+        "children": []
+      }
+    ]
+  },
+  "lighting": {
+    "ambient": [
+      0.22,
+      0.22,
+      0.3
+    ]
+  },
+  "physics": null
+}

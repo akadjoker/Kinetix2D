@@ -79,7 +79,7 @@
           {
             "type": "ZenScript",
             "data": {
-              "path": "/media/projectos/projects/cpp/Kinetix2D/projects/fireworks/assets/scripts/fireworks_director.py"
+              "path": "assets/scripts/fireworks_director.py"
             }
           }
         ],

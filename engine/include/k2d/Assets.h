@@ -2,7 +2,9 @@
 
 #include "k2d/Shader.h"
 #include "k2d/Texture.h"
+#include "k2d/TileSet.h"
 
+#include <ct/function.hpp>
 #include <ct/hashmap.hpp>
 #include <ct/string.hpp>
 
@@ -33,6 +35,16 @@ namespace k2d
         Texture *GetTexture(const char *name);
 
         const char *FindTextureName(const Texture *texture) const;
+        // A .k2dtileset by its path, read once and shared by every map naming
+        // it; nullptr when it cannot be read.
+        TileSet *LoadTileSet(const char *path);
+        const char *FindTileSetPath(const TileSet *tileSet) const;
+        // Writes the shared tilesets changed since they were read; how many.
+        int SaveTileSets();
+        // Files moved on disk: each texture and tileset whose name rename
+        // changes (true, with the new one) is known by that name from now on,
+        // which is what scenes and tilesets write for it. How many changed.
+        int RenameKeys(const ct::Function<bool(const ct::String &, ct::String &)> &rename);
 
         void Clear();
 
@@ -55,6 +67,7 @@ namespace k2d
     private:
         ct::HashMap<ct::String, Shader *> mShaders;
         ct::HashMap<ct::String, Texture *> mTextures;
+        ct::HashMap<ct::String, TileSet *> mTileSets;
     };
 
 }

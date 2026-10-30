@@ -1,0 +1,138 @@
+{
+  "physics": null,
+  "root": {
+    "name": "Physics Demo",
+    "tag": "",
+    "active": true,
+    "visible": true,
+    "locked": false,
+    "zIndex": 0,
+    "position": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "scale": [
+      1.0,
+      1.0
+    ],
+    "components": [],
+    "children": [
+      {
+        "name": "Camera",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "Camera",
+            "data": {
+              "viewportWidth": 0.0,
+              "viewportHeight": 0.0,
+              "viewportScaleMode": "fit",
+              "integerScale": false,
+              "renderPriority": 1,
+              "position": [
+                0.0,
+                0.0
+              ],
+              "rotationDegrees": 0.0,
+              "zoom": [
+                1.0,
+                1.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ],
+              "limitEnabled": false,
+              "limits": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "smoothingEnabled": false,
+              "smoothingSpeed": 5.0,
+              "deadZoneEnabled": false,
+              "deadZone": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "targetEnabled": false,
+              "target": [
+                0.0,
+                0.0
+              ],
+              "traumaAmplitude": [
+                0.0,
+                0.0
+              ],
+              "traumaFrequency": 24.0,
+              "traumaDecay": 1.5,
+              "followTarget": ""
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "name": "Player",
+        "tag": "",
+        "active": true,
+        "visible": true,
+        "locked": false,
+        "zIndex": 0,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "components": [
+          {
+            "type": "ZenScript",
+            "data": {
+              "path": "assets/scripts/player.py"
+            }
+          },
+          {
+            "type": "RectShape",
+            "data": {
+              "size": [
+                64.0,
+                64.0
+              ],
+              "mode": 0,
+              "lineWidth": 2.0,
+              "color": [
+                90,
+                200,
+                150,
+                255
+              ],
+              "blendMode": 0
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  }
+}

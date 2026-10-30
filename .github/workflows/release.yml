@@ -16,8 +16,38 @@ permissions:
   contents: read
 
 jobs:
+  # The web runner, built once with Emscripten and shipped in every package, so
+  # exporting a game for the web needs nothing installed.
+  web:
+    name: web runner
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.release_tag || github.sha }}
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.22
+
+      - name: Build the web runner
+        run: |
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DK2D_RUNTIME_OUTPUT_DIRECTORY=$PWD/web-runner
+          cmake --build build-web --target k2d_runner --parallel
+
+      - name: Upload the web runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: k2d-web-runner
+          path: |
+            web-runner/k2d_runner.js
+            web-runner/k2d_runner.wasm
+          if-no-files-found: error
+
   build:
     name: ${{ matrix.name }}
+    needs: web
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -36,14 +66,7 @@ jobs:
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
-
-      - name: Restore vcpkg and install dependencies
-        if: runner.os == 'Windows'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgJsonGlob: vcpkg.json
-          runVcpkgInstall: true
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libgl-dev
 
       - name: Configure Linux
         if: runner.os == 'Linux'
@@ -62,27 +85,36 @@ jobs:
             -DCMAKE_C_COMPILER="$mingw/gcc.exe" `
             -DCMAKE_CXX_COMPILER="$mingw/g++.exe" `
             -DCMAKE_RC_COMPILER="$mingw/windres.exe" `
-            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-mingw-static `
             -DK2D_STATIC_MINGW_RUNTIME=ON
 
       - name: Build editor, runner and export tools
         run: >-
           cmake --build build --config Release
-          --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_webserver --parallel
+          --target k2d_editor k2d_runner k2d_pack k2d_scriptc k2d_export k2d_webserver --parallel
 
       - name: Install release tree
         run: cmake --install build --config Release --prefix "stage/Kinetix2D-${{ matrix.name }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Add the manual
+        run: |
+          python -m pip install -r documentation/requirements.txt
+          python -m sphinx -q -b html documentation "stage/Kinetix2D-${{ matrix.name }}/bin/docs"
+
+      - name: Add the web runner
+        uses: actions/download-artifact@v4
+        with:
+          name: k2d-web-runner
+          path: stage/Kinetix2D-${{ matrix.name }}/bin/web
 
       - name: Copy Windows runtime DLLs
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $bin = "stage/Kinetix2D-${{ matrix.name }}/bin"
-          $vcpkgDlls = Get-ChildItem -Path build/vcpkg_installed -Filter *.dll -Recurse -ErrorAction SilentlyContinue
-          if ($vcpkgDlls) {
-            $vcpkgDlls | Copy-Item -Destination $bin
-          }
           # x64-mingw-static plus -static in K2D_STATIC_MINGW_RUNTIME should leave nothing
           # to copy; this is a fallback for a toolchain that still links winpthread dynamically.
           $winpthread = Join-Path $env:MINGW_BIN "libwinpthread-1.dll"

@@ -1,11 +1,12 @@
 #include "k2d/PolygonCollider2D.h"
+#include "k2d/RigidBody2D.h"
 
 #include <cmath>
 
 namespace k2d
 {
 
-    PolygonCollider2D::PolygonCollider2D()
+    PolygonCollider2D::PolygonCollider2D() : Collider2D(ComponentClass::PolygonCollider2D)
     {
         setRegular(4, 16.0f);
     }
@@ -31,7 +32,7 @@ namespace k2d
         markDirty();
     }
 
-    int PolygonCollider2D::addTo(kx::Body &body, float density, float scaleX, float scaleY) const
+    int PolygonCollider2D::addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const
     {
         if (mPoints.size() < 3)
             return 0;

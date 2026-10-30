@@ -34,6 +34,13 @@ class EditorSettings
     bool viewportLivePreview = true;
     bool showColliders = true;
     bool showPhysicsDebug = false;
+    bool showNavigationDebug = false;
+    // Per-object viewport decoration. Every node draws these every frame, and
+    // a name is one textured quad per character, so a busy scene spends real
+    // time on them. The selected object always draws both regardless.
+    bool showObjectNames = true;
+    bool showObjectMarkers = true;
+    bool showParentLinks = true;
 };
 
 } // namespace k2d::editor

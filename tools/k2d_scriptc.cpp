@@ -1,3 +1,4 @@
+#include <platform.h>
 #include <k2d/ZenRuntime.h>
 #include <k2d/FileBuffer.h>
 #include <k2d/FileSystem.h>
@@ -88,13 +89,13 @@ int main(int argc, char** argv)
             k2d::FileBuffer file;
             if (!k2d::FileSystem::Instance().LoadFile(argv[argument], file, true))
             {
-                std::fprintf(stderr, "k2d_scriptc: could not read %s\n", argv[argument]);
+                log_error("k2d_scriptc: could not read %s\n", argv[argument]);
                 return 1;
             }
             const ct::String className = firstClassName(file.Text());
             if (className.empty())
             {
-                std::fprintf(stderr, "k2d_scriptc: %s does not define a script class\n", argv[argument]);
+                log_info("k2d_scriptc: %s does not define a script class\n", argv[argument]);
                 return 1;
             }
 
@@ -113,7 +114,7 @@ int main(int argc, char** argv)
         if (!k2d::ZenRuntime::instance().compileSourceToBytecode(source.c_str(), "<k2d-web-bundle>",
                                                                   bytecodePath, stripDebug, &error))
         {
-            std::fprintf(stderr, "k2d_scriptc: %s\n", error.empty() ? "bundle compilation failed" : error.c_str());
+            log_info("k2d_scriptc: %s\n", error.empty() ? "bundle compilation failed" : error.c_str());
             return 1;
         }
 
@@ -123,7 +124,7 @@ int main(int argc, char** argv)
         manifest.set("scripts", scripts);
         if (!k2d::FileSystem::Instance().SaveTextFile(manifestPath, manifest.dump(2)))
         {
-            std::fprintf(stderr, "k2d_scriptc: could not write %s\n", manifestPath);
+            log_error("k2d_scriptc: could not write %s\n", manifestPath);
             return 1;
         }
 
@@ -141,7 +142,7 @@ int main(int argc, char** argv)
     if (!k2d::ZenRuntime::instance().compileFileToBytecode(argv[argument], argv[argument + 1],
                                                             stripDebug, &error))
     {
-        std::fprintf(stderr, "k2d_scriptc: %s\n", error.empty() ? "compilation failed" : error.c_str());
+        log_info("k2d_scriptc: %s\n", error.empty() ? "compilation failed" : error.c_str());
         return 1;
     }
 

@@ -1,0 +1,4 @@
+leak:libGL
+leak:swrast
+leak:radeonsi
+leak:dri

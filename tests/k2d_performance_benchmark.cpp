@@ -1,15 +1,15 @@
 #include <k2d/Component.h>
 #include <k2d/BoxCollider2D.h>
-#include <k2d/PhysicsWorld2D.h>
 #include <k2d/RenderQueue.h>
 #include <k2d/RigidBody2D.h>
 #include <k2d/Scene.h>
-#include <kx/kx.h>
 
-#include <algorithm>
+#include "k2d_bench_report.h"
+
 #include <chrono>
 #include <cstdio>
-#include <vector>
+#include <ct/sort.hpp>
+#include <ct/vector.hpp>
 
 namespace
 {
@@ -48,19 +48,14 @@ double elapsedMs(Clock::time_point start, Clock::time_point end)
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-double profileClock()
+void printStats(const char* name, ct::Vector<double>& samples)
 {
-    return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
-}
-
-void printStats(const char* name, std::vector<double>& samples)
-{
-    std::sort(samples.begin(), samples.end());
+    ct::sort(samples.begin(), samples.end());
     double total = 0.0;
     for (double sample : samples)
         total += sample;
     const size_t p95Index = (samples.size() * 95) / 100;
-    std::printf("%s_avg_ms=%.4f %s_p95_ms=%.4f\n", name, total / samples.size(), name,
+    k2d_tests::report("%s_avg_ms=%.4f %s_p95_ms=%.4f", name, total / samples.size(), name,
                 samples[p95Index < samples.size() ? p95Index : samples.size() - 1]);
 }
 
@@ -71,7 +66,7 @@ void benchmarkScene()
     constexpr int sampleFrames = 120;
 
     k2d::Scene scene;
-    std::vector<BenchmarkComponent*> components;
+    ct::Vector<BenchmarkComponent*> components;
     components.reserve(objectCount);
     for (int i = 0; i < objectCount; ++i)
     {
@@ -86,8 +81,8 @@ void benchmarkScene()
         scene.buildRenderQueue();
     }
 
-    std::vector<double> updateSamples;
-    std::vector<double> renderSamples;
+    ct::Vector<double> updateSamples;
+    ct::Vector<double> renderSamples;
     updateSamples.reserve(sampleFrames);
     renderSamples.reserve(sampleFrames);
     for (int i = 0; i < sampleFrames; ++i)
@@ -101,49 +96,10 @@ void benchmarkScene()
         renderSamples.push_back(elapsedMs(updateEnd, renderEnd));
     }
 
-    std::printf("scene_objects=%d scene_updates=%d render_items=%zu\n", objectCount, components[0]->updates(),
+    k2d_tests::report("scene_objects=%d scene_updates=%d render_items=%zu", objectCount, components[0]->updates(),
                 scene.renderItemCount());
     printStats("scene_update", updateSamples);
     printStats("scene_render_queue", renderSamples);
-}
-
-void benchmarkPhysics()
-{
-    constexpr int bodyCount = 1000;
-    constexpr int warmupFrames = 30;
-    constexpr int sampleFrames = 120;
-
-    kx::World world(Math::Vec2(0.0f, 0.0f));
-    world.SetTimeSource(profileClock);
-    for (int i = 0; i < bodyCount; ++i)
-    {
-        const float x = (i % 50) * 1.5f;
-        const float y = (i / 50) * 1.5f;
-        world.CreateBox(Math::Vec2(x, y), 0.8f, 0.8f, 1.0f);
-    }
-
-    for (int i = 0; i < warmupFrames; ++i)
-        world.Step(1.0f / 60.0f);
-
-    std::vector<double> samples;
-    samples.reserve(sampleFrames);
-    for (int i = 0; i < sampleFrames; ++i)
-    {
-        auto start = Clock::now();
-        world.Step(1.0f / 60.0f);
-        samples.push_back(elapsedMs(start, Clock::now()));
-    }
-
-    std::printf("physics_bodies=%d physics_contacts=%zu\n", bodyCount, world.ContactCount());
-    const kx::StepProfile& profile = world.Profile();
-    std::printf("physics_profile_integrate_ms=%.4f physics_profile_broadphase_ms=%.4f "
-                "physics_profile_narrowphase_ms=%.4f physics_profile_solve_velocity_ms=%.4f "
-                "physics_profile_solve_velocity_joints_ms=%.4f "
-                "physics_profile_solve_velocity_contacts_ms=%.4f "
-                "physics_profile_solve_position_ms=%.4f\n",
-                profile.integrate, profile.broadphase, profile.narrowphase, profile.solveVelocity,
-                profile.solveVelocityJoints, profile.solveVelocityContacts, profile.solvePosition);
-    printStats("physics_step", samples);
 }
 
 void benchmarkPhysics2D()
@@ -161,31 +117,30 @@ void benchmarkPhysics2D()
         object->addComponent<k2d::BoxCollider2D>()->setSize(Math::Vec2(1.6f, 1.6f));
     }
 
-    k2d::PhysicsWorld2D world(Math::Vec2(0.0f, 0.0f));
-    world.setFixedTimeStep(1.0f / 60.0f);
-    world.build(scene.root());
+    scene.setGravity(Math::Vec2(0.0f, 0.0f));
+    scene.setFixedTimeStep(1.0f / 60.0f);
+    scene.setSimulationEnabled(true);
     for (int i = 0; i < warmupFrames; ++i)
-        world.step(1.0f / 60.0f);
+        scene.update(1.0f / 60.0f);
 
-    std::vector<double> samples;
+    ct::Vector<double> samples;
     samples.reserve(sampleFrames);
     for (int i = 0; i < sampleFrames; ++i)
     {
         auto start = Clock::now();
-        world.step(1.0f / 60.0f);
+        scene.update(1.0f / 60.0f);
         samples.push_back(elapsedMs(start, Clock::now()));
     }
 
-    std::printf("physics2d_bodies=%zu physics2d_contacts=%zu\n", world.bodyCount(), world.contactCount());
+    k2d_tests::report("physics2d_bodies=%zu physics2d_contacts=%zu", scene.bodyCount(), scene.contactCount());
     printStats("physics2d_step", samples);
-    k2d::PhysicsWorld2D::SetActive(nullptr);
 }
 } // namespace
 
 int main()
 {
     benchmarkScene();
-    benchmarkPhysics();
     benchmarkPhysics2D();
+    k2d_tests::report("done");
     return 0;
 }

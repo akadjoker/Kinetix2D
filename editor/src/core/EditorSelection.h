@@ -29,8 +29,12 @@ public:
     bool isSelected(uint64_t id) const;
     std::size_t count() const { return mIds.size(); }
 
+    uint32_t componentId() const { return mComponentId; }
+    void selectComponent(uint32_t id) { mComponentId = id; }
+
 private:
     ct::Vector<uint64_t> mIds;
+    uint32_t mComponentId = 0;
 };
 
 }

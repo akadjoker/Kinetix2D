@@ -154,7 +154,7 @@ script->declaredPropertyCount(); // what the .py declares
 | Tree | `get_parent()`, `child_count()`, `get_child(i)`, `find(name)`, `create_child(name)`, `queue_destroy()` |
 | Spawning | `spawn(prefab_path)`, `spawn(prefab_path, x, y)` |
 | Math | `distance_to(x, y)`, `angle_to(x, y)`, `look_at(x, y)`, `move_toward(x, y, max_step)` |
-| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, and `MotionStreak`; plus the legacy component getters |
+| Components | `get_component<T>()` for `ScriptComponent`, `Sprite`, `Animation`, `Camera`, `Particle`, `RigidBody`, `CharacterBody`, `Collider`, `BoxCollider`, `CircleCollider`, `EdgeCollider`, `PolygonCollider`, `ChainCollider`, `TileMap`, `SpriteBatch`, `Polygon2D`, `Line2D`, `NinePatch`, `Light`, `Light2D`, `DirectionalLight2D`, `LightOccluder`, `AudioPlayer`, `CircleShape`, `RectShape`, `CapsuleShape`, `UiCanvas`, `Panel`, `Label`, `Button`, `CheckBox`, `Slider`, `NavigationRegion`, `NavigationAgent`, `MotionTween`, `PathMotion`, `ActionSequence`, and `MotionStreak`; plus the legacy component getters |
 
 Component handles return `None` when the component is missing.
 
@@ -162,6 +162,29 @@ Every component handle provides `is_active()` and `set_active(value)`. Component
 component-specific script APIs expose those methods on the handle as well; for example,
 `CharacterBody` provides velocity and slide-state accessors, `Collider` provides offset,
 sensor and filter accessors, and `Panel`/`Label` provide their UI setters and getters.
+
+`Animation` exposes the indexed attachment points authored on the current frame:
+
+```python
+count = animation.point_count()
+frame = animation.get_frame()
+found, pixel_x, pixel_y = animation.get_point(0)
+found, world_x, world_y = animation.get_real_point(0)
+```
+
+`get_point` returns the stored unflipped frame-pixel position. `get_real_point` applies the
+sprite pivot, frame offset, flip and the owning GameObject's complete global transform.
+
+`ActionSequence` supports absolute target actions and duration-based rate actions. `force`
+uses X/Y as units per second; `turn_rate` uses angle as degrees per second. Both multiply
+their rate by delta time internally. A duration of `0` makes either rate action run forever,
+until the sequence is stopped or restarted:
+
+```python
+actions = self.node.get_component<ActionSequence>()
+actions.add_step("force", 120.0, -30.0, 0.0, 255, 255, 255, 255, 2.0, "linear")
+actions.add_step("turn_rate", 0.0, 0.0, 180.0, 255, 255, 255, 255, 0.0, "linear")
+```
 
 `get_component<T>()` is the generic form of the component accessors. `T` must be one of the
 component handle classes listed above. A node owns its transform directly, so use the node's
@@ -258,6 +281,26 @@ def on_collision(self, other, began):   # began is True on enter, False on exit
 
 Sensors report through the same hook without blocking, so a trigger volume is a collider with
 Sensor ticked plus an `on_collision`.
+
+**Effect particles** are cheap projectiles owned by the scene: they sweep against the colliders,
+draw themselves, and never enter the solver.
+
+```python
+particle_explode(x, y, 24, 80, 260, 1.5, "blood", 4, 1, "stick")
+#                x  y  count speed_min speed_max life texture size tag response
+particle_emit(x, y, vx, vy, 0.8, "spark", 2)   # one particle, returns its id
+particle_count()                               # how many are alive
+particle_clear()
+```
+
+`response` is `"kill"`, `"bounce"` or `"stick"`. A trailing argument after it turns the fade to
+transparent off. An empty texture name simulates and reports hits without drawing anything.
+A hit reaches `on_particle_hit`, on the scripts of the object that was struck:
+
+```python
+def on_particle_hit(self, x, y, nx, ny, tag):
+    emit("splatter", tag)
+```
 
 **Queries** work on the running world:
 
@@ -399,6 +442,7 @@ SetZenScriptUserData(&userData); // optional: enables user_data_* in scripts
 SetZenScriptOutput(fn, user);    // route print() into your console
 SetZenScriptsEnabled(true);      // scripts idle until this is on
 RouteZenScriptCollisions(world); // makes on_collision fire
+RouteZenScriptParticleHits(world); // makes on_particle_hit fire
 // each frame, after scene.update():
 DispatchZenScriptEvents(scene.root());
 ```
@@ -458,11 +502,11 @@ falls back to source. Bytecode requires the same Zen VM version and Kinetix nati
 generated it, so a Web export must be rebuilt after either changes. The Web exporter will compile
 and preload the project scripts in a deterministic order before loading its first scene.
 
-`tools/export_web.sh <project> --scene scenes/level_01.k2dscene` exports that scene explicitly;
-without `--scene`, it uses `startupScene`. The editor's **Project → Export Web** and **Run Web**
-actions automatically use the currently open, saved scene when it belongs to the project.
-The same export pipeline runs on Windows through `tools\\export_web.bat`; activate Emscripten first
-(`emsdk_env.bat`) and use `K2D_SOURCE_ROOT` when the source tree is not beside the launcher.
+`k2d_export <project> [-o out] [--runner folder]` writes a web game that starts at the project's
+`startupScene`: the web runner, `data.kpak` (scenes, assets, the scripts as one bytecode bundle) and
+an `index.html` that fetches the pack and starts the runner. The editor's **File → Export Web** and
+**Run Web** (F7) do the same into `<project>/export/web`. The web runner is the Emscripten build of
+`k2d_runner`, looked for in `web/` beside the tools; nothing else needs Emscripten.
 
 Use `k2d_webserver <export-directory> [port]` to test an exported build locally. It binds only to
 `127.0.0.1`, sets the WebAssembly MIME type, and serves static export files without exposing paths

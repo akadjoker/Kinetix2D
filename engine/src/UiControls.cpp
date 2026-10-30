@@ -51,11 +51,19 @@ namespace k2d
     void SetUiThemeTexture(Texture *texture) { gUiThemeTexture = texture; }
     void SetUiViewport(float x, float y, float width, float height)
     {
+        SetUiViewport(x, y, width, height, width, height);
+    }
+    void SetUiViewport(float x, float y, float outputWidth, float outputHeight,
+                       float virtualWidth, float virtualHeight)
+    {
         gUiViewport.x = x;
         gUiViewport.y = y;
-        gUiViewport.width = width > 0.0f ? width : 0.0f;
-        gUiViewport.height = height > 0.0f ? height : 0.0f;
-        gUiViewport.valid = gUiViewport.width > 0.0f && gUiViewport.height > 0.0f;
+        gUiViewport.outputWidth = outputWidth > 0.0f ? outputWidth : 0.0f;
+        gUiViewport.outputHeight = outputHeight > 0.0f ? outputHeight : 0.0f;
+        gUiViewport.width = virtualWidth > 0.0f ? virtualWidth : 0.0f;
+        gUiViewport.height = virtualHeight > 0.0f ? virtualHeight : 0.0f;
+        gUiViewport.valid = gUiViewport.outputWidth > 0.0f && gUiViewport.outputHeight > 0.0f &&
+                            gUiViewport.width > 0.0f && gUiViewport.height > 0.0f;
     }
     const UiViewport &GetUiViewport() { return gUiViewport; }
 
@@ -154,7 +162,8 @@ namespace k2d
         command.pivotX = 0.0f;
         command.pivotY = 0.0f;
         command.color = color;
-        item.commands.push_back(command);
+        command.lightMask = kUnlitLightMask;
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::addThemeRect(RenderItem &item, float x, float y, float width, float height,
@@ -172,7 +181,8 @@ namespace k2d
         command.texWidth = gUiThemeTexture->Width();
         command.texHeight = gUiThemeTexture->Height();
         command.color = color;
-        item.commands.push_back(command);
+        command.lightMask = kUnlitLightMask;
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::addText(RenderItem &item, float x, float y, float size, const ct::String &text, const Color &color) const
@@ -186,7 +196,8 @@ namespace k2d
         command.width = size;
         command.text = text;
         command.color = color;
-        item.commands.push_back(command);
+        command.lightMask = kUnlitLightMask;
+        item.commands.push_back(ct::detail::move(command));
     }
 
     void UiControl::onUiInput(bool, bool, bool) {}

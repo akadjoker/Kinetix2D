@@ -10,27 +10,23 @@ application.
 .. code-block:: cpp
 
    k2d::Device device;
-   if (!device.Init("Game", 1280, 720, true, false))   // vsync, enableUi
+   if (!device.Init("Game", 1280, 720, true))   // vsync
        return 1;
 
    while (device.PollEvents())
    {
        float dt = device.DeltaTime();
-       device.BeginUI();
        // ... update and render the scene ...
-       device.EndUI();
        device.Swap();
    }
 
-* ``Init(title, width, height, vsync = true, enableUi = true)`` — creates the
-  window, the GL context and (optionally) the ImGui UI.
+* ``Init(title, width, height, vsync = true)`` — creates the window and the
+  OpenGL ES 3 context through zen_plataform (on the web: the page's canvas).
 * ``PollEvents()`` / ``Swap()`` — pump events and present the frame.
 * ``Width()`` / ``Height()`` — window size. ``DrawableWidth()`` /
   ``DrawableHeight()`` — framebuffer pixels, which can differ on HiDPI.
 * ``DeltaTime()`` / ``FPS()`` — frame timing.
 * ``GetInput()`` — the ``k2d::Input`` state for the frame.
-* ``BeginUI()`` / ``EndUI()`` — wrap the ImGui frame; ``ImGuiWantsMouse()`` /
-  ``ImGuiWantsKeyboard()`` tell whether the UI is capturing input.
 * ``CaptureScreenshot()`` — writes a PNG. ``StartGifCapture(60)`` /
   ``StopGifCapture()`` / ``CaptureGifFrame()`` — PNG frame capture for GIFs.
 * ``TimeSeconds()`` — a global clock in seconds.
@@ -195,4 +191,5 @@ Other systems
   ``ScreenFade``, ``SceneManager`` — the remaining scene features.
 * ``AStar2D`` / ``AStarGrid2D`` — pathfinding; ``Navigation2D`` /
   ``NavigationAgent2D`` / ``NavigationRegion2D`` — navigation.
-* ``Profiler`` / ``ProfilerUI`` — scoped frame profiling with an ImGui overlay.
+* ``Profiler`` — scoped frame profiling, shown by the editor's Profiler panel and
+  the runner's F5 overlay.

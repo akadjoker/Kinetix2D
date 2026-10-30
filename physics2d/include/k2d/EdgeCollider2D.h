@@ -10,7 +10,7 @@ namespace k2d
     public:
         EdgeCollider2D();
 
-        int addTo(kx::Body &body, float density, float scaleX, float scaleY) const override;
+        int addTo(RigidBody2D &body, float density, float scaleX, float scaleY) const override;
 
         const Math::Vec2 &start() const { return mStart; }
         const Math::Vec2 &end() const { return mEnd; }
@@ -25,7 +25,7 @@ namespace k2d
     {
         static bool test(const Component *component)
         {
-            return dynamic_cast<const EdgeCollider2D *>(component) != nullptr;
+            return component->componentClass() == ComponentClass::EdgeCollider2D;
         }
     };
 

@@ -4,11 +4,20 @@
 #include "k2d/ChainCollider2D.h"
 #include "k2d/CharacterBody2D.h"
 #include "k2d/CircleCollider2D.h"
+#include "k2d/DistanceJoint2D.h"
 #include "k2d/EdgeCollider2D.h"
 #include "k2d/GameObject.h"
+#include "k2d/GearJoint2D.h"
+#include "k2d/Joint2D.h"
+#include "k2d/MotorJoint2D.h"
+#include "k2d/MouseJoint2D.h"
 #include "k2d/PolygonCollider2D.h"
+#include "k2d/RevoluteJoint2D.h"
 #include "k2d/RigidBody2D.h"
+#include "k2d/Steering2D.h"
 #include "k2d/Serializer.h"
+#include "k2d/TileMapCollider2D.h"
+#include "k2d/WheelJoint2D.h"
 
 #include <cstring>
 
@@ -49,26 +58,26 @@ void readPoints(const ct::Json& j, ct::Vector<Math::Vec2>& out)
         out.push_back(readVec2(j[i], Math::Vec2(0.0f, 0.0f)));
 }
 
-const char* bodyTypeName(kx::BodyType type)
+const char* bodyTypeName(k2d::BodyType type)
 {
     switch (type)
     {
-    case kx::BodyType::Static:
+    case k2d::BodyType::Static:
         return "static";
-    case kx::BodyType::Kinematic:
+    case k2d::BodyType::Kinematic:
         return "kinematic";
     default:
         return "dynamic";
     }
 }
 
-kx::BodyType bodyTypeFrom(const char* name)
+k2d::BodyType bodyTypeFrom(const char* name)
 {
     if (std::strcmp(name, "static") == 0)
-        return kx::BodyType::Static;
+        return k2d::BodyType::Static;
     if (std::strcmp(name, "kinematic") == 0)
-        return kx::BodyType::Kinematic;
-    return kx::BodyType::Dynamic;
+        return k2d::BodyType::Kinematic;
+    return k2d::BodyType::Dynamic;
 }
 
 Component* createRigidBody(GameObject& owner)
@@ -106,7 +115,7 @@ void readRigidBody(Component& component, const ct::Json& data, Assets*)
 
 bool isRigidBody(const Component& component)
 {
-    return dynamic_cast<const RigidBody2D*>(&component) != nullptr;
+    return component.type() == ComponentType::RigidBody;
 }
 
 Component* createCharacterBody(GameObject& owner)
@@ -130,7 +139,7 @@ void readCharacterBody(Component& component, const ct::Json& data, Assets*)
 {
     CharacterBody2D& body = static_cast<CharacterBody2D&>(component);
     body.setVelocity(readVec2(data["velocity"], Math::Vec2(0.0f, 0.0f)));
-    body.setSafeMargin((float)data["safeMargin"].as_double(kx::kLinearSlop));
+    body.setSafeMargin((float)data["safeMargin"].as_double(k2d::kLinearSlop));
     body.setMaxSlides((int)data["maxSlides"].as_int(4));
     body.setMotionMode(std::strcmp(data["motionMode"].as_cstr("floating"), "grounded") == 0
                            ? CharacterBody2D::MotionMode::Grounded
@@ -141,7 +150,7 @@ void readCharacterBody(Component& component, const ct::Json& data, Assets*)
 
 bool isCharacterBody(const Component& component)
 {
-    return dynamic_cast<const CharacterBody2D*>(&component) != nullptr;
+    return component.type() == ComponentType::CharacterBody;
 }
 
 void writeShared(const Collider2D& collider, ct::Json& data)
@@ -180,7 +189,7 @@ void readBox(Component& component, const ct::Json& data, Assets*)
 
 bool isBox(const Component& component)
 {
-    return dynamic_cast<const BoxCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::BoxCollider2D;
 }
 
 Component* createCircle(GameObject& owner)
@@ -204,7 +213,7 @@ void readCircle(Component& component, const ct::Json& data, Assets*)
 
 bool isCircle(const Component& component)
 {
-    return dynamic_cast<const CircleCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::CircleCollider2D;
 }
 
 Component* createEdge(GameObject& owner)
@@ -229,7 +238,7 @@ void readEdge(Component& component, const ct::Json& data, Assets*)
 
 bool isEdge(const Component& component)
 {
-    return dynamic_cast<const EdgeCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::EdgeCollider2D;
 }
 
 Component* createPolygon(GameObject& owner)
@@ -256,7 +265,7 @@ void readPolygon(Component& component, const ct::Json& data, Assets*)
 
 bool isPolygon(const Component& component)
 {
-    return dynamic_cast<const PolygonCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::PolygonCollider2D;
 }
 
 Component* createChain(GameObject& owner)
@@ -270,6 +279,7 @@ void writeChain(const Component& component, ct::Json& data, Assets*)
     writeShared(chain, data);
     data.set("points", writePoints(chain.points()));
     data.set("loop", ct::Json(chain.loop()));
+    data.set("oneWay", ct::Json(chain.oneWay()));
 }
 
 void readChain(Component& component, const ct::Json& data, Assets*)
@@ -281,13 +291,302 @@ void readChain(Component& component, const ct::Json& data, Assets*)
     if (points.size() >= 2)
         chain.setPoints(points.data(), (int)points.size());
     chain.setLoop(data["loop"].as_bool(false));
+    chain.setOneWay(data["oneWay"].as_bool(false));
 }
 
 bool isChain(const Component& component)
 {
-    return dynamic_cast<const ChainCollider2D*>(&component) != nullptr;
+    return component.componentClass() == ComponentClass::ChainCollider2D;
+}
+
+Component* createTileMapCollider(GameObject& owner)
+{
+    return owner.addComponent<TileMapCollider2D>();
+}
+
+void writeTileMapCollider(const Component& component, ct::Json& data, Assets*)
+{
+    writeShared(static_cast<const TileMapCollider2D&>(component), data);
+}
+
+void readTileMapCollider(Component& component, const ct::Json& data, Assets*)
+{
+    readShared(static_cast<TileMapCollider2D&>(component), data);
+}
+
+bool isTileMapCollider(const Component& component)
+{
+    return component.componentClass() == ComponentClass::TileMapCollider2D;
+}
+
+void writeJointShared(const Joint2D& joint, ct::Json& data)
+{
+    data.set("target", ct::Json(joint.targetName().c_str()));
+    data.set("collideConnected", ct::Json(joint.collideConnected()));
+}
+
+void readJointShared(Joint2D& joint, const ct::Json& data)
+{
+    joint.setTargetName(data["target"].as_cstr(""));
+    joint.setCollideConnected(data["collideConnected"].as_bool(false));
+}
+
+Component* createDistanceJoint(GameObject& owner)
+{
+    return owner.addComponent<DistanceJoint2D>();
+}
+
+void writeDistanceJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const DistanceJoint2D& joint = static_cast<const DistanceJoint2D&>(component);
+    writeJointShared(joint, data);
+    data.set("localAnchorA", writeVec2(joint.localAnchorA()));
+    data.set("localAnchorB", writeVec2(joint.localAnchorB()));
+    data.set("length", ct::Json((double)joint.length()));
+    data.set("minLength", ct::Json((double)joint.minLength()));
+    data.set("maxLength", ct::Json((double)joint.maxLength()));
+    data.set("springFrequency", ct::Json((double)joint.springFrequency()));
+    data.set("springDamping", ct::Json((double)joint.springDamping()));
+    data.set("lengthConfigured", ct::Json(joint.lengthConfigured()));
+}
+
+void readDistanceJoint(Component& component, const ct::Json& data, Assets*)
+{
+    DistanceJoint2D& joint = static_cast<DistanceJoint2D&>(component);
+    readJointShared(joint, data);
+    joint.setLocalAnchorA(readVec2(data["localAnchorA"], Math::Vec2(0.0f, 0.0f)));
+    joint.setLocalAnchorB(readVec2(data["localAnchorB"], Math::Vec2(0.0f, 0.0f)));
+    joint.setLength((float)data["length"].as_double(100.0));
+    joint.setLengthRange((float)data["minLength"].as_double(100.0), (float)data["maxLength"].as_double(100.0));
+    joint.setSpring((float)data["springFrequency"].as_double(0.0), (float)data["springDamping"].as_double(0.0));
+    joint.setLengthConfigured(data["lengthConfigured"].as_bool(true));
+}
+
+bool isDistanceJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::DistanceJoint2D;
+}
+
+Component* createRevoluteJoint(GameObject& owner)
+{
+    return owner.addComponent<RevoluteJoint2D>();
+}
+
+void writeRevoluteJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const RevoluteJoint2D& joint = static_cast<const RevoluteJoint2D&>(component);
+    writeJointShared(joint, data);
+    data.set("localAnchorA", writeVec2(joint.localAnchorA()));
+    data.set("localAnchorB", writeVec2(joint.localAnchorB()));
+    data.set("referenceAngle", ct::Json((double)joint.referenceAngle()));
+    data.set("motorEnabled", ct::Json(joint.motorEnabled()));
+    data.set("motorSpeed", ct::Json((double)joint.motorSpeed()));
+    data.set("maxMotorTorque", ct::Json((double)joint.maxMotorTorque()));
+    data.set("limitEnabled", ct::Json(joint.limitEnabled()));
+    data.set("lowerAngle", ct::Json((double)joint.lowerAngle()));
+    data.set("upperAngle", ct::Json((double)joint.upperAngle()));
+    data.set("anchorsConfigured", ct::Json(joint.anchorsConfigured()));
+}
+
+void readRevoluteJoint(Component& component, const ct::Json& data, Assets*)
+{
+    RevoluteJoint2D& joint = static_cast<RevoluteJoint2D&>(component);
+    readJointShared(joint, data);
+    joint.setLocalAnchorA(readVec2(data["localAnchorA"], Math::Vec2(0.0f, 0.0f)));
+    joint.setLocalAnchorB(readVec2(data["localAnchorB"], Math::Vec2(0.0f, 0.0f)));
+    joint.setReferenceAngle((float)data["referenceAngle"].as_double(0.0));
+    joint.setMotor(data["motorEnabled"].as_bool(false), (float)data["motorSpeed"].as_double(0.0),
+                  (float)data["maxMotorTorque"].as_double(0.0));
+    joint.setLimits(data["limitEnabled"].as_bool(false), (float)data["lowerAngle"].as_double(0.0),
+                    (float)data["upperAngle"].as_double(0.0));
+    joint.setAnchorsConfigured(data["anchorsConfigured"].as_bool(true));
+}
+
+bool isRevoluteJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::RevoluteJoint2D;
+}
+
+Component* createWheelJoint(GameObject& owner)
+{
+    return owner.addComponent<WheelJoint2D>();
+}
+
+void writeWheelJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const WheelJoint2D& joint = static_cast<const WheelJoint2D&>(component);
+    writeJointShared(joint, data);
+    data.set("localAnchorA", writeVec2(joint.localAnchorA()));
+    data.set("localAnchorB", writeVec2(joint.localAnchorB()));
+    data.set("localAxisA", writeVec2(joint.localAxisA()));
+    data.set("anchorsConfigured", ct::Json(joint.anchorsConfigured()));
+    data.set("motorEnabled", ct::Json(joint.motorEnabled()));
+    data.set("motorSpeed", ct::Json((double)joint.motorSpeed()));
+    data.set("maxMotorTorque", ct::Json((double)joint.maxMotorTorque()));
+    data.set("springFrequency", ct::Json((double)joint.springFrequency()));
+    data.set("springDamping", ct::Json((double)joint.springDamping()));
+}
+
+void readWheelJoint(Component& component, const ct::Json& data, Assets*)
+{
+    WheelJoint2D& joint = static_cast<WheelJoint2D&>(component);
+    readJointShared(joint, data);
+    joint.setLocalAnchorA(readVec2(data["localAnchorA"], Math::Vec2(0.0f, 0.0f)));
+    joint.setLocalAnchorB(readVec2(data["localAnchorB"], Math::Vec2(0.0f, 0.0f)));
+    joint.setLocalAxisA(readVec2(data["localAxisA"], Math::Vec2(0.0f, 1.0f)));
+    joint.setMotor(data["motorEnabled"].as_bool(false), (float)data["motorSpeed"].as_double(0.0),
+                  (float)data["maxMotorTorque"].as_double(0.0));
+    joint.setSpring((float)data["springFrequency"].as_double(4.0), (float)data["springDamping"].as_double(0.7));
+    joint.setAnchorsConfigured(data["anchorsConfigured"].as_bool(true));
+}
+
+bool isWheelJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::WheelJoint2D;
+}
+
+Component* createMotorJoint(GameObject& owner)
+{
+    return owner.addComponent<MotorJoint2D>();
+}
+
+void writeMotorJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const MotorJoint2D& joint = static_cast<const MotorJoint2D&>(component);
+    writeJointShared(joint, data);
+    data.set("linearOffset", writeVec2(joint.linearOffset()));
+    data.set("angularOffset", ct::Json((double)joint.angularOffset()));
+    data.set("maxForce", ct::Json((double)joint.maxForce()));
+    data.set("maxTorque", ct::Json((double)joint.maxTorque()));
+    data.set("correctionFactor", ct::Json((double)joint.correctionFactor()));
+}
+
+void readMotorJoint(Component& component, const ct::Json& data, Assets*)
+{
+    MotorJoint2D& joint = static_cast<MotorJoint2D&>(component);
+    readJointShared(joint, data);
+    joint.setLinearOffset(readVec2(data["linearOffset"], Math::Vec2(0.0f, 0.0f)));
+    joint.setAngularOffset((float)data["angularOffset"].as_double(0.0));
+    joint.setMaxForce((float)data["maxForce"].as_double(1.0));
+    joint.setMaxTorque((float)data["maxTorque"].as_double(1.0));
+    joint.setCorrectionFactor((float)data["correctionFactor"].as_double(0.3));
+}
+
+bool isMotorJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::MotorJoint2D;
+}
+
+Component* createMouseJoint(GameObject& owner)
+{
+    return owner.addComponent<MouseJoint2D>();
+}
+
+void writeMouseJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const MouseJoint2D& joint = static_cast<const MouseJoint2D&>(component);
+    data.set("collideConnected", ct::Json(joint.collideConnected()));
+    data.set("target", writeVec2(joint.target()));
+    data.set("maxForce", ct::Json((double)joint.maxForce()));
+    data.set("springFrequency", ct::Json((double)joint.springFrequency()));
+    data.set("springDamping", ct::Json((double)joint.springDamping()));
+}
+
+void readMouseJoint(Component& component, const ct::Json& data, Assets*)
+{
+    MouseJoint2D& joint = static_cast<MouseJoint2D&>(component);
+    joint.setCollideConnected(data["collideConnected"].as_bool(false));
+    joint.setTarget(readVec2(data["target"], Math::Vec2(0.0f, 0.0f)));
+    joint.setMaxForce((float)data["maxForce"].as_double(1000.0));
+    joint.setSpring((float)data["springFrequency"].as_double(5.0), (float)data["springDamping"].as_double(0.7));
+}
+
+bool isMouseJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::MouseJoint2D;
+}
+
+Component* createGearJoint(GameObject& owner)
+{
+    return owner.addComponent<GearJoint2D>();
+}
+
+void writeGearJoint(const Component& component, ct::Json& data, Assets*)
+{
+    const GearJoint2D& joint = static_cast<const GearJoint2D&>(component);
+    writeJointShared(joint, data);
+    data.set("jointATarget", ct::Json(joint.jointATargetName().c_str()));
+    data.set("jointAIndex", ct::Json((int64_t)joint.jointAIndex()));
+    data.set("jointBTarget", ct::Json(joint.jointBTargetName().c_str()));
+    data.set("jointBIndex", ct::Json((int64_t)joint.jointBIndex()));
+    data.set("ratio", ct::Json((double)joint.ratio()));
+}
+
+void readGearJoint(Component& component, const ct::Json& data, Assets*)
+{
+    GearJoint2D& joint = static_cast<GearJoint2D&>(component);
+    readJointShared(joint, data);
+    joint.setJointA(data["jointATarget"].as_cstr(""), (int)data["jointAIndex"].as_int(0));
+    joint.setJointB(data["jointBTarget"].as_cstr(""), (int)data["jointBIndex"].as_int(0));
+    joint.setRatio((float)data["ratio"].as_double(1.0));
+}
+
+bool isGearJoint(const Component& component)
+{
+    return component.componentClass() == ComponentClass::GearJoint2D;
 }
 } // namespace
+
+void writeSteeringShared(const Steering2D& steering, ct::Json& data)
+{
+    data.set("weight", ct::Json((double)steering.weight()));
+    data.set("target", ct::Json(steering.targetName().c_str()));
+    data.set("targetPosition", writeVec2(steering.targetPosition()));
+}
+
+void readSteeringShared(Steering2D& steering, const ct::Json& data)
+{
+    steering.setWeight((float)data["weight"].as_double(1.0));
+    steering.setTargetName(data["target"].as_cstr(""));
+    steering.setTargetPosition(readVec2(data["targetPosition"], Math::Vec2(0.0f, 0.0f)));
+}
+
+Component* createSteering(GameObject& owner)
+{
+    return owner.addComponent<Steering2D>();
+}
+
+void writeSteering(const Component& component, ct::Json& data, Assets*)
+{
+    const Steering2D& steering = static_cast<const Steering2D&>(component);
+    writeSteeringShared(steering, data);
+    data.set("group", ct::Json(steering.groupTag().c_str()));
+    data.set("mask", ct::Json((int)steering.mask()));
+    data.set("separation", ct::Json(steering.separationEnabled()));
+    data.set("separationRadius", ct::Json((double)steering.separationRadius()));
+    data.set("avoidance", ct::Json(steering.avoidanceEnabled()));
+    data.set("lookAhead", ct::Json((double)steering.lookAhead()));
+    data.set("slowRadius", ct::Json((double)steering.slowRadius()));
+    data.set("wanderRadius", ct::Json((double)steering.wanderRadius()));
+    data.set("wanderDistance", ct::Json((double)steering.wanderDistance()));
+    data.set("wanderJitter", ct::Json((double)steering.wanderJitter()));
+}
+
+void readSteering(Component& component, const ct::Json& data, Assets*)
+{
+    Steering2D& steering = static_cast<Steering2D&>(component);
+    readSteeringShared(steering, data);
+    steering.setGroupTag(data["group"].as_cstr(""));
+    steering.setMask((uint16_t)data["mask"].as_int(0xFFFF));
+    steering.setSeparationEnabled(data["separation"].as_bool(false));
+    steering.setSeparationRadius((float)data["separationRadius"].as_double(48.0));
+    steering.setAvoidanceEnabled(data["avoidance"].as_bool(false));
+    steering.setLookAhead((float)data["lookAhead"].as_double(3.0));
+    steering.setSlowRadius((float)data["slowRadius"].as_double(120.0));
+    steering.setWanderRadius((float)data["wanderRadius"].as_double(24.0));
+    steering.setWanderDistance((float)data["wanderDistance"].as_double(48.0));
+    steering.setWanderJitter((float)data["wanderJitter"].as_double(6.0));
+}
 
 void RegisterPhysics2DSerializers()
 {
@@ -303,6 +602,24 @@ void RegisterPhysics2DSerializers()
                              &isPolygon);
     Serializer::RegisterType(ComponentType::Collider, "ChainCollider2D", &createChain, &writeChain, &readChain,
                              &isChain);
+    Serializer::RegisterType(ComponentType::Collider, "TileMapCollider2D", &createTileMapCollider,
+                             &writeTileMapCollider, &readTileMapCollider, &isTileMapCollider);
+
+    Serializer::RegisterType(ComponentType::Joint, "DistanceJoint2D", &createDistanceJoint, &writeDistanceJoint,
+                             &readDistanceJoint, &isDistanceJoint);
+    Serializer::RegisterType(ComponentType::Joint, "RevoluteJoint2D", &createRevoluteJoint, &writeRevoluteJoint,
+                             &readRevoluteJoint, &isRevoluteJoint);
+    Serializer::RegisterType(ComponentType::Joint, "WheelJoint2D", &createWheelJoint, &writeWheelJoint,
+                             &readWheelJoint, &isWheelJoint);
+    Serializer::RegisterType(ComponentType::Joint, "MotorJoint2D", &createMotorJoint, &writeMotorJoint,
+                             &readMotorJoint, &isMotorJoint);
+    Serializer::RegisterType(ComponentType::Joint, "MouseJoint2D", &createMouseJoint, &writeMouseJoint,
+                             &readMouseJoint, &isMouseJoint);
+    Serializer::RegisterType(ComponentType::Joint, "GearJoint2D", &createGearJoint, &writeGearJoint, &readGearJoint,
+                             &isGearJoint);
+
+    Serializer::RegisterType(ComponentType::Steering, "Steering2D", &createSteering, &writeSteering,
+                             &readSteering, nullptr);
 }
 
 } // namespace k2d

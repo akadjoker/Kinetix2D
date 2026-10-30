@@ -3,8 +3,8 @@
 #include <ct/string.hpp>
 #include <ct/vector.hpp>
 
-#include <memory>
-#include <vector>
+#include <ct/ptr.hpp>
+#include <ct/vector.hpp>
 
 namespace k2d
 {
@@ -22,7 +22,8 @@ class FileSystem
     void Init();
     void Shutdown();
 
-    void AddSearchPath(const char* path);
+    // first: searched before the others (a project before the engine's assets).
+    void AddSearchPath(const char* path, bool first = false);
     void ResetSearchPaths();
 
     // Mounted KPAKs override loose files with the same logical name.
@@ -57,7 +58,7 @@ class FileSystem
 
     ct::Vector<ct::String> mSearchPaths;
     ct::String mBasePath;
-    std::vector<std::unique_ptr<KPak>> mPacks;
+    ct::Vector<ct::Unique<KPak>> mPacks;
 };
 
 } // namespace k2d

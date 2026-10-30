@@ -1,9 +1,10 @@
 #include "k2d/EdgeCollider2D.h"
+#include "k2d/RigidBody2D.h"
 
 namespace k2d
 {
 
-    EdgeCollider2D::EdgeCollider2D() : mStart(-32.0f, 0.0f), mEnd(32.0f, 0.0f)
+    EdgeCollider2D::EdgeCollider2D() : Collider2D(ComponentClass::EdgeCollider2D), mStart(-32.0f, 0.0f), mEnd(32.0f, 0.0f)
     {
     }
 
@@ -14,7 +15,7 @@ namespace k2d
         markDirty();
     }
 
-    int EdgeCollider2D::addTo(kx::Body &body, float, float scaleX, float scaleY) const
+    int EdgeCollider2D::addTo(RigidBody2D &body, float, float scaleX, float scaleY) const
     {
         const Math::Vec2 a(mStart.x * scaleX + mOffset.x, mStart.y * scaleY + mOffset.y);
         const Math::Vec2 b(mEnd.x * scaleX + mOffset.x, mEnd.y * scaleY + mOffset.y);

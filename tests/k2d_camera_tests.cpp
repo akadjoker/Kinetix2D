@@ -1,4 +1,8 @@
 #include <k2d/CameraComponent.h>
+#include <k2d/GameViewport.h>
+#include <k2d/GameObject.h>
+#include <k2d/Scene.h>
+#include <k2d/Serializer.h>
 
 #include <cstdio>
 #include <cmath>
@@ -9,10 +13,131 @@ bool Near(float a, float b)
 {
     return std::fabs(a - b) < 0.0001f;
 }
+
+bool testCameraFollowsOwnerTransform()
+{
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("camera");
+    object->setPosition(Math::Vec2(100.0f, 50.0f));
+    k2d::CameraComponent* camera = object->addComponent<k2d::CameraComponent>();
+    camera->setViewport(640.0f, 480.0f);
+
+    scene.update(1.0f / 60.0f);
+    bool followsInitialTransform = Near(camera->camera().position.x, 100.0f) && Near(camera->camera().position.y, 50.0f);
+
+    object->setPosition(Math::Vec2(200.0f, 80.0f));
+    scene.update(1.0f / 60.0f);
+    bool followsMovedTransform = Near(camera->camera().position.x, 200.0f) && Near(camera->camera().position.y, 80.0f);
+
+    std::printf("  camera_follows_transform: initial=%s moved=%s\n", followsInitialTransform ? "pass" : "fail",
+                followsMovedTransform ? "pass" : "fail");
+    return followsInitialTransform && followsMovedTransform;
+}
+
+bool testCameraWritesBackWhileFollowingTarget()
+{
+    k2d::Scene scene;
+    k2d::GameObject* object = scene.createObject("camera");
+    object->setPosition(Math::Vec2(0.0f, 0.0f));
+    k2d::CameraComponent* camera = object->addComponent<k2d::CameraComponent>();
+    camera->setViewport(640.0f, 480.0f);
+
+    k2d::Camera2D& camera2D = camera->camera();
+    camera2D.setSmoothing(false, 0.0f);
+    camera2D.setTarget(Math::Vec2(300.0f, 150.0f));
+
+    scene.update(1.0f / 60.0f);
+    bool cameraAtTarget = Near(camera2D.position.x, 300.0f) && Near(camera2D.position.y, 150.0f);
+    bool ownerFollowsCamera =
+        Near(object->position().x, camera2D.position.x) && Near(object->position().y, camera2D.position.y);
+
+    std::printf("  camera_writes_back: camera_at_target=%s owner_follows=%s (owner=%.1f,%.1f)\n",
+                cameraAtTarget ? "pass" : "fail", ownerFollowsCamera ? "pass" : "fail", object->position().x,
+                object->position().y);
+    return cameraAtTarget && ownerFollowsCamera;
+}
+
+bool testLegacyCameraPositionMigratesOntoOwnerTransform()
+{
+    k2d::Scene source;
+    k2d::GameObject* legacy = source.createObject("legacy_camera");
+    k2d::CameraComponent* legacyCamera = legacy->addComponent<k2d::CameraComponent>();
+    legacyCamera->setViewport(640.0f, 480.0f);
+    legacyCamera->setViewportScaleMode(k2d::ViewportScaleMode::Expand);
+    legacyCamera->setIntegerScale(true);
+    legacyCamera->camera().position = Math::Vec2(10.0f, 20.0f);
+    legacyCamera->camera().rotationDegrees = 5.0f;
+    const ct::Json legacyJson = k2d::Serializer::WriteObject(*legacy);
+
+    k2d::Scene migratedScene;
+    k2d::GameObject* migrated = k2d::Serializer::ReadObject(migratedScene, legacyJson);
+    k2d::CameraComponent* migratedCamera = migrated ? migrated->getComponent<k2d::CameraComponent>() : nullptr;
+    bool migrated_ok = migrated && migratedCamera && Near(migrated->position().x, 10.0f) &&
+                       Near(migrated->position().y, 20.0f) && Near(migrated->rotationDegrees(), 5.0f) &&
+                       migratedCamera->viewportScaleMode() == k2d::ViewportScaleMode::Expand &&
+                       migratedCamera->integerScale();
+
+    k2d::GameObject* placed = source.createObject("placed_camera");
+    placed->setPosition(Math::Vec2(7.0f, 7.0f));
+    k2d::CameraComponent* placedCamera = placed->addComponent<k2d::CameraComponent>();
+    placedCamera->camera().position = Math::Vec2(999.0f, 999.0f);
+    const ct::Json placedJson = k2d::Serializer::WriteObject(*placed);
+
+    k2d::Scene placedScene;
+    k2d::GameObject* reloaded = k2d::Serializer::ReadObject(placedScene, placedJson);
+    bool ownerTransformWins = reloaded && Near(reloaded->position().x, 7.0f) && Near(reloaded->position().y, 7.0f);
+
+    std::printf("  camera_legacy_migration: adopted=%s owner_wins=%s\n", migrated_ok ? "pass" : "fail",
+                ownerTransformWins ? "pass" : "fail");
+    return migrated_ok && ownerTransformWins;
+}
+
 } // namespace
 
 int main()
 {
+    const bool followsTransform = testCameraFollowsOwnerTransform();
+    const bool writesBack = testCameraWritesBackWhileFollowingTarget();
+    const bool legacyMigration = testLegacyCameraPositionMigratesOntoOwnerTransform();
+
+    const k2d::GameViewport fit =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Fit);
+    const bool fitViewport = Near(fit.x, 240.0f) && Near(fit.y, 0.0f) && Near(fit.width, 1440.0f) &&
+                             Near(fit.height, 1080.0f) && Near(fit.toVirtualX(960.0f), 320.0f) &&
+                             Near(fit.toVirtualY(540.0f), 240.0f);
+    const k2d::GameViewport integerFit =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Fit, true);
+    const bool integerViewport = Near(integerFit.x, 320.0f) && Near(integerFit.y, 60.0f) &&
+                                 Near(integerFit.width, 1280.0f) && Near(integerFit.height, 960.0f);
+    const k2d::GameViewport expand =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Expand);
+    const bool expandViewport = Near(expand.x, 0.0f) && Near(expand.y, 0.0f) && Near(expand.width, 1920.0f) &&
+                                Near(expand.height, 1080.0f) && Near(expand.virtualWidth, 853.333333f) &&
+                                Near(expand.virtualHeight, 480.0f);
+    const k2d::GameViewport crop =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Crop);
+    const k2d::GameViewport stretch =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Stretch);
+    const k2d::GameViewport fitWidth =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::FitWidth);
+    const k2d::GameViewport fitHeight =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::FitHeight);
+    const k2d::GameViewport native =
+        k2d::CalculateGameViewport(1920.0f, 1080.0f, 640.0f, 480.0f, k2d::ViewportScaleMode::Native);
+    bool modeNames = k2d::ParseViewportScaleMode("unknown") == k2d::ViewportScaleMode::Fit;
+    for (int i = 0; i < 7; ++i)
+    {
+        const k2d::ViewportScaleMode mode = static_cast<k2d::ViewportScaleMode>(i);
+        modeNames = modeNames && k2d::ParseViewportScaleMode(k2d::ViewportScaleModeName(mode)) == mode;
+    }
+    const bool otherModes =
+        Near(crop.width, 1920.0f) && Near(crop.height, 1440.0f) && Near(crop.y, -180.0f) &&
+        Near(crop.virtualWidth, 640.0f) && Near(stretch.width, 1920.0f) && Near(stretch.height, 1080.0f) &&
+        Near(stretch.virtualHeight, 480.0f) && Near(fitWidth.virtualWidth, 640.0f) &&
+        Near(fitWidth.virtualHeight, 360.0f) && Near(fitHeight.virtualWidth, 853.333333f) &&
+        Near(fitHeight.virtualHeight, 480.0f) && Near(native.virtualWidth, 1920.0f) &&
+        Near(native.virtualHeight, 1080.0f) && modeNames;
+
     k2d::CameraComponent camera;
     camera.setViewport(1280.0f, 720.0f);
     camera.camera().position = Math::Vec2(640.0f, 360.0f);
@@ -68,13 +193,16 @@ int main()
     const bool feedbackStops = !feedback.isShaking() && !feedback.isZoomPunching() &&
                                Near(feedback.shakeOffset.x, 0.0f) && Near(feedback.shakeOffset.y, 0.0f);
 
-    std::printf("camera: center=%s viewport=%s resize_zoom=%s limits=%s smoothing=%s dead_zone=%s trauma=%s shake=%s "
-                "zoom_punch=%s stop=%s\n",
-                centerMaps ? "pass" : "fail", viewportMaps ? "pass" : "fail", resized ? "pass" : "fail",
+    std::printf("camera: transform_follow=%s writes_back=%s legacy_migration=%s fit=%s integer=%s expand=%s other_modes=%s center=%s viewport=%s "
+                "resize_zoom=%s limits=%s smoothing=%s dead_zone=%s trauma=%s shake=%s zoom_punch=%s stop=%s\n",
+                followsTransform ? "pass" : "fail", writesBack ? "pass" : "fail", legacyMigration ? "pass" : "fail",
+                fitViewport ? "pass" : "fail", integerViewport ? "pass" : "fail", expandViewport ? "pass" : "fail",
+                otherModes ? "pass" : "fail", centerMaps ? "pass" : "fail", viewportMaps ? "pass" : "fail", resized ? "pass" : "fail",
                 limits ? "pass" : "fail", smoothing ? "pass" : "fail", deadZoneApplied ? "pass" : "fail",
                 trauma ? "pass" : "fail", shake ? "pass" : "fail", zoomPunch ? "pass" : "fail",
                 feedbackStops ? "pass" : "fail");
-    return centerMaps && viewportMaps && resized && limits && smoothing && deadZoneApplied && trauma && shake &&
+    return followsTransform && writesBack && legacyMigration && fitViewport && integerViewport && expandViewport &&
+                   otherModes && centerMaps && viewportMaps && resized && limits && smoothing && deadZoneApplied && trauma && shake &&
                    zoomPunch && feedbackStops
                ? 0
                : 1;

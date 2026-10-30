@@ -1,6 +1,6 @@
 #include "k2d/Profiler.h"
 
-#include <SDL.h>
+#include <platform.h>
 #include <cstring>
 
 namespace k2d
@@ -9,11 +9,12 @@ namespace k2d
     const double Profiler::RefreshSeconds = 0.25;
 
     Profiler::Profiler()
-        : mFrameStart(0), mFrequency(1), mLastRefresh(0),
+        : mCounterCount(0), mFrameStart(0), mFrequency(1), mLastRefresh(0),
           mFrameMilliseconds(0.0f), mDisplayFrameMilliseconds(0.0f),
           mSampleCount(0), mDepth(0), mEnabled(true)
     {
         std::memset(mSamples, 0, sizeof(mSamples));
+        std::memset(mCounters, 0, sizeof(mCounters));
         std::memset(mStack, 0, sizeof(mStack));
     }
 
@@ -29,14 +30,16 @@ namespace k2d
             return;
 
         if (mFrequency == 1)
-            mFrequency = SDL_GetPerformanceFrequency();
+            mFrequency = 1000000000ull;
         for (uint32_t i = 0; i < mSampleCount; ++i)
         {
             mSamples[i].milliseconds = 0.0f;
             mSamples[i].calls = 0;
         }
+        for (uint32_t i = 0; i < mCounterCount; ++i)
+            mCounters[i].value = 0;
         mDepth = 0;
-        mFrameStart = SDL_GetPerformanceCounter();
+        mFrameStart = time_nanos();
     }
 
     void Profiler::endFrame()
@@ -44,7 +47,7 @@ namespace k2d
         if (!mEnabled)
             return;
 
-        const uint64_t now = SDL_GetPerformanceCounter();
+        const uint64_t now = time_nanos();
         mFrameMilliseconds = (float)((now - mFrameStart) * 1000.0 / mFrequency);
         const uint32_t frameSample = findOrCreate("Frame");
         if (frameSample < MaxSamples)
@@ -58,6 +61,8 @@ namespace k2d
         {
             mLastRefresh = now;
             mDisplayFrameMilliseconds = mFrameMilliseconds;
+            for (uint32_t i = 0; i < mCounterCount; ++i)
+                mCounters[i].display = mCounters[i].value;
         }
 
         for (uint32_t i = 0; i < mSampleCount; ++i)
@@ -109,12 +114,12 @@ namespace k2d
         if (mDepth >= MaxDepth)
             return false;
         if (mFrequency == 1)
-            mFrequency = SDL_GetPerformanceFrequency();
+            mFrequency = 1000000000ull;
         const uint32_t sample = findOrCreate(name);
         if (sample >= MaxSamples)
             return false;
         mStack[mDepth].sample = sample;
-        mStack[mDepth].counter = SDL_GetPerformanceCounter();
+        mStack[mDepth].counter = time_nanos();
         ++mDepth;
         return true;
     }
@@ -123,7 +128,7 @@ namespace k2d
     {
         if (mDepth == 0)
             return;
-        const uint64_t now = SDL_GetPerformanceCounter();
+        const uint64_t now = time_nanos();
         const ActiveScope scope = mStack[--mDepth];
         mSamples[scope.sample].milliseconds += (float)((now - scope.counter) * 1000.0 / mFrequency);
         ++mSamples[scope.sample].calls;
@@ -141,6 +146,25 @@ namespace k2d
             mSamples[sample].milliseconds += milliseconds;
             mSamples[sample].calls += calls;
         }
+    }
+
+    void Profiler::addCounter(const char *name, uint64_t value)
+    {
+        if (!mEnabled || !name)
+            return;
+        for (uint32_t i = 0; i < mCounterCount; ++i)
+            if (std::strcmp(mCounters[i].name, name) == 0)
+            {
+                mCounters[i].value += value;
+                return;
+            }
+        if (mCounterCount >= MaxCounters)
+            return;
+        ProfileCounter &counter = mCounters[mCounterCount++];
+        std::strncpy(counter.name, name, sizeof(counter.name) - 1);
+        counter.name[sizeof(counter.name) - 1] = '\0';
+        counter.value = value;
+        counter.display = 0;
     }
 
     const ProfileSample *Profiler::samples() const

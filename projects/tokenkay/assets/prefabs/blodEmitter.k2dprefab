@@ -1,0 +1,191 @@
+{
+  "name": "blodEmitter",
+  "tag": "",
+  "active": true,
+  "visible": true,
+  "locked": false,
+  "zIndex": 0,
+  "position": [
+    0.0,
+    0.0
+  ],
+  "rotation": 0.0,
+  "scale": [
+    1.0,
+    1.0
+  ],
+  "components": [
+    {
+      "type": "Sprite",
+      "data": {
+        "texture": "assets/textures/items/110_Mapa_5.png",
+        "size": [
+          16.0,
+          32.0
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "tiling": [
+          1.0,
+          1.0
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightMask": 1,
+        "flipX": false,
+        "flipY": false,
+        "ySort": false,
+        "blendMode": 0
+      }
+    },
+    {
+      "type": "ZenScript",
+      "data": {
+        "path": "assets/scripts/blood_emitter.py"
+      }
+    },
+    {
+      "type": "Animation2D",
+      "data": {
+        "clips": [
+          {
+            "name": "default",
+            "frameWidth": 0,
+            "frameHeight": 0,
+            "frameCount": 5,
+            "atlasPadding": [
+              0.0,
+              0.0
+            ],
+            "atlasGap": [
+              0.0,
+              0.0
+            ],
+            "framesPerSecond": 10.0,
+            "mode": 0,
+            "frames": [
+              {
+                "texture": "assets/textures/items/110_Mapa_5.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/109_Mapa_4.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/108_Mapa_3.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/107_Mapa_2.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "texture": "assets/textures/items/106_Mapa_1.png",
+                "rect": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "offset": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ],
+        "activeClip": "default",
+        "playing": false
+      }
+    },
+    {
+      "type": "ActionSequence2D",
+      "data": {
+        "loop": "oneShot",
+        "autoplay": true,
+        "steps": [
+          {
+            "kind": "fade",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 0.0,
+            "duration": 0.5,
+            "ease": "linear"
+          },
+          {
+            "kind": "event",
+            "vector": [
+              0.0,
+              0.0
+            ],
+            "angle": 0.0,
+            "color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1.0,
+            "duration": 0.0,
+            "ease": "linear",
+            "event": "blood_emitter_finished"
+          }
+        ]
+      }
+    }
+  ],
+  "children": []
+}

@@ -88,7 +88,7 @@ namespace k2d
             command.pivotY = 0.0f;
             command.color = entry.color;
             command.flags = entry.flags;
-            item.commands.push_back(command);
+            item.commands.push_back(ct::detail::move(command));
         }
     }
 

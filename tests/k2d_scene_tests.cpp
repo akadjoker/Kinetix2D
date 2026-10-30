@@ -107,16 +107,21 @@ int main()
     bool reorder = reorderInitial && moveUpFailFirst && moveUpOk && reorderedAfterUp &&
                    moveDownFailLast && moveDownOk && reorderedAfterDown;
 
+    uint32_t topologyBeforeReparent = scene.topologyVersion();
     bool reparentOk = scene.reparent(third, first);
     bool reparented = reparentOk && third->parent() == first && first->childCount() == 1 &&
                       parent->childCount() == 2;
+    bool reparentBumpsTopology = scene.topologyVersion() != topologyBeforeReparent;
 
+    uint32_t topologyBeforeRejected = scene.topologyVersion();
     bool reparentCycleRejected = !scene.reparent(first, third) && first->parent() == parent;
     bool reparentSelfRejected = !scene.reparent(first, first);
+    bool rejectedKeepsTopology = scene.topologyVersion() == topologyBeforeRejected;
     bool reparentToRoot = scene.reparent(third, nullptr);
     bool reparentedToRoot = reparentToRoot && third->parent() == &scene.root() &&
                             first->childCount() == 0;
-    bool reparent = reparented && reparentCycleRejected && reparentSelfRejected && reparentedToRoot;
+    bool reparent = reparented && reparentBumpsTopology && reparentCycleRejected && reparentSelfRejected &&
+                    rejectedKeepsTopology && reparentedToRoot;
 
     k2d::Scene spawnScene;
     k2d::GameObject *spawner = spawnScene.createObject("spawner");

@@ -1,9 +1,10 @@
 #include "k2d/KPak.h"
+#include "k2d/Utils.h"
 
 #include <miniz.h>
 
-#include <algorithm>
-#include <array>
+#include <ct/detail/utils.hpp>
+
 #include <cstring>
 #include <limits>
 #include <random>
@@ -37,35 +38,37 @@ std::uint16_t readU16(const unsigned char* data)
     return std::uint16_t(data[0]) | (std::uint16_t(data[1]) << 8u);
 }
 
-void appendU16(std::vector<unsigned char>& out, std::uint16_t value)
+void appendU16(ct::Vector<unsigned char>& out, std::uint16_t value)
 {
     out.push_back(static_cast<unsigned char>(value));
     out.push_back(static_cast<unsigned char>(value >> 8u));
 }
 
-void appendU32(std::vector<unsigned char>& out, std::uint32_t value)
+void appendU32(ct::Vector<unsigned char>& out, std::uint32_t value)
 {
     for (unsigned int i = 0; i < 4; ++i)
         out.push_back(static_cast<unsigned char>(value >> (i * 8u)));
 }
 
-void appendU64(std::vector<unsigned char>& out, std::uint64_t value)
+void appendU64(ct::Vector<unsigned char>& out, std::uint64_t value)
 {
     appendU32(out, static_cast<std::uint32_t>(value));
     appendU32(out, static_cast<std::uint32_t>(value >> 32u));
 }
 
-bool validName(const std::string& name)
+bool validName(const ct::String& name)
 {
-    return !name.empty() && name[0] != '/' && name.find("..") == std::string::npos;
+    return !name.empty() && name[0] != '/' && name.find("..") == ct::String::npos;
 }
 
-std::string normalize(const char* path)
+ct::String normalize(const char* path)
 {
     if (!path)
-        return std::string();
-    std::string result(path);
-    std::replace(result.begin(), result.end(), '\\', '/');
+        return ct::String();
+    ct::String result(path);
+    for (std::size_t i = 0; i < result.size(); ++i)
+        if (result[i] == '\\')
+            result[i] = '/';
     while (result.size() >= 2 && result[0] == '.' && result[1] == '/')
         result.erase(0, 2);
     return result;
@@ -129,13 +132,13 @@ void cipher(const unsigned char key[KeySize], const unsigned char nonce[NonceSiz
     {
         chachaBlock(state, stream);
         ++state[12];
-        const std::size_t count = (std::min)(BlockSize, size - offset);
+        const std::size_t count = (Min)(BlockSize, size - offset);
         for (std::size_t i = 0; i < count; ++i)
             data[offset + i] ^= stream[i];
     }
 }
 
-std::uint64_t foldKey(const std::string& passphrase, std::uint64_t seed)
+std::uint64_t foldKey(const ct::String& passphrase, std::uint64_t seed)
 {
     std::uint64_t hash = 14695981039346656037ull ^ seed;
     for (unsigned char value : passphrase)
@@ -147,7 +150,7 @@ std::uint64_t foldKey(const std::string& passphrase, std::uint64_t seed)
     return hash * 1099511628211ull;
 }
 
-void deriveKey(const std::string& passphrase, const unsigned char salt[SaltSize], unsigned char key[KeySize])
+void deriveKey(const ct::String& passphrase, const unsigned char salt[SaltSize], unsigned char key[KeySize])
 {
     for (int lane = 0; lane < 4; ++lane)
     {
@@ -239,21 +242,21 @@ bool KPak::ReadAt(std::uint64_t offset, void* output, std::size_t size) const
 
 bool KPak::ReadDirectory(const char* key)
 {
-    std::array<unsigned char, HeaderSize> header{};
-    if (!ReadAt(0, header.data(), header.size()) || std::memcmp(header.data(), Magic, sizeof(Magic)) != 0 ||
-        readU32(header.data() + 4) != Version)
+    unsigned char header[HeaderSize] = {};
+    if (!ReadAt(0, header, HeaderSize) || std::memcmp(header, Magic, sizeof(Magic)) != 0 ||
+        readU32(header + 4) != Version)
     {
         Close();
         return false;
     }
 
-    const std::uint32_t flags = readU32(header.data() + 8);
-    const std::uint32_t count = readU32(header.data() + 12);
-    const std::uint64_t tocOffset = readU64(header.data() + 16);
-    const std::uint32_t tocSize = readU32(header.data() + 24);
-    const std::uint32_t namesSize = readU32(header.data() + 28);
-    const unsigned char* salt = header.data() + 32;
-    const std::uint32_t checksum = readU32(header.data() + 48);
+    const std::uint32_t flags = readU32(header + 8);
+    const std::uint32_t count = readU32(header + 12);
+    const std::uint64_t tocOffset = readU64(header + 16);
+    const std::uint32_t tocSize = readU32(header + 24);
+    const std::uint32_t namesSize = readU32(header + 28);
+    const unsigned char* salt = header + 32;
+    const std::uint32_t checksum = readU32(header + 48);
     if (tocSize != count * TocEntrySize || namesSize > (std::numeric_limits<std::size_t>::max)() - tocSize)
     {
         Close();
@@ -276,7 +279,7 @@ bool KPak::ReadDirectory(const char* key)
         }
     }
 
-    std::vector<unsigned char> directory(std::size_t(tocSize) + namesSize);
+    ct::Vector<unsigned char> directory(std::size_t(tocSize) + namesSize);
     if (!ReadAt(tocOffset, directory.data(), directory.size()))
     {
         Close();
@@ -301,42 +304,42 @@ bool KPak::ReadDirectory(const char* key)
             return false;
         }
         Entry entry;
-        entry.name.assign(reinterpret_cast<const char*>(directory.data() + tocSize + nameOffset), nameLength);
+        entry.name = ct::String(reinterpret_cast<const char*>(directory.data() + tocSize + nameOffset), nameLength);
         entry.offset = readU64(source + 8);
         entry.storedSize = readU32(source + 16);
         entry.rawSize = readU32(source + 20);
         entry.crc = readU32(source + 24);
         entry.flags = readU16(source + 28);
-        if (!validName(entry.name) || mIndex.find(entry.name) != mIndex.end())
+        if (!validName(entry.name) || mIndex.contains(entry.name))
         {
             Close();
             return false;
         }
         mIndex[entry.name] = mEntries.size();
-        mEntries.push_back(std::move(entry));
+        mEntries.push_back(ct::detail::move(entry));
     }
     return true;
 }
 
 bool KPak::Contains(const char* path) const
 {
-    return IsOpen() && mIndex.find(normalize(path)) != mIndex.end();
+    return IsOpen() && mIndex.contains(normalize(path));
 }
 
-bool KPak::Read(const char* path, std::vector<unsigned char>& out) const
+bool KPak::Read(const char* path, ct::Vector<unsigned char>& out) const
 {
     out.clear();
-    const auto found = mIndex.find(normalize(path));
-    if (found == mIndex.end())
+    const std::size_t* found = mIndex.find(normalize(path));
+    if (!found)
         return false;
-    const Entry& entry = mEntries[found->second];
-    std::vector<unsigned char> stored(entry.storedSize);
+    const Entry& entry = mEntries[*found];
+    ct::Vector<unsigned char> stored(entry.storedSize);
     if (!ReadAt(entry.offset, stored.data(), stored.size()))
         return false;
     if (mEncrypted)
     {
         unsigned char nonce[NonceSize];
-        entryNonce(nonce, static_cast<std::uint32_t>(found->second));
+        entryNonce(nonce, static_cast<std::uint32_t>(*found));
         cipher(mKey, nonce, stored.data(), stored.size());
     }
     if ((entry.flags & EntryDeflated) != 0)
@@ -352,7 +355,7 @@ bool KPak::Read(const char* path, std::vector<unsigned char>& out) const
     }
     else
     {
-        out = std::move(stored);
+        out = ct::detail::move(stored);
     }
     if (out.size() != entry.rawSize || static_cast<std::uint32_t>(mz_crc32(0, out.data(), out.size())) != entry.crc)
     {
@@ -393,7 +396,7 @@ void KPakWriter::SetKey(const char* key)
 
 void KPakWriter::SetCompressionLevel(int level)
 {
-    mCompressionLevel = (std::max)(0, (std::min)(9, level));
+    mCompressionLevel = (Max)(0, (Min)(9, level));
 }
 
 bool KPakWriter::AddFile(const char* archivePath, const char* sourcePath)
@@ -411,7 +414,7 @@ bool KPakWriter::AddFile(const char* archivePath, const char* sourcePath)
         std::fclose(file);
         return false;
     }
-    std::vector<unsigned char> data(static_cast<std::size_t>(size));
+    ct::Vector<unsigned char> data(static_cast<std::size_t>(size));
     const bool read = data.empty() || std::fread(data.data(), 1, data.size(), file) == data.size();
     std::fclose(file);
     return read && AddData(archivePath, data.data(), data.size());
@@ -419,9 +422,9 @@ bool KPakWriter::AddFile(const char* archivePath, const char* sourcePath)
 
 bool KPakWriter::AddData(const char* archivePath, const void* data, std::size_t size)
 {
-    const std::string name = normalize(archivePath);
+    const ct::String name = normalize(archivePath);
     if (!validName(name) || (!data && size != 0) || size > (std::numeric_limits<std::uint32_t>::max)() ||
-        mIndex.find(name) != mIndex.end())
+        mIndex.contains(name))
         return false;
 
     Pending pending;
@@ -433,21 +436,21 @@ bool KPakWriter::AddData(const char* archivePath, const void* data, std::size_t 
         std::memcpy(pending.stored.data(), data, size);
     if (mCompressionLevel > 0 && size > 0)
     {
-        std::vector<unsigned char> compressed(mz_compressBound(static_cast<mz_ulong>(size)));
+        ct::Vector<unsigned char> compressed(mz_compressBound(static_cast<mz_ulong>(size)));
         mz_ulong compressedSize = static_cast<mz_ulong>(compressed.size());
         if (mz_compress2(compressed.data(), &compressedSize, pending.stored.data(), static_cast<mz_ulong>(size),
                          mCompressionLevel) == MZ_OK &&
             compressedSize < size)
         {
             compressed.resize(compressedSize);
-            pending.stored = std::move(compressed);
+            pending.stored = ct::detail::move(compressed);
             pending.flags |= EntryDeflated;
         }
     }
     mRawSize += size;
     mStoredSize += pending.stored.size();
     mIndex[name] = mEntries.size();
-    mEntries.push_back(std::move(pending));
+    mEntries.push_back(ct::detail::move(pending));
     return true;
 }
 
@@ -464,8 +467,8 @@ bool KPakWriter::Write(const char* path) const
     if (encrypted)
         deriveKey(mKey, salt, key);
 
-    std::string names;
-    std::vector<unsigned char> toc;
+    ct::String names;
+    ct::Vector<unsigned char> toc;
     toc.reserve(mEntries.size() * TocEntrySize);
     std::uint64_t offset = KPak::HeaderSize;
     for (const Pending& entry : mEntries)
@@ -485,15 +488,17 @@ bool KPakWriter::Write(const char* path) const
         offset += entry.stored.size();
     }
 
-    std::vector<unsigned char> header;
-    header.insert(header.end(), Magic, Magic + sizeof(Magic));
+    ct::Vector<unsigned char> header;
+    for (unsigned char value : Magic)
+        header.push_back(value);
     appendU32(header, KPak::Version);
     appendU32(header, encrypted ? PackEncrypted : 0);
     appendU32(header, static_cast<std::uint32_t>(mEntries.size()));
     appendU64(header, offset);
     appendU32(header, static_cast<std::uint32_t>(toc.size()));
     appendU32(header, static_cast<std::uint32_t>(names.size()));
-    header.insert(header.end(), salt, salt + SaltSize);
+    for (unsigned char value : salt)
+        header.push_back(value);
     appendU32(header, encrypted ? keyChecksum(key) : 0);
     appendU32(header, 0);
     appendU32(header, 0);
@@ -507,7 +512,7 @@ bool KPakWriter::Write(const char* path) const
     bool ok = std::fwrite(header.data(), 1, header.size(), file) == header.size();
     for (std::size_t i = 0; ok && i < mEntries.size(); ++i)
     {
-        std::vector<unsigned char> data = mEntries[i].stored;
+        ct::Vector<unsigned char> data = mEntries[i].stored;
         if (encrypted)
         {
             unsigned char nonce[NonceSize];
@@ -516,8 +521,9 @@ bool KPakWriter::Write(const char* path) const
         }
         ok = data.empty() || std::fwrite(data.data(), 1, data.size(), file) == data.size();
     }
-    std::vector<unsigned char> directory = toc;
-    directory.insert(directory.end(), names.begin(), names.end());
+    ct::Vector<unsigned char> directory = toc;
+    for (char value : names)
+        directory.push_back(static_cast<unsigned char>(value));
     if (encrypted)
     {
         unsigned char nonce[NonceSize];

@@ -4,11 +4,11 @@
 
 #include <cstdio>
 #include <cstring>
-#include <vector>
+#include <ct/vector.hpp>
 
 namespace
 {
-bool same(const std::vector<unsigned char>& data, const char* text)
+bool same(const ct::Vector<unsigned char>& data, const char* text)
 {
     const std::size_t size = std::strlen(text);
     return data.size() == size && (size == 0 || std::memcmp(data.data(), text, size) == 0);
@@ -19,7 +19,7 @@ bool testRoundTrip(const char* path, const char* key)
     k2d::KPakWriter writer;
     writer.SetKey(key);
     const char* hello = "hello from kpak";
-    std::vector<unsigned char> repeated(32768, 'a');
+    ct::Vector<unsigned char> repeated(32768, 'a');
     if (!writer.AddData("texts/hello.txt", hello, std::strlen(hello)) ||
         !writer.AddData("binary/repeated.bin", repeated.data(), repeated.size()) ||
         !writer.AddData("empty", nullptr, 0) || writer.AddData("texts\\hello.txt", hello, std::strlen(hello)) ||
@@ -30,7 +30,7 @@ bool testRoundTrip(const char* path, const char* key)
     if (!pack.Open(path, key) || pack.EntryCount() != 3 || !pack.Contains("texts\\hello.txt") ||
         pack.Contains("missing"))
         return false;
-    std::vector<unsigned char> data;
+    ct::Vector<unsigned char> data;
     return pack.Read("texts/hello.txt", data) && same(data, hello) && pack.Read("binary/repeated.bin", data) &&
            data == repeated && pack.Read("empty", data) && data.empty();
 }
