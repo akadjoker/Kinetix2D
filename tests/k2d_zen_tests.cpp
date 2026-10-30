@@ -2400,7 +2400,7 @@ static bool testSerialization()
     k2d::RegisterZenScriptSerializer();
 
     const ct::String scriptPath = k2d_tests::tempPath("k2d_zen_test_script.py");
-    FILE* file = std::fopen(scriptPath.c_str(), "w");
+    FILE* file = std::fopen(scriptPath.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class S:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
@@ -2441,7 +2441,7 @@ static bool gCapturedError = false;
 static bool testSpawnAndMath()
 {
     const ct::String prefabPath = k2d_tests::tempPath("k2d_zen_test_prefab.k2dprefab");
-    FILE* file = std::fopen(prefabPath.c_str(), "w");
+    FILE* file = std::fopen(prefabPath.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("{\"name\":\"bullet\",\"components\":[],\"children\":[]}", file);
@@ -2597,7 +2597,7 @@ static bool testBlackboardAndEvents()
 static bool testHotReload()
 {
     const ct::String path = k2d_tests::tempPath("k2d_zen_hotreload.py");
-    FILE* file = std::fopen(path.c_str(), "w");
+    FILE* file = std::fopen(path.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
@@ -2616,7 +2616,7 @@ static bool testHotReload()
     ok = ok && k2d::ReloadChangedZenScripts() == 0;
 
     k2d_tests::advanceModificationTime(path.c_str(), 2);
-    file = std::fopen(path.c_str(), "w");
+    file = std::fopen(path.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class H:\n    def __init__(self, node):\n        self.node = node\n    def on_update(self, dt):\n      "
@@ -2638,7 +2638,7 @@ static bool testHotReload()
     const ct::String relativeName = "k2d_zen_hotreload_relative.py";
     const ct::String relativePath = k2d_tests::tempPath(relativeName.c_str());
     k2d::FileSystem::Instance().AddSearchPath(k2d_tests::directoryOf(relativePath.c_str()).c_str());
-    file = std::fopen(relativePath.c_str(), "w");
+    file = std::fopen(relativePath.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class Relative(ScriptComponent):\n    def on_update(self, dt):\n        self.node.set_position(3, 3)\n", file);
@@ -2651,7 +2651,7 @@ static bool testHotReload()
     relativeScene.update(0.016f);
     ok = ok && nearEqual(relativeObject->position().x, 3.0f);
 
-    file = std::fopen(relativePath.c_str(), "w");
+    file = std::fopen(relativePath.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class Relative(ScriptComponent):\n    def on_update(self, dt):\n        self.node.set_position(4, 4)\n", file);

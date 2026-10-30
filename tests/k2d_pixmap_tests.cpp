@@ -1,6 +1,8 @@
 #include <k2d/Image.h>
 #include <k2d/Pixmap.h>
 
+#include "k2d_test_paths.h"
+
 #include <cstdio>
 
 static bool Pixel(const k2d::Pixmap &pixmap, int x, int y,
@@ -33,7 +35,8 @@ int main()
     k2d::Pixmap saved(4, 4);
     saved.Clear(200, 150, 50, 255);
     saved.SetPixel(2, 2, 10, 20, 30, 255);
-    const char *savePath = "/tmp/k2d_pixmap_test.png";
+    const ct::String savePathStr = k2d_tests::tempPath("k2d_pixmap_test.png");
+    const char *savePath = savePathStr.c_str();
     const bool savedOk = saved.Save(savePath);
 
     k2d::Pixmap loaded;

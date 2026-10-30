@@ -4,11 +4,14 @@
 #include <k2d/FileSystem.h>
 #include <k2d/ScriptComponent.h>
 
+#include "k2d_test_paths.h"
+
 #include <cstdio>
 
 namespace
 {
-    const char *kPrefabPath = "/tmp/k2d_prefab_test.json";
+    const ct::String kPrefabStr = k2d_tests::tempPath("k2d_prefab_test.json");
+    const char *kPrefabPath = kPrefabStr.c_str();
 
     // Serializer::WriteObject/ReadObject (what Prefab is built on) only knows
     // the engine's own registered component types -- there is no

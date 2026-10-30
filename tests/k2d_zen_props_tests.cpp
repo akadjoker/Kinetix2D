@@ -40,7 +40,7 @@ static const char *kShipSource =
 
 static bool writeShip()
 {
-    FILE *f = std::fopen(kShipPath.c_str(), "w");
+    FILE *f = std::fopen(kShipPath.c_str(), "wb");
     if (!f)
         return false;
     std::fputs(kShipSource, f);

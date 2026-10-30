@@ -20,7 +20,7 @@ static const ct::String kSpinnerPath = k2d_tests::tempPath("k2d_zen_spinner.py")
 
 static bool writeSpinner(float base)
 {
-    FILE *f = std::fopen(kSpinnerPath.c_str(), "w");
+    FILE *f = std::fopen(kSpinnerPath.c_str(), "wb");
     if (!f)
         return false;
     std::fprintf(f,
@@ -178,7 +178,7 @@ static bool testResetInvalidatesStaleInstances()
 static bool testDestroyHook()
 {
     const ct::String destroyPath = k2d_tests::tempPath("k2d_zen_destroy.py");
-    FILE *f = std::fopen(destroyPath.c_str(), "w");
+    FILE *f = std::fopen(destroyPath.c_str(), "wb");
     if (!f)
         return false;
     std::fputs("class Dying:\n"
@@ -211,7 +211,7 @@ static bool testReloadLeavesOtherScriptsAlone()
 {
     if (!writeSpinner(90.0f))
         return false;
-    FILE *f = std::fopen(kOtherPath.c_str(), "w");
+    FILE *f = std::fopen(kOtherPath.c_str(), "wb");
     if (!f)
         return false;
     std::fputs("class Counter:\n"
@@ -263,7 +263,7 @@ static bool testBrokenReloadKeepsTheLastGoodClass()
     scene.update(1.0f);
     ok = ok && nearEqual(object->rotationDegrees(), 90.0f, 0.01f);
 
-    FILE *f = std::fopen(kSpinnerPath.c_str(), "w");
+    FILE *f = std::fopen(kSpinnerPath.c_str(), "wb");
     if (!f)
         return false;
     std::fputs("class Spinner:\n    def __init__(self, node)\n        broken\n", f);
@@ -290,7 +290,7 @@ static bool testBrokenReloadKeepsTheLastGoodClass()
 static bool testHandleForgottenWhenComponentDies()
 {
     const ct::String path = k2d_tests::tempPath("k2d_zen_grab_sprite.py");
-    FILE *f = std::fopen(path.c_str(), "w");
+    FILE *f = std::fopen(path.c_str(), "wb");
     if (!f)
         return false;
     std::fputs("class Grab:\n"

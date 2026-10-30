@@ -17,7 +17,7 @@ bool nearEqual(float a, float b, float tolerance = 0.001f)
 
 bool writeScript(const ct::String &path)
 {
-    FILE *file = std::fopen(path.c_str(), "w");
+    FILE *file = std::fopen(path.c_str(), "wb");
     if (!file)
         return false;
     std::fputs("class BytecodeSpinner:\n"

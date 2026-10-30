@@ -21,7 +21,7 @@ static const ct::String kBallPrefab = k2d_tests::tempPath("k2d_zen_ball.k2dprefa
 
 static bool writeScripts()
 {
-    FILE *f = std::fopen(kBallScript.c_str(), "w");
+    FILE *f = std::fopen(kBallScript.c_str(), "wb");
     if (!f)
         return false;
     std::fputs("class Ball:\n"
@@ -38,7 +38,7 @@ static bool writeScripts()
     if (std::fclose(f) != 0)
         return false;
 
-    f = std::fopen(kThrowerScript.c_str(), "w");
+    f = std::fopen(kThrowerScript.c_str(), "wb");
     if (!f)
         return false;
     std::fprintf(f,
