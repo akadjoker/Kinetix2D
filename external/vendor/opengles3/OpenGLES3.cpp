@@ -484,6 +484,14 @@ void getOpenGLESVersion()
 
 	glESExt::majorVersion = atoi( start );
 	glESExt::minorVersion = atoi( dot + 1 );
+
+	// A desktop "4.6" is not ES 4.6: its core has no glBlendBarrier or
+	// glPrimitiveBoundingBox, so the 3.1/3.2 blocks would fail the load.
+	if( !strstr( version, "OpenGL ES" ) && glESExt::majorVersion * 10 + glESExt::minorVersion > 30 )
+	{
+		glESExt::majorVersion = 3;
+		glESExt::minorVersion = 0;
+	}
 }
 
 static void *( *g_proc_loader )( const char * ) = 0x0;
